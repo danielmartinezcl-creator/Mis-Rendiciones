@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diferenciación Visual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f1f5f9; padding: 20px; font-family: 'Inter', sans-serif; color: #1e293b; }
+
+h1 { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+.sub { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+
+.panel { border-radius: 14px; overflow: hidden; border: 2px solid #e2e8f0; background: white; }
+.panel.winner { border-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79,70,229,.12); }
+
+.panel-label {
+  padding: 9px 14px; font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.badge-rec { background: #4f46e5; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+
+/* ── PHONE ── */
+.phone-wrap { padding: 14px; display: flex; justify-content: center; }
+.phone { width: 148px; border: 3px solid #0f172a; border-radius: 24px; overflow: hidden; background: white; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.notch { background: #0f172a; height: 14px; display: flex; align-items: center; justify-content: center; }
+.notch-pill { width: 34px; height: 5px; background: #1e293b; border-radius: 10px; }
+
+/* ═══════════════════════════════════
+   ESTÁNDAR (Rindegastos-like)
+═══════════════════════════════════ */
+.std-nav { background: #4f46e5; padding: 9px 10px; display: flex; justify-content: space-between; align-items: center; }
+.std-nav-logo { color: white; font-size: 10px; font-weight: 700; font-family: 'Inter'; }
+.std-nav-av { width: 20px; height: 20px; background: rgba(255,255,255,.25); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 7px; }
+
+.std-hero { background: #f8fafc; padding: 10px; border-bottom: 1px solid #e2e8f0; }
+.std-hero-label { font-size: 7px; color: #64748b; font-family: 'Inter'; text-transform: uppercase; letter-spacing: .3px; }
+.std-hero-amount { font-size: 16px; font-weight: 700; color: #1e293b; font-family: 'Inter'; }
+
+.std-list { padding: 8px; }
+.std-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 7px; border-radius: 8px; background: #f8fafc; margin-bottom: 4px; border: 1px solid #e2e8f0; }
+.std-item-name { font-size: 8px; font-weight: 600; font-family: 'Inter'; color: #1e293b; }
+.std-item-sub { font-size: 7px; color: #94a3b8; font-family: 'Inter'; }
+.std-item-amt { font-size: 8px; font-weight: 700; color: #4f46e5; font-family: 'Inter'; }
+.std-status { font-size: 6px; padding: 1px 5px; border-radius: 10px; font-family: 'Inter'; font-weight: 600; }
+
+.std-btn { margin: 6px 8px; background: #4f46e5; color: white; border-radius: 7px; padding: 7px; text-align: center; font-size: 8px; font-weight: 700; font-family: 'Inter'; }
+
+.std-bnav { display: flex; justify-content: space-around; padding: 5px; border-top: 1px solid #e2e8f0; }
+.std-bnav-i { text-align: center; font-size: 6px; color: #94a3b8; font-family: 'Inter'; }
+.std-bnav-i .ico { font-size: 11px; display: block; }
+
+/* ═══════════════════════════════════
+   NUESTRO DISEÑO DIFERENCIADO
+═══════════════════════════════════ */
+.our-header { background: #0f172a; padding: 10px 11px 0; }
+.our-header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.our-logo { font-family: 'Plus Jakarta Sans'; font-size: 11px; font-weight: 800; color: white; letter-spacing: -.3px; }
+.our-logo span { color: #818cf8; }
+.our-av { width: 22px; height: 22px; background: linear-gradient(135deg,#6366f1,#8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; color: white; font-family: 'Plus Jakarta Sans'; }
+
+/* Hero card con número bold */
+.our-card { background: linear-gradient(135deg, #312e81 0%, #4c1d95 100%); border-radius: 10px; padding: 10px; margin: 0 0 0 0; }
+.our-card-eyebrow { font-family: 'Plus Jakarta Sans'; font-size: 6.5px; font-weight: 700; letter-spacing: 1px; color: rgba(165,180,252,.8); text-transform: uppercase; margin-bottom: 3px; }
+.our-card-amount { font-family: 'JetBrains Mono'; font-size: 22px; font-weight: 700; color: white; line-height: 1; }
+.our-card-currency { font-family: 'JetBrains Mono'; font-size: 9px; color: rgba(165,180,252,.7); margin-top: 1px; }
+
+/* Chips de estado */
+.our-chips { display: flex; gap: 5px; padding: 8px 11px 9px; }
+.our-chip { flex: 1; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 5px 4px; text-align: center; }
+.our-chip-n { font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700; color: white; line-height: 1; }
+.our-chip-l { font-family: 'Plus Jakarta Sans'; font-size: 6px; font-weight: 600; color: rgba(255,255,255,.5); margin-top: 1px; }
+
+/* Lista con acento izquierdo bold */
+.our-body { background: white; border-radius: 14px 14px 0 0; padding: 10px 9px; min-height: 100px; }
+.our-section-label { font-family: 'Plus Jakarta Sans'; font-size: 7.5px; font-weight: 800; color: #94a3b8; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
+.our-item { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+.our-item-accent { width: 3px; height: 28px; border-radius: 10px; flex-shrink: 0; }
+.our-item-icon { width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+.our-item-text { flex: 1; }
+.our-item-name { font-family: 'Plus Jakarta Sans'; font-size: 8px; font-weight: 700; color: #1e293b; }
+.our-item-sub { font-family: 'Plus Jakarta Sans'; font-size: 6.5px; color: #94a3b8; margin-top: 1px; }
+.our-item-right { text-align: right; }
+.our-item-amt { font-family: 'JetBrains Mono'; font-size: 9px; font-weight: 700; }
+.our-pill { font-family: 'Plus Jakarta Sans'; font-size: 6px; font-weight: 700; padding: 1.5px 5px; border-radius: 20px; }
+
+/* CTA bold */
+.our-cta { margin: 8px 9px; background: linear-gradient(90deg,#4f46e5,#7c3aed); border-radius: 9px; padding: 8px 10px; display: flex; align-items: center; gap: 7px; }
+.our-cta-circle { width: 20px; height: 20px; background: rgba(255,255,255,.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; flex-shrink: 0; }
+.our-cta-text { font-family: 'Plus Jakarta Sans'; font-size: 9px; font-weight: 800; color: white; }
+.our-cta-sub { font-family: 'Plus Jakarta Sans'; font-size: 6px; color: rgba(255,255,255,.6); }
+
+.our-bnav { display: flex; justify-content: space-around; padding: 6px 4px; border-top: 1px solid #f1f5f9; background: white; }
+.our-bnav-i { text-align: center; }
+.our-bnav-i .ico { font-size: 12px; display: block; }
+.our-bnav-i .lbl { font-family: 'Plus Jakarta Sans'; font-size: 6px; color: #94a3b8; font-weight: 600; }
+.our-bnav-i.active .lbl { color: #4f46e5; font-weight: 800; }
+
+/* ── DIFF LIST ── */
+.diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 0; }
+.diff-item { background: white; border-radius: 10px; padding: 12px 14px; border: 1px solid #e2e8f0; }
+.diff-item.highlight { border-color: #c7d2fe; background: #f5f3ff; }
+.diff-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-bottom: 6px; }
+.diff-title { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+.diff-desc { font-size: 11px; color: #64748b; line-height: 1.4; }
+
+.section-title { font-size: 13px; font-weight: 700; margin: 20px 0 10px; color: #1e293b; }
+</style>
+</head>
+<body>
+
+<h1>Misma paleta — experiencia completamente distinta</h1>
+<p class="sub">El violeta/índigo es solo el punto de partida. Lo que diferencia una app premium son tipografía, jerarquía y densidad de información.</p>
+
+<div class="compare">
+
+  <!-- ESTÁNDAR -->
+  <div class="panel">
+    <div class="panel-label" style="background:#f8fafc;color:#64748b;">
+      <span>❌ ESTÁNDAR — Como Rindegastos</span>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="notch"><div class="notch-pill"></div></div>
+        <div class="std-nav">
+          <span class="std-nav-logo">RindeGastos</span>
+          <div class="std-nav-av">JP</div>
+        </div>
+        <div class="std-hero">
+          <div class="std-hero-label">Total pendiente reembolso</div>
+          <div class="std-hero-amount">$187.500</div>
+        </div>
+        <div class="std-list">
+          <div style="font-size:7px;color:#94a3b8;font-weight:600;margin-bottom:4px;">MIS RENDICIONES</div>
+          <div class="std-item">
+            <div><div class="std-item-name">Viaje Concepción</div><div class="std-item-sub">12 may · 3 ítems</div></div>
+            <div style="text-align:right;"><div class="std-item-amt">$95.000</div><div class="std-status" style="background:#dcfce7;color:#15803d;">Aprobada</div></div>
+          </div>
+          <div class="std-item">
+            <div><div class="std-item-name">Almuerzo clientes</div><div class="std-item-sub">18 may · 1 ítem</div></div>
+            <div style="text-align:right;"><div class="std-item-amt">$32.000</div><div class="std-status" style="background:#fef3c7;color:#92400e;">En revisión</div></div>
+          </div>
+          <div class="std-item">
+            <div><div class="std-item-name">Materiales</div><div class="std-item-sub">20 may · borrador</div></div>
+            <div style="text-align:right;"><div class="std-item-amt">$60.500</div><div class="std-status" style="background:#f1f5f9;color:#64748b;">Borrador</div></div>
+          </div>
+        </div>
+        <div class="std-btn">+ Nueva rendición</div>
+        <div class="std-bnav">
+          <div class="std-bnav-i"><span class="ico">🏠</span>Inicio</div>
+          <div class="std-bnav-i"><span class="ico">📋</span>Gastos</div>
+          <div class="std-bnav-i"><span class="ico">💰</span>Pagos</div>
+          <div class="std-bnav-i"><span class="ico">👤</span>Perfil</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 14px;background:#fef2f2;border-top:1px solid #fecaca;">
+      <div style="font-size:11px;color:#991b1b;line-height:1.5;">
+        <strong>Problemas:</strong> números pequeños, tipografía genérica, jerarquía visual plana, hero sin personalidad, botón de acción perdido al fondo.
+      </div>
+    </div>
+  </div>
+
+  <!-- NUESTRO -->
+  <div class="panel winner">
+    <div class="panel-label" style="background:#ede9fe;color:#4f46e5;">
+      <span>✓ NUESTRO — Mismo índigo, diferente carácter</span>
+      <span class="badge-rec">Pro</span>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="notch"><div class="notch-pill"></div></div>
+        <div class="our-header">
+          <div class="our-header-top">
+            <div class="our-logo">rinde<span>·</span>gastos</div>
+            <div class="our-av">JP</div>
+          </div>
+          <div class="our-card">
+            <div class="our-card-eyebrow">Pendiente de reembolso</div>
+            <div class="our-card-amount">$187.500</div>
+            <div class="our-card-currency">CLP · actualizado ahora</div>
+          </div>
+          <div class="our-chips">
+            <div class="our-chip"><div class="our-chip-n" style="color:#fbbf24;">1</div><div class="our-chip-l">Revisión</div></div>
+            <div class="our-chip"><div class="our-chip-n" style="color:#34d399;">2</div><div class="our-chip-l">Aprobadas</div></div>
+            <div class="our-chip"><div class="our-chip-n" style="color:#94a3b8;">1</div><div class="our-chip-l">Borrador</div></div>
+          </div>
+        </div>
+        <div class="our-body">
+          <div class="our-section-label">Recientes</div>
+          <div class="our-item">
+            <div class="our-item-accent" style="background:#34d399;"></div>
+            <div class="our-item-icon" style="background:#f0fdf4;">✈️</div>
+            <div class="our-item-text">
+              <div class="our-item-name">Viaje Concepción</div>
+              <div class="our-item-sub">12 may · 3 ítems</div>
+            </div>
+            <div class="our-item-right">
+              <div class="our-item-amt" style="color:#4f46e5;">$95.000</div>
+              <div class="our-pill" style="background:#dcfce7;color:#15803d;">OK</div>
+            </div>
+          </div>
+          <div class="our-item">
+            <div class="our-item-accent" style="background:#fbbf24;"></div>
+            <div class="our-item-icon" style="background:#fef3c7;">🍽️</div>
+            <div class="our-item-text">
+              <div class="our-item-name">Almuerzo clientes</div>
+              <div class="our-item-sub">18 may · 1 ítem</div>
+            </div>
+            <div class="our-item-right">
+              <div class="our-item-amt" style="color:#4f46e5;">$32.000</div>
+              <div class="our-pill" style="background:#fef3c7;color:#92400e;">⏳</div>
+            </div>
+          </div>
+        </div>
+        <div class="our-cta">
+          <div class="our-cta-circle">+</div>
+          <div><div class="our-cta-text">Nueva rendición</div><div class="our-cta-sub">Tomá la foto y listo</div></div>
+        </div>
+        <div class="our-bnav">
+          <div class="our-bnav-i active"><span class="ico">🏠</span><span class="lbl">Inicio</span></div>
+          <div class="our-bnav-i"><span class="ico">📋</span><span class="lbl">Gastos</span></div>
+          <div class="our-bnav-i"><span class="ico">💳</span><span class="lbl">Cobros</span></div>
+          <div class="our-bnav-i"><span class="ico">👤</span><span class="lbl">Yo</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 14px;background:#f0fdf4;border-top:1px solid #86efac;">
+      <div style="font-size:11px;color:#15803d;line-height:1.5;">
+        <strong>Resultado:</strong> monto protagonista, header oscuro premium, tipografía con carácter, jerarquía clara, CTA con contexto ("Tomá la foto y listo").
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TABLA DE DIFERENCIAS -->
+<div class="section-title">Los 5 cambios que hacen la diferencia</div>
+<div class="diff-grid">
+  <div class="diff-item highlight">
+    <span class="diff-tag" style="background:#ede9fe;color:#5b21b6;">Tipografía</span>
+    <div class="diff-title">Plus Jakarta Sans + JetBrains Mono</div>
+    <div class="diff-desc">PJS para labels y headings (más carácter que Inter). JetBrains Mono para todos los montos — los números se ven precisos, técnicos, contables.</div>
+  </div>
+  <div class="diff-item highlight">
+    <span class="diff-tag" style="background:#ede9fe;color:#5b21b6;">Jerarquía de montos</span>
+    <div class="diff-title">El dinero es el protagonista</div>
+    <div class="diff-desc">$187.500 en tamaño 22px bold sobre fondo oscuro. Rindegastos lo muestra en 16px gris. Tu usuario abre la app para ver cuánto le deben — dáselo inmediatamente.</div>
+  </div>
+  <div class="diff-item">
+    <span class="diff-tag" style="background:#f0fdf4;color:#15803d;">Header oscuro full</span>
+    <div class="diff-title">Dark header como zona premium</div>
+    <div class="diff-desc">El header #0f172a extiende el color del teléfono hacia la pantalla. Da sensación de app nativa de alta gama (como Revolut, Wise, N26).</div>
+  </div>
+  <div class="diff-item">
+    <span class="diff-tag" style="background:#f0fdf4;color:#15803d;">Acento lateral en ítems</span>
+    <div class="diff-title">Línea de color = estado de un vistazo</div>
+    <div class="diff-desc">Verde = aprobado · Amarillo = en revisión · Gris = borrador. El usuario no necesita leer el texto para saber el estado. Escaneabilidad máxima.</div>
+  </div>
+  <div class="diff-item" style="grid-column: span 2;">
+    <span class="diff-tag" style="background:#fff3ed;color:#c2410c;">CTA con contexto</span>
+    <div class="diff-title">"Tomá la foto y listo" — no "Nueva rendición"</div>
+    <div class="diff-desc">El texto del botón principal describe la acción en lenguaje del usuario, no en lenguaje del sistema. Pequeño detalle que separa las apps que se sienten hechas para vos de las que se sienten hechas para el sistema. Es copywriting de producto.</div>
+  </div>
+</div>
+
+<p style="text-align:center;margin-top:20px;font-size:12px;color:#94a3b8;">¿Este estilo te convence? Confirmá en el terminal para escribir el spec completo.</p>
+
+</body>
+</html>

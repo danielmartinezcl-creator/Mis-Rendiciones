@@ -1,0 +1,140 @@
+<h2>¿Cómo funciona la aprobación?</h2>
+<p class="subtitle">Este flujo define la experiencia central del aprobador. Elegí el modelo que mejor refleja cómo trabaja tu empresa.</p>
+
+<div class="cards" style="grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px;">
+
+  <!-- Opción A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden;">
+    <div style="background: #6366f1; padding: 10px 14px;">
+      <span style="color: white; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">OPCIÓN A — SIMPLE</span>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3 style="margin: 0 0 6px 0; font-size: 15px;">Un clic, todo aprobado</h3>
+      <p style="font-size: 12px; color: #64748b; margin: 0 0 14px 0;">El aprobador ve el resumen y aprueba o rechaza la rendición completa.</p>
+
+      <!-- Mockup -->
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 11px;">
+        <div style="background: #f8fafc; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">Rendición #042 — Juan Pérez</div>
+        <div style="padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: #64748b;">Taxi aeropuerto</span><span style="font-weight: 600;">$18.500</span></div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: #64748b;">Almuerzo cliente</span><span style="font-weight: 600;">$32.000</span></div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span style="color: #64748b;">Hotel Santiago</span><span style="font-weight: 600;">$95.000</span></div>
+          <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #e2e8f0;">
+            <span style="font-weight: 700;">Total</span>
+            <span style="font-weight: 700; color: #6366f1;">$145.500</span>
+          </div>
+        </div>
+        <div style="padding: 10px 12px; display: flex; gap: 8px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+          <div style="flex: 1; background: #22c55e; color: white; text-align: center; padding: 6px; border-radius: 6px; font-weight: 600;">✓ Aprobar todo</div>
+          <div style="flex: 1; background: #ef4444; color: white; text-align: center; padding: 6px; border-radius: 6px; font-weight: 600;">✗ Rechazar</div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px; gap: 8px;">
+        <div class="pros" style="padding: 8px; font-size: 11px;"><h4 style="font-size: 11px; margin: 0 0 4px 0;">✓ Pros</h4><ul style="margin: 0; padding-left: 14px;"><li>Rapidísimo para el aprobador</li><li>UX mínima</li></ul></div>
+        <div class="cons" style="padding: 8px; font-size: 11px;"><h4 style="font-size: 11px; margin: 0 0 4px 0;">✗ Contras</h4><ul style="margin: 0; padding-left: 14px;"><li>No permite rechazar un solo ítem</li><li>Aprobador pierde control fino</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Opción B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden; border: 2px solid #6366f1;">
+    <div style="background: #6366f1; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: white; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">OPCIÓN B — ÍTEM POR ÍTEM</span>
+      <span style="background: white; color: #6366f1; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">RECOMENDADO</span>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3 style="margin: 0 0 6px 0; font-size: 15px;">Control granular por ítem</h3>
+      <p style="font-size: 12px; color: #64748b; margin: 0 0 14px 0;">El aprobador puede aprobar o rechazar cada gasto individualmente, con motivo de rechazo.</p>
+
+      <!-- Mockup -->
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 11px;">
+        <div style="background: #f8fafc; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">Rendición #042 — Juan Pérez</div>
+
+        <div style="padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9;">
+          <div><div style="font-weight: 500;">Taxi aeropuerto</div><div style="color: #94a3b8; font-size: 10px;">Boleta #1234 · Uber</div></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-weight: 600;">$18.500</span>
+            <div style="display: flex; gap: 3px;">
+              <div style="background: #dcfce7; color: #16a34a; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">✓</div>
+              <div style="background: #f1f5f9; color: #94a3b8; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">✗</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; background: #fff7ed;">
+          <div><div style="font-weight: 500;">Almuerzo cliente</div><div style="color: #94a3b8; font-size: 10px;">Boleta #5678 · Restaurante</div></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-weight: 600;">$32.000</span>
+            <div style="display: flex; gap: 3px;">
+              <div style="background: #f1f5f9; color: #94a3b8; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">✓</div>
+              <div style="background: #fee2e2; color: #dc2626; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">✗</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 6px 12px; background: #fff7ed; border-bottom: 1px solid #f1f5f9;">
+          <input style="width: 100%; border: 1px solid #fed7aa; border-radius: 4px; padding: 4px 6px; font-size: 10px; color: #92400e; background: white; box-sizing: border-box;" placeholder="Motivo de rechazo: supera límite permitido..." value="Supera monto máximo por almuerzo" readonly>
+        </div>
+
+        <div style="padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; background: #f0fdf4;">
+          <div><div style="font-weight: 500;">Hotel Santiago</div><div style="color: #94a3b8; font-size: 10px;">Factura #9012 · NH Hotel</div></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-weight: 600;">$95.000</span>
+            <div style="display: flex; gap: 3px;">
+              <div style="background: #dcfce7; color: #16a34a; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">✓</div>
+              <div style="background: #f1f5f9; color: #94a3b8; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">✗</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 8px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 10px; color: #64748b;">Aprobado: <strong style="color:#16a34a">$113.500</strong> · Rechazado: <strong style="color:#dc2626">$32.000</strong></span>
+          <div style="background: #6366f1; color: white; padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 600;">Confirmar</div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px; gap: 8px;">
+        <div class="pros" style="padding: 8px; font-size: 11px;"><h4 style="font-size: 11px; margin: 0 0 4px 0;">✓ Pros</h4><ul style="margin: 0; padding-left: 14px;"><li>Reembolso parcial posible</li><li>Trazabilidad y auditoría</li><li>Estándar en apps profesionales</li></ul></div>
+        <div class="cons" style="padding: 8px; font-size: 11px;"><h4 style="font-size: 11px; margin: 0 0 4px 0;">✗ Contras</h4><ul style="margin: 0; padding-left: 14px;"><li>Más pasos para el aprobador</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Opción C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden;">
+    <div style="background: #6366f1; padding: 10px 14px;">
+      <span style="color: white; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">OPCIÓN C — MULTI-NIVEL</span>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3 style="margin: 0 0 6px 0; font-size: 15px;">Cadena de aprobación</h3>
+      <p style="font-size: 12px; color: #64748b; margin: 0 0 14px 0;">Supervisor → Gerente → Finanzas. Montos bajos saltan niveles automáticamente.</p>
+
+      <!-- Flow diagram -->
+      <div style="font-size: 11px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+          <div style="background: #ede9fe; color: #7c3aed; padding: 5px 10px; border-radius: 6px; font-weight: 600; white-space: nowrap;">Empleado envía</div>
+          <div style="color: #94a3b8;">→</div>
+          <div style="background: #fef3c7; color: #92400e; padding: 5px 10px; border-radius: 6px; font-weight: 600; white-space: nowrap;">Supervisor</div>
+          <div style="color: #94a3b8;">→</div>
+          <div style="background: #fef3c7; color: #92400e; padding: 5px 10px; border-radius: 6px; font-weight: 600; white-space: nowrap;">Gerente</div>
+        </div>
+        <div style="margin: 4px 0 4px 20px; font-size: 10px; color: #94a3b8;">↓ (si monto > $100.000)</div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+          <div style="background: #dcfce7; color: #15803d; padding: 5px 10px; border-radius: 6px; font-weight: 600;">Finanzas aprueba</div>
+          <div style="color: #94a3b8;">→</div>
+          <div style="background: #dbeafe; color: #1e40af; padding: 5px 10px; border-radius: 6px; font-weight: 600;">Reembolso</div>
+        </div>
+        <div style="background: #f8fafc; border-radius: 6px; padding: 8px; font-size: 10px; color: #64748b; border: 1px solid #e2e8f0;">
+          <strong>Auto-aprobación</strong> si monto &lt; $50.000 y categoría preaprobada (taxi, colación, etc.)
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px; gap: 8px;">
+        <div class="pros" style="padding: 8px; font-size: 11px;"><h4 style="font-size: 11px; margin: 0 0 4px 0;">✓ Pros</h4><ul style="margin: 0; padding-left: 14px;"><li>Control corporativo total</li><li>Auto-aprobación reduce carga</li></ul></div>
+        <div class="cons" style="padding: 8px; font-size: 11px;"><h4 style="font-size: 11px; margin: 0 0 4px 0;">✗ Contras</h4><ul style="margin: 0; padding-left: 14px;"><li>Complejidad alta en v1</li><li>Configuración por empresa difícil</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,123 @@
+<h2>Diseño — Sección 2: Modelo de datos Supabase</h2>
+<p class="subtitle">Schema multi-tenant con soporte nativo para N niveles de aprobación. Cada tabla tiene <code>org_id</code> para aislar datos entre empresas clientes.</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;font-size:11px;">
+
+  <!-- organizations -->
+  <div style="border:2px solid #6366f1;border-radius:10px;overflow:hidden;">
+    <div style="background:#6366f1;color:white;padding:7px 12px;font-weight:700;font-size:12px;">🏢 organizations</div>
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;gap:8px;"><span style="color:#f59e0b;font-weight:700;width:14px;">🔑</span><span style="color:#64748b;width:140px;">id</span><span style="color:#94a3b8;">uuid PK</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">name</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">slug</span><span style="color:#94a3b8;">text unique</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">country</span><span style="color:#94a3b8;">text default 'CL'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">currency</span><span style="color:#94a3b8;">text default 'CLP'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">plan</span><span style="color:#94a3b8;">'free'|'pro'|'enterprise'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">logo_url</span><span style="color:#94a3b8;">text</span></div>
+    </div>
+  </div>
+
+  <!-- users -->
+  <div style="border:2px solid #0ea5e9;border-radius:10px;overflow:hidden;">
+    <div style="background:#0ea5e9;color:white;padding:7px 12px;font-weight:700;font-size:12px;">👤 users <span style="font-weight:400;font-size:10px;opacity:.8;">(extiende auth.users)</span></div>
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;gap:8px;"><span style="color:#f59e0b;font-weight:700;width:14px;">🔑</span><span style="color:#64748b;width:140px;">id</span><span style="color:#94a3b8;">uuid → auth.users</span></div>
+      <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">org_id</span><span style="color:#94a3b8;">uuid → organizations</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">full_name</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">role</span><span style="color:#94a3b8;">'admin'|'approver'|'employee'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">can_submit</span><span style="color:#94a3b8;">bool default true</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">can_approve</span><span style="color:#94a3b8;">bool default false</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">department</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">bank_account</span><span style="color:#94a3b8;">text (reembolso)</span></div>
+    </div>
+  </div>
+
+  <!-- approval_policies -->
+  <div style="border:2px solid #f59e0b;border-radius:10px;overflow:hidden;">
+    <div style="background:#f59e0b;color:white;padding:7px 12px;font-weight:700;font-size:12px;">⚙️ approval_policies</div>
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;gap:8px;"><span style="color:#f59e0b;font-weight:700;width:14px;">🔑</span><span style="color:#64748b;width:140px;">id</span><span style="color:#94a3b8;">uuid PK</span></div>
+      <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">org_id</span><span style="color:#94a3b8;">uuid → organizations</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">name</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">levels</span><span style="color:#94a3b8;">jsonb ← clave multi-nivel</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">is_default</span><span style="color:#94a3b8;">bool</span></div>
+      <div style="background:#fff7ed;border-radius:6px;padding:6px 8px;margin-top:6px;color:#92400e;font-size:10px;">
+        <strong>levels:</strong> [{level:1, approver_id:"..."}, {level:2, approver_id:"..."}]<br>
+        En v1 solo se usa level:1. Level:2 se activa en v2 con UI.
+      </div>
+    </div>
+  </div>
+
+  <!-- expense_reports -->
+  <div style="border:2px solid #22c55e;border-radius:10px;overflow:hidden;">
+    <div style="background:#22c55e;color:white;padding:7px 12px;font-weight:700;font-size:12px;">📋 expense_reports</div>
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;gap:8px;"><span style="color:#f59e0b;font-weight:700;width:14px;">🔑</span><span style="color:#64748b;width:140px;">id</span><span style="color:#94a3b8;">uuid PK</span></div>
+      <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">org_id</span><span style="color:#94a3b8;">uuid → organizations</span></div>
+      <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">submitter_id</span><span style="color:#94a3b8;">uuid → users</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">title</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">status</span><span style="color:#94a3b8;">'draft'|'submitted'|'pending_l2'|'approved'|'partially_approved'|'rejected'|'reimbursed'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">current_level</span><span style="color:#94a3b8;">int default 1</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">total_amount</span><span style="color:#94a3b8;">numeric</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">approved_amount</span><span style="color:#94a3b8;">numeric</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">currency</span><span style="color:#94a3b8;">text default 'CLP'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">reimbursed_at</span><span style="color:#94a3b8;">timestamptz</span></div>
+    </div>
+  </div>
+
+  <!-- expense_items -->
+  <div style="border:2px solid #8b5cf6;border-radius:10px;overflow:hidden;">
+    <div style="background:#8b5cf6;color:white;padding:7px 12px;font-weight:700;font-size:12px;">🧾 expense_items</div>
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;gap:8px;"><span style="color:#f59e0b;font-weight:700;width:14px;">🔑</span><span style="color:#64748b;width:140px;">id</span><span style="color:#94a3b8;">uuid PK</span></div>
+      <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">report_id</span><span style="color:#94a3b8;">uuid → expense_reports</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">description</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">amount</span><span style="color:#94a3b8;">numeric</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">currency</span><span style="color:#94a3b8;">text (CLP/USD/EUR)</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">amount_clp</span><span style="color:#94a3b8;">numeric (convertido)</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">date</span><span style="color:#94a3b8;">date (fecha del gasto)</span></div>
+      <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">category_id</span><span style="color:#94a3b8;">uuid → expense_categories</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">merchant</span><span style="color:#94a3b8;">text (proveedor)</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">doc_type</span><span style="color:#94a3b8;">'boleta'|'factura'|'factura_exenta'|'ticket'|'otro'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">doc_number</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">status</span><span style="color:#94a3b8;">'pending'|'approved'|'rejected'</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">rejection_reason</span><span style="color:#94a3b8;">text</span></div>
+      <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">ocr_raw</span><span style="color:#94a3b8;">jsonb (respuesta Claude)</span></div>
+    </div>
+  </div>
+
+  <!-- attachments + approvals -->
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div style="border:2px solid #ec4899;border-radius:10px;overflow:hidden;">
+      <div style="background:#ec4899;color:white;padding:7px 12px;font-weight:700;font-size:12px;">📎 attachments</div>
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">item_id</span><span style="color:#94a3b8;">uuid → expense_items</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">storage_path</span><span style="color:#94a3b8;">text (Supabase Storage)</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">file_type</span><span style="color:#94a3b8;">'image'|'pdf'</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">thumbnail_path</span><span style="color:#94a3b8;">text</span></div>
+      </div>
+    </div>
+
+    <div style="border:2px solid #64748b;border-radius:10px;overflow:hidden;">
+      <div style="background:#64748b;color:white;padding:7px 12px;font-weight:700;font-size:12px;">📜 expense_report_approvals <span style="font-weight:400;font-size:10px;">(audit log)</span></div>
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">report_id</span><span style="color:#94a3b8;">uuid → expense_reports</span></div>
+        <div style="display:flex;gap:8px;"><span style="color:#3b82f6;width:14px;">🔗</span><span style="color:#64748b;width:140px;">approver_id</span><span style="color:#94a3b8;">uuid → users</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">level</span><span style="color:#94a3b8;">int (1, 2, ...)</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">action</span><span style="color:#94a3b8;">'approved'|'rejected'|'returned'</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">items_approved</span><span style="color:#94a3b8;">uuid[] (IDs aprobados)</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">items_rejected</span><span style="color:#94a3b8;">uuid[] (IDs rechazados)</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">notes</span><span style="color:#94a3b8;">text</span></div>
+        <div style="display:flex;gap:8px;"><span style="width:14px;"></span><span style="color:#64748b;width:140px;">created_at</span><span style="color:#94a3b8;">timestamptz</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;font-size:11px;">
+  <strong style="color:#15803d;">RLS (Row Level Security) en cada tabla:</strong>
+  <span style="color:#166534;"> Los usuarios solo ven registros de su <code>org_id</code>. Los rendidores solo ven sus propias rendiciones. Los aprobadores ven rendiciones de empleados asignados. El admin ve todo dentro de su org.</span>
+</div>
+
+<p style="text-align:center;margin-top:14px;font-size:12px;color:#94a3b8;">¿El modelo de datos tiene sentido? Confirmá para ver el diseño visual de la app.</p>

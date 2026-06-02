@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparación modelos Claude</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; padding: 22px; color: #1e293b; }
+
+h1 { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.sub { font-size: 12px; color: #64748b; margin-bottom: 22px; }
+
+/* ── TABLA PRINCIPAL ── */
+.table-wrap { background: white; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 22px; }
+
+.table-header { display: grid; grid-template-columns: 180px repeat(3, 1fr); background: #0f172a; }
+.th { padding: 12px 14px; font-size: 11px; font-weight: 700; letter-spacing: .4px; color: rgba(255,255,255,.6); }
+.th.model { color: white; }
+.th.model .name { font-family: 'Manrope'; font-size: 15px; font-weight: 800; color: white; display: block; margin-bottom: 2px; }
+.th.model .id { font-size: 9px; color: rgba(255,255,255,.45); font-weight: 400; }
+.th.model.recommended { background: rgba(99,102,241,.3); border-top: 3px solid #6366f1; }
+
+.row { display: grid; grid-template-columns: 180px repeat(3, 1fr); border-bottom: 1px solid #f1f5f9; }
+.row:last-child { border-bottom: none; }
+.row:nth-child(even) { background: #fafafa; }
+
+.cell { padding: 10px 14px; font-size: 12px; line-height: 1.4; }
+.cell.label { font-weight: 700; color: #475569; font-size: 11px; display: flex; align-items: flex-start; padding-top: 12px; }
+.cell.highlight { background: rgba(99,102,241,.04); }
+
+.good { color: #15803d; font-weight: 600; }
+.bad { color: #dc2626; font-weight: 600; }
+.neutral { color: #92400e; font-weight: 600; }
+.muted { color: #94a3b8; }
+
+.pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.pill-green { background: #dcfce7; color: #15803d; }
+.pill-yellow { background: #fef3c7; color: #92400e; }
+.pill-red { background: #fee2e2; color: #dc2626; }
+.pill-blue { background: #dbeafe; color: #1e40af; }
+.pill-purple { background: #ede9fe; color: #5b21b6; }
+
+.cost-big { font-family: 'Manrope'; font-size: 18px; font-weight: 800; }
+.cost-unit { font-size: 10px; color: #94a3b8; font-weight: 400; margin-top: 1px; }
+
+/* ── SECCIÓN PERSPECTIVAS ── */
+.persp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+.persp-card { background: white; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; }
+.persp-title { font-size: 13px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+
+.persp-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.persp-item { border-radius: 8px; padding: 10px; text-align: center; }
+.persp-model { font-size: 10px; font-weight: 800; margin-bottom: 4px; }
+.persp-score { font-family: 'Manrope'; font-size: 22px; font-weight: 800; line-height: 1; }
+.persp-label { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+
+/* ── RECOMENDACIÓN ── */
+.rec-box { background: #0f172a; border-radius: 14px; padding: 18px 20px; color: white; }
+.rec-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; color: #818cf8; }
+.rec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.rec-item { background: rgba(255,255,255,.07); border-radius: 10px; padding: 12px; }
+.rec-task { font-size: 10px; color: rgba(255,255,255,.5); font-weight: 600; letter-spacing: .3px; text-transform: uppercase; margin-bottom: 4px; }
+.rec-model { font-family: 'Manrope'; font-size: 15px; font-weight: 800; color: white; margin-bottom: 4px; }
+.rec-reason { font-size: 10px; color: rgba(255,255,255,.5); line-height: 1.4; }
+.rec-cost { font-family: 'Manrope'; font-size: 12px; font-weight: 700; color: #34d399; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<h1>Comparación de modelos Claude — App Rindegastos</h1>
+<p class="sub">Evaluación desde dos perspectivas: vos como dueño del producto (costo, escalabilidad) y tu usuario final (velocidad, calidad de respuesta).</p>
+
+<!-- TABLA COMPARATIVA -->
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="th">Criterio</div>
+    <div class="th model">
+      <span class="name">Haiku 4.5</span>
+      <span class="id">claude-haiku-4-5-20251001</span>
+    </div>
+    <div class="th model recommended">
+      <span class="name">Sonnet 4.6</span>
+      <span class="id">claude-sonnet-4-6</span>
+      <div style="margin-top:4px;"><span style="background:#6366f1;color:white;font-size:9px;padding:2px 7px;border-radius:10px;">⭐ Balance óptimo</span></div>
+    </div>
+    <div class="th model">
+      <span class="name">Opus 4.8</span>
+      <span class="id">claude-opus-4-8</span>
+      <div style="margin-top:4px;"><span style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);font-size:9px;padding:2px 7px;border-radius:10px;">Actual selección</span></div>
+    </div>
+  </div>
+
+  <!-- COSTO POR IMAGEN OCR -->
+  <div class="row">
+    <div class="cell label">💰 Costo por<br>foto/OCR</div>
+    <div class="cell">
+      <div class="cost-big good">$0.002</div>
+      <div class="cost-unit">por imagen</div>
+      <div style="margin-top:4px;font-size:10px;color:#64748b;">500 fotos/mes → <strong class="good">$1/mes</strong></div>
+    </div>
+    <div class="cell highlight">
+      <div class="cost-big neutral">$0.008</div>
+      <div class="cost-unit">por imagen</div>
+      <div style="margin-top:4px;font-size:10px;color:#64748b;">500 fotos/mes → <strong class="neutral">$4/mes</strong></div>
+    </div>
+    <div class="cell">
+      <div class="cost-big bad">$0.036</div>
+      <div class="cost-unit">por imagen</div>
+      <div style="margin-top:4px;font-size:10px;color:#64748b;">500 fotos/mes → <strong class="bad">$18/mes</strong></div>
+    </div>
+  </div>
+
+  <!-- COSTO A ESCALA -->
+  <div class="row">
+    <div class="cell label">📈 Costo a escala<br><span style="font-weight:400;font-size:10px;">10 empresas<br>7.500 fotos/mes</span></div>
+    <div class="cell">
+      <div class="cost-big good">$15</div>
+      <div class="cost-unit">/mes total</div>
+      <div style="margin-top:4px;"><span class="pill pill-green">Muy escalable</span></div>
+    </div>
+    <div class="cell highlight">
+      <div class="cost-big neutral">$60</div>
+      <div class="cost-unit">/mes total</div>
+      <div style="margin-top:4px;"><span class="pill pill-yellow">Escalable</span></div>
+    </div>
+    <div class="cell">
+      <div class="cost-big bad">$270</div>
+      <div class="cost-unit">/mes total</div>
+      <div style="margin-top:4px;"><span class="pill pill-red">Impacta margen SaaS</span></div>
+    </div>
+  </div>
+
+  <!-- VELOCIDAD DE RESPUESTA -->
+  <div class="row">
+    <div class="cell label">⚡ Velocidad<br>de respuesta</div>
+    <div class="cell">
+      <span class="pill pill-green">~0.5s</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Casi instantáneo. Usuario no nota espera.</div>
+    </div>
+    <div class="cell highlight">
+      <span class="pill pill-yellow">~1.5s</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Perceptible pero aceptable con spinner.</div>
+    </div>
+    <div class="cell">
+      <span class="pill pill-red">~4-8s</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Lento. Necesita UX de espera cuidadosa (progress bar, mensajes).</div>
+    </div>
+  </div>
+
+  <!-- CALIDAD OCR DOCUMENTOS FÁCILES -->
+  <div class="row">
+    <div class="cell label">📄 OCR — docs<br>bien escaneados</div>
+    <div class="cell">
+      <span class="pill pill-green">Excelente</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Boletas y facturas estándar, buena foto.</div>
+    </div>
+    <div class="cell highlight">
+      <span class="pill pill-green">Excelente</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Igual a Haiku en docs limpios.</div>
+    </div>
+    <div class="cell">
+      <span class="pill pill-green">Excelente</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Sin diferencia notable vs Sonnet en docs limpios.</div>
+    </div>
+  </div>
+
+  <!-- CALIDAD OCR DOCUMENTOS DIFÍCILES -->
+  <div class="row">
+    <div class="cell label">📷 OCR — docs<br>difíciles<br><span style="font-weight:400;font-size:10px;">rotados, manchados,<br>fotos con brillo,<br>manuscritos</span></div>
+    <div class="cell">
+      <span class="pill pill-red">Limitado</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Falla con frecuencia. Confidence bajo → formulario vacío.</div>
+    </div>
+    <div class="cell highlight">
+      <span class="pill pill-yellow">Bueno</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Maneja la mayoría de casos difíciles. Ocasionalmente falla en escritura a mano.</div>
+    </div>
+    <div class="cell">
+      <span class="pill pill-green">Superior</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Maneja boletas de supermercado arrugadas, recibos de taxi, docs con luz directa.</div>
+    </div>
+  </div>
+
+  <!-- ASISTENTE IA (v2) -->
+  <div class="row">
+    <div class="cell label">🤖 Asistente IA<br>v2/v3<br><span style="font-weight:400;font-size:10px;">razonamiento,<br>patrones, chat</span></div>
+    <div class="cell">
+      <span class="pill pill-red">No apto</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">No tiene capacidad de razonamiento complejo sobre patrones.</div>
+    </div>
+    <div class="cell highlight">
+      <span class="pill pill-yellow">Parcial</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Bueno para asistente rendidor (categorizaciones). Limitado para análisis profundo.</div>
+    </div>
+    <div class="cell">
+      <span class="pill pill-green">Ideal</span>
+      <div style="margin-top:6px;font-size:11px;color:#64748b;">Detecta anomalías, entiende contexto financiero, responde preguntas complejas.</div>
+    </div>
+  </div>
+
+  <!-- DISPONIBILIDAD -->
+  <div class="row">
+    <div class="cell label">🔄 Disponibilidad<br>& Rate limits</div>
+    <div class="cell"><span class="pill pill-green">Máxima</span><div style="margin-top:4px;font-size:11px;color:#64748b;">Rate limits más altos.</div></div>
+    <div class="cell highlight"><span class="pill pill-green">Alta</span><div style="margin-top:4px;font-size:11px;color:#64748b;">Sin problemas a escala PENTA.</div></div>
+    <div class="cell"><span class="pill pill-yellow">Media</span><div style="margin-top:4px;font-size:11px;color:#64748b;">Rate limits más restrictivos. En picos de carga puede hacer queue.</div></div>
+  </div>
+</div>
+
+<!-- PERSPECTIVAS -->
+<div class="persp-grid">
+  <!-- Para vos (Daniel) -->
+  <div class="persp-card">
+    <div class="persp-title">🏢 Para vos como dueño del producto</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:10px;">Costo mensual · Margen SaaS · Escalabilidad</div>
+    <div class="persp-row">
+      <div class="persp-item" style="background:#f0fdf4;">
+        <div class="persp-model" style="color:#15803d;">Haiku</div>
+        <div class="persp-score" style="color:#15803d;">A+</div>
+        <div class="persp-label">Costo mínimo</div>
+      </div>
+      <div class="persp-item" style="background:#fefce8;">
+        <div class="persp-model" style="color:#92400e;">Sonnet</div>
+        <div class="persp-score" style="color:#92400e;">A</div>
+        <div class="persp-label">Óptimo para SaaS</div>
+      </div>
+      <div class="persp-item" style="background:#fef2f2;">
+        <div class="persp-model" style="color:#dc2626;">Opus</div>
+        <div class="persp-score" style="color:#dc2626;">B</div>
+        <div class="persp-label">Impacta margen</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:#475569;line-height:1.5;background:#f8fafc;border-radius:8px;padding:10px;">
+      Con <strong>Sonnet</strong>, si cobrás USD $29/mes por empresa y tenés 10 clientes con 7.500 fotos/mes, el costo de IA es $60 — menos del <strong>20% del revenue</strong>. Con Opus sería $270 — más del <strong>90% del revenue de 1 cliente</strong>. Clave para el modelo de negocio.
+    </div>
+  </div>
+
+  <!-- Para el usuario -->
+  <div class="persp-card">
+    <div class="persp-title">👤 Para tu usuario final</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:10px;">Velocidad · Calidad de extracción · Experiencia</div>
+    <div class="persp-row">
+      <div class="persp-item" style="background:#f0fdf4;">
+        <div class="persp-model" style="color:#15803d;">Haiku</div>
+        <div class="persp-score" style="color:#15803d;">A</div>
+        <div class="persp-label">Rapidísimo</div>
+      </div>
+      <div class="persp-item" style="background:#fefce8;">
+        <div class="persp-model" style="color:#92400e;">Sonnet</div>
+        <div class="persp-score" style="color:#92400e;">A+</div>
+        <div class="persp-label">Mejor experiencia</div>
+      </div>
+      <div class="persp-item" style="background:#fef2f2;">
+        <div class="persp-item" style="background:transparent;padding:0;">
+        <div class="persp-model" style="color:#dc2626;">Opus</div>
+        <div class="persp-score" style="color:#dc2626;">B+</div>
+        <div class="persp-label">Lento, UX difícil</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:#475569;line-height:1.5;background:#f8fafc;border-radius:8px;padding:10px;">
+      El usuario toma la foto y espera. Con <strong>Haiku</strong> el resultado aparece antes de que baje el brazo. Con <strong>Opus</strong> espera 4-8s — necesitás una UX de loading elaborada o el usuario cree que se rompió.
+    </div>
+  </div>
+</div>
+
+<!-- RECOMENDACIÓN HÍBRIDA -->
+<div class="rec-box">
+  <div class="rec-title">⭐ Recomendación: estrategia híbrida por tarea</div>
+  <div class="rec-grid">
+    <div class="rec-item">
+      <div class="rec-task">OCR — fotos de documentos</div>
+      <div class="rec-model">Sonnet 4.6</div>
+      <div class="rec-reason">Excelente en docs difíciles. 4x más barato que Opus. Responde en ~1.5s — aceptable con un spinner bien diseñado.</div>
+      <div class="rec-cost">~$60/mes · 10 empresas</div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-task">Asistente Rendidor v2</div>
+      <div class="rec-model">Sonnet 4.6</div>
+      <div class="rec-reason">Categorización, alertas, autocompletado. No necesita razonamiento profundo — Sonnet es más que suficiente y responde rápido.</div>
+      <div class="rec-cost">~$0.001 por interacción</div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-task">Asistente Admin v3</div>
+      <div class="rec-model">Opus 4.8</div>
+      <div class="rec-reason">Chat financiero complejo, detección de anomalías entre equipos, análisis de patrones. Acá sí justifica el costo — el admin no espera respuesta instantánea.</div>
+      <div class="rec-cost">Pocas consultas/día</div>
+    </div>
+  </div>
+  <div style="margin-top:12px;background:rgba(255,255,255,.07);border-radius:8px;padding:10px;font-size:11px;color:rgba(255,255,255,.7);line-height:1.5;">
+    <strong style="color:white;">Conclusión práctica:</strong> Cambiá el OCR de Opus 4.8 a Sonnet 4.6. Guardá Opus para el asistente de admin en v3, donde el usuario espera más y el volumen es menor. Ahorrás ~$200/mes a escala de 10 empresas sin pérdida de calidad perceptible en el 95% de las fotos.
+  </div>
+</div>
+
+</body>
+</html>

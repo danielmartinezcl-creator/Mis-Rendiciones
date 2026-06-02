@@ -1,0 +1,120 @@
+<h2>Diseño — Sección 1: Roles y vistas del sistema</h2>
+<p class="subtitle">Tres tipos de usuario, tres experiencias distintas. Cada rol tiene su propio dashboard y permisos.</p>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px;">
+
+  <!-- RENDIDOR -->
+  <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:16px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:6px;">👤</div>
+      <div style="color:white;font-weight:700;font-size:15px;">Rendidor</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;margin-top:2px;">Empleado que gasta</div>
+    </div>
+    <div style="padding:14px;">
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:8px;">PUEDE HACER</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;">
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Crear rendición nueva</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Subir foto de boleta/factura</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> OCR automático del documento</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Agregar N ítems por rendición</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Enviar a aprobación</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Ver estado de sus rendiciones</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Ver historial de reembolsos</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#ef4444;font-weight:700;">✗</span> Ver rendiciones de otros</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#ef4444;font-weight:700;">✗</span> Aprobar</div>
+      </div>
+      <div style="margin-top:12px;background:#f0fdf4;border-radius:8px;padding:8px 10px;font-size:11px;color:#15803d;border-left:3px solid #22c55e;">
+        <strong>Vista principal:</strong> móvil-first, captura rápida con cámara, flujo de 3 pasos.
+      </div>
+    </div>
+  </div>
+
+  <!-- APROBADOR -->
+  <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#f59e0b,#ef4444);padding:16px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:6px;">✅</div>
+      <div style="color:white;font-weight:700;font-size:15px;">Aprobador</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;margin-top:2px;">Jefe / supervisor</div>
+    </div>
+    <div style="padding:14px;">
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:8px;">PUEDE HACER</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;">
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Ver rendiciones de su equipo</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Aprobar ítem por ítem</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Rechazar con motivo por ítem</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Aprobar rendición completa</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Ver fotos de respaldo</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Devolver a borrador</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> También puede ser rendidor</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#ef4444;font-weight:700;">✗</span> Marcar como reembolsado</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#ef4444;font-weight:700;">✗</span> Gestionar usuarios</div>
+      </div>
+      <div style="margin-top:12px;background:#fff7ed;border-radius:8px;padding:8px 10px;font-size:11px;color:#92400e;border-left:3px solid #f59e0b;">
+        <strong>Vista principal:</strong> bandeja de entrada estilo email, pendientes primero, desktop + móvil.
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#0ea5e9,#6366f1);padding:16px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:6px;">🏢</div>
+      <div style="color:white;font-weight:700;font-size:15px;">Administrador</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;margin-top:2px;">Contabilidad / finanzas</div>
+    </div>
+    <div style="padding:14px;">
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:8px;">PUEDE HACER</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;">
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Todo lo del aprobador</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Ver todas las rendiciones</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Marcar reembolso como pagado</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Dashboard financiero</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Exportar Excel / PDF</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Gestionar empleados</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Configurar aprobadores</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Gestionar categorías</div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="color:#22c55e;font-weight:700;">✓</span> Gestionar organización</div>
+      </div>
+      <div style="margin-top:12px;background:#eff6ff;border-radius:8px;padding:8px 10px;font-size:11px;color:#1e40af;border-left:3px solid #0ea5e9;">
+        <strong>Vista principal:</strong> dashboard con KPIs, tabla maestra de todas las rendiciones, filtros avanzados.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Flujo de estados -->
+<div style="margin-top:24px;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+  <div style="font-size:13px;font-weight:700;margin-bottom:14px;color:#1e293b;">Ciclo de vida de una rendición</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;">
+    <div style="background:#f1f5f9;border:1px solid #cbd5e1;padding:8px 14px;border-radius:8px;text-align:center;">
+      <div style="font-size:16px;margin-bottom:2px;">📝</div>
+      <div style="font-weight:600;color:#475569;">Borrador</div>
+      <div style="color:#94a3b8;font-size:10px;">Editable</div>
+    </div>
+    <div style="color:#cbd5e1;font-size:18px;">→</div>
+    <div style="background:#fef3c7;border:1px solid #fcd34d;padding:8px 14px;border-radius:8px;text-align:center;">
+      <div style="font-size:16px;margin-bottom:2px;">📤</div>
+      <div style="font-weight:600;color:#92400e;">Enviada</div>
+      <div style="color:#b45309;font-size:10px;">En revisión</div>
+    </div>
+    <div style="color:#cbd5e1;font-size:18px;">→</div>
+    <div style="background:#dcfce7;border:1px solid #86efac;padding:8px 14px;border-radius:8px;text-align:center;">
+      <div style="font-size:16px;margin-bottom:2px;">✅</div>
+      <div style="font-weight:600;color:#15803d;">Aprobada</div>
+      <div style="color:#16a34a;font-size:10px;">Parcial o total</div>
+    </div>
+    <div style="color:#cbd5e1;font-size:18px;">→</div>
+    <div style="background:#dbeafe;border:1px solid #93c5fd;padding:8px 14px;border-radius:8px;text-align:center;">
+      <div style="font-size:16px;margin-bottom:2px;">💰</div>
+      <div style="font-weight:600;color:#1e40af;">Reembolsada</div>
+      <div style="color:#1d4ed8;font-size:10px;">Pagado</div>
+    </div>
+  </div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">
+    <div style="background:#fee2e2;border:1px solid #fca5a5;padding:5px 10px;border-radius:6px;color:#991b1b;">❌ Rechazada (parcial o total) → puede volver a Borrador</div>
+    <div style="background:#f1f5f9;border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;color:#475569;">↩ Admin puede devolver a borrador desde cualquier estado</div>
+  </div>
+</div>
+
+<p style="text-align:center;margin-top:16px;font-size:12px;color:#94a3b8;">¿Este esquema de roles y estados refleja cómo operás? Confirmá en el terminal para avanzar al modelo de datos.</p>
