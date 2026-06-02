@@ -1,0 +1,8 @@
+-- ============================================================
+-- App Rindegastos — Schema inicial v1
+-- Aplicado: 2026-06-02
+-- Proyecto: jqtbtgduqzxkgubmzukg (Rindegastos PENTA)
+-- ============================================================
+-- Ver historial completo en Supabase Dashboard > Database > Migrations
+-- Este archivo es copia local de referencia.
+-- Para regenerar tipos: npx supabase gen types typescript --project-id jqtbtgduqzxkgubmzukg
