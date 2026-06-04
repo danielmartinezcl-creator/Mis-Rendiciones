@@ -10,7 +10,7 @@ interface MobileNavProps {
 }
 
 const mobileItems = [
-  { href: '/',             label: 'Inicio', icon: '🏠', requiresSubmit: false, requiresApprove: false, requiresAdmin: false },
+  { href: '/',             label: 'Estado', icon: '🏠', requiresSubmit: false, requiresApprove: false, requiresAdmin: false },
   { href: '/expenses/new', label: 'Rendir', icon: '📷', requiresSubmit: true,  requiresApprove: false, requiresAdmin: false },
   { href: '/approvals',    label: 'Aprobar',icon: '✅', requiresSubmit: false, requiresApprove: true,  requiresAdmin: false },
   { href: '/admin',        label: 'Admin',  icon: '📊', requiresSubmit: false, requiresApprove: false, requiresAdmin: true  },

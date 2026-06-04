@@ -48,7 +48,12 @@ export interface Database {
           can_submit: boolean
           can_approve: boolean
           department: string | null
+          rut: string | null
           bank_account: string | null
+          bank_name: string | null
+          bank_account_type: string | null
+          approver_l1_id: string | null
+          approver_l2_id: string | null
           is_active: boolean
           created_at: string
         }
@@ -60,7 +65,12 @@ export interface Database {
           can_submit?: boolean
           can_approve?: boolean
           department?: string | null
+          rut?: string | null
           bank_account?: string | null
+          bank_name?: string | null
+          bank_account_type?: string | null
+          approver_l1_id?: string | null
+          approver_l2_id?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -72,7 +82,12 @@ export interface Database {
           can_submit?: boolean
           can_approve?: boolean
           department?: string | null
+          rut?: string | null
           bank_account?: string | null
+          bank_name?: string | null
+          bank_account_type?: string | null
+          approver_l1_id?: string | null
+          approver_l2_id?: string | null
           is_active?: boolean
           created_at?: string
         }

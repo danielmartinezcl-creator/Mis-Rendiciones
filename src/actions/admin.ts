@@ -22,7 +22,86 @@ async function requireAdmin() {
   return { supabase, userId: user.id, orgId: profile.org_id }
 }
 
-// ─── Reportes ───────────────────────────────────────────────────────────────
+// ─── Reportes admin (vista completa) ────────────────────────────────────────
+
+export async function getAdminReports() {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data } = await supabase
+    .from('expense_reports')
+    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, submitter_id')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+
+  if (!data?.length) return []
+
+  const submitterIds = [...new Set(data.map(r => r.submitter_id))]
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name, department')
+    .in('id', submitterIds)
+
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u]))
+
+  return data.map(r => ({
+    ...r,
+    submitter_name: userMap[r.submitter_id]?.full_name ?? 'Desconocido',
+    department:     userMap[r.submitter_id]?.department ?? null,
+  }))
+}
+
+export async function getReportDetailForAdmin(reportId: string) {
+  const { supabase } = await requireAdmin()
+
+  type RawItem = { description: string; amount_clp: number; status: string; rejection_reason: string | null; expense_categories: { name: string } | null }
+
+  const [itemsRes, approvalsRes] = await Promise.all([
+    supabase
+      .from('expense_items')
+      .select('description, amount_clp, status, rejection_reason, expense_categories(name)')
+      .eq('report_id', reportId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('expense_report_approvals')
+      .select('level, action, notes, created_at, approver_id')
+      .eq('report_id', reportId)
+      .order('created_at', { ascending: true }),
+  ])
+
+  const approvals = approvalsRes.data ?? []
+  const approverIds = [...new Set(approvals.map(a => a.approver_id))]
+  let approverMap: Record<string, string> = {}
+
+  if (approverIds.length > 0) {
+    const { data: approvers } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .in('id', approverIds)
+    approverMap = Object.fromEntries((approvers ?? []).map(u => [u.id, u.full_name]))
+  }
+
+  return {
+    items: (itemsRes.data ?? [] as RawItem[]).map(i => {
+      const item = i as unknown as RawItem
+      return {
+        description:      item.description,
+        amount_clp:       item.amount_clp,
+        status:           item.status,
+        rejection_reason: item.rejection_reason,
+        category_name:    item.expense_categories?.name ?? null,
+      }
+    }),
+    approvals: approvals.map(a => ({
+      level:          a.level as number,
+      action:         a.action,
+      approver_name:  approverMap[a.approver_id] ?? 'Desconocido',
+      notes:          a.notes,
+      created_at:     a.created_at,
+    })),
+  }
+}
+
+// ─── Reportes (legacy simple) ────────────────────────────────────────────────
 
 export async function getAllReports(status?: string) {
   const { supabase, orgId } = await requireAdmin()
@@ -193,6 +272,36 @@ export async function addPolicy(data: {
 
   if (error) throw new Error(error.message)
   revalidatePath('/admin/settings')
+}
+
+export async function setEmployeeApprovers(
+  userId: string,
+  approverL1Id: string | null,
+  approverL2Id: string | null
+) {
+  const { supabase, orgId } = await requireAdmin()
+
+  // Verificar que los aprobadores pertenezcan a la misma org
+  if (approverL1Id) {
+    const { data: l1 } = await supabase.from('users').select('org_id').eq('id', approverL1Id).single()
+    if (!l1 || l1.org_id !== orgId) throw new Error('Aprobador N1 no pertenece a esta organización')
+  }
+  if (approverL2Id) {
+    const { data: l2 } = await supabase.from('users').select('org_id').eq('id', approverL2Id).single()
+    if (!l2 || l2.org_id !== orgId) throw new Error('Aprobador N2 no pertenece a esta organización')
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update({
+      approver_l1_id: approverL1Id,
+      approver_l2_id: approverL2Id,
+    })
+    .eq('id', userId)
+    .eq('org_id', orgId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/employees')
 }
 
 export async function setDefaultPolicy(policyId: string) {

@@ -21,9 +21,14 @@ interface ReportForPDF {
 }
 
 const STATUS_ES: Record<string, string> = {
-  pending:  'Pendiente',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
+  pending:            'Pendiente',
+  approved:           'Aprobado',
+  rejected:           'Rechazado',
+  draft:              'Borrador',
+  submitted:          'En revisión',
+  pending_l2:         'Revisión N2',
+  partially_approved: 'Aprobada parcial',
+  reimbursed:         'Reembolsada',
 }
 
 export function exportReportToPDF(report: ReportForPDF) {
@@ -66,4 +71,99 @@ export function exportReportToPDF(report: ReportForPDF) {
   })
 
   doc.save(`${report.title}.pdf`)
+}
+
+// ─── Export admin (lista filtrada de rendiciones) ────────────────────────────
+
+import type { AdminReportRow } from './excel'
+
+interface AdminPDFFilters {
+  dateFrom?:  string
+  dateTo?:    string
+  employee?:  string
+  department?: string
+  status?:    string[]
+}
+
+export function exportAdminReportsToPDF(reports: AdminReportRow[], filters: AdminPDFFilters = {}, filename = 'rendiciones-admin') {
+  const doc = new jsPDF({ orientation: 'landscape' })
+
+  // Encabezado
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Reporte de Rendiciones', 14, 18)
+
+  // Filtros activos
+  const filterParts: string[] = []
+  if (filters.dateFrom || filters.dateTo) {
+    filterParts.push(`Período: ${filters.dateFrom ?? '—'} a ${filters.dateTo ?? '—'}`)
+  }
+  if (filters.employee)   filterParts.push(`Empleado: ${filters.employee}`)
+  if (filters.department) filterParts.push(`Depto: ${filters.department}`)
+  if (filters.status?.length) filterParts.push(`Estado: ${filters.status.map(s => STATUS_ES[s] ?? s).join(', ')}`)
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100)
+  if (filterParts.length > 0) doc.text(filterParts.join('   |   '), 14, 26)
+  doc.text(`${reports.length} rendición${reports.length !== 1 ? 'es' : ''} · Exportado ${new Date().toLocaleDateString('es-CL')}`, 14, 32)
+  doc.setTextColor(0)
+
+  // KPIs rápidos
+  const totalMonto   = reports.reduce((s, r) => s + r.total_amount, 0)
+  const totalAprobado = reports.reduce((s, r) => s + r.approved_amount, 0)
+  doc.setFontSize(9)
+  doc.text(`Total: ${formatCLP(totalMonto)}   Aprobado: ${formatCLP(totalAprobado)}`, 14, 38)
+
+  // Tabla principal
+  autoTable(doc, {
+    startY: 44,
+    head: [['Empleado', 'Depto', 'Rendición', 'Estado', 'Total CLP', 'Aprobado CLP', 'Envío', 'Aprobación', 'Reembolso']],
+    body: reports.map(r => [
+      r.submitter_name,
+      r.department ?? '',
+      r.title,
+      STATUS_ES[r.status] ?? r.status,
+      formatCLP(r.total_amount),
+      r.approved_amount > 0 ? formatCLP(r.approved_amount) : '',
+      r.submitted_at  ? formatDate(r.submitted_at.split('T')[0])  : '',
+      r.approved_at   ? formatDate(r.approved_at.split('T')[0])   : '',
+      r.reimbursed_at ? formatDate(r.reimbursed_at.split('T')[0]) : '',
+    ]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [99, 102, 241] },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 32 }, 1: { cellWidth: 24 }, 2: { cellWidth: 50 },
+      3: { cellWidth: 26 }, 4: { cellWidth: 24 }, 5: { cellWidth: 24 },
+    },
+  })
+
+  // Segunda página: motivos de rechazo (si los hay)
+  const rejected: { emp: string; report: string; item: string; motivo: string }[] = []
+  for (const r of reports) {
+    for (const item of r.items ?? []) {
+      if (item.status === 'rejected' && item.rejection_reason) {
+        rejected.push({ emp: r.submitter_name, report: r.title, item: item.description, motivo: item.rejection_reason })
+      }
+    }
+  }
+
+  if (rejected.length > 0) {
+    doc.addPage()
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Ítems rechazados', 14, 18)
+
+    autoTable(doc, {
+      startY: 24,
+      head: [['Empleado', 'Rendición', 'Ítem rechazado', 'Motivo']],
+      body: rejected.map(r => [r.emp, r.report, r.item, r.motivo]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [239, 68, 68] },
+      columnStyles: { 3: { cellWidth: 80 } },
+    })
+  }
+
+  doc.save(`${filename}.pdf`)
 }

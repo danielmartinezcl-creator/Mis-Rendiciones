@@ -4,8 +4,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { buildOcrPrompt, parseOcrResponse } from '@/lib/ocr-helpers'
 import type { OcrResult } from '@/lib/ocr-helpers'
 
-export type { OcrResult }
-
 export async function runOcr(imageBase64: string, mimeType: string): Promise<OcrResult | null> {
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY!,

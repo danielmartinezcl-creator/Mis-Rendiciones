@@ -24,14 +24,44 @@ export async function getPendingApprovals() {
 
   if (!profile || (!profile.can_approve && profile.role !== 'admin')) return []
 
+  // Obtener todos los reportes pendientes de la org, incluyendo los aprobadores configurados del rendidor
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, status, total_amount, submitted_at, currency')
+    .select(`
+      id, title, status, total_amount, submitted_at, currency,
+      submitter:users!submitter_id (approver_l1_id, approver_l2_id, full_name)
+    `)
     .eq('org_id', profile.org_id)
     .in('status', ['submitted', 'pending_l2'])
     .order('submitted_at', { ascending: true })
 
-  return data ?? []
+  const reports = data ?? []
+
+  // Filtrar: solo los reportes donde el usuario actual es el aprobador designado para ese nivel
+  return reports.filter(r => {
+    const sub = r.submitter as { approver_l1_id: string | null; approver_l2_id: string | null; full_name: string } | null
+
+    if (!sub) {
+      // Sin aprobador configurado → visible a todos los can_approve (fallback)
+      return profile.can_approve || profile.role === 'admin'
+    }
+
+    if (r.status === 'submitted')   return sub.approver_l1_id === user.id
+    if (r.status === 'pending_l2')  return sub.approver_l2_id === user.id
+    return false
+  }).map(r => {
+    const sub = r.submitter as { approver_l1_id: string | null; approver_l2_id: string | null; full_name: string } | null
+    return {
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      total_amount: r.total_amount,
+      submitted_at: r.submitted_at,
+      currency: r.currency,
+      submitter_name: sub?.full_name ?? null,
+      approval_level: r.status === 'pending_l2' ? 2 : 1,
+    }
+  })
 }
 
 export async function getReportForApproval(reportId: string) {
@@ -47,7 +77,7 @@ export async function getReportForApproval(reportId: string) {
 
   const { data: submitter } = await supabase
     .from('users')
-    .select('full_name')
+    .select('full_name, approver_l1_id, approver_l2_id')
     .eq('id', report.submitter_id)
     .single()
 
@@ -61,7 +91,13 @@ export async function getReportForApproval(reportId: string) {
     .eq('report_id', reportId)
     .order('created_at', { ascending: true })
 
-  return { ...report, submitter_name: submitter?.full_name ?? null, expense_items: items ?? [] }
+  return {
+    ...report,
+    submitter_name:    submitter?.full_name    ?? null,
+    approver_l1_id:    submitter?.approver_l1_id ?? null,
+    approver_l2_id:    submitter?.approver_l2_id ?? null,
+    expense_items:     items ?? [],
+  }
 }
 
 export async function submitApprovalDecision(
@@ -75,7 +111,7 @@ export async function submitApprovalDecision(
 
   const { data: profile } = await supabase
     .from('users')
-    .select('org_id, can_approve, role')
+    .select('org_id, can_approve, role, full_name')
     .eq('id', user.id)
     .single()
 
@@ -83,7 +119,28 @@ export async function submitApprovalDecision(
     throw new Error('Sin permiso para aprobar rendiciones')
   }
 
-  // Update each item status
+  // Obtener reporte actual (para saber si es decisión N1 o N2)
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('status, submitter_id, org_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
+
+  const isL1Decision = report.status === 'submitted'
+  const level        = isL1Decision ? 1 : 2
+
+  // Obtener aprobadores del rendidor para determinar si hay N2
+  const { data: submitter } = await supabase
+    .from('users')
+    .select('approver_l2_id')
+    .eq('id', report.submitter_id)
+    .single()
+
+  const hasL2 = !!submitter?.approver_l2_id
+
+  // Actualizar ítems
   for (const decision of decisions) {
     await supabase
       .from('expense_items')
@@ -94,17 +151,32 @@ export async function submitApprovalDecision(
       .eq('id', decision.itemId)
   }
 
-  // Re-fetch all items to compute report status
+  // Re-leer ítems para calcular estado
   const { data: allItems } = await supabase
     .from('expense_items')
     .select('status, amount_clp')
     .eq('report_id', reportId)
 
-  const items = allItems ?? []
-  const newStatus   = computeReportStatus(items)
+  const items       = allItems ?? []
+  const itemStatus  = computeReportStatus(items)
   const approvedAmt = computeApprovedAmount(items)
 
-  const isDecided = newStatus === 'approved' || newStatus === 'partially_approved' || newStatus === 'rejected'
+  // Lógica de cadena:
+  // Si es N1 y hay N2 y todos los ítems fueron aprobados → pending_l2
+  // Cualquier otro caso → estado final
+  let newStatus: typeof itemStatus | 'pending_l2'
+  if (isL1Decision && hasL2 && itemStatus === 'approved') {
+    newStatus = 'pending_l2'
+    // Resetear ítems a 'pending' para que N2 los revise desde cero
+    await supabase
+      .from('expense_items')
+      .update({ status: 'pending', rejection_reason: null })
+      .eq('report_id', reportId)
+  } else {
+    newStatus = itemStatus
+  }
+
+  const isDecided = newStatus !== 'pending_l2'
 
   await supabase
     .from('expense_reports')
@@ -115,21 +187,21 @@ export async function submitApprovalDecision(
     })
     .eq('id', reportId)
 
-  // Log approval — append-only table
+  // Log auditoría (append-only)
   const approvedIds = decisions.filter(d => d.action === 'approve').map(d => d.itemId)
   const rejectedIds = decisions.filter(d => d.action === 'reject').map(d => d.itemId)
 
   const logAction =
-    newStatus === 'approved'           ? 'approved'           :
-    newStatus === 'rejected'           ? 'rejected'           :
-    newStatus === 'partially_approved' ? 'partially_approved' : 'approved'
+    itemStatus === 'approved'           ? 'approved'           :
+    itemStatus === 'rejected'           ? 'rejected'           :
+    itemStatus === 'partially_approved' ? 'partially_approved' : 'approved'
 
   await supabase
     .from('expense_report_approvals')
     .insert({
       report_id:      reportId,
       approver_id:    user.id,
-      level:          1,
+      level,
       action:         logAction as 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft',
       items_approved: approvedIds.length > 0 ? approvedIds : null,
       items_rejected: rejectedIds.length > 0 ? rejectedIds : null,
