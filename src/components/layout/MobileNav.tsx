@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { LayoutDashboard, ScanLine, CheckCircle2, BarChart3 } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 
 interface MobileNavProps {
@@ -10,10 +11,10 @@ interface MobileNavProps {
 }
 
 const mobileItems = [
-  { href: '/',             label: 'Estado', icon: '🏠', requiresSubmit: false, requiresApprove: false, requiresAdmin: false },
-  { href: '/expenses/new', label: 'Rendir', icon: '📷', requiresSubmit: true,  requiresApprove: false, requiresAdmin: false },
-  { href: '/approvals',    label: 'Aprobar',icon: '✅', requiresSubmit: false, requiresApprove: true,  requiresAdmin: false },
-  { href: '/admin',        label: 'Admin',  icon: '📊', requiresSubmit: false, requiresApprove: false, requiresAdmin: true  },
+  { href: '/',             label: 'Estado', Icon: LayoutDashboard, requiresSubmit: false, requiresApprove: false, requiresAdmin: false },
+  { href: '/expenses/new', label: 'Rendir', Icon: ScanLine,        requiresSubmit: true,  requiresApprove: false, requiresAdmin: false },
+  { href: '/approvals',    label: 'Aprobar',Icon: CheckCircle2,    requiresSubmit: false, requiresApprove: true,  requiresAdmin: false },
+  { href: '/admin',        label: 'Admin',  Icon: BarChart3,       requiresSubmit: false, requiresApprove: false, requiresAdmin: true  },
 ]
 
 export function MobileNav({ user }: MobileNavProps) {
@@ -27,18 +28,18 @@ export function MobileNav({ user }: MobileNavProps) {
   })
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-100 z-50">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-ink-200 z-50">
       <div className="flex">
         {visible.map(item => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              'flex-1 flex flex-col items-center py-3 text-xs font-medium transition-colors',
-              pathname === item.href ? 'text-brand-600' : 'text-slate-400'
+              'flex-1 flex flex-col items-center py-3 text-xs font-semibold transition-colors gap-1',
+              pathname === item.href ? 'text-brand-600' : 'text-ink-400'
             )}
           >
-            <span className="text-xl mb-1">{item.icon}</span>
+            <item.Icon size={20} />
             {item.label}
           </Link>
         ))}

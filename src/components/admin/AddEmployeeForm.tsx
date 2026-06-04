@@ -46,7 +46,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
 
   if (success) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-[12px] p-4 text-center">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-card p-4 text-center">
         <p className="text-emerald-700 font-semibold text-sm">✓ Empleado agregado</p>
         <p className="text-emerald-600 text-xs mt-1">Recibirá un email para activar su cuenta</p>
       </div>
@@ -64,7 +64,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             onChange={e => setFullName(e.target.value)}
             required
             placeholder="Ej: María González"
-            className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
         <div>
@@ -75,7 +75,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             onChange={e => setEmail(e.target.value)}
             required
             placeholder="correo@empresa.cl"
-            className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
         <div>
@@ -83,7 +83,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           <select
             value={role}
             onChange={e => setRole(e.target.value as typeof role)}
-            className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
           >
             {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -95,27 +95,27 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             value={department}
             onChange={e => setDepartment(e.target.value)}
             placeholder="Ej: Operaciones (opcional)"
-            className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 rounded-[8px] p-2">{error}</p>
+        <p className="text-xs text-red-600 bg-red-50 rounded-item p-2">{error}</p>
       )}
 
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-[12px] transition-colors"
+          className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-card transition-colors"
         >
           {saving ? 'Creando cuenta...' : 'Agregar empleado'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="px-4 py-2.5 border border-slate-200 text-slate-600 text-sm rounded-[12px] hover:bg-slate-50 transition-colors"
+          className="px-4 py-2.5 border border-slate-200 text-slate-600 text-sm rounded-card hover:bg-slate-50 transition-colors"
         >
           Cancelar
         </button>

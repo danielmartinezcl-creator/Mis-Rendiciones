@@ -13,7 +13,7 @@ export function Card({ children, className, hero }: CardProps) {
         'rounded-card shadow-card p-4',
         hero
           ? 'bg-card-hero text-white'
-          : 'bg-white border border-slate-100',
+          : 'bg-white border border-ink-200',
         className
       )}
     >

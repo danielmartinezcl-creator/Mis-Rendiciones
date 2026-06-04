@@ -21,7 +21,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
 
   return (
     <ItemStatusAccent status={item.status as ItemStatus}>
-      <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
         {/* Fila principal: descripción + monto */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -55,13 +55,13 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
             <span>📎 {item.attachments.length} adjunto{item.attachments.length !== 1 ? 's' : ''}</span>
           )}
           {item.ocr_confidence && (
-            <span className="text-indigo-400">✦ OCR {Math.round(item.ocr_confidence * 100)}%</span>
+            <span className="text-brand-400">✦ OCR {Math.round(item.ocr_confidence * 100)}%</span>
           )}
         </div>
 
         {/* Motivo de rechazo */}
         {item.status === 'rejected' && item.rejection_reason && (
-          <div className="bg-red-50 border border-red-200 rounded-[8px] p-2">
+          <div className="bg-red-50 border border-red-200 rounded-item p-2">
             <p className="text-xs text-red-600 font-medium">Motivo de rechazo:</p>
             <p className="text-xs text-red-500 mt-0.5">{item.rejection_reason}</p>
           </div>

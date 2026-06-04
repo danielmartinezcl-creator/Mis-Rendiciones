@@ -118,7 +118,7 @@ export default function ApprovalDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -127,7 +127,7 @@ export default function ApprovalDetailPage() {
     return (
       <div className="text-center py-12 text-slate-400">
         <p>Rendición no encontrada</p>
-        <button onClick={() => router.push('/approvals')} className="text-indigo-600 text-sm mt-2 hover:underline">
+        <button onClick={() => router.push('/approvals')} className="text-brand-600 text-sm mt-2 hover:underline">
           Volver
         </button>
       </div>
@@ -162,7 +162,7 @@ export default function ApprovalDetailPage() {
       </div>
 
       {/* Total */}
-      <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
         <span className="text-sm text-slate-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
@@ -178,7 +178,7 @@ export default function ApprovalDetailPage() {
             <div
               key={item.id}
               className={[
-                'bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3 border-l-4',
+                'bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3 border-l-4',
                 d.action === 'approve' ? 'border-l-emerald-400' :
                 d.action === 'reject'  ? 'border-l-red-400'     :
                                          'border-l-slate-200',
@@ -227,7 +227,7 @@ export default function ApprovalDetailPage() {
                         <img
                           src={signedUrls[att.id]}
                           alt="Adjunto"
-                          className="w-24 h-24 object-cover rounded-[8px] border border-slate-200 hover:opacity-80 transition-opacity"
+                          className="w-24 h-24 object-cover rounded-item border border-slate-200 hover:opacity-80 transition-opacity"
                         />
                       </a>
                     ) : (
@@ -247,7 +247,7 @@ export default function ApprovalDetailPage() {
                       type="button"
                       onClick={() => setDecision(item.id, 'action', 'approve')}
                       className={[
-                        'flex-1 py-2 rounded-[8px] text-sm font-semibold transition-colors',
+                        'flex-1 py-2 rounded-item text-sm font-semibold transition-colors',
                         d.action === 'approve'
                           ? 'bg-emerald-500 text-white'
                           : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
@@ -259,7 +259,7 @@ export default function ApprovalDetailPage() {
                       type="button"
                       onClick={() => setDecision(item.id, 'action', 'reject')}
                       className={[
-                        'flex-1 py-2 rounded-[8px] text-sm font-semibold transition-colors',
+                        'flex-1 py-2 rounded-item text-sm font-semibold transition-colors',
                         d.action === 'reject'
                           ? 'bg-red-500 text-white'
                           : 'bg-red-50 text-red-600 hover:bg-red-100',
@@ -275,7 +275,7 @@ export default function ApprovalDetailPage() {
                       onChange={e => setDecision(item.id, 'reason', e.target.value)}
                       placeholder="Motivo del rechazo (obligatorio)..."
                       rows={2}
-                      className="w-full px-3 py-2 border border-red-200 rounded-[8px] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-red-50"
+                      className="w-full px-3 py-2 border border-red-200 rounded-item text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-red-50"
                     />
                   )}
                 </div>
@@ -297,12 +297,12 @@ export default function ApprovalDetailPage() {
               onChange={e => setNotes(e.target.value)}
               placeholder="Comentario para el rendidor..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-[8px] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-[8px] p-3">
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
               {error}
             </div>
           )}
@@ -310,7 +310,7 @@ export default function ApprovalDetailPage() {
           <button
             onClick={handleSubmit}
             disabled={submitting || !allDecided()}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-[12px] transition-colors"
+            className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-card transition-colors"
           >
             {submitting ? 'Enviando decisión...' : 'Enviar decisión'}
           </button>
@@ -323,7 +323,7 @@ export default function ApprovalDetailPage() {
       )}
 
       {!isActionable && (
-        <div className="bg-slate-50 rounded-[12px] p-4 text-center text-sm text-slate-500">
+        <div className="bg-slate-50 rounded-card p-4 text-center text-sm text-slate-500">
           Esta rendición ya fue procesada (estado: <strong>{report.status}</strong>).
         </div>
       )}

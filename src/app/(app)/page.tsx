@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { getMyReports } from '@/actions/expenses'
+import { ScanLine, ReceiptText } from 'lucide-react'
 import type { ReportStatus } from '@/lib/constants'
 
 export default async function DashboardPage() {
@@ -29,16 +30,16 @@ export default async function DashboardPage() {
       {/* Card héroe con montos */}
       <Card hero>
         <div className="space-y-1">
-          <p className="text-indigo-200 text-sm font-medium">Por cobrar (aprobado)</p>
+          <p className="text-brand-300 text-sm font-medium">Por cobrar (aprobado)</p>
           <CurrencyAmount amount={approved} currency="CLP" size="xl" className="text-white" />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
-            <p className="text-indigo-300 text-xs">En revisión</p>
+            <p className="text-brand-400 text-xs">En revisión</p>
             <CurrencyAmount amount={inReview} currency="CLP" size="md" className="text-white" />
           </div>
           <div>
-            <p className="text-indigo-300 text-xs">Borradores</p>
+            <p className="text-brand-400 text-xs">Borradores</p>
             <CurrencyAmount amount={pending} currency="CLP" size="md" className="text-white" />
           </div>
         </div>
@@ -46,8 +47,8 @@ export default async function DashboardPage() {
 
       {/* CTA principal */}
       <Link href="/expenses/new">
-        <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-[12px] text-base flex items-center justify-center gap-3 transition-colors">
-          <span className="text-2xl">📷</span>
+        <button className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-card text-base flex items-center justify-center gap-3 transition-all duration-[180ms] shadow-brand active:scale-[.98]">
+          <ScanLine size={22} />
           Tomá la foto y listo
         </button>
       </Link>
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
       {/* Rendiciones recientes */}
       {recent.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+          <h2 className="text-sm font-semibold text-ink-500 uppercase tracking-wide">
             Rendiciones recientes
           </h2>
           <div className="space-y-2">
@@ -71,7 +72,7 @@ export default async function DashboardPage() {
             ))}
           </div>
           {reports.length > 5 && (
-            <Link href="/reimbursements" className="block text-center text-sm text-indigo-600 hover:underline">
+            <Link href="/reimbursements" className="block text-center text-sm text-brand-600 hover:underline">
               Ver todas ({reports.length})
             </Link>
           )}
@@ -79,8 +80,8 @@ export default async function DashboardPage() {
       )}
 
       {recent.length === 0 && (
-        <div className="text-center py-12 text-slate-400">
-          <p className="text-4xl mb-3">🧾</p>
+        <div className="text-center py-12 text-ink-400">
+          <ReceiptText size={40} className="mx-auto mb-3 opacity-40" />
           <p className="font-medium">No tenés rendiciones aún</p>
           <p className="text-sm mt-1">Usá el botón de arriba para crear tu primera</p>
         </div>

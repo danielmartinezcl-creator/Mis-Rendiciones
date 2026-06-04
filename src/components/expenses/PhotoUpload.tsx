@@ -76,15 +76,15 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || isLoading}
-        className="w-full border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-[12px] p-6 text-center transition-colors disabled:opacity-50"
+        className="w-full border-2 border-dashed border-brand-200 hover:border-brand-500 rounded-card p-6 text-center transition-colors disabled:opacity-50"
       >
         <div className="flex flex-col items-center gap-2">
           {isLoading ? (
-            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
           ) : (
             <span className="text-3xl">📷</span>
           )}
-          <span className="text-sm font-semibold text-indigo-600">
+          <span className="text-sm font-semibold text-brand-600">
             {labels[status]}
           </span>
           {status === 'idle' && (

@@ -60,9 +60,12 @@ description: >
 - **Admin client**: `src/lib/supabase/admin.ts` → `createAdminClient()` con `SUPABASE_SERVICE_ROLE_KEY` — usar solo en Server Actions para operaciones que requieren bypass de RLS (crear usuarios, operaciones cross-org)
 - **Variables de entorno requeridas**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (sin NEXT_PUBLIC — nunca exponer al browser)
 
-### Tipografía
-- Montos y números: fuente **Manrope** con `tabular-nums`
+### Tipografía (reforma visual 2026-06-04)
+- **Display / títulos:** `Bricolage Grotesque` — variable `--font-bricolage`, clases `font-display` / `font-bricolage`
+- **UI / body / labels:** `Hanken Grotesk` — variable `--font-hanken`, clase `font-hanken` (default del `<body>`)
+- **Montos y cifras:** `Geist Mono` (paquete npm `geist`) — variable `--font-geist-mono`, clase `font-mono-amount`
 - **Nunca** usar JetBrains Mono ni fuentes con cero marcado con barra (confunde a adultos mayores)
+- Compatibilidad: `.font-jakarta` → alias de Bricolage, `.font-manrope` → alias de Geist Mono (no romper código viejo)
 
 ### Lógica sensible
 - OCR, emails y tipo de cambio histórico van en **Server Actions** — nunca en Client Components
@@ -194,7 +197,10 @@ docs/superpowers/
 
 **Sidebar dinámico:**
 - Orden guardado en `localStorage` key `sidebar_order_${userId}` (por admin, no por org)
-- Botón "⠿ Personalizar menú" aparece solo para admins; activa modo reordenación con flechas ▲▼ por ítem
+- Botón "Personalizar menú" (solo admins) activa modo **drag & drop** — arrastrar ítems directamente, sin flechas
+- Feedback visual: ítem arrastrado → opacity 30% + scale; línea teal indica posición destino; `cursor-grab`/`cursor-grabbing`
+- Usa HTML5 Drag & Drop API nativa (`draggable`, `onDragStart/Over/Drop/End`) — sin librerías externas
+- Ghost nativo suprimido con un div invisible temporal (`setDragImage`)
 - "Inicio" renombrado a **"Estado"** (en Sidebar y MobileNav)
 
 **Admin Rendiciones — vista completa:**
@@ -204,6 +210,23 @@ docs/superpowers/
 - Detalle expandible por rendición (carga lazy): historial de aprobaciones coloreado + tabla de ítems con motivos de rechazo
 - `exportAdminReportsToExcel()` — 2 hojas: Resumen (todos los campos) + Rechazos (solo ítems rechazados con motivo)
 - `exportAdminReportsToPDF()` — horizontal, tabla principal + página adicional de rechazos
+
+### ✅ Reforma visual — "Mi rendición" (2026-06-04)
+
+**Cambios aplicados** (archivos en `Mi rendición — Design System/design_handoff_reform/`):
+- **Nombre del app**: "Rindegastos — PENTA" → **"Mi rendición"** (layout.tsx, manifest)
+- **Color brand**: indigo `#4f46e5` → **teal `#0D9488`** — todas las referencias `indigo-*` reemplazadas por `brand-*`
+- **Paleta neutral**: slate → **ink** (escala `#080C16`…`#F6F8FB`, azul-negro frío)
+- **Sidebar bg**: `#0f172a` → `#0B1120`
+- **Radios**: items 8px → 14px (`rounded-item`), cards 12px → 18px (`rounded-card`)
+- **Íconos**: emoji → **Lucide React** en Sidebar, MobileNav y páginas
+- **AdminKpiHero**: nuevo componente hero con degradé `ink→teal` en `/admin` y `/admin/reports`
+- **Botones export**: degradé `ink→esmeralda` (Excel) y `ink→rose` (PDF)
+- **Categorías settings**: íconos emoji eliminados → mapa nombre→Lucide con fallback `Tag`; circle tintado con color de la categoría
+- **STATUS_DOT**: nuevo export en `constants.ts` para el dot de color sólido en `ReportStatusBadge`
+- **`tsconfig.json`**: agrega `"Mi rendición — Design System"` a `exclude` (TypeScript lo procesaba como código)
+
+**Dependencias instaladas**: `npm install geist lucide-react`
 
 ### ⏳ Pendiente
 - Iconos PWA: crear `/public/icons/icon-192.png` y `/public/icons/icon-512.png`
@@ -317,6 +340,9 @@ docs/superpowers/
 | `auth.admin.createUser()` falla con 401 | `SUPABASE_SERVICE_ROLE_KEY` no configurada en `.env.local` o Vercel | Agregar la key (Settings → API → service_role) — distinta de la anon key |
 | Join `expense_report_approvals → users` falla | `approver_id` FK apunta a `auth.users`, no a `public.users` | Query separada: `supabase.from('users').select('id,full_name').in('id', approverIds)` |
 | `localStorage` en Sidebar rompe SSR | Acceso a `localStorage` fuera de `useEffect` en Next.js | Inicializar state con valor default → aplicar localStorage en `useEffect(() => {...}, [userId])` |
+| Clases `indigo-*` de Tailwind renderan indigo aunque `@theme` defina `brand` | Las clases built-in de Tailwind NO usan los tokens `@theme` — son estáticas | Usar siempre `brand-*` para el color primario; nunca `indigo-*` en este proyecto |
+| `rounded-[8px]` / `rounded-[12px]` inline bypasean el design system | Los valores hardcodeados no heredan cambios de `--radius-item` / `--radius-card` | Usar `rounded-item` y `rounded-card` — si los radios cambian, solo se actualiza globals.css |
+| Directorio de assets de diseño procesado por TypeScript | `Mi rendición — Design System/` contiene `.tsx` de referencia sin imports válidos → TS error en `tsc --noEmit` | Agregar el directorio a `tsconfig.json` → `"exclude"` |
 | Nested select con `as unknown as T[]` | Workaround alternativo al cast `as T[]` cuando el tipo es `never` | `(data ?? []).map(i => { const item = i as unknown as RawType; return {...} })` |
 | `.map(i => i.description)` falla: "no existe en tipo never" | Nested select Supabase sin cast explícito | Definir `type RawItem = {...}` encima y castear: `i as unknown as RawItem` |
 | Sidebar items vacíos en primer render | `useState([])` + `useEffect` para cargar orden: hay flash | Inicializar `useState` con `visible` (el array filtrado), luego aplicar orden guardado en `useEffect` |

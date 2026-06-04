@@ -59,7 +59,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
         <select
           value={l1Id}
           onChange={e => { setL1Id(e.target.value); if (e.target.value === '') setL2Id('') }}
-          className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+          className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
         >
           <option value="">Sin aprobador asignado</option>
           {options.map(u => (
@@ -78,7 +78,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
           <select
             value={l2Id}
             onChange={e => setL2Id(e.target.value)}
-            className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
             disabled={!l1Id}
           >
             <option value="">Sin segundo nivel</option>
@@ -106,7 +106,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-[8px] transition-colors"
+        className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
       >
         {saving ? 'Guardando...' : 'Guardar aprobadores'}
       </button>

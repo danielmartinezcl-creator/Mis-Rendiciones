@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getPendingApprovals } from '@/actions/approvals'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { formatDate } from '@/lib/utils'
+import { CheckCircle2 } from 'lucide-react'
 import type { Currency } from '@/lib/constants'
 
 export default async function ApprovalsPage() {
@@ -10,8 +11,8 @@ export default async function ApprovalsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Bandeja de aprobaciones</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Bandeja de aprobaciones</h1>
+        <p className="text-sm text-ink-500 mt-1">
           {reports.length > 0
             ? `${reports.length} rendición${reports.length !== 1 ? 'es' : ''} esperando tu decisión`
             : 'No hay rendiciones pendientes'}
@@ -19,8 +20,8 @@ export default async function ApprovalsPage() {
       </div>
 
       {reports.length === 0 && (
-        <div className="text-center py-16 text-slate-400">
-          <p className="text-4xl mb-3">✅</p>
+        <div className="text-center py-16 text-ink-400">
+          <CheckCircle2 size={40} className="mx-auto mb-3 opacity-40" />
           <p className="font-medium">Todo al día</p>
           <p className="text-sm mt-1">No hay rendiciones pendientes de aprobación.</p>
         </div>

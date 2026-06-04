@@ -35,12 +35,12 @@ export default function NewExpensePage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-[8px] p-3">
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-indigo-600 p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-5 space-y-4">
         <div>
           <label htmlFor="title" className="block text-sm font-semibold text-slate-700 mb-1">
             Nombre de la rendición *
@@ -51,7 +51,7 @@ export default function NewExpensePage() {
             type="text"
             required
             placeholder="Ej: Viaje a Santiago — Mayo 2026"
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-[8px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
           <p className="text-xs text-slate-400 mt-1">
             Un nombre que identifique claramente el grupo de gastos
@@ -67,7 +67,7 @@ export default function NewExpensePage() {
             name="description"
             rows={2}
             placeholder="Contexto adicional para quien aprueba..."
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-[8px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none"
+            className="w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
           />
         </div>
 
@@ -76,14 +76,14 @@ export default function NewExpensePage() {
             type="button"
             onClick={() => router.back()}
             disabled={loading}
-            className="flex-1 py-2.5 px-4 border border-slate-200 rounded-[8px] text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            className="flex-1 py-2.5 px-4 border border-slate-200 rounded-item text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[8px] text-sm font-semibold disabled:opacity-50 transition-colors"
+            className="flex-1 py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
           >
             {loading ? 'Creando...' : 'Continuar →'}
           </button>

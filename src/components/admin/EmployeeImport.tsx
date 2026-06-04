@@ -116,12 +116,12 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     const err = results.filter(r => !r.success)
     return (
       <div className="space-y-4">
-        <div className="bg-emerald-50 border border-emerald-200 rounded-[12px] p-4">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-card p-4">
           <p className="font-semibold text-emerald-700">{ok.length} empleado{ok.length !== 1 ? 's' : ''} importado{ok.length !== 1 ? 's' : ''} correctamente</p>
           <p className="text-xs text-emerald-600 mt-1">Recibirán un email para activar su cuenta.</p>
         </div>
         {err.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-[12px] p-4 space-y-1">
+          <div className="bg-red-50 border border-red-200 rounded-card p-4 space-y-1">
             <p className="font-semibold text-red-700 text-sm">Errores ({err.length})</p>
             {err.map((r, i) => (
               <p key={i} className="text-xs text-red-600">{r.email}: {r.error}</p>
@@ -130,7 +130,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         )}
         <button
           onClick={() => { setResults(null); setPreview(null) }}
-          className="text-sm text-indigo-600 hover:underline"
+          className="text-sm text-brand-600 hover:underline"
         >
           Importar más empleados
         </button>
@@ -167,21 +167,21 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                     <input
                       value={row.full_name}
                       onChange={e => updateRow(row._key, 'full_name', e.target.value)}
-                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-600"
                     />
                   </td>
                   <td className="py-1.5 pr-2">
                     <input
                       value={row.email}
                       onChange={e => updateRow(row._key, 'email', e.target.value)}
-                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-600"
                     />
                   </td>
                   <td className="py-1.5 pr-2">
                     <select
                       value={row.role}
                       onChange={e => updateRow(row._key, 'role', e.target.value)}
-                      className="border border-slate-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="border border-slate-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
                     >
                       {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
@@ -190,7 +190,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                     <input
                       value={row.department ?? ''}
                       onChange={e => updateRow(row._key, 'department', e.target.value)}
-                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-600"
                       placeholder="Opcional"
                     />
                   </td>
@@ -216,7 +216,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         <button
           onClick={handleImport}
           disabled={importing || preview.length === 0}
-          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-[12px] transition-colors"
+          className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-card transition-colors"
         >
           {importing ? 'Importando...' : `Confirmar e importar ${preview.length} empleado${preview.length !== 1 ? 's' : ''}`}
         </button>
@@ -231,7 +231,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         onClick={() => inputRef.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
-        className="border-2 border-dashed border-slate-200 rounded-[12px] p-8 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors"
+        className="border-2 border-dashed border-slate-200 rounded-card p-8 text-center cursor-pointer hover:border-brand-500 hover:bg-brand-50/30 transition-colors"
       >
         <p className="text-2xl mb-2">📊</p>
         <p className="text-sm font-medium text-slate-700">Sube tu nómina en Excel</p>
@@ -245,14 +245,14 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         />
       </div>
 
-      <div className="bg-slate-50 rounded-[8px] p-3 text-xs text-slate-500 space-y-1">
+      <div className="bg-slate-50 rounded-item p-3 text-xs text-slate-500 space-y-1">
         <p className="font-medium text-slate-600">Columnas esperadas en el Excel:</p>
         <p><span className="font-mono bg-white border border-slate-200 px-1 rounded">Nombre</span> <span className="font-mono bg-white border border-slate-200 px-1 rounded">Email</span> <span className="font-mono bg-white border border-slate-200 px-1 rounded">Rol</span> <span className="font-mono bg-white border border-slate-200 px-1 rounded">Departamento</span></p>
         <p>Roles válidos: <em>empleado</em>, <em>aprobador</em>, <em>administrador</em></p>
       </div>
 
       {parseError && (
-        <p className="text-xs text-red-600 bg-red-50 rounded-[8px] p-2">{parseError}</p>
+        <p className="text-xs text-red-600 bg-red-50 rounded-item p-2">{parseError}</p>
       )}
     </div>
   )

@@ -137,16 +137,16 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
     }
   }
 
-  const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-[8px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600'
+  const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-indigo-600 p-4">
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-4">
       <h3 className="font-semibold text-slate-800">Agregar ítem</h3>
 
       <PhotoUpload onOcrResult={handleOcrResult} disabled={saving} />
 
       {errors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-[8px] p-3">
+        <div className="bg-red-50 border border-red-200 rounded-item p-3">
           {errors.map(err => (
             <p key={err} className="text-sm text-red-600">{err}</p>
           ))}
@@ -192,7 +192,7 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
 
       {/* Tipo de cambio (solo si moneda != CLP) */}
       {form.currency !== 'CLP' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-[8px] p-3 space-y-2">
+        <div className="bg-amber-50 border border-amber-200 rounded-item p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-amber-700">
               Tipo de cambio al {form.date}
@@ -306,14 +306,14 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 py-2.5 px-4 border border-slate-200 rounded-[8px] text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          className="flex-1 py-2.5 px-4 border border-slate-200 rounded-item text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[8px] text-sm font-semibold disabled:opacity-50 transition-colors"
+          className="flex-1 py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
         >
           {saving ? 'Guardando...' : 'Agregar ítem'}
         </button>

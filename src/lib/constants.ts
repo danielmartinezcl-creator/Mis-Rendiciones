@@ -35,17 +35,27 @@ export const ITEM_STATUSES = ['pending', 'approved', 'rejected'] as const
 export type ItemStatus = typeof ITEM_STATUSES[number]
 
 export const STATUS_COLORS: Record<ReportStatus, string> = {
-  draft:               'bg-slate-100 text-slate-600',
+  draft:               'bg-slate-100 text-slate-500',
   submitted:           'bg-amber-100 text-amber-700',
-  pending_l2:          'bg-amber-100 text-amber-700',
+  pending_l2:          'bg-violet-100 text-violet-700',
   approved:            'bg-emerald-100 text-emerald-700',
   partially_approved:  'bg-amber-100 text-amber-700',
-  rejected:            'bg-red-100 text-red-600',
-  reimbursed:          'bg-blue-100 text-blue-700',
+  rejected:            'bg-rose-100 text-rose-600',
+  reimbursed:          'bg-sky-100 text-sky-700',
+}
+
+export const STATUS_DOT: Record<ReportStatus, string> = {
+  draft:               'bg-slate-400',
+  submitted:           'bg-amber-500',
+  pending_l2:          'bg-violet-500',
+  approved:            'bg-emerald-500',
+  partially_approved:  'bg-amber-500',
+  rejected:            'bg-rose-500',
+  reimbursed:          'bg-sky-500',
 }
 
 export const ITEM_STATUS_ACCENT: Record<ItemStatus, string> = {
-  pending:  'item-accent-pending',
-  approved: 'item-accent-approved',
-  rejected: 'item-accent-rejected',
+  pending:  'item-accent-pending',    /* amarillo — definido en globals.css */
+  approved: 'item-accent-approved',  /* esmeralda */
+  rejected: 'item-accent-rejected',  /* rosa */
 }

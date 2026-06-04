@@ -110,7 +110,7 @@ export default function ExpenseDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -119,7 +119,7 @@ export default function ExpenseDetailPage() {
     return (
       <div className="text-center py-12 text-slate-400">
         <p>Rendición no encontrada</p>
-        <button onClick={() => router.push('/')} className="text-indigo-600 text-sm mt-2 hover:underline">
+        <button onClick={() => router.push('/')} className="text-brand-600 text-sm mt-2 hover:underline">
           Volver al inicio
         </button>
       </div>
@@ -154,14 +154,14 @@ export default function ExpenseDetailPage() {
       </div>
 
       {/* Total */}
-      <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
         <span className="text-sm text-slate-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-[8px] p-3">
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
           {error}
         </div>
       )}
@@ -193,7 +193,7 @@ export default function ExpenseDetailPage() {
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
-              className="w-full py-3 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-[12px] text-indigo-600 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 border-2 border-dashed border-brand-200 hover:border-brand-500 rounded-card text-brand-600 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
             >
               + Agregar ítem
             </button>
@@ -203,7 +203,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-[12px] transition-colors"
+              className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors"
             >
               {submitting
                 ? 'Enviando...'
@@ -215,7 +215,7 @@ export default function ExpenseDetailPage() {
 
       {/* Estado informativo (no borrador) */}
       {!isDraft && (
-        <div className="bg-slate-50 rounded-[12px] p-4 text-center text-sm text-slate-500">
+        <div className="bg-slate-50 rounded-card p-4 text-center text-sm text-slate-500">
           Esta rendición está en estado <strong>{report.status}</strong> y no puede editarse.
         </div>
       )}

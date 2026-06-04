@@ -1,16 +1,55 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import {
+  Utensils, Building2, GraduationCap, Fuel, Smartphone,
+  Clapperboard, Package, Tag, Wrench, Car, Link2,
+  type LucideIcon,
+} from 'lucide-react'
 import { getOrgCategories, addCategory, toggleCategoryActive } from '@/actions/admin'
 import type { ExpenseCategory } from '@/lib/supabase/types'
+
+/* ── Mapeo nombre → ícono Lucide ─────────────────────────────────────── */
+const ICON_MAP: Array<{ keywords: string[]; Icon: LucideIcon }> = [
+  { keywords: ['alimenta', 'comida', 'restaurant', 'aliment'], Icon: Utensils },
+  { keywords: ['alojamient', 'hotel', 'hosped', 'arrend'],     Icon: Building2 },
+  { keywords: ['capacita', 'training', 'formac', 'curso'],     Icon: GraduationCap },
+  { keywords: ['combustibl', 'bencin', 'gasolina', 'diesel'],  Icon: Fuel },
+  { keywords: ['comunicac', 'telefon', 'celular', 'internet'],  Icon: Smartphone },
+  { keywords: ['entretenim', 'recreac', 'divers'],              Icon: Clapperboard },
+  { keywords: ['material', 'suministr', 'insumo', 'repuesto'],  Icon: Package },
+  { keywords: ['servicio', 'mantenc', 'servic'],               Icon: Wrench },
+  { keywords: ['transport', 'vehic', 'taxi', 'uber', 'tren'],  Icon: Car },
+  { keywords: ['otro', 'other', 'miscel'],                     Icon: Tag },
+]
+
+function getCategoryIcon(name: string): LucideIcon {
+  const lower = name.toLowerCase()
+  for (const entry of ICON_MAP) {
+    if (entry.keywords.some(k => lower.includes(k))) return entry.Icon
+  }
+  return Tag
+}
+
+function CategoryIcon({ name, color }: { name: string; color?: string | null }) {
+  const Icon = getCategoryIcon(name)
+  const bg   = color ?? '#8A95AD'
+  return (
+    <span
+      className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
+      style={{ backgroundColor: bg + '22', color: bg }}
+    >
+      <Icon size={17} strokeWidth={2} />
+    </span>
+  )
+}
 
 export default function AdminSettingsPage() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [loading,    setLoading]    = useState(true)
 
   const [catName,   setCatName]   = useState('')
-  const [catIcon,   setCatIcon]   = useState('')
-  const [catColor,  setCatColor]  = useState('#6366f1')
+  const [catColor,  setCatColor]  = useState('#0D9488')
   const [catSaving, setCatSaving] = useState(false)
 
   async function load() {
@@ -26,9 +65,9 @@ export default function AdminSettingsPage() {
     if (!catName.trim()) return
     setCatSaving(true)
     try {
-      await addCategory({ name: catName, icon: catIcon || undefined, color: catColor || undefined })
+      await addCategory({ name: catName, color: catColor || undefined })
       setCatName('')
-      setCatIcon('')
+      setCatColor('#0D9488')
       await load()
     } finally {
       setCatSaving(false)
@@ -43,27 +82,27 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
-  const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-[8px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600'
+  const inputCls = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h1 className="text-xl font-bold text-slate-800">Configuración</h1>
+      <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Configuración</h1>
 
       {/* ── Categorías de gasto ─────────────────────────────── */}
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700">Categorías de gasto</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Las categorías globales están disponibles para todas las organizaciones. Puedes agregar categorías propias de tu empresa.</p>
+          <h2 className="text-sm font-semibold text-ink-800">Categorías de gasto</h2>
+          <p className="text-xs text-ink-400 mt-0.5">Las categorías globales están disponibles para todas las organizaciones. Podés agregar categorías propias de tu empresa.</p>
         </div>
 
-        <form onSubmit={handleAddCategory} className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
-          <h3 className="font-semibold text-slate-800 text-sm">Nueva categoría</h3>
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+        <form onSubmit={handleAddCategory} className="bg-white rounded-card shadow-card p-4 space-y-3">
+          <h3 className="font-semibold text-ink-800 text-sm">Nueva categoría</h3>
+          <div className="flex gap-2">
             <input
               type="text"
               value={catName}
@@ -73,25 +112,25 @@ export default function AdminSettingsPage() {
               required
             />
             <input
-              type="text"
-              value={catIcon}
-              onChange={e => setCatIcon(e.target.value)}
-              placeholder="🏷️"
-              className="w-14 px-2 py-2.5 border border-slate-200 rounded-[8px] text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-600"
-            />
-            <input
               type="color"
               value={catColor}
               onChange={e => setCatColor(e.target.value)}
-              className="w-10 h-10 rounded-[8px] border border-slate-200 cursor-pointer p-0.5"
+              title="Color de la categoría"
+              className="w-11 h-11 rounded-item border border-ink-200 cursor-pointer p-1 shrink-0"
             />
           </div>
+          {catName.trim() && (
+            <div className="flex items-center gap-2 text-xs text-ink-500">
+              <CategoryIcon name={catName} color={catColor} />
+              <span>Vista previa del ícono asignado automáticamente</span>
+            </div>
+          )}
           <button
             type="submit"
             disabled={catSaving || !catName.trim()}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-[8px] transition-colors"
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-all duration-[180ms] active:scale-[.97]"
           >
-            {catSaving ? 'Guardando...' : '+ Agregar'}
+            {catSaving ? 'Guardando…' : '+ Agregar'}
           </button>
         </form>
 
@@ -100,18 +139,17 @@ export default function AdminSettingsPage() {
             <div
               key={cat.id}
               className={[
-                'bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-3 flex items-center gap-3',
-                !cat.is_active && 'opacity-50',
+                'bg-white rounded-card shadow-card p-3 flex items-center gap-3 transition-opacity',
+                !cat.is_active && 'opacity-40',
               ].filter(Boolean).join(' ')}
             >
-              {cat.icon && <span className="text-xl">{cat.icon}</span>}
-              {cat.color && <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />}
-              <span className="flex-1 text-sm font-medium text-slate-700">{cat.name}</span>
-              {!cat.org_id && <span className="text-xs text-slate-400 italic">global</span>}
+              <CategoryIcon name={cat.name} color={cat.color} />
+              <span className="flex-1 text-sm font-medium text-ink-800">{cat.name}</span>
+              {!cat.org_id && <span className="text-xs text-ink-400 italic">global</span>}
               {cat.org_id && (
                 <button
                   onClick={() => handleToggleCat(cat.id, cat.is_active)}
-                  className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                  className="text-xs text-ink-400 hover:text-ink-600 transition-colors font-medium"
                 >
                   {cat.is_active ? 'Desactivar' : 'Activar'}
                 </button>
@@ -123,13 +161,13 @@ export default function AdminSettingsPage() {
 
       {/* ── Cadenas de aprobación ───────────────────────────── */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">Cadenas de aprobación</h2>
-        <div className="bg-indigo-50 border border-indigo-200 rounded-[12px] p-4 flex gap-3">
-          <span className="text-xl shrink-0">⛓</span>
+        <h2 className="text-sm font-semibold text-ink-800">Cadenas de aprobación</h2>
+        <div className="bg-brand-50 border border-brand-200 rounded-card p-4 flex gap-3 items-start">
+          <Link2 size={18} className="text-brand-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-indigo-800">Las aprobaciones se configuran por empleado</p>
-            <p className="text-xs text-indigo-600 mt-1">
-              Ve a <strong>Empleados</strong> y despliega la tarjeta de cada persona para asignar su aprobador N1 y, si corresponde, un aprobador N2 en cadena.
+            <p className="text-sm font-medium text-brand-800">Las aprobaciones se configuran por empleado</p>
+            <p className="text-xs text-brand-600 mt-1">
+              Ve a <strong>Empleados</strong> y desplegá la tarjeta de cada persona para asignar su aprobador N1 y, si corresponde, un aprobador N2 en cadena.
             </p>
           </div>
         </div>

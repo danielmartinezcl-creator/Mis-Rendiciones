@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from 'react'
 import { getAdminReports, getReportDetailForAdmin } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { formatDate, formatCLP } from '@/lib/utils'
+import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
+import { Search, Banknote } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
@@ -135,7 +137,7 @@ export default function AdminReportsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -152,42 +154,42 @@ export default function AdminReportsPage() {
           <button
             onClick={() => handleExport('xlsx')}
             disabled={!!exporting || filtered.length === 0}
-            className="px-3 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-[10px] transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
+            style={{ background: 'linear-gradient(130deg, #0B1120 0%, #059669 100%)' }}
           >
-            {exporting === 'xlsx' ? '...' : '📊 Excel'}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            {exporting === 'xlsx' ? 'Exportando…' : 'Excel'}
           </button>
           <button
             onClick={() => handleExport('pdf')}
             disabled={!!exporting || filtered.length === 0}
-            className="px-3 py-2 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-[10px] transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
+            style={{ background: 'linear-gradient(130deg, #0B1120 0%, #BE123C 100%)' }}
           >
-            {exporting === 'pdf' ? '...' : '📄 PDF'}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            {exporting === 'pdf' ? 'Exportando…' : 'PDF'}
           </button>
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Total rendido',          amount: totalMonto,    color: 'text-slate-800' },
-          { label: 'Total aprobado',          amount: totalAprobado, color: 'text-emerald-700' },
-          { label: 'Pendiente reembolso',     amount: pendReimb,     color: 'text-blue-700' },
-        ].map(k => (
-          <div key={k.label} className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-3">
-            <p className="text-xs text-slate-400">{k.label}</p>
-            <p className={`text-base font-bold mt-0.5 ${k.color}`}>{formatCLP(k.amount)}</p>
-          </div>
-        ))}
-      </div>
+      <AdminKpiHero
+        title="Resumen filtrado"
+        total={totalMonto}
+        secondary={[
+          { label: 'Total aprobado',    value: totalAprobado, color: 'teal' },
+          { label: 'Pendiente reemb.',  value: pendReimb,     color: 'sky' },
+        ]}
+      />
 
       {/* Filtros */}
-      <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-4">
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Filtros</p>
           {hasFilters && (
             <button
               onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter(''); setDeptFilter(''); setReimb('all') }}
-              className="text-xs text-indigo-600 hover:underline"
+              className="text-xs text-brand-600 hover:underline"
             >
               Limpiar todo
             </button>
@@ -199,12 +201,12 @@ export default function AdminReportsPage() {
           <div>
             <label className="block text-xs text-slate-500 mb-1">Desde (fecha envío)</label>
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" />
+              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Hasta</label>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" />
+              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
           </div>
         </div>
 
@@ -218,7 +220,7 @@ export default function AdminReportsPage() {
                 onClick={() => toggleStatus(s.value)}
                 className={[
                   'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
-                  statusSel.includes(s.value) ? s.color + ' ring-2 ring-offset-1 ring-indigo-400' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                  statusSel.includes(s.value) ? s.color + ' ring-2 ring-offset-1 ring-brand-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
                 ].join(' ')}
               >
                 {s.label}
@@ -232,7 +234,7 @@ export default function AdminReportsPage() {
           <div>
             <label className="block text-xs text-slate-500 mb-1">Empleado</label>
             <select value={empFilter} onChange={e => setEmpFilter(e.target.value)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="">Todos</option>
               {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
@@ -240,7 +242,7 @@ export default function AdminReportsPage() {
           <div>
             <label className="block text-xs text-slate-500 mb-1">Departamento</label>
             <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="">Todos</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -248,7 +250,7 @@ export default function AdminReportsPage() {
           <div>
             <label className="block text-xs text-slate-500 mb-1">Reembolso</label>
             <select value={reimb} onChange={e => setReimb(e.target.value as typeof reimb)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="all">Todos</option>
               <option value="pending">Pendiente de reembolso</option>
               <option value="reimbursed">Reembolsadas</option>
@@ -259,8 +261,8 @@ export default function AdminReportsPage() {
 
       {/* Lista */}
       {filtered.length === 0 && (
-        <div className="text-center py-12 text-slate-400">
-          <p className="text-2xl mb-2">🔍</p>
+        <div className="text-center py-12 text-ink-400">
+          <Search size={32} className="mx-auto mb-2 opacity-40" />
           <p className="text-sm">No hay rendiciones que coincidan con los filtros.</p>
         </div>
       )}
@@ -274,7 +276,7 @@ export default function AdminReportsPage() {
           const isReopened = reimbOpen === r.id
 
           return (
-            <div key={r.id} className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+            <div key={r.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
               {/* Fila principal */}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -306,7 +308,7 @@ export default function AdminReportsPage() {
                     </div>
                     <button
                       onClick={() => handleExpand(r.id)}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 border border-indigo-200 rounded-[8px] hover:bg-indigo-50 transition-colors"
+                      className="text-xs text-brand-600 hover:text-brand-800 font-medium px-2 py-1 border border-brand-200 rounded-item hover:bg-brand-50 transition-colors"
                     >
                       {loading ? '...' : isOpen ? '▲ Cerrar' : '▼ Ver detalle'}
                     </button>
@@ -318,9 +320,9 @@ export default function AdminReportsPage() {
                   <div className="mt-3 pt-3 border-t border-slate-100">
                     <button
                       onClick={() => { setReimbOpen(r.id); setReimbRef('') }}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
                     >
-                      💸 Marcar como reembolsada
+                      <Banknote size={13} />Marcar como reembolsada
                     </button>
                   </div>
                 )}
@@ -331,12 +333,12 @@ export default function AdminReportsPage() {
                       value={reimbRef}
                       onChange={e => setReimbRef(e.target.value)}
                       placeholder="Referencia de pago (opcional)"
-                      className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-[8px] text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
                     />
                     <button
                       onClick={() => handleReimburse(r.id)}
                       disabled={reimbSaving}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-[8px] transition-colors"
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
                     >
                       {reimbSaving ? '...' : 'Confirmar'}
                     </button>
@@ -359,7 +361,7 @@ export default function AdminReportsPage() {
                           <div className="space-y-1.5">
                             {detail.approvals.map((a, i) => (
                               <div key={i} className={[
-                                'flex items-start gap-2 text-xs rounded-[8px] px-3 py-2',
+                                'flex items-start gap-2 text-xs rounded-item px-3 py-2',
                                 a.action === 'approved' ? 'bg-emerald-50 text-emerald-800' :
                                 a.action === 'rejected' ? 'bg-red-50 text-red-800' :
                                 'bg-slate-100 text-slate-700',

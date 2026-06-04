@@ -104,7 +104,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -119,13 +119,13 @@ export default function ProfilePage() {
       </div>
 
       {/* Avatar + rol */}
-      <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 flex items-center gap-4">
-        <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xl shrink-0">
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 flex items-center gap-4">
+        <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-xl shrink-0">
           {profile.full_name[0].toUpperCase()}
         </div>
         <div>
           <p className="font-semibold text-slate-800">{profile.full_name}</p>
-          <span className="inline-block mt-1 text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+          <span className="inline-block mt-1 text-xs font-medium bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
             {ROLE_LABELS[profile.role] ?? profile.role}
           </span>
         </div>
@@ -133,7 +133,7 @@ export default function ProfilePage() {
 
       <form onSubmit={handleSave} className="space-y-4">
         {/* ── Información personal ─────────────────────────────── */}
-        <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-2">
             Información personal
           </h2>
@@ -145,7 +145,7 @@ export default function ProfilePage() {
               value={fullName}
               onChange={e => setFullName(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
@@ -156,7 +156,7 @@ export default function ProfilePage() {
               value={rut}
               onChange={e => setRut(e.target.value)}
               placeholder="Ej: 12.345.678-9"
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
@@ -166,7 +166,7 @@ export default function ProfilePage() {
               type="email"
               value={profile.email}
               disabled
-              className="w-full border border-slate-100 rounded-[8px] px-3 py-2.5 text-sm bg-slate-50 text-slate-400 cursor-not-allowed"
+              className="w-full border border-slate-100 rounded-item px-3 py-2.5 text-sm bg-slate-50 text-slate-400 cursor-not-allowed"
             />
             <p className="text-xs text-slate-400 mt-1">El correo se gestiona desde la cuenta de acceso</p>
           </div>
@@ -178,13 +178,13 @@ export default function ProfilePage() {
               value={department}
               onChange={e => setDepartment(e.target.value)}
               placeholder="Ej: Operaciones, Administración..."
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
         </div>
 
         {/* ── Información bancaria ──────────────────────────────── */}
-        <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-2">
             Información bancaria
           </h2>
@@ -195,7 +195,7 @@ export default function ProfilePage() {
             <select
               value={bankName}
               onChange={e => setBankName(e.target.value)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
             >
               <option value="">Selecciona un banco...</option>
               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -207,7 +207,7 @@ export default function ProfilePage() {
             <select
               value={bankAccountType}
               onChange={e => setBankAccountType(e.target.value)}
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
             >
               <option value="">Selecciona tipo de cuenta...</option>
               {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -221,16 +221,16 @@ export default function ProfilePage() {
               value={bankAccount}
               onChange={e => setBankAccount(e.target.value)}
               placeholder="Ej: 00123456789"
-              className="w-full border border-slate-200 rounded-[8px] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-[8px] p-3">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-item p-3">{error}</div>
         )}
         {saved && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-[8px] p-3">
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-item p-3">
             ✓ Cambios guardados correctamente
           </div>
         )}
@@ -238,14 +238,14 @@ export default function ProfilePage() {
         <button
           type="submit"
           disabled={saving}
-          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-[12px] transition-colors"
+          className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-card transition-colors"
         >
           {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </form>
 
       {/* Contraseña */}
-      <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
         <h2 className="text-sm font-semibold text-slate-700 mb-3">Contraseña</h2>
         {resetSent ? (
           <p className="text-sm text-emerald-600">✓ Email de restablecimiento enviado. Revisa tu bandeja.</p>
@@ -253,7 +253,7 @@ export default function ProfilePage() {
           <button
             onClick={handlePasswordReset}
             type="button"
-            className="text-sm text-indigo-600 hover:underline"
+            className="text-sm text-brand-600 hover:underline"
           >
             Enviar email para cambiar contraseña
           </button>

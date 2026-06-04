@@ -49,7 +49,7 @@ export default function AdminEmployeesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -66,31 +66,38 @@ export default function AdminEmployeesPage() {
           <button
             onClick={() => setPanel(p => p === 'add' ? 'none' : 'add')}
             className={[
-              'px-4 py-2 text-sm font-semibold rounded-[12px] transition-colors border',
+              'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-item transition-all duration-[180ms] active:scale-[.97]',
               panel === 'add'
-                ? 'bg-slate-100 border-slate-300 text-slate-600'
-                : 'bg-white border-indigo-600 text-indigo-600 hover:bg-indigo-50',
+                ? 'bg-ink-100 text-ink-500'
+                : 'bg-white border border-brand-600 text-brand-600 hover:bg-brand-50',
             ].join(' ')}
           >
-            {panel === 'add' ? '✕ Cerrar' : '➕ Agregar empleado'}
+            {panel === 'add'
+              ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cerrar</>
+              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Agregar empleado</>
+            }
           </button>
           <button
             onClick={() => setPanel(p => p === 'import' ? 'none' : 'import')}
             className={[
-              'px-4 py-2 text-sm font-semibold rounded-[12px] transition-colors',
+              'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md',
               panel === 'import'
-                ? 'bg-slate-100 text-slate-600'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white',
+                ? 'bg-ink-500'
+                : '',
             ].join(' ')}
+            style={panel !== 'import' ? { background: 'linear-gradient(130deg, #0B1120 0%, #0F766E 100%)' } : undefined}
           >
-            {panel === 'import' ? '✕ Cerrar' : '📊 Importar nómina'}
+            {panel === 'import'
+              ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cerrar</>
+              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar nómina</>
+            }
           </button>
         </div>
       </div>
 
       {/* Panel: agregar uno */}
       {panel === 'add' && (
-        <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 border-t-4 border-t-indigo-500">
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Agregar empleado</h2>
           <AddEmployeeForm onDone={() => { setPanel('none'); load() }} />
         </div>
@@ -98,7 +105,7 @@ export default function AdminEmployeesPage() {
 
       {/* Panel: importar Excel */}
       {panel === 'import' && (
-        <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 border-t-4 border-t-indigo-500">
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Importar empleados desde Excel</h2>
           <EmployeeImport onDone={() => { setPanel('none'); load() }} />
         </div>
@@ -111,9 +118,9 @@ export default function AdminEmployeesPage() {
             <p className="text-2xl mb-2">👥</p>
             <p className="text-sm">Sin empleados aún</p>
             <div className="flex gap-3 justify-center mt-3">
-              <button onClick={() => setPanel('add')} className="text-indigo-600 text-sm hover:underline">Agregar uno</button>
+              <button onClick={() => setPanel('add')} className="text-brand-600 text-sm hover:underline">Agregar uno</button>
               <span className="text-slate-300">|</span>
-              <button onClick={() => setPanel('import')} className="text-indigo-600 text-sm hover:underline">Importar nómina</button>
+              <button onClick={() => setPanel('import')} className="text-brand-600 text-sm hover:underline">Importar nómina</button>
             </div>
           </div>
         )}
@@ -128,7 +135,7 @@ export default function AdminEmployeesPage() {
             <div
               key={emp.id}
               className={[
-                'bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden',
+                'bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden',
                 !emp.is_active && 'opacity-60',
               ].filter(Boolean).join(' ')}
             >
@@ -136,7 +143,7 @@ export default function AdminEmployeesPage() {
               <div className="p-4">
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* Avatar */}
-                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm shrink-0">
+                  <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">
                     {emp.full_name[0].toUpperCase()}
                   </div>
 
@@ -154,7 +161,7 @@ export default function AdminEmployeesPage() {
                     value={emp.role}
                     disabled={saving === emp.id}
                     onChange={e => handleUpdate(emp.id, { role: e.target.value as UserProfile['role'] })}
-                    className="text-xs border border-slate-200 rounded-[8px] px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                    className="text-xs border border-slate-200 rounded-item px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
                   >
                     <option value="employee">Empleado</option>
                     <option value="approver">Aprobador</option>
@@ -167,19 +174,19 @@ export default function AdminEmployeesPage() {
                   <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                     <input type="checkbox" checked={emp.can_submit} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { can_submit: e.target.checked })}
-                      className="rounded text-indigo-600" />
+                      className="rounded text-brand-600" />
                     Puede rendir
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                     <input type="checkbox" checked={emp.can_approve} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { can_approve: e.target.checked })}
-                      className="rounded text-indigo-600" />
+                      className="rounded text-brand-600" />
                     Puede aprobar
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                     <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}
-                      className="rounded text-indigo-600" />
+                      className="rounded text-brand-600" />
                     Activo
                   </label>
 
@@ -187,9 +194,9 @@ export default function AdminEmployeesPage() {
                   <button
                     onClick={() => setExpandedApprover(isOpen ? null : emp.id)}
                     className={[
-                      'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[8px] transition-colors',
+                      'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
                       isOpen
-                        ? 'bg-indigo-100 text-indigo-700'
+                        ? 'bg-brand-100 text-brand-700'
                         : hasApprover
                           ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                           : 'bg-amber-50 text-amber-700 hover:bg-amber-100',
@@ -216,7 +223,7 @@ export default function AdminEmployeesPage() {
               )}
 
               {saving === emp.id && (
-                <p className="text-xs text-indigo-500 px-4 pb-3">Guardando...</p>
+                <p className="text-xs text-brand-600 px-4 pb-3">Guardando...</p>
               )}
             </div>
           )
