@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
@@ -167,7 +168,27 @@ export async function getOrgEmployees() {
     .eq('org_id', orgId)
     .order('full_name', { ascending: true })
 
-  return data ?? []
+  if (!data?.length) return []
+
+  /* Cruzar emails desde auth.users (no están en public.users) */
+  const adminClient = createAdminClient()
+  const { data: authData } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
+  const emailMap: Record<string, string> = {}
+  for (const u of authData?.users ?? []) {
+    if (u.email) emailMap[u.id] = u.email
+  }
+
+  return data.map(emp => ({ ...emp, email: emailMap[emp.id] ?? '' }))
+}
+
+export async function updateEmployeeEmail(userId: string, newEmail: string) {
+  await requireAdmin()
+  const adminClient = createAdminClient()
+
+  const { error } = await adminClient.auth.admin.updateUserById(userId, { email: newEmail })
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/employees')
 }
 
 export async function updateEmployee(
