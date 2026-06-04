@@ -189,6 +189,37 @@ export async function updateEmployeeEmail(userId: string, newEmail: string) {
   if (error) throw new Error(error.message)
 
   revalidatePath('/admin/employees')
+  revalidatePath('/admin/settings')
+}
+
+export async function resendInvitation(userId: string) {
+  await requireAdmin()
+  const adminClient = createAdminClient()
+
+  const { data: authUser } = await adminClient.auth.admin.getUserById(userId)
+  if (!authUser?.user?.email) throw new Error('No se encontró el correo del empleado')
+
+  const { error } = await adminClient.auth.admin.generateLink({
+    type: 'invite',
+    email: authUser.user.email,
+    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback` },
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteEmployee(userId: string) {
+  const { supabase } = await requireAdmin()
+  const adminClient = createAdminClient()
+
+  /* Soft-delete en public.users primero para preservar historial de rendiciones */
+  await supabase.from('users').update({ is_active: false }).eq('id', userId)
+
+  /* Eliminar cuenta de auth (libera el acceso) */
+  const { error } = await adminClient.auth.admin.deleteUser(userId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/admin/employees')
 }
 
 export async function updateEmployee(
