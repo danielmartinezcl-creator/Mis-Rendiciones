@@ -44,7 +44,7 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
         row.email,
         {
           data: { full_name: row.full_name },
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback`,
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback?next=/set-password`,
         }
       )
 

@@ -202,7 +202,7 @@ export async function resendInvitation(userId: string) {
   const { error } = await adminClient.auth.admin.generateLink({
     type: 'invite',
     email: authUser.user.email,
-    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback` },
+    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback?next=/set-password` },
   })
   if (error) throw new Error(error.message)
 }
