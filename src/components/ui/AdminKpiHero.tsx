@@ -1,8 +1,8 @@
 /**
- * AdminKpiHero — Componente hero con degradé ink→teal
+ * AdminKpiHero — Componente hero con degradé violeta PENTA
  *
  * Uso en el dashboard admin y en la pantalla de rendiciones para mostrar
- * métricas clave con el look "ink → teal" del design system reformado.
+ * métricas clave con el look "violeta oscuro → violeta PENTA" del brand.
  */
 
 interface SecondaryMetric {
@@ -42,7 +42,7 @@ export function AdminKpiHero({
   return (
     <div
       className={`relative overflow-hidden rounded-xl shadow-md ${className}`}
-      style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0F766E 100%)' }}
+      style={{ background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' }}
     >
       {/* Glow radial sutil en esquina derecha */}
       <div
@@ -50,7 +50,7 @@ export function AdminKpiHero({
         style={{
           width: 280, height: 280, borderRadius: '50%',
           right: -60, top: -100,
-          background: 'radial-gradient(circle, rgba(94,234,212,.15), transparent 65%)',
+          background: 'radial-gradient(circle, rgba(148,150,223,.18), transparent 65%)',
         }}
       />
 
@@ -58,7 +58,7 @@ export function AdminKpiHero({
         {/* Total principal */}
         <div>
           <p className="text-xs font-semibold tracking-wider uppercase"
-             style={{ color: '#5EEAD4', marginBottom: 6 }}>
+             style={{ color: '#9EA0DF', marginBottom: 6 }}>
             {title}
           </p>
           <p className="font-mono-amount text-white"

@@ -97,7 +97,7 @@ function CategoriesTab() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [loading,    setLoading]    = useState(true)
   const [catName,    setCatName]    = useState('')
-  const [catColor,   setCatColor]   = useState('#0D9488')
+  const [catColor,   setCatColor]   = useState('#4A50A0')
   const [catSaving,  setCatSaving]  = useState(false)
 
   async function load() {
@@ -112,7 +112,7 @@ function CategoriesTab() {
     setCatSaving(true)
     try {
       await addCategory({ name: catName, color: catColor || undefined })
-      setCatName(''); setCatColor('#0D9488')
+      setCatName(''); setCatColor('#4A50A0')
       await load()
     } finally { setCatSaving(false) }
   }

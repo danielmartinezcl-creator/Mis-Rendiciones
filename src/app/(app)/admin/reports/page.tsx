@@ -177,7 +177,7 @@ export default function AdminReportsPage() {
         title="Resumen filtrado"
         total={totalMonto}
         secondary={[
-          { label: 'Total aprobado',    value: totalAprobado, color: 'teal' },
+          { label: 'Total aprobado',    value: totalAprobado, color: 'violet' },
           { label: 'Pendiente reemb.',  value: pendReimb,     color: 'sky' },
         ]}
       />

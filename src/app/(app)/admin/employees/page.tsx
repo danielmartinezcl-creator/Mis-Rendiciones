@@ -111,7 +111,7 @@ export default function AdminEmployeesPage() {
               'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md',
               panel === 'import' ? 'bg-ink-500' : '',
             ].join(' ')}
-            style={panel !== 'import' ? { background: 'linear-gradient(130deg, #0B1120 0%, #0F766E 100%)' } : undefined}
+            style={panel !== 'import' ? { background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' } : undefined}
           >
             {panel === 'import'
               ? <><X size={12} />Cerrar</>
