@@ -5,11 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getReportForApproval, submitApprovalDecision } from '@/actions/approvals'
 import { notifySubmitterOfDecision } from '@/actions/notifications'
+import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ReportStatusBadge } from '@/components/ui/Badge'
+import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
-import type { ExpenseItem, ExpenseCategory, Attachment } from '@/lib/supabase/types'
+import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment } from '@/lib/supabase/types'
 import type { ItemStatus } from '@/lib/constants'
 
 type ItemWithRelations = ExpenseItem & {
@@ -29,9 +31,10 @@ export default function ApprovalDetailPage() {
   const [decisions,  setDecisions]  = useState<Record<string, Decision>>({})
   const [notes,      setNotes]      = useState('')
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({})
-  const [submitting, setSubmitting] = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const [loading,    setLoading]    = useState(true)
+  const [submitting,   setSubmitting]   = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [loading,      setLoading]      = useState(true)
+  const [attachments,  setAttachments]  = useState<(ApprovalAttachment & { uploader_name: string; url: string | null })[]>([])
 
   useEffect(() => {
     getReportForApproval(id).then(data => {
@@ -69,6 +72,8 @@ export default function ApprovalDetailPage() {
       }
       setLoading(false)
     })
+    getApprovalAttachments({ reportId: id }).then(data => setAttachments(data as typeof attachments))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   function setDecision(itemId: string, field: keyof Decision, value: string | null) {
@@ -283,6 +288,15 @@ export default function ApprovalDetailPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Adjuntos de respaldo de la cadena de aprobación */}
+      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <ApprovalAttachments
+          attachments={attachments}
+          target={{ reportId: id }}
+          onRefresh={() => getApprovalAttachments({ reportId: id }).then(data => setAttachments(data as typeof attachments))}
+        />
       </div>
 
       {/* Notas globales + Enviar */}

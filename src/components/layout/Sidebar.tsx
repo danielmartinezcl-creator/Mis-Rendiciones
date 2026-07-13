@@ -17,8 +17,8 @@ import {
   Settings2,
   GripVertical,
   RotateCcw,
-  Check,
   Wallet,
+  Lightbulb,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: '/expenses/new',    label: 'Nueva rendición', Icon: ScanLine,         roles: ['admin','employee'] as const },
   { href: '/petty-cash',      label: 'Caja Chica',      Icon: Wallet,           roles: ['admin','approver','employee'] as const },
   { href: '/approvals',       label: 'Aprobaciones',    Icon: CheckCircle2,     roles: ['admin','approver'] as const },
+  { href: '/suggestions',     label: 'Sugerencias',     Icon: Lightbulb,        roles: ['admin','approver','employee'] as const },
   { href: '/admin',           label: 'Dashboard',       Icon: BarChart3,        roles: ['admin'] as const },
   { href: '/admin/reports',   label: 'Rendiciones',     Icon: ReceiptText,      roles: ['admin'] as const },
   { href: '/admin/employees', label: 'Empleados',       Icon: Users,            roles: ['admin'] as const },
@@ -51,19 +52,19 @@ function applyOrder(items: NavItem[], saved: string[]): NavItem[] {
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
-  const [reordering, setReordering] = useState(false)
 
   const visible = NAV_ITEMS.filter(item =>
     (item.roles as readonly string[]).includes(user.role) ||
     (item.href === '/approvals' && user.can_approve)
   )
 
-  const [items, setItems] = useState<NavItem[]>(visible)
+  const [items,        setItems]        = useState<NavItem[]>(visible)
+  const [isCustomized, setIsCustomized] = useState(false)
 
   /* ── Drag state ── */
   const dragFrom = useRef<number | null>(null)
-  const [dragIdx,  setDragIdx]  = useState<number | null>(null)   // item siendo arrastrado (visual)
-  const [overIdx,  setOverIdx]  = useState<number | null>(null)   // posición destino (indicador)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
 
   useEffect(() => {
     try {
@@ -71,6 +72,7 @@ export function Sidebar({ user }: SidebarProps) {
       if (raw) {
         const saved: string[] = JSON.parse(raw)
         setItems(applyOrder(visible, saved))
+        setIsCustomized(true)
       }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,7 +82,6 @@ export function Sidebar({ user }: SidebarProps) {
     dragFrom.current = idx
     setDragIdx(idx)
     e.dataTransfer.effectAllowed = 'move'
-    /* fantasma transparente — el item en sí muestra el estado visual */
     const ghost = document.createElement('div')
     ghost.style.position = 'absolute'
     ghost.style.top = '-9999px'
@@ -107,6 +108,7 @@ export function Sidebar({ user }: SidebarProps) {
       localStorage.setItem(orderKey(user.id), JSON.stringify(next.map(i => i.href)))
       return next
     })
+    setIsCustomized(true)
     cleanDrag()
   }
 
@@ -121,7 +123,7 @@ export function Sidebar({ user }: SidebarProps) {
   function handleResetOrder() {
     localStorage.removeItem(orderKey(user.id))
     setItems(visible)
-    setReordering(false)
+    setIsCustomized(false)
   }
 
   return (
@@ -145,77 +147,61 @@ export function Sidebar({ user }: SidebarProps) {
       {/* ── Navegación ── */}
       <nav className="flex-1 p-3 space-y-0.5">
         {items.map((item, idx) => {
-          const active    = pathname === item.href && !reordering
-          const isDragged = reordering && dragIdx === idx
-          const isOver    = reordering && overIdx === idx && dragIdx !== idx
+          const active    = pathname === item.href
+          const isDragged = dragIdx === idx
+          const isOver    = overIdx === idx && dragIdx !== idx
 
           return (
             <div
               key={item.href}
-              draggable={reordering}
-              onDragStart={reordering ? e => handleDragStart(e, idx) : undefined}
-              onDragOver={reordering  ? e => handleDragOver(e, idx)  : undefined}
-              onDrop={reordering      ? e => handleDrop(e, idx)      : undefined}
-              onDragEnd={reordering   ? handleDragEnd                : undefined}
-              className={cn(
-                'relative',
-                reordering && (isDragged ? 'cursor-grabbing' : 'cursor-grab'),
-              )}
+              onDragOver={e => handleDragOver(e, idx)}
+              onDrop={e => handleDrop(e, idx)}
+              className="relative group"
             >
-              {/* Indicador de posición destino */}
               {isOver && (
                 <span className="absolute -top-px inset-x-2 h-0.5 rounded-full bg-brand-400 pointer-events-none z-10" />
               )}
 
-              <Link
-                href={reordering ? '#' : item.href}
-                onClick={reordering ? e => e.preventDefault() : undefined}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-item text-sm font-semibold transition-all duration-150',
-                  active
-                    ? 'bg-brand-600 text-white shadow-brand'
-                    : 'text-white/50 hover:text-white hover:bg-white/6',
-                  isDragged && 'opacity-30 scale-[.97]',
-                  isOver && 'bg-white/8',
-                )}
-              >
-                {reordering
-                  ? <GripVertical size={15} className="shrink-0 text-white/40" />
-                  : <item.Icon size={17} className="shrink-0" />
-                }
-                {item.label}
-              </Link>
+              <div className={cn('flex items-center', isDragged && 'opacity-30 scale-[.97] transition-all')}>
+                {/* Grip — visible on hover, draggable independently */}
+                <div
+                  draggable
+                  onDragStart={e => handleDragStart(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className="w-6 shrink-0 flex items-center justify-center self-stretch opacity-0 group-hover:opacity-30 hover:!opacity-60 cursor-grab active:cursor-grabbing transition-opacity"
+                  title="Arrastrar para reordenar"
+                >
+                  <GripVertical size={13} className="text-white" />
+                </div>
+
+                <Link
+                  href={item.href}
+                  className={cn(
+                    'flex-1 flex items-center gap-3 px-3 py-2.5 rounded-item text-sm font-semibold transition-all duration-150',
+                    active
+                      ? 'bg-brand-600 text-white shadow-brand'
+                      : 'text-white/50 hover:text-white hover:bg-white/6',
+                    isOver && 'bg-white/8',
+                  )}
+                >
+                  <item.Icon size={17} className="shrink-0" />
+                  {item.label}
+                </Link>
+              </div>
             </div>
           )
         })}
-      </nav>
 
-      {/* ── Personalizar — solo admin ── */}
-      {user.role === 'admin' && (
-        <div className="px-3 pb-2 space-y-1">
+        {isCustomized && (
           <button
-            onClick={() => { setReordering(r => !r); cleanDrag() }}
-            className={cn(
-              'w-full text-xs py-1.5 px-3 rounded-item transition-colors text-left font-semibold flex items-center gap-2',
-              reordering
-                ? 'bg-brand-600 text-white'
-                : 'text-white/30 hover:text-white/60 hover:bg-white/5'
-            )}
+            onClick={handleResetOrder}
+            className="w-full flex items-center gap-2 text-xs text-white/20 hover:text-white/50 px-3 py-1.5 mt-1 transition-colors"
           >
-            {reordering
-              ? <><Check size={12} />Listo — orden guardado</>
-              : <><GripVertical size={12} />Personalizar menú</>}
+            <RotateCcw size={11} />
+            Restaurar orden original
           </button>
-          {reordering && (
-            <button
-              onClick={handleResetOrder}
-              className="w-full text-xs py-1 text-white/30 hover:text-white/60 transition-colors text-left px-3 flex items-center gap-2"
-            >
-              <RotateCcw size={11} />Restaurar orden original
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </nav>
 
       {/* ── Usuario ── */}
       <div className="p-4 border-t border-white/8">

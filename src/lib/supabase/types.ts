@@ -558,6 +558,66 @@ export interface Database {
         }
         Relationships: []
       }
+      suggestions: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          content: string
+          category: 'mejora' | 'error' | 'consulta' | 'otro'
+          status: 'pending' | 'reviewing' | 'done' | 'dismissed'
+          admin_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          content: string
+          category?: 'mejora' | 'error' | 'consulta' | 'otro'
+          status?: 'pending' | 'reviewing' | 'done' | 'dismissed'
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: 'pending' | 'reviewing' | 'done' | 'dismissed'
+          admin_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      approval_attachments: {
+        Row: {
+          id: string
+          org_id: string
+          report_id: string | null
+          fund_id: string | null
+          uploaded_by: string
+          storage_path: string
+          filename: string
+          file_size: number | null
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          report_id?: string | null
+          fund_id?: string | null
+          uploaded_by: string
+          storage_path: string
+          filename: string
+          file_size?: number | null
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          description?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -583,3 +643,8 @@ export type PettyCashTransfer = Database['public']['Tables']['petty_cash_transfe
 
 export type FundStatus = PettyCashFund['status']
 export type FundAuditAction = PettyCashApproval['action']
+
+export type Suggestion = Database['public']['Tables']['suggestions']['Row']
+export type SuggestionStatus = Suggestion['status']
+export type SuggestionCategory = Suggestion['category']
+export type ApprovalAttachment = Database['public']['Tables']['approval_attachments']['Row']
