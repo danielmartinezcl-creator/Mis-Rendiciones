@@ -255,6 +255,12 @@ export default function AdminEmployeesPage() {
                     Puede aprobar
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
+                    <input type="checkbox" checked={emp.can_manage_petty_cash} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_manage_petty_cash: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    EFF (Caja Chica)
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
                     <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}
                       className="rounded text-brand-600" />

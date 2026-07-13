@@ -18,6 +18,7 @@ import {
   GripVertical,
   RotateCcw,
   Check,
+  Wallet,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -27,6 +28,7 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { href: '/',                label: 'Estado',          Icon: LayoutDashboard, roles: ['admin','approver','employee'] as const },
   { href: '/expenses/new',    label: 'Nueva rendición', Icon: ScanLine,         roles: ['admin','employee'] as const },
+  { href: '/petty-cash',      label: 'Caja Chica',      Icon: Wallet,           roles: ['admin','approver','employee'] as const },
   { href: '/approvals',       label: 'Aprobaciones',    Icon: CheckCircle2,     roles: ['admin','approver'] as const },
   { href: '/admin',           label: 'Dashboard',       Icon: BarChart3,        roles: ['admin'] as const },
   { href: '/admin/reports',   label: 'Rendiciones',     Icon: ReceiptText,      roles: ['admin'] as const },

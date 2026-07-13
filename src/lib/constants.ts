@@ -59,3 +59,52 @@ export const ITEM_STATUS_ACCENT: Record<ItemStatus, string> = {
   approved: 'item-accent-approved',  /* esmeralda */
   rejected: 'item-accent-rejected',  /* rosa */
 }
+
+// ── Caja Chica ────────────────────────────────────────────────────────────────
+
+export const FUND_STATUSES = [
+  'draft',
+  'pending_approval',
+  'approved',
+  'funds_sent',
+  'submitted',
+  'pending_liquidation_approval',
+  'settled',
+  'rejected',
+] as const
+
+export type FundStatusConst = typeof FUND_STATUSES[number]
+
+export const FUND_STATUS_LABELS: Record<FundStatusConst, string> = {
+  draft:                        'Borrador',
+  pending_approval:             'Esperando autorización',
+  approved:                     'Autorizado',
+  funds_sent:                   'Fondos enviados',
+  submitted:                    'Liquidación enviada',
+  pending_liquidation_approval: 'Revisando liquidación',
+  settled:                      'Liquidado',
+  rejected:                     'Rechazado',
+}
+
+export const FUND_STATUS_COLORS: Record<FundStatusConst, string> = {
+  draft:                        'bg-slate-100 text-slate-500',
+  pending_approval:             'bg-amber-100 text-amber-700',
+  approved:                     'bg-sky-100 text-sky-700',
+  funds_sent:                   'bg-violet-100 text-violet-700',
+  submitted:                    'bg-amber-100 text-amber-700',
+  pending_liquidation_approval: 'bg-violet-100 text-violet-700',
+  settled:                      'bg-emerald-100 text-emerald-700',
+  rejected:                     'bg-rose-100 text-rose-600',
+}
+
+export const FUND_AUDIT_LABELS: Record<string, string> = {
+  created:                 'Fondo creado',
+  submitted_for_approval:  'Enviado a autorización',
+  approved:                'Fondo autorizado',
+  rejected:                'Rechazado',
+  funds_sent:              'Fondos transferidos al empleado',
+  liquidation_submitted:   'Liquidación enviada',
+  liquidation_elevated:    'Liquidación elevada a aprobadores',
+  liquidation_approved:    'Liquidación aprobada',
+  settled:                 'Fondo liquidado',
+}

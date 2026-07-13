@@ -225,12 +225,13 @@ export async function deleteEmployee(userId: string) {
 export async function updateEmployee(
   userId: string,
   updates: {
-    role?:       'admin' | 'approver' | 'employee'
-    can_submit?: boolean
-    can_approve?: boolean
-    is_active?:  boolean
-    department?: string | null
-    bank_account?: string | null
+    role?:                 'admin' | 'approver' | 'employee'
+    can_submit?:           boolean
+    can_approve?:          boolean
+    can_manage_petty_cash?: boolean
+    is_active?:            boolean
+    department?:           string | null
+    bank_account?:         string | null
   }
 ) {
   const { supabase } = await requireAdmin()

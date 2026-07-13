@@ -47,6 +47,7 @@ export interface Database {
           role: 'admin' | 'approver' | 'employee'
           can_submit: boolean
           can_approve: boolean
+          can_manage_petty_cash: boolean
           department: string | null
           rut: string | null
           bank_account: string | null
@@ -64,6 +65,7 @@ export interface Database {
           role: 'admin' | 'approver' | 'employee'
           can_submit?: boolean
           can_approve?: boolean
+          can_manage_petty_cash?: boolean
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -81,6 +83,7 @@ export interface Database {
           role?: 'admin' | 'approver' | 'employee'
           can_submit?: boolean
           can_approve?: boolean
+          can_manage_petty_cash?: boolean
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -415,6 +418,146 @@ export interface Database {
         }
         Relationships: []
       }
+      petty_cash_funds: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          employee_id: string
+          manager_id: string
+          amount_requested: number
+          amount_approved: number | null
+          currency: string
+          period_start: string
+          period_end: string
+          description: string | null
+          status: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          settled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          employee_id: string
+          manager_id: string
+          amount_requested: number
+          amount_approved?: number | null
+          currency?: string
+          period_start: string
+          period_end: string
+          description?: string | null
+          status?: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          settled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          amount_approved?: number | null
+          status?: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          settled_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      petty_cash_items: {
+        Row: {
+          id: string
+          fund_id: string
+          org_id: string
+          description: string
+          amount: number
+          currency: string
+          exchange_rate: number
+          amount_clp: number
+          date: string
+          category_id: string | null
+          merchant: string | null
+          doc_type: 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
+          doc_number: string | null
+          notes: string | null
+          status: 'pending' | 'approved' | 'rejected'
+          rejection_reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          fund_id: string
+          org_id: string
+          description: string
+          amount: number
+          currency?: string
+          exchange_rate?: number
+          amount_clp: number
+          date: string
+          category_id?: string | null
+          merchant?: string | null
+          doc_type?: 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
+          doc_number?: string | null
+          notes?: string | null
+          status?: 'pending' | 'approved' | 'rejected'
+          rejection_reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          status?: 'pending' | 'approved' | 'rejected'
+          rejection_reason?: string | null
+        }
+        Relationships: []
+      }
+      petty_cash_approvals: {
+        Row: {
+          id: string
+          fund_id: string
+          actor_id: string
+          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
+          notes: string | null
+          amount: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          fund_id: string
+          actor_id: string
+          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
+          notes?: string | null
+          amount?: number | null
+          created_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      petty_cash_transfers: {
+        Row: {
+          id: string
+          fund_id: string
+          type: 'disbursement' | 'refund_to_employee' | 'reimbursement_from_employee'
+          amount: number
+          reference: string | null
+          transferred_at: string
+          registered_by: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          fund_id: string
+          type: 'disbursement' | 'refund_to_employee' | 'reimbursement_from_employee'
+          amount: number
+          reference?: string | null
+          transferred_at: string
+          registered_by: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          notes?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -432,3 +575,11 @@ export type Attachment = Database['public']['Tables']['attachments']['Row']
 export type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
 export type ExpenseReportApproval = Database['public']['Tables']['expense_report_approvals']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
+
+export type PettyCashFund     = Database['public']['Tables']['petty_cash_funds']['Row']
+export type PettyCashItem     = Database['public']['Tables']['petty_cash_items']['Row']
+export type PettyCashApproval = Database['public']['Tables']['petty_cash_approvals']['Row']
+export type PettyCashTransfer = Database['public']['Tables']['petty_cash_transfers']['Row']
+
+export type FundStatus = PettyCashFund['status']
+export type FundAuditAction = PettyCashApproval['action']
