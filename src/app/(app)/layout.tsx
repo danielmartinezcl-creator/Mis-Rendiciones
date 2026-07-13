@@ -24,9 +24,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden bg-sidebar px-4 py-3 flex items-center gap-3">
           <div className="w-7 h-7 bg-brand-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">
-            R
+            P
           </div>
-          <span className="text-white font-semibold text-sm">Rindegastos</span>
+          <span className="text-white font-semibold text-sm">Penta Rend</span>
           <div className="ml-auto">
             <LogoutButton />
           </div>

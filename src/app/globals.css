@@ -11,18 +11,22 @@
   --font-ui:      var(--font-hanken), system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
 
-  /* ── Paleta brand (TEAL — reemplaza indigo) ──────────────────────────── */
-  --color-brand-50:  #F0FDFA;
-  --color-brand-100: #CCFBF1;
-  --color-brand-200: #99F6E4;
-  --color-brand-300: #5EEAD4;
-  --color-brand-400: #2DD4BF;
-  --color-brand-500: #14B8A6;
-  --color-brand:     #0D9488;   /* primary — antes brand-600 */
-  --color-brand-600: #0D9488;
-  --color-brand-700: #0F766E;   /* hover */
-  --color-brand-800: #115E59;   /* pressed */
-  --color-brand-900: #134E4A;
+  /* ── Paleta brand (VIOLETA PENTA) ───────────────────────────────────── */
+  --color-brand-50:  #F1F1FB;
+  --color-brand-100: #E3E3F6;
+  --color-brand-200: #C5C6ED;
+  --color-brand-300: #9EA0DF;
+  --color-brand-400: #7678CE;
+  --color-brand-500: #5D5FBE;
+  --color-brand:     #4A50A0;   /* primary — violeta PENTA */
+  --color-brand-600: #4A50A0;
+  --color-brand-700: #3B4090;   /* hover */
+  --color-brand-800: #2D3278;   /* pressed */
+  --color-brand-900: #1E2260;
+
+  /* ── Acento (teal del ícono GP de PENTA) ────────────────────────────── */
+  --color-accent:     #3DBAB5;
+  --color-accent-hover: #2FA8A3;
 
   /* ── Ink — neutrales azul-negro fríos (reemplaza slate) ─────────────── */
   --color-ink-950: #080C16;
@@ -39,7 +43,7 @@
   --color-ink-50:  #F6F8FB;
 
   /* ── Sidebar / superficies oscuras ──────────────────────────────────── */
-  --color-sidebar: #0B1120;     /* antes: #0f172a (slate-900) */
+  --color-sidebar: #12152E;     /* azul-violeta oscuro — deriva del violeta PENTA */
 
   /* ── Radios ──────────────────────────────────────────────────────────── */
   --radius-xs:   6px;
@@ -53,10 +57,10 @@
   --shadow-card: 0 2px 8px rgba(11,17,32,.07), 0 1px 2px rgba(11,17,32,.04);
   --shadow-md:   0 10px 28px -8px rgba(11,17,32,.14), 0 3px 8px rgba(11,17,32,.06);
   --shadow-lg:   0 24px 56px -16px rgba(11,17,32,.22), 0 6px 16px rgba(11,17,32,.08);
-  --shadow-brand: 0 8px 24px -6px rgba(13,148,136,.4);
+  --shadow-brand: 0 8px 24px -6px rgba(74,80,160,.4);
 
-  /* ── Degradé hero (reemplaza el gradiente indigo/purple anterior) ────── */
-  --background-image-card-hero: linear-gradient(130deg, #0B1120 0%, #0F766E 100%);
+  /* ── Degradé hero (violeta PENTA oscuro → violeta medio) ────────────── */
+  --background-image-card-hero: linear-gradient(130deg, #12152E 0%, #3B4090 100%);
 }
 
 @layer base {
@@ -102,22 +106,26 @@
 
 /* ── Clases utilitarias manuales (fallback si @theme no genera las clases) ── */
 
-/* Brand / Teal */
-.bg-brand-50  { background-color: #F0FDFA; }
-.bg-brand-100 { background-color: #CCFBF1; }
-.bg-brand-500 { background-color: #14B8A6; }
-.bg-brand-600 { background-color: #0D9488; }
-.bg-brand-700 { background-color: #0F766E; }
-.bg-brand-800 { background-color: #115E59; }
-.hover\:bg-brand-700:hover { background-color: #0F766E; }
-.text-brand-50  { color: #F0FDFA; }
-.text-brand-100 { color: #CCFBF1; }
-.text-brand-300 { color: #5EEAD4; }
-.text-brand-400 { color: #2DD4BF; }
-.text-brand-600 { color: #0D9488; }
-.text-brand-700 { color: #0F766E; }
-.border-brand-600 { border-color: #0D9488; }
-.ring-brand { box-shadow: 0 0 0 3px rgba(20,184,166,.28); }
+/* Brand / Violeta PENTA */
+.bg-brand-50  { background-color: #F1F1FB; }
+.bg-brand-100 { background-color: #E3E3F6; }
+.bg-brand-500 { background-color: #5D5FBE; }
+.bg-brand-600 { background-color: #4A50A0; }
+.bg-brand-700 { background-color: #3B4090; }
+.bg-brand-800 { background-color: #2D3278; }
+.hover\:bg-brand-700:hover { background-color: #3B4090; }
+.text-brand-50  { color: #F1F1FB; }
+.text-brand-100 { color: #E3E3F6; }
+.text-brand-300 { color: #9EA0DF; }
+.text-brand-400 { color: #7678CE; }
+.text-brand-600 { color: #4A50A0; }
+.text-brand-700 { color: #3B4090; }
+.border-brand-600 { border-color: #4A50A0; }
+.ring-brand { box-shadow: 0 0 0 3px rgba(74,80,160,.28); }
+
+/* Acento / Teal ícono PENTA */
+.bg-accent   { background-color: #3DBAB5; }
+.text-accent { color: #3DBAB5; }
 
 /* Ink neutrals */
 .bg-ink-900 { background-color: #0B1120; }
@@ -131,7 +139,7 @@
 .border-ink-200 { border-color: #DDE2EC; }
 
 /* Sidebar */
-.bg-sidebar { background-color: #0B1120; }
+.bg-sidebar { background-color: #12152E; }
 
 /* Radios */
 .rounded-card { border-radius: 18px; }
@@ -142,8 +150,8 @@
 .shadow-card  { box-shadow: 0 2px 8px rgba(11,17,32,.07), 0 1px 2px rgba(11,17,32,.04); }
 .shadow-brand { box-shadow: 0 8px 24px -6px rgba(13,148,136,.4); }
 
-/* Hero degradé ink → teal */
-.bg-card-hero { background-image: linear-gradient(130deg, #0B1120 0%, #0F766E 100%); }
+/* Hero degradé violeta PENTA */
+.bg-card-hero { background-image: linear-gradient(130deg, #12152E 0%, #3B4090 100%); }
 
 /* Font helpers */
 .font-jakarta  { font-family: var(--font-bricolage), system-ui, sans-serif; }   /* compatibilidad */

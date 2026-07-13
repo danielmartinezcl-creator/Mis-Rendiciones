@@ -1,11 +1,11 @@
 {
-  "name": "Rindegastos",
-  "short_name": "Rindegastos",
-  "description": "Rendición de gastos corporativos para tu empresa",
+  "name": "Penta Rend",
+  "short_name": "Penta Rend",
+  "description": "Gestión de rendiciones de gastos — Penta Ingenieros Asociados",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "background_color": "#12152E",
+  "theme_color": "#4A50A0",
   "orientation": "portrait",
   "icons": [
     {

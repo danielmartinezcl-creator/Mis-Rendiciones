@@ -4,7 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 
 /**
- * REFORMA VISUAL — Mi rendición
+ * REFORMA VISUAL — Penta Rend
  *
  * Fuentes nuevas (reemplazan Plus Jakarta Sans + Manrope):
  *   - Bricolage Grotesque → display/títulos/heroes (variable: --font-bricolage)
@@ -29,18 +29,18 @@ const hanken = Hanken_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'Mi rendición',
-  description: 'Gestión de rendiciones de gastos con IA',
+  title: 'Penta Rend',
+  description: 'Gestión de rendiciones de gastos — Penta Ingenieros Asociados',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Mi rendición',
+    title: 'Penta Rend',
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0D9488',   /* teal — antes: #0f172a (slate) */
+  themeColor: '#4A50A0',   /* violeta PENTA */
   width: 'device-width',
   initialScale: 1,
 }
