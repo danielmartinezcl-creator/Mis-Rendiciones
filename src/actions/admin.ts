@@ -292,24 +292,28 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
 }
 
 export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId } = await requireAdmin()
 
+  // org_id filter ensures global categories (org_id = null) can never be modified
   const { error } = await supabase
     .from('expense_categories')
     .update({ name: data.name.trim(), color: data.color ?? null, icon: data.icon ?? null })
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
   revalidatePath('/admin/settings')
 }
 
 export async function deleteCategory(id: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId } = await requireAdmin()
 
+  // org_id filter ensures global categories (org_id = null) can never be deleted
   const { error } = await supabase
     .from('expense_categories')
     .delete()
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
   revalidatePath('/admin/settings')
