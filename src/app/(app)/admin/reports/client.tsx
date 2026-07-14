@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getAdminReports, getReportDetailForAdmin } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
@@ -30,7 +30,8 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [details,  setDetails]  = useState<Record<string, Detail>>({})
   const [expanding, setExpanding] = useState<string | null>(null)
   const [expanded,  setExpanded]  = useState<string | null>(null)
-  const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null)
+  const [exporting, setExporting] = useState<'xlsx' | 'pdf' | 'defontana' | null>(null)
+  const [defontanaWarnings, setDefontanaWarnings] = useState<{ reportTitle: string; categories: string[] }[]>([])
 
   // Filtros
   const [dateFrom,   setDateFrom]   = useState('')
@@ -125,6 +126,34 @@ export function AdminReportsClient({ initialReports }: Props) {
     }
   }
 
+  async function handleExportDefontana() {
+    setExporting('defontana')
+    setDefontanaWarnings([])
+    try {
+      const { reports: defReports, settings } = await getDefontanaExportData({
+        reportIds: filtered.map(r => r.id),
+        dateFrom:  dateFrom || undefined,
+        dateTo:    dateTo   || undefined,
+      })
+      if (!defReports.length) {
+        alert('No hay rendiciones aprobadas en el filtro actual para exportar a Defontana.')
+        return
+      }
+      if (!settings?.contraAccount) {
+        alert('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
+        return
+      }
+      const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
+      const result = buildDefontanaEntries(defReports, settings)
+      exportDefontanaToExcel(result, 'asientos-defontana')
+      if (result.warnings.length > 0) {
+        setDefontanaWarnings(result.warnings.map(w => ({ reportTitle: w.reportTitle, categories: w.categories })))
+      }
+    } finally {
+      setExporting(null)
+    }
+  }
+
   function toggleStatus(v: string) {
     setStatusSel(prev => prev.includes(v) ? prev.filter(s => s !== v) : [...prev, v])
   }
@@ -158,8 +187,38 @@ export function AdminReportsClient({ initialReports }: Props) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             {exporting === 'pdf' ? 'Exportando…' : 'PDF'}
           </button>
+          <button
+            onClick={handleExportDefontana}
+            disabled={!!exporting || filtered.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
+            style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            {exporting === 'defontana' ? 'Exportando…' : 'Defontana'}
+          </button>
         </div>
       </div>
+
+      {/* Advertencias Defontana */}
+      {defontanaWarnings.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-card p-4">
+          <div className="flex items-start gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800 mb-1">Categorías sin código Defontana ({defontanaWarnings.length} {defontanaWarnings.length === 1 ? 'rendición' : 'rendiciones'})</p>
+              <p className="text-xs text-amber-700 mb-2">Los ítems de estas categorías no fueron incluidos en los asientos. Asigna sus códigos en <strong>Configuración → Defontana</strong>.</p>
+              <ul className="space-y-1">
+                {defontanaWarnings.map((w, i) => (
+                  <li key={i} className="text-xs text-amber-700">
+                    <span className="font-medium">{w.reportTitle}:</span> {w.categories.join(', ')}
+                  </li>
+                ))}
+              </ul>
+              <button onClick={() => setDefontanaWarnings([])} className="mt-2 text-xs text-amber-600 hover:underline">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <AdminKpiHero

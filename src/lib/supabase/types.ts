@@ -16,8 +16,11 @@ export interface Database {
           plan: 'free' | 'pro' | 'enterprise'
           logo_url: string | null
           created_at: string
-          max_item_amount_clp: number | null
-          max_fund_amount_clp: number | null
+          max_item_amount_clp:      number | null
+          max_fund_amount_clp:      number | null
+          defontana_contra_account: string | null
+          defontana_voucher_type:   string | null
+          defontana_cost_center:    string | null
         }
         Insert: {
           id?: string
@@ -30,6 +33,9 @@ export interface Database {
           created_at?: string
           max_item_amount_clp?: number | null
           max_fund_amount_clp?: number | null
+          defontana_contra_account?: string | null
+          defontana_voucher_type?:   string | null
+          defontana_cost_center?:    string | null
         }
         Update: {
           id?: string
@@ -42,6 +48,9 @@ export interface Database {
           created_at?: string
           max_item_amount_clp?: number | null
           max_fund_amount_clp?: number | null
+          defontana_contra_account?: string | null
+          defontana_voucher_type?:   string | null
+          defontana_cost_center?:    string | null
         }
         Relationships: []
       }
@@ -152,6 +161,7 @@ export interface Database {
           color: string | null
           required_doc_types: string[] | null
           is_active: boolean
+          defontana_account_code: string | null
         }
         Insert: {
           id?: string
@@ -161,6 +171,7 @@ export interface Database {
           color?: string | null
           required_doc_types?: string[] | null
           is_active?: boolean
+          defontana_account_code?: string | null
         }
         Update: {
           id?: string
@@ -170,6 +181,7 @@ export interface Database {
           color?: string | null
           required_doc_types?: string[] | null
           is_active?: boolean
+          defontana_account_code?: string | null
         }
         Relationships: []
       }

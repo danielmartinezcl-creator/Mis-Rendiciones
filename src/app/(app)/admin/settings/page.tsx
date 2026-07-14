@@ -15,11 +15,12 @@ import {
   getOrgEmployees, updateEmployee, updateEmployeeEmail,
   resendInvitation, deleteEmployee,
   getSpendingLimits, updateSpendingLimits,
+  getDefontanaSettings, updateDefontanaSettings, updateCategoryDefontanaCode,
 } from '@/actions/admin'
 import type { ExpenseCategory } from '@/lib/supabase/types'
 import type { UserProfile } from '@/lib/supabase/types'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -117,6 +118,7 @@ export default function AdminSettingsPage() {
           { id: 'employees',  label: 'Empleados' },
           { id: 'chains',     label: 'Aprobación' },
           { id: 'limits',     label: 'Límites' },
+          { id: 'defontana',  label: 'Defontana' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -137,6 +139,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'employees'  && <EmployeesTab />}
       {activeTab === 'chains'     && <ChainsTab />}
       {activeTab === 'limits'     && <LimitsTab />}
+      {activeTab === 'defontana'  && <DefontanaTab />}
     </div>
   )
 }
@@ -638,6 +641,194 @@ function ChainsTab() {
           </p>
         </div>
       </div>
+    </section>
+  )
+}
+
+/* ── Tab: Defontana ─────────────────────────────────────────────────────── */
+function DefontanaTab() {
+  // ── Config general
+  const [contraAccount, setContraAccount] = useState('')
+  const [voucherType,   setVoucherType]   = useState('Egreso')
+  const [costCenter,    setCostCenter]    = useState('')
+  const [cfgLoading,    setCfgLoading]    = useState(true)
+  const [cfgSaving,     setCfgSaving]     = useState(false)
+  const [cfgSaved,      setCfgSaved]      = useState(false)
+  const [cfgError,      setCfgError]      = useState<string | null>(null)
+
+  // ── Categorías
+  const [categories, setCategories] = useState<ExpenseCategory[]>([])
+  const [catLoading, setCatLoading] = useState(true)
+  const [savingCat,  setSavingCat]  = useState<string | null>(null)
+  const [catCodes,   setCatCodes]   = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    Promise.all([
+      getDefontanaSettings().then(s => {
+        setContraAccount(s.contraAccount)
+        setVoucherType(s.voucherType)
+        setCostCenter(s.costCenter)
+        setCfgLoading(false)
+      }),
+      getOrgCategories().then(cats => {
+        setCategories(cats)
+        const codes: Record<string, string> = {}
+        for (const c of cats) codes[c.id] = c.defontana_account_code ?? ''
+        setCatCodes(codes)
+        setCatLoading(false)
+      }),
+    ])
+  }, [])
+
+  async function handleSaveConfig(e: React.FormEvent) {
+    e.preventDefault()
+    setCfgSaving(true)
+    setCfgError(null)
+    try {
+      await updateDefontanaSettings({ contraAccount, voucherType, costCenter })
+      setCfgSaved(true)
+      setTimeout(() => setCfgSaved(false), 3000)
+    } catch (err) {
+      setCfgError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setCfgSaving(false)
+    }
+  }
+
+  async function handleSaveCatCode(catId: string) {
+    setSavingCat(catId)
+    try {
+      await updateCategoryDefontanaCode(catId, catCodes[catId] ?? '')
+    } finally {
+      setSavingCat(null)
+    }
+  }
+
+  const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount'
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-base font-display font-bold text-ink-900">Integración Defontana</h2>
+        <p className="text-sm text-ink-500 mt-0.5">
+          Configura las cuentas contables para generar asientos automáticos desde rendiciones aprobadas.
+        </p>
+      </div>
+
+      {/* ── Configuración general ── */}
+      {cfgLoading ? <Spinner /> : (
+        <form onSubmit={handleSaveConfig} className="bg-white rounded-card shadow-card p-5 space-y-4">
+          <h3 className="text-sm font-bold text-ink-800">Configuración general</h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">
+                Cuenta contrapartida (Haber)
+              </label>
+              <p className="text-xs text-ink-400 mb-1.5">La cuenta que se acredita por el total de cada rendición (ej: "2-01-001")</p>
+              <input
+                type="text"
+                value={contraAccount}
+                onChange={e => setContraAccount(e.target.value)}
+                placeholder="2-01-001"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo de comprobante</label>
+              <p className="text-xs text-ink-400 mb-1.5">Nombre del tipo de comprobante en Defontana</p>
+              <input
+                type="text"
+                value={voucherType}
+                onChange={e => setVoucherType(e.target.value)}
+                placeholder="Egreso"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Centro de costo (opcional)</label>
+              <p className="text-xs text-ink-400 mb-1.5">Se aplica a todas las líneas del asiento</p>
+              <input
+                type="text"
+                value={costCenter}
+                onChange={e => setCostCenter(e.target.value)}
+                placeholder="CC-001"
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          {cfgError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{cfgError}</div>
+          )}
+          {cfgSaved && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-item p-3">
+              ✓ Configuración guardada
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={cfgSaving}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+          >
+            <Check size={14} />
+            {cfgSaving ? 'Guardando…' : 'Guardar configuración'}
+          </button>
+        </form>
+      )}
+
+      {/* ── Mapeo de cuentas por categoría ── */}
+      {catLoading ? <Spinner /> : (
+        <div className="bg-white rounded-card shadow-card p-5 space-y-3">
+          <div>
+            <h3 className="text-sm font-bold text-ink-800">Cuentas por categoría de gasto</h3>
+            <p className="text-xs text-ink-400 mt-0.5">
+              Asigna el código de la cuenta de gasto (Debe) de Defontana a cada categoría.
+              Las categorías sin código no se incluirán en el asiento.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {categories.map(cat => {
+              const Icon = getIconByKey(cat.icon)
+              const bg   = cat.color ?? '#8A95AD'
+              return (
+                <div key={cat.id} className="flex items-center gap-3 py-2 border-b border-ink-50 last:border-0">
+                  <span className="w-8 h-8 rounded-item flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: bg + '22', color: bg }}>
+                    <Icon size={15} strokeWidth={2} />
+                  </span>
+                  <span className="flex-1 text-sm text-ink-800 min-w-0 truncate">{cat.name}</span>
+                  {cat.org_id === null && (
+                    <span className="text-[10px] bg-ink-100 text-ink-500 px-1.5 py-0.5 rounded-full shrink-0">global</span>
+                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      type="text"
+                      value={catCodes[cat.id] ?? ''}
+                      onChange={e => setCatCodes(prev => ({ ...prev, [cat.id]: e.target.value }))}
+                      onBlur={() => handleSaveCatCode(cat.id)}
+                      placeholder="4-xx-xxx"
+                      className="w-28 border border-ink-200 rounded-item px-2.5 py-1.5 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    />
+                    {savingCat === cat.id && (
+                      <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+                    )}
+                    {savingCat !== cat.id && catCodes[cat.id] && (
+                      <Check size={14} className="text-emerald-500" />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="text-xs text-ink-400 pt-1">
+            Los cambios se guardan automáticamente al salir de cada campo.
+          </p>
+        </div>
+      )}
     </section>
   )
 }
