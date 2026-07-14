@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
 import type { UserProfile } from '@/lib/supabase/types'
@@ -52,6 +52,7 @@ function applyOrder(items: NavItem[], saved: string[]): NavItem[] {
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
+  const router   = useRouter()
 
   const visible = NAV_ITEMS.filter(item =>
     (item.roles as readonly string[]).includes(user.role) ||
@@ -176,6 +177,7 @@ export function Sidebar({ user }: SidebarProps) {
 
                 <Link
                   href={item.href}
+                  onMouseEnter={() => router.prefetch(item.href)}
                   className={cn(
                     'flex-1 flex items-center gap-3 px-3 py-2.5 rounded-item text-sm font-semibold transition-all duration-150',
                     active
