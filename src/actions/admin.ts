@@ -291,6 +291,30 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
   revalidatePath('/admin/settings')
 }
 
+export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
+  const { supabase } = await requireAdmin()
+
+  const { error } = await supabase
+    .from('expense_categories')
+    .update({ name: data.name.trim(), color: data.color ?? null, icon: data.icon ?? null })
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
+export async function deleteCategory(id: string) {
+  const { supabase } = await requireAdmin()
+
+  const { error } = await supabase
+    .from('expense_categories')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
 // ─── Políticas de aprobación ─────────────────────────────────────────────────
 
 export async function getOrgPolicies() {
