@@ -71,6 +71,17 @@ export async function addExpenseItem(
   const errors = validateExpenseItem(item)
   if (errors.length > 0) throw new Error(errors.join(', '))
 
+  // Verificar límite de monto por ítem
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('max_item_amount_clp')
+    .eq('id', profile.org_id)
+    .single()
+  if (org?.max_item_amount_clp && item.amount_clp > org.max_item_amount_clp) {
+    const limit = org.max_item_amount_clp.toLocaleString('es-CL')
+    throw new Error(`El monto excede el límite máximo por ítem ($${limit} CLP). Contacta al administrador.`)
+  }
+
   const { data: newItem, error } = await supabase
     .from('expense_items')
     .insert({
@@ -183,6 +194,82 @@ export async function getMyReports() {
     .limit(20)
 
   return data ?? []
+}
+
+// ── Detección de documentos duplicados ───────────────────────────────────────
+
+export async function checkItemDuplicate(params: {
+  doc_type:       string
+  doc_number:     string
+  excludeItemId?: string
+}) {
+  if (!params.doc_type || !params.doc_number?.trim()) return null
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from('users').select('org_id').eq('id', user.id).single()
+  if (!profile) return null
+
+  const docNum = params.doc_number.trim()
+
+  // Buscar en ítems de rendiciones
+  const { data: expItems } = await supabase
+    .from('expense_items')
+    .select('id, description, amount_clp, date, report_id')
+    .eq('org_id', profile.org_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('doc_type', params.doc_type as any)
+    .eq('doc_number', docNum)
+    .limit(1)
+
+  if (expItems?.length) {
+    const item = expItems[0]
+    const { data: report } = await supabase
+      .from('expense_reports')
+      .select('title')
+      .eq('id', item.report_id)
+      .single()
+    return {
+      found:        true as const,
+      source:       'rendición' as const,
+      description:  item.description,
+      amount_clp:   item.amount_clp,
+      date:         item.date,
+      context:      report?.title ?? 'rendición',
+    }
+  }
+
+  // Buscar en ítems de caja chica
+  const { data: pcItems } = await supabase
+    .from('petty_cash_items')
+    .select('id, description, amount_clp, date, fund_id')
+    .eq('org_id', profile.org_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('doc_type', params.doc_type as any)
+    .eq('doc_number', docNum)
+    .limit(1)
+
+  if (pcItems?.length) {
+    const item = pcItems[0]
+    const { data: fund } = await supabase
+      .from('petty_cash_funds')
+      .select('name')
+      .eq('id', item.fund_id)
+      .single()
+    return {
+      found:       true as const,
+      source:      'caja chica' as const,
+      description: item.description,
+      amount_clp:  item.amount_clp,
+      date:        item.date,
+      context:     fund?.name ?? 'caja chica',
+    }
+  }
+
+  return null
 }
 
 export async function getReportWithItems(reportId: string) {

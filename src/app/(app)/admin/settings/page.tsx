@@ -14,11 +14,12 @@ import {
   updateCategory, deleteCategory,
   getOrgEmployees, updateEmployee, updateEmployeeEmail,
   resendInvitation, deleteEmployee,
+  getSpendingLimits, updateSpendingLimits,
 } from '@/actions/admin'
 import type { ExpenseCategory } from '@/lib/supabase/types'
 import type { UserProfile } from '@/lib/supabase/types'
 
-type Tab = 'categories' | 'employees' | 'chains'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -115,6 +116,7 @@ export default function AdminSettingsPage() {
           { id: 'categories', label: 'Categorías' },
           { id: 'employees',  label: 'Empleados' },
           { id: 'chains',     label: 'Aprobación' },
+          { id: 'limits',     label: 'Límites' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -134,6 +136,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'categories' && <CategoriesTab />}
       {activeTab === 'employees'  && <EmployeesTab />}
       {activeTab === 'chains'     && <ChainsTab />}
+      {activeTab === 'limits'     && <LimitsTab />}
     </div>
   )
 }
@@ -635,6 +638,126 @@ function ChainsTab() {
           </p>
         </div>
       </div>
+    </section>
+  )
+}
+
+/* ── Tab: Límites de gasto ──────────────────────────────────────────────── */
+function LimitsTab() {
+  const [maxItem, setMaxItem] = useState('')
+  const [maxFund, setMaxFund] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState(false)
+  const [saved,   setSaved]   = useState(false)
+  const [error,   setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    getSpendingLimits().then(limits => {
+      setMaxItem(limits.maxItemAmount != null ? String(limits.maxItemAmount) : '')
+      setMaxFund(limits.maxFundAmount != null ? String(limits.maxFundAmount) : '')
+      setLoading(false)
+    })
+  }, [])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      await updateSpendingLimits({
+        maxItemAmount: maxItem ? parseInt(maxItem.replace(/\./g, ''), 10) : null,
+        maxFundAmount: maxFund ? parseInt(maxFund.replace(/\./g, ''), 10) : null,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return <Spinner />
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-base font-display font-bold text-ink-900">Límites de gasto</h2>
+        <p className="text-sm text-ink-500 mt-0.5">
+          Configura montos máximos para ítems y fondos. Deja en blanco para no tener límite.
+          Los límites son controles duros: el sistema rechaza el gasto si se excede.
+        </p>
+      </div>
+
+      <form onSubmit={handleSave} className="bg-white rounded-card shadow-card p-5 space-y-5">
+        <div>
+          <label className="block text-sm font-semibold text-ink-700 mb-1">
+            Monto máximo por ítem (CLP)
+          </label>
+          <p className="text-xs text-ink-400 mb-2">
+            Aplica a cada gasto individual en rendiciones y en caja chica.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-ink-500 font-mono-amount">$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={maxItem}
+              onChange={e => setMaxItem(e.target.value.replace(/[^\d.]/g, ''))}
+              placeholder="Sin límite"
+              className="w-full max-w-xs border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+            />
+          </div>
+          {maxItem && !isNaN(parseInt(maxItem)) && (
+            <p className="text-xs text-ink-400 mt-1">
+              = $ {parseInt(maxItem).toLocaleString('es-CL')} CLP por ítem
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-ink-700 mb-1">
+            Monto máximo por fondo de caja chica (CLP)
+          </label>
+          <p className="text-xs text-ink-400 mb-2">
+            Límite al solicitar un nuevo fondo. El EFF puede aprobar menos, pero no más.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-ink-500 font-mono-amount">$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={maxFund}
+              onChange={e => setMaxFund(e.target.value.replace(/[^\d.]/g, ''))}
+              placeholder="Sin límite"
+              className="w-full max-w-xs border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+            />
+          </div>
+          {maxFund && !isNaN(parseInt(maxFund)) && (
+            <p className="text-xs text-ink-400 mt-1">
+              = $ {parseInt(maxFund).toLocaleString('es-CL')} CLP por fondo
+            </p>
+          )}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{error}</div>
+        )}
+        {saved && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-item p-3">
+            ✓ Límites guardados correctamente
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+        >
+          <Check size={14} />
+          {saving ? 'Guardando…' : 'Guardar límites'}
+        </button>
+      </form>
     </section>
   )
 }

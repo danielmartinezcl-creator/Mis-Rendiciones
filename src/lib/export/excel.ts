@@ -150,3 +150,77 @@ export function exportAdminReportsToExcel(reports: AdminReportRow[], filename = 
 
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
+
+// ─── Export Caja Chica ───────────────────────────────────────────────────────
+
+const ITEM_STATUS_ES: Record<string, string> = {
+  pending:  'Pendiente',
+  approved: 'Aprobado',
+  rejected: 'Rechazado',
+}
+
+export interface PettyCashItemRow {
+  employee_name:    string
+  fund_name:        string
+  description:      string
+  merchant:         string | null
+  date:             string
+  category_name:    string | null
+  amount:           number
+  currency:         string
+  amount_clp:       number
+  doc_type:         string | null
+  doc_number:       string | null
+  status:           string
+  rejection_reason: string | null
+  notes:            string | null
+}
+
+export function exportPettyCashToExcel(items: PettyCashItemRow[], filename = 'caja-chica-informe') {
+  const wb = XLSX.utils.book_new()
+
+  const rows = items.map(i => ({
+    Empleado:          i.employee_name,
+    Fondo:             i.fund_name,
+    Descripción:       i.description,
+    Proveedor:         i.merchant ?? '',
+    Fecha:             formatDate(i.date),
+    Categoría:         i.category_name ?? '',
+    Monto:             i.amount,
+    Moneda:            i.currency,
+    'Monto CLP':       i.amount_clp,
+    'Tipo doc':        i.doc_type ?? '',
+    'N° doc':          i.doc_number ?? '',
+    Estado:            ITEM_STATUS_ES[i.status] ?? i.status,
+    'Motivo rechazo':  i.rejection_reason ?? '',
+    Notas:             i.notes ?? '',
+  }))
+
+  const ws1 = XLSX.utils.json_to_sheet(rows)
+  ws1['!cols'] = [
+    { wch: 22 }, { wch: 22 }, { wch: 30 }, { wch: 20 },
+    { wch: 12 }, { wch: 18 }, { wch: 12 }, { wch: 8 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+    { wch: 30 }, { wch: 30 },
+  ]
+  XLSX.utils.book_append_sheet(wb, ws1, 'Detalle ítems')
+
+  const byCat: Record<string, { total: number; count: number }> = {}
+  for (const i of items) {
+    const key = i.category_name ?? 'Sin categoría'
+    if (!byCat[key]) byCat[key] = { total: 0, count: 0 }
+    byCat[key].total += i.amount_clp
+    byCat[key].count += 1
+  }
+  const catRows = Object.entries(byCat)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([cat, d]) => ({ Categoría: cat, 'N° ítems': d.count, 'Total CLP': d.total }))
+
+  if (catRows.length > 0) {
+    const ws2 = XLSX.utils.json_to_sheet(catRows)
+    ws2['!cols'] = [{ wch: 25 }, { wch: 10 }, { wch: 14 }]
+    XLSX.utils.book_append_sheet(wb, ws2, 'Por categoría')
+  }
+
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}

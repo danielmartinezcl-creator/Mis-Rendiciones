@@ -54,6 +54,17 @@ export async function createPettyCashFund(data: {
     throw new Error('Sin permiso para crear fondos')
   }
 
+  // Verificar límite de monto por fondo
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('max_fund_amount_clp')
+    .eq('id', profile.org_id)
+    .single()
+  if (org?.max_fund_amount_clp && data.amount_requested > org.max_fund_amount_clp) {
+    const limit = org.max_fund_amount_clp.toLocaleString('es-CL')
+    throw new Error(`El monto solicitado excede el límite máximo por fondo ($${limit} CLP). Contacta al administrador.`)
+  }
+
   const { data: fund, error } = await supabase
     .from('petty_cash_funds')
     .insert({
@@ -206,6 +217,17 @@ export async function addFundItem(fundId: string, item: {
   }
   if (fund.status !== 'funds_sent') {
     throw new Error('Solo se pueden agregar gastos cuando los fondos han sido enviados')
+  }
+
+  // Verificar límite de monto por ítem
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('max_item_amount_clp')
+    .eq('id', fund.org_id)
+    .single()
+  if (org?.max_item_amount_clp && item.amount_clp > org.max_item_amount_clp) {
+    const limit = org.max_item_amount_clp.toLocaleString('es-CL')
+    throw new Error(`El monto excede el límite máximo por ítem ($${limit} CLP). Contacta al administrador.`)
   }
 
   const { error } = await supabase.from('petty_cash_items').insert({
@@ -454,3 +476,93 @@ export async function getFundDetail(fundId: string) {
 }
 
 export type FundDetail = NonNullable<Awaited<ReturnType<typeof getFundDetail>>>
+
+// ── Categorías activas (para filtros) ────────────────────────────────────────
+
+export async function getActivePettyCashCategories() {
+  const { supabase, profile } = await getProfile()
+  const { data } = await supabase
+    .from('expense_categories')
+    .select('id, name, color')
+    .or(`org_id.eq.${profile.org_id},org_id.is.null`)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+  return data ?? []
+}
+
+// ── Informe de ítems (para export con filtros) ────────────────────────────────
+
+export async function getPettyCashItemsForReport(filters: {
+  dateFrom?:    string
+  dateTo?:      string
+  itemStatus?:  'pending' | 'approved' | 'rejected' | 'all'
+  employeeIds?: string[]
+  categoryIds?: string[]
+}) {
+  const { supabase, profile } = await getProfile()
+
+  if (profile.role !== 'admin' && !profile.can_manage_petty_cash) {
+    throw new Error('Sin permiso para generar informes de caja chica')
+  }
+
+  // Obtener fondos del tenant (con filtro de empleado si aplica)
+  let fundsQuery = supabase
+    .from('petty_cash_funds')
+    .select('id, name, employee_id')
+    .eq('org_id', profile.org_id)
+
+  if (filters.employeeIds?.length) {
+    fundsQuery = fundsQuery.in('employee_id', filters.employeeIds)
+  }
+
+  const { data: funds } = await fundsQuery
+  if (!funds?.length) return { items: [], totalCLP: 0 }
+
+  const fundIds   = funds.map(f => f.id)
+  const fundMap   = Object.fromEntries(funds.map(f => [f.id, f]))
+
+  // Obtener ítems filtrados
+  let itemsQuery = supabase
+    .from('petty_cash_items')
+    .select('id, fund_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
+    .in('fund_id', fundIds)
+    .order('date', { ascending: true })
+
+  if (filters.dateFrom) itemsQuery = itemsQuery.gte('date', filters.dateFrom)
+  if (filters.dateTo)   itemsQuery = itemsQuery.lte('date', filters.dateTo)
+  if (filters.itemStatus && filters.itemStatus !== 'all') {
+    itemsQuery = itemsQuery.eq('status', filters.itemStatus as 'pending' | 'approved' | 'rejected')
+  }
+  if (filters.categoryIds?.length) {
+    itemsQuery = itemsQuery.in('category_id', filters.categoryIds)
+  }
+
+  const { data: items } = await itemsQuery
+  if (!items?.length) return { items: [], totalCLP: 0 }
+
+  // Enriquecer con categorías y empleados
+  const catIds = [...new Set(items.map(i => i.category_id).filter(Boolean))] as string[]
+  const empIds = [...new Set(funds.map(f => f.employee_id))]
+
+  const [catsRes, usersRes] = await Promise.all([
+    catIds.length
+      ? supabase.from('expense_categories').select('id, name, color').in('id', catIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; color: string | null }[] }),
+    supabase.from('users').select('id, full_name').in('id', empIds),
+  ])
+
+  const catMap  = Object.fromEntries((catsRes.data ?? []).map(c => [c.id, c]))
+  const userMap = Object.fromEntries((usersRes.data ?? []).map(u => [u.id, u.full_name]))
+
+  const enriched = items.map(i => ({
+    ...i,
+    fund_name:      fundMap[i.fund_id]?.name ?? 'Desconocido',
+    employee_name:  fundMap[i.fund_id] ? (userMap[fundMap[i.fund_id].employee_id] ?? 'Desconocido') : 'Desconocido',
+    category_name:  i.category_id ? (catMap[i.category_id]?.name ?? null) : null,
+    category_color: i.category_id ? (catMap[i.category_id]?.color ?? null) : null,
+  }))
+
+  const totalCLP = enriched.reduce((s, i) => s + i.amount_clp, 0)
+
+  return { items: enriched, totalCLP }
+}

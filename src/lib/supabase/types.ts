@@ -16,6 +16,8 @@ export interface Database {
           plan: 'free' | 'pro' | 'enterprise'
           logo_url: string | null
           created_at: string
+          max_item_amount_clp: number | null
+          max_fund_amount_clp: number | null
         }
         Insert: {
           id?: string
@@ -26,6 +28,8 @@ export interface Database {
           plan?: 'free' | 'pro' | 'enterprise'
           logo_url?: string | null
           created_at?: string
+          max_item_amount_clp?: number | null
+          max_fund_amount_clp?: number | null
         }
         Update: {
           id?: string
@@ -36,6 +40,8 @@ export interface Database {
           plan?: 'free' | 'pro' | 'enterprise'
           logo_url?: string | null
           created_at?: string
+          max_item_amount_clp?: number | null
+          max_fund_amount_clp?: number | null
         }
         Relationships: []
       }

@@ -383,6 +383,37 @@ export async function setEmployeeApprovers(
   revalidatePath('/admin/employees')
 }
 
+// ─── Límites de gasto ────────────────────────────────────────────────────────
+
+export async function getSpendingLimits() {
+  const { supabase, orgId } = await requireAdmin()
+  const { data } = await supabase
+    .from('organizations')
+    .select('max_item_amount_clp, max_fund_amount_clp')
+    .eq('id', orgId)
+    .single()
+  return {
+    maxItemAmount: data?.max_item_amount_clp ?? null,
+    maxFundAmount: data?.max_fund_amount_clp ?? null,
+  }
+}
+
+export async function updateSpendingLimits(limits: {
+  maxItemAmount: number | null
+  maxFundAmount: number | null
+}) {
+  const { supabase, orgId } = await requireAdmin()
+  const { error } = await supabase
+    .from('organizations')
+    .update({
+      max_item_amount_clp: limits.maxItemAmount,
+      max_fund_amount_clp: limits.maxFundAmount,
+    })
+    .eq('id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
 export async function setDefaultPolicy(policyId: string) {
   const { supabase, orgId } = await requireAdmin()
 

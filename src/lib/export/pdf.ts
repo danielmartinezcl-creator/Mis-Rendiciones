@@ -167,3 +167,74 @@ export function exportAdminReportsToPDF(reports: AdminReportRow[], filters: Admi
 
   doc.save(`${filename}.pdf`)
 }
+
+// ─── Export Caja Chica ───────────────────────────────────────────────────────
+
+import type { PettyCashItemRow } from './excel'
+
+const ITEM_STATUS_ES: Record<string, string> = {
+  pending:  'Pendiente',
+  approved: 'Aprobado',
+  rejected: 'Rechazado',
+}
+
+export function exportPettyCashToPDF(items: PettyCashItemRow[], title = 'Informe Caja Chica') {
+  const doc = new jsPDF({ orientation: 'landscape' })
+
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text(title, 14, 18)
+
+  const totalCLP = items.reduce((s, i) => s + i.amount_clp, 0)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100)
+  doc.text(`Total: ${formatCLP(totalCLP)}   ·   ${items.length} ítem${items.length !== 1 ? 's' : ''}   ·   Exportado ${new Date().toLocaleDateString('es-CL')}`, 14, 26)
+  doc.setTextColor(0)
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['Empleado', 'Fondo', 'Fecha', 'Descripción', 'Categoría', 'Monto CLP', 'Estado']],
+    body: items.map(i => [
+      i.employee_name,
+      i.fund_name,
+      formatDate(i.date),
+      i.description,
+      i.category_name ?? '',
+      formatCLP(i.amount_clp),
+      ITEM_STATUS_ES[i.status] ?? i.status,
+    ]),
+    styles:              { fontSize: 8 },
+    headStyles:          { fillColor: [13, 148, 136] },
+    alternateRowStyles:  { fillColor: [240, 253, 250] },
+    columnStyles: {
+      0: { cellWidth: 32 }, 1: { cellWidth: 32 }, 2: { cellWidth: 22 },
+      3: { cellWidth: 60 }, 4: { cellWidth: 28 }, 5: { cellWidth: 26 },
+    },
+  })
+
+  // Segunda página: resumen por categoría
+  const byCat: Record<string, number> = {}
+  for (const i of items) {
+    const key = i.category_name ?? 'Sin categoría'
+    byCat[key] = (byCat[key] ?? 0) + i.amount_clp
+  }
+  const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1])
+
+  if (catEntries.length > 1) {
+    doc.addPage()
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Resumen por categoría', 14, 18)
+
+    autoTable(doc, {
+      startY: 24,
+      head: [['Categoría', 'Total CLP']],
+      body: catEntries.map(([cat, total]) => [cat, formatCLP(total)]),
+      styles:     { fontSize: 9 },
+      headStyles: { fillColor: [13, 148, 136] },
+    })
+  }
+
+  doc.save(`${title.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+}

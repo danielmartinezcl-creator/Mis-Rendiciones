@@ -1,12 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { PhotoUpload } from './PhotoUpload'
 import { getHistoricalRate } from '@/actions/exchange-rate'
-import { formatCLP, formatExchangeRate } from '@/lib/utils'
+import { checkItemDuplicate } from '@/actions/expenses'
+import { formatCLP, formatExchangeRate, formatDate } from '@/lib/utils'
 import { CURRENCIES, DOC_TYPES, type Currency } from '@/lib/constants'
 import type { OcrResult } from '@/lib/ocr-helpers'
 import type { ExpenseCategory, Json } from '@/lib/supabase/types'
+
+type DuplicateResult = Awaited<ReturnType<typeof checkItemDuplicate>>
 
 export interface ItemFormData {
   description:          string
@@ -51,10 +55,11 @@ interface ExpenseItemFormProps {
 }
 
 export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFormProps) {
-  const [form, setForm]           = useState<ItemFormData>(emptyForm())
-  const [tcLoading, setTcLoading] = useState(false)
-  const [saving, setSaving]       = useState(false)
-  const [errors, setErrors]       = useState<string[]>([])
+  const [form, setForm]               = useState<ItemFormData>(emptyForm())
+  const [tcLoading, setTcLoading]     = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [errors, setErrors]           = useState<string[]>([])
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateResult>(null)
 
   function set(field: keyof ItemFormData, value: unknown) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -115,6 +120,16 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
     set('ocr_confidence', result.confidence)
   }
 
+  async function doSave() {
+    setSaving(true)
+    try {
+      await onSave(form)
+      setDuplicateWarning(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
@@ -129,12 +144,18 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
     }
     setErrors([])
 
-    setSaving(true)
-    try {
-      await onSave(form)
-    } finally {
+    // Verificar duplicado solo cuando hay tipo+número de documento
+    if (form.doc_type && form.doc_number.trim()) {
+      setSaving(true)
+      const dup = await checkItemDuplicate({ doc_type: form.doc_type, doc_number: form.doc_number })
       setSaving(false)
+      if (dup) {
+        setDuplicateWarning(dup)
+        return
+      }
     }
+
+    await doSave()
   }
 
   const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
@@ -150,6 +171,45 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
           {errors.map(err => (
             <p key={err} className="text-sm text-red-600">{err}</p>
           ))}
+        </div>
+      )}
+
+      {/* Advertencia de documento duplicado */}
+      {duplicateWarning && (
+        <div className="bg-amber-50 border border-amber-300 rounded-item p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Posible documento duplicado</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Ya existe un ítem con este número de documento en{' '}
+                <strong>{duplicateWarning.source}</strong>
+                {duplicateWarning.context ? ` "${duplicateWarning.context}"` : ''}.
+              </p>
+              <div className="mt-2 bg-white border border-amber-200 rounded px-3 py-2 text-xs text-slate-600 space-y-0.5">
+                <p><span className="font-medium">Descripción:</span> {duplicateWarning.description}</p>
+                <p><span className="font-medium">Monto CLP:</span> {formatCLP(duplicateWarning.amount_clp)}</p>
+                <p><span className="font-medium">Fecha:</span> {formatDate(duplicateWarning.date)}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setDuplicateWarning(null)}
+              className="flex-1 py-2 px-3 border border-amber-300 rounded-item text-sm font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={doSave}
+              disabled={saving}
+              className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Guardando...' : 'Registrar de todas formas'}
+            </button>
+          </div>
         </div>
       )}
 
