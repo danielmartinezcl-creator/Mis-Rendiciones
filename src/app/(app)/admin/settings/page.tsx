@@ -300,18 +300,20 @@ function CategoriesTab() {
                 <CategoryIcon icon={cat.icon} color={cat.color} />
                 <span className="flex-1 text-sm font-medium text-ink-800">{cat.name}</span>
 
-                {/* Badge global */}
+                {/* Badge global (informativo, no bloquea edición) */}
                 {!isOrgCat && <span className="text-xs text-ink-400 italic shrink-0">global</span>}
 
-                {/* Acciones org */}
-                {isOrgCat && !isDeleting && (
+                {/* Acciones — disponibles para todas las categorías */}
+                {!isDeleting && (
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => toggleCategoryActive(cat.id, cat.is_active).then(load)}
-                      title={cat.is_active ? 'Desactivar' : 'Activar'}
-                      className="text-xs text-ink-400 hover:text-ink-700 transition-colors font-medium px-2 py-1 hover:bg-ink-100 rounded-item">
-                      {cat.is_active ? 'Desactivar' : 'Activar'}
-                    </button>
+                    {isOrgCat && (
+                      <button
+                        onClick={() => toggleCategoryActive(cat.id, cat.is_active).then(load)}
+                        title={cat.is_active ? 'Desactivar' : 'Activar'}
+                        className="text-xs text-ink-400 hover:text-ink-700 transition-colors font-medium px-2 py-1 hover:bg-ink-100 rounded-item">
+                        {cat.is_active ? 'Desactivar' : 'Activar'}
+                      </button>
+                    )}
                     <button
                       onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? '#4A50A0', icon: cat.icon ?? 'tag' })}
                       title="Editar categoría"
