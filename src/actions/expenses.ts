@@ -205,6 +205,7 @@ export async function getMyReports() {
 export async function checkItemDuplicate(params: {
   doc_type:       string
   doc_number:     string
+  supplier_rut?:  string   // para facturas: (RUT + folio) es la clave única SII
   excludeItemId?: string
 }) {
   if (!params.doc_type || !params.doc_number?.trim()) return null
@@ -217,17 +218,26 @@ export async function checkItemDuplicate(params: {
     .from('users').select('org_id').eq('id', user.id).single()
   if (!profile) return null
 
-  const docNum = params.doc_number.trim()
+  const docNum  = params.doc_number.trim()
+  const isFactura = params.doc_type === 'factura' || params.doc_type === 'factura_exenta'
+  const rutLimpio = params.supplier_rut?.trim() ?? ''
 
   // Buscar en ítems de rendiciones
-  const { data: expItems } = await supabase
+  let expQuery = supabase
     .from('expense_items')
     .select('id, description, amount_clp, date, report_id')
     .eq('org_id', profile.org_id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .eq('doc_type', params.doc_type as any)
     .eq('doc_number', docNum)
-    .limit(1)
+
+  if (isFactura && rutLimpio) {
+    // Factura: clave única = (RUT emisor + folio) — ignora doc_type para no fallar si alguien marcó exenta vs no exenta
+    expQuery = expQuery.eq('supplier_rut', rutLimpio)
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expQuery = expQuery.eq('doc_type', params.doc_type as any)
+  }
+
+  const { data: expItems } = await expQuery.limit(1)
 
   if (expItems?.length) {
     const item = expItems[0]
@@ -246,14 +256,14 @@ export async function checkItemDuplicate(params: {
     }
   }
 
-  // Buscar en ítems de caja chica
+  // Buscar en ítems de caja chica (no tiene supplier_rut — filtrar por doc_type + doc_number)
   const { data: pcItems } = await supabase
     .from('petty_cash_items')
     .select('id, description, amount_clp, date, fund_id')
     .eq('org_id', profile.org_id)
+    .eq('doc_number', docNum)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .eq('doc_type', params.doc_type as any)
-    .eq('doc_number', docNum)
     .limit(1)
 
   if (pcItems?.length) {

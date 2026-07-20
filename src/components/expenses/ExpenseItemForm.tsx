@@ -121,12 +121,13 @@ export function ExpenseItemForm({
     set('file', file)
     if (!result) return
 
-    if (result.amount)     set('amount', String(result.amount))
-    if (result.currency)   set('currency', result.currency as Currency)
-    if (result.date)       set('date', result.date)
-    if (result.merchant)   set('merchant', result.merchant)
-    if (result.doc_type)   set('doc_type', result.doc_type)
-    if (result.doc_number) set('doc_number', result.doc_number)
+    if (result.amount)        set('amount', String(result.amount))
+    if (result.currency)      set('currency', result.currency as Currency)
+    if (result.date)          set('date', result.date)
+    if (result.merchant)      set('merchant', result.merchant)
+    if (result.doc_type)      set('doc_type', result.doc_type)
+    if (result.doc_number)    set('doc_number', result.doc_number)
+    if (result.supplier_rut)  set('supplier_rut', result.supplier_rut)
     set('ocr_raw', { amount: result.amount, currency: result.currency, date: result.date, merchant: result.merchant } as Json)
     set('ocr_confidence', result.confidence)
   }
@@ -157,7 +158,7 @@ export function ExpenseItemForm({
 
     if (form.doc_type && form.doc_number.trim()) {
       setSaving(true)
-      const dup = await checkItemDuplicate({ doc_type: form.doc_type, doc_number: form.doc_number })
+      const dup = await checkItemDuplicate({ doc_type: form.doc_type, doc_number: form.doc_number, supplier_rut: form.supplier_rut || undefined })
       setSaving(false)
       if (dup) {
         setDuplicateWarning(dup)
