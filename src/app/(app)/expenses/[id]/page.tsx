@@ -14,7 +14,7 @@ import {
   uploadAttachment,
   getReportWithItems,
 } from '@/actions/expenses'
-import type { ExpenseCategory, ExpenseItem, Attachment, Json } from '@/lib/supabase/types'
+import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
 
@@ -22,12 +22,14 @@ export default function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router  = useRouter()
 
-  const [report, setReport]         = useState<ReportWithItems>(null)
-  const [categories, setCategories] = useState<ExpenseCategory[]>([])
-  const [showForm, setShowForm]     = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError]           = useState<string | null>(null)
-  const [loading, setLoading]       = useState(true)
+  const [report, setReport]                       = useState<ReportWithItems>(null)
+  const [categories, setCategories]               = useState<ExpenseCategory[]>([])
+  const [costCenters, setCostCenters]             = useState<CostCenter[]>([])
+  const [employeeCostCenterId, setEmployeeCC]     = useState<string | null>(null)
+  const [showForm, setShowForm]                   = useState(false)
+  const [submitting, setSubmitting]               = useState(false)
+  const [error, setError]                         = useState<string | null>(null)
+  const [loading, setLoading]                     = useState(true)
 
   async function load() {
     const data = await getReportWithItems(id)
@@ -39,11 +41,18 @@ export default function ExpenseDetailPage() {
     load()
 
     const supabase = createClient()
-    supabase
-      .from('expense_categories')
-      .select('*')
-      .order('name')
+    // Categorías
+    supabase.from('expense_categories').select('*').order('name')
       .then(({ data }) => setCategories(data ?? []))
+    // Centros de costo imputables
+    supabase.from('cost_centers').select('*').eq('imputable', true).eq('activo', true)
+      .then(({ data }) => setCostCenters(data ?? []))
+    // Centro de costo del empleado logueado
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('users').select('cost_center_id').eq('id', user.id).single()
+        .then(({ data }) => setEmployeeCC(data?.cost_center_id ?? null))
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -66,6 +75,8 @@ export default function ExpenseDetailPage() {
       doc_type:             data.doc_type || null,
       doc_number:           data.doc_number || null,
       notes:                data.notes || null,
+      cost_center_id:       data.cost_center_id || null,
+      supplier_rut:         data.supplier_rut || null,
       ocr_raw:              data.ocr_raw as Json | null,
       ocr_confidence:       data.ocr_confidence,
     })
@@ -182,6 +193,8 @@ export default function ExpenseDetailPage() {
       {showForm && isDraft && (
         <ExpenseItemForm
           categories={categories}
+          costCenters={costCenters}
+          employeeCostCenterId={employeeCostCenterId}
           onSave={handleSaveItem}
           onCancel={() => setShowForm(false)}
         />

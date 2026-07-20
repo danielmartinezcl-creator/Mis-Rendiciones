@@ -8,7 +8,7 @@ import { checkItemDuplicate } from '@/actions/expenses'
 import { formatCLP, formatExchangeRate, formatDate } from '@/lib/utils'
 import { CURRENCIES, DOC_TYPES, type Currency } from '@/lib/constants'
 import type { OcrResult } from '@/lib/ocr-helpers'
-import type { ExpenseCategory, Json } from '@/lib/supabase/types'
+import type { ExpenseCategory, CostCenter, Json } from '@/lib/supabase/types'
 
 type DuplicateResult = Awaited<ReturnType<typeof checkItemDuplicate>>
 
@@ -25,6 +25,8 @@ export interface ItemFormData {
   doc_type:             'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | ''
   doc_number:           string
   notes:                string
+  cost_center_id:       string   // '' = usar el del empleado
+  supplier_rut:         string   // RUT del proveedor (requerido en facturas)
   ocr_raw:              Json | null
   ocr_confidence:       number | null
   file:                 File | null
@@ -43,19 +45,29 @@ const emptyForm = (): ItemFormData => ({
   doc_type:             '',
   doc_number:           '',
   notes:                '',
+  cost_center_id:       '',
+  supplier_rut:         '',
   ocr_raw:              null,
   ocr_confidence:       null,
   file:                 null,
 })
 
 interface ExpenseItemFormProps {
-  categories: ExpenseCategory[]
-  onSave:     (data: ItemFormData) => Promise<void>
-  onCancel:   () => void
+  categories:           ExpenseCategory[]
+  costCenters:          CostCenter[]
+  employeeCostCenterId: string | null
+  onSave:               (data: ItemFormData) => Promise<void>
+  onCancel:             () => void
 }
 
-export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFormProps) {
-  const [form, setForm]               = useState<ItemFormData>(emptyForm())
+export function ExpenseItemForm({
+  categories,
+  costCenters,
+  employeeCostCenterId,
+  onSave,
+  onCancel,
+}: ExpenseItemFormProps) {
+  const [form, setForm]         = useState<ItemFormData>(emptyForm())
   const [tcLoading, setTcLoading]     = useState(false)
   const [saving, setSaving]           = useState(false)
   const [errors, setErrors]           = useState<string[]>([])
@@ -70,7 +82,6 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
     set('amount_clp', !isNaN(val) && val > 0 ? Math.round(val * rate) : 0)
   }
 
-  // Buscar TC histórico cuando cambia moneda o fecha
   useEffect(() => {
     if (form.currency === 'CLP') {
       set('exchange_rate', 1)
@@ -144,7 +155,6 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
     }
     setErrors([])
 
-    // Verificar duplicado solo cuando hay tipo+número de documento
     if (form.doc_type && form.doc_number.trim()) {
       setSaving(true)
       const dup = await checkItemDuplicate({ doc_type: form.doc_type, doc_number: form.doc_number })
@@ -157,6 +167,14 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
 
     await doSave()
   }
+
+  const isFactura = form.doc_type === 'factura' || form.doc_type === 'factura_exenta'
+  const selectedCat = categories.find(c => c.id === form.category_id)
+  const catMissingCode = !!form.category_id && selectedCat && !selectedCat.defontana_account_code
+
+  const defaultCCLabel = employeeCostCenterId
+    ? `Mi centro por defecto (${employeeCostCenterId})`
+    : 'Sin centro asignado'
 
   const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
 
@@ -294,7 +312,7 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
         />
       </div>
 
-      {/* Categoría */}
+      {/* Categoría + warning cuenta Defontana */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
         <select
@@ -304,10 +322,36 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
         >
           <option value="">Sin categoría</option>
           {categories.map(cat => (
-            <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
         </select>
+        {catMissingCode && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-item border border-amber-200">
+            <AlertTriangle size={12} className="shrink-0" />
+            Esta categoría no tiene cuenta Defontana asignada — no aparecerá en el asiento contable
+          </div>
+        )}
       </div>
+
+      {/* Centro de costo (override por ítem) */}
+      {costCenters.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Centro de costo</label>
+          <select
+            value={form.cost_center_id}
+            onChange={e => set('cost_center_id', e.target.value)}
+            className={inputCls}
+          >
+            <option value="">{defaultCCLabel}</option>
+            {costCenters.map(cc => (
+              <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            Cambia solo si el gasto corresponde a otro centro o proyecto.
+          </p>
+        </div>
+      )}
 
       {/* Proveedor + Tipo doc */}
       <div className="grid grid-cols-2 gap-3">
@@ -335,6 +379,29 @@ export function ExpenseItemForm({ categories, onSave, onCancel }: ExpenseItemFor
           </select>
         </div>
       </div>
+
+      {/* RUT Proveedor — solo visible para facturas (crédito fiscal IVA) */}
+      {isFactura && (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            RUT Proveedor
+            <span className="ml-1.5 text-xs font-normal text-slate-400">(requerido para crédito fiscal IVA)</span>
+          </label>
+          <input
+            type="text"
+            value={form.supplier_rut}
+            onChange={e => set('supplier_rut', e.target.value)}
+            placeholder="12.345.678-9"
+            className={inputCls}
+          />
+          {!form.supplier_rut && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-item border border-amber-200">
+              <AlertTriangle size={12} className="shrink-0" />
+              Sin RUT el crédito fiscal IVA no puede acreditarse ante el SII
+            </div>
+          )}
+        </div>
+      )}
 
       {/* N° documento */}
       <div>

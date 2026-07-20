@@ -30,7 +30,7 @@ export async function getAdminReports() {
 
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, submitter_id')
+    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -225,13 +225,14 @@ export async function deleteEmployee(userId: string) {
 export async function updateEmployee(
   userId: string,
   updates: {
-    role?:                 'admin' | 'approver' | 'employee'
-    can_submit?:           boolean
-    can_approve?:          boolean
+    role?:                  'admin' | 'approver' | 'employee'
+    can_submit?:            boolean
+    can_approve?:           boolean
     can_manage_petty_cash?: boolean
-    is_active?:            boolean
-    department?:           string | null
-    bank_account?:         string | null
+    is_active?:             boolean
+    department?:            string | null
+    bank_account?:          string | null
+    cost_center_id?:        string | null
   }
 ) {
   const { supabase } = await requireAdmin()
@@ -389,28 +390,31 @@ export async function getDefontanaSettings() {
   const { supabase, orgId } = await requireAdmin()
   const { data } = await supabase
     .from('organizations')
-    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center')
+    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
     .eq('id', orgId)
     .single()
   return {
-    contraAccount: data?.defontana_contra_account ?? '',
-    voucherType:   data?.defontana_voucher_type   ?? 'Egreso',
-    costCenter:    data?.defontana_cost_center     ?? '',
+    contraAccount:   data?.defontana_contra_account   ?? '',
+    voucherType:     data?.defontana_voucher_type      ?? 'Egreso',
+    costCenter:      data?.defontana_cost_center       ?? '',
+    providerAccount: data?.defontana_provider_account  ?? '',
   }
 }
 
 export async function updateDefontanaSettings(settings: {
-  contraAccount: string
-  voucherType:   string
-  costCenter:    string
+  contraAccount:   string
+  voucherType:     string
+  costCenter:      string | null
+  providerAccount: string | null
 }) {
   const { supabase, orgId } = await requireAdmin()
   const { error } = await supabase
     .from('organizations')
     .update({
-      defontana_contra_account: settings.contraAccount || null,
-      defontana_voucher_type:   settings.voucherType   || 'Egreso',
-      defontana_cost_center:    settings.costCenter     || null,
+      defontana_contra_account:   settings.contraAccount   || null,
+      defontana_voucher_type:     settings.voucherType      || 'Egreso',
+      defontana_cost_center:      settings.costCenter       || null,
+      defontana_provider_account: settings.providerAccount || null,
     })
     .eq('id', orgId)
   if (error) throw new Error(error.message)
@@ -435,49 +439,71 @@ export async function getDefontanaExportData(filters: {
 }) {
   const { supabase, orgId } = await requireAdmin()
 
-  // Settings de la org
-  const { data: orgData } = await supabase
-    .from('organizations')
-    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center')
-    .eq('id', orgId)
-    .single()
+  // Settings + supplier map en paralelo
+  const [orgRes, suppliersRes] = await Promise.all([
+    supabase
+      .from('organizations')
+      .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+      .eq('id', orgId)
+      .single(),
+    supabase
+      .from('defontana_suppliers')
+      .select('merchant_name, defontana_account_code')
+      .eq('org_id', orgId),
+  ])
 
-  // Rendiciones aprobadas / reembolsadas en el rango
+  const orgData = orgRes.data
+  const supplierMap: Record<string, string> = {}
+  for (const s of suppliersRes.data ?? []) {
+    supplierMap[s.merchant_name.toLowerCase()] = s.defontana_account_code
+  }
+
+  // Rendiciones aprobadas / reembolsadas
   let query = supabase
     .from('expense_reports')
-    .select('id, title, approved_at, reimbursed_at, submitter_id')
+    .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at')
     .eq('org_id', orgId)
     .in('status', ['approved', 'partially_approved', 'reimbursed'])
     .order('approved_at', { ascending: true })
 
-  if (filters.dateFrom)  query = query.gte('approved_at', filters.dateFrom)
-  if (filters.dateTo)    query = query.lte('approved_at', filters.dateTo + 'T23:59:59')
+  if (filters.dateFrom)         query = query.gte('approved_at', filters.dateFrom)
+  if (filters.dateTo)           query = query.lte('approved_at', filters.dateTo + 'T23:59:59')
   if (filters.reportIds?.length) query = query.in('id', filters.reportIds)
 
   const { data: reports } = await query
-  if (!reports?.length) return { reports: [], settings: null }
+  if (!reports?.length) return { reports: [], settings: null, exportedReportIds: [] }
 
-  // Submitters
+  const exportedReportIds = reports
+    .filter(r => r.defontana_exported_at != null)
+    .map(r => r.id)
+
+  // Submitters con cost_center_id
   const submitterIds = [...new Set(reports.map(r => r.submitter_id))]
   const { data: users } = await supabase
-    .from('users').select('id, full_name').in('id', submitterIds)
-  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+    .from('users')
+    .select('id, full_name, cost_center_id')
+    .in('id', submitterIds)
 
-  // Ítems aprobados con código Defontana
+  const userMap = Object.fromEntries(
+    (users ?? []).map(u => [u.id, { name: u.full_name, costCenter: u.cost_center_id }])
+  )
+
+  // Ítems aprobados con todos los campos nuevos
   const { data: rawItems } = await supabase
     .from('expense_items')
-    .select('report_id, description, amount_clp, category_id, doc_type, doc_number, status, expense_categories(name, defontana_account_code)')
+    .select('report_id, description, amount_clp, merchant, doc_type, doc_number, cost_center_id, supplier_rut, expense_categories(name, defontana_account_code)')
     .in('report_id', reports.map(r => r.id))
     .eq('status', 'approved')
 
   type RawItem = {
-    report_id:          string
-    description:        string
-    amount_clp:         number
-    category_id:        string | null
-    doc_type:           string | null
-    doc_number:         string | null
-    status:             string
+    report_id:       string
+    description:     string
+    amount_clp:      number
+    merchant:        string | null
+    doc_type:        string | null
+    doc_number:      string | null
+    cost_center_id:  string | null
+    supplier_rut:    string | null
     expense_categories: { name: string; defontana_account_code: string | null } | null
   }
 
@@ -490,32 +516,46 @@ export async function getDefontanaExportData(filters: {
   }
 
   const exportReports = reports.map(r => {
-    const cat = (itemsByReport[r.id] ?? []).map(i => {
+    const submitter = userMap[r.submitter_id]
+
+    // Fecha = fecha del ítem más antiguo del reporte (o approved_at como fallback)
+    const reportItems = itemsByReport[r.id] ?? []
+
+    const mappedItems = reportItems.map(i => {
       const rawCat = i.expense_categories
+      const merchantKey = (i.merchant ?? '').toLowerCase()
       return {
         description:            i.description,
         amount_clp:             i.amount_clp,
         category_name:          rawCat?.name ?? null,
         defontana_account_code: rawCat?.defontana_account_code ?? null,
+        supplier_account_code:  merchantKey ? (supplierMap[merchantKey] ?? null) : null,
         doc_type:               i.doc_type,
         doc_number:             i.doc_number,
+        cost_center_id:         i.cost_center_id,
+        supplier_rut:           i.supplier_rut,
+        merchant:               i.merchant,
       }
     })
+
     return {
-      reportId:     r.id,
-      reportTitle:  r.title,
-      date:         (r.reimbursed_at ?? r.approved_at ?? '').split('T')[0],
-      employeeName: userMap[r.submitter_id] ?? 'Desconocido',
-      items:        cat,
+      reportId:             r.id,
+      reportTitle:          r.title,
+      date:                 (r.reimbursed_at ?? r.approved_at ?? '').split('T')[0],
+      employeeName:         submitter?.name ?? 'Desconocido',
+      employeeCostCenterId: submitter?.costCenter ?? null,
+      items:                mappedItems,
     }
   })
 
   return {
     reports: exportReports,
+    exportedReportIds,
     settings: {
-      contraAccount: orgData?.defontana_contra_account ?? '',
-      voucherType:   orgData?.defontana_voucher_type   ?? 'Egreso',
-      costCenter:    orgData?.defontana_cost_center     ?? null,
+      contraAccount:   orgData?.defontana_contra_account   ?? '',
+      voucherType:     orgData?.defontana_voucher_type      ?? 'Egreso',
+      costCenter:      orgData?.defontana_cost_center       ?? null,
+      providerAccount: orgData?.defontana_provider_account  ?? null,
     },
   }
 }
@@ -549,6 +589,76 @@ export async function updateSpendingLimits(limits: {
     .eq('id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/settings')
+}
+
+// ─── Centros de costo ────────────────────────────────────────────────────────
+
+export async function getCostCenters() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data } = await supabase
+    .from('cost_centers')
+    .select('*')
+    .eq('activo', true)
+    .order('descripcion')
+  return data ?? []
+}
+
+// ─── Defontana: proveedores ───────────────────────────────────────────────────
+
+export async function getDefontanaSuppliers() {
+  const { supabase, orgId } = await requireAdmin()
+  const { data } = await supabase
+    .from('defontana_suppliers')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('merchant_name')
+  return data ?? []
+}
+
+export async function addDefontanaSupplier(merchant: string, accountCode: string) {
+  const { supabase, orgId } = await requireAdmin()
+  const { error } = await supabase
+    .from('defontana_suppliers')
+    .insert({ org_id: orgId, merchant_name: merchant.trim(), defontana_account_code: accountCode.trim() })
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
+export async function deleteDefontanaSupplier(id: string) {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase.from('defontana_suppliers').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
+// ─── Lock de exportación Defontana ───────────────────────────────────────────
+
+export async function markDefontanaExported(reportIds: string[], exportRef: string) {
+  const { supabase, orgId } = await requireAdmin()
+  const { error } = await supabase
+    .from('expense_reports')
+    .update({
+      defontana_exported_at: new Date().toISOString(),
+      defontana_export_ref:  exportRef,
+    })
+    .in('id', reportIds)
+    .eq('org_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/reports')
+}
+
+// ─── Corrección masiva de centro de costo ────────────────────────────────────
+
+export async function bulkUpdateExpenseItemsCostCenter(reportId: string, costCenterId: string | null) {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase
+    .from('expense_items')
+    .update({ cost_center_id: costCenterId })
+    .eq('report_id', reportId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/reports')
 }
 
 export async function setDefaultPolicy(policyId: string) {

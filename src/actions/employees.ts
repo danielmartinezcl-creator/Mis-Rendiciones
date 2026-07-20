@@ -5,10 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export type ImportEmployeeRow = {
-  full_name: string
-  email: string
-  role: 'admin' | 'approver' | 'employee'
-  department?: string
+  full_name:       string
+  email:           string
+  role:            'admin' | 'approver' | 'employee'
+  department?:     string
+  cost_center_id?: string
 }
 
 export type ImportResult = {
@@ -56,14 +57,15 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
       const { error: insertError } = await adminClient
         .from('users')
         .insert({
-          id: invited.user.id,
-          org_id: profile.org_id,
-          full_name: row.full_name.trim(),
-          role: row.role,
-          department: row.department?.trim() || null,
-          can_submit: row.role !== 'approver',
-          can_approve: row.role === 'approver' || row.role === 'admin',
-          is_active: true,
+          id:             invited.user.id,
+          org_id:         profile.org_id,
+          full_name:      row.full_name.trim(),
+          role:           row.role,
+          department:     row.department?.trim() || null,
+          can_submit:     row.role !== 'approver',
+          can_approve:    row.role === 'approver' || row.role === 'admin',
+          is_active:      true,
+          cost_center_id: row.cost_center_id ?? null,
         })
 
       if (insertError) {

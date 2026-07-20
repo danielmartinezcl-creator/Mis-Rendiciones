@@ -16,9 +16,10 @@ import {
   resendInvitation, deleteEmployee,
   getSpendingLimits, updateSpendingLimits,
   getDefontanaSettings, updateDefontanaSettings, updateCategoryDefontanaCode,
+  getCostCenters,
+  getDefontanaSuppliers, addDefontanaSupplier, deleteDefontanaSupplier,
 } from '@/actions/admin'
-import type { ExpenseCategory } from '@/lib/supabase/types'
-import type { UserProfile } from '@/lib/supabase/types'
+import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier } from '@/lib/supabase/types'
 
 type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana'
 type EmployeeWithEmail = UserProfile & { email: string }
@@ -367,17 +368,18 @@ function CategoriesTab() {
 
 /* ── Tab: Empleados ────────────────────────────────────────────────────── */
 function EmployeesTab() {
-  const [employees, setEmployees] = useState<EmployeeWithEmail[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [employees,   setEmployees]   = useState<EmployeeWithEmail[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
 
   /* Email edit */
   const [emailEdit,   setEmailEdit]   = useState<{ id: string; value: string } | null>(null)
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailError,  setEmailError]  = useState<string | null>(null)
 
-  /* Inline edit completo (nombre + rol + depto) */
+  /* Inline edit completo (nombre + rol + depto + centro de costo) */
   const [editFull, setEditFull] = useState<{
-    id: string; name: string; role: UserProfile['role']; dept: string
+    id: string; name: string; role: UserProfile['role']; dept: string; costCenterId: string
   } | null>(null)
   const [editSaving, setEditSaving] = useState(false)
 
@@ -393,7 +395,10 @@ function EmployeesTab() {
     setEmployees((await getOrgEmployees()) as EmployeeWithEmail[])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
+  }, [])
 
   /* ── Email ── */
   async function handleSaveEmail(userId: string) {
@@ -415,10 +420,11 @@ function EmployeesTab() {
     setEditSaving(true)
     try {
       await updateEmployee(editFull.id, {
-        role:       editFull.role,
-        department: editFull.dept.trim() || null,
-        can_submit:  editFull.role !== 'approver',
-        can_approve: editFull.role === 'approver' || editFull.role === 'admin',
+        role:           editFull.role,
+        department:     editFull.dept.trim() || null,
+        can_submit:     editFull.role !== 'approver',
+        can_approve:    editFull.role === 'approver' || editFull.role === 'admin',
+        cost_center_id: editFull.costCenterId || null,
       })
       setEditFull(null); await load()
     } finally { setEditSaving(false) }
@@ -495,6 +501,16 @@ function EmployeesTab() {
                         placeholder="Departamento"
                       />
                     </div>
+                    <select
+                      value={editFull.costCenterId}
+                      onChange={e => setEditFull(f => f && ({ ...f, costCenterId: e.target.value }))}
+                      className="w-full border border-ink-200 rounded-item px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    >
+                      <option value="">— Sin centro de costo —</option>
+                      {costCenters.map(cc => (
+                        <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+                      ))}
+                    </select>
                     <div className="flex gap-2">
                       <button onClick={handleSaveEdit} disabled={editSaving}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
@@ -516,6 +532,11 @@ function EmployeesTab() {
                       {!emp.is_active && <span className="text-xs text-rose-500 font-medium">Inactivo</span>}
                     </div>
                     {emp.department && <p className="text-xs text-ink-400 mt-0.5">{emp.department}</p>}
+                    {emp.cost_center_id && (
+                      <p className="text-xs text-teal-600 mt-0.5 font-medium">
+                        ⚙ {emp.cost_center_id} — {costCenters.find(c => c.id === emp.cost_center_id)?.descripcion ?? ''}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -523,7 +544,7 @@ function EmployeesTab() {
                 {!isEditingFull && !isDeleting && (
                   <div className="flex items-center gap-1 shrink-0">
                     <button
-                      onClick={() => setEditFull({ id: emp.id, name: emp.full_name, role: emp.role, dept: emp.department ?? '' })}
+                      onClick={() => setEditFull({ id: emp.id, name: emp.full_name, role: emp.role, dept: emp.department ?? '', costCenterId: emp.cost_center_id ?? '' })}
                       title="Editar datos"
                       className="p-1.5 text-ink-300 hover:text-brand-600 rounded-item hover:bg-brand-50 transition-colors"
                     >
@@ -648,13 +669,15 @@ function ChainsTab() {
 /* ── Tab: Defontana ─────────────────────────────────────────────────────── */
 function DefontanaTab() {
   // ── Config general
-  const [contraAccount, setContraAccount] = useState('')
-  const [voucherType,   setVoucherType]   = useState('Egreso')
-  const [costCenter,    setCostCenter]    = useState('')
-  const [cfgLoading,    setCfgLoading]    = useState(true)
-  const [cfgSaving,     setCfgSaving]     = useState(false)
-  const [cfgSaved,      setCfgSaved]      = useState(false)
-  const [cfgError,      setCfgError]      = useState<string | null>(null)
+  const [contraAccount,  setContraAccount]  = useState('')
+  const [providerAccount, setProviderAccount] = useState('')
+  const [voucherType,    setVoucherType]    = useState('Egreso')
+  const [costCenter,     setCostCenter]     = useState('')
+  const [costCenters,    setCostCenters]    = useState<CostCenter[]>([])
+  const [cfgLoading,     setCfgLoading]     = useState(true)
+  const [cfgSaving,      setCfgSaving]      = useState(false)
+  const [cfgSaved,       setCfgSaved]       = useState(false)
+  const [cfgError,       setCfgError]       = useState<string | null>(null)
 
   // ── Categorías
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
@@ -662,12 +685,21 @@ function DefontanaTab() {
   const [savingCat,  setSavingCat]  = useState<string | null>(null)
   const [catCodes,   setCatCodes]   = useState<Record<string, string>>({})
 
+  // ── Proveedores (merchant → cuenta)
+  const [suppliers,       setSuppliers]       = useState<DefontanaSupplier[]>([])
+  const [suppLoading,     setSuppLoading]      = useState(true)
+  const [newMerchant,     setNewMerchant]      = useState('')
+  const [newCode,         setNewCode]          = useState('')
+  const [suppSaving,      setSuppSaving]       = useState(false)
+  const [suppDeleting,    setSuppDeleting]     = useState<string | null>(null)
+
   useEffect(() => {
     Promise.all([
       getDefontanaSettings().then(s => {
         setContraAccount(s.contraAccount)
         setVoucherType(s.voucherType)
-        setCostCenter(s.costCenter)
+        setCostCenter(s.costCenter ?? '')
+        setProviderAccount(s.providerAccount ?? '')
         setCfgLoading(false)
       }),
       getOrgCategories().then(cats => {
@@ -677,6 +709,8 @@ function DefontanaTab() {
         setCatCodes(codes)
         setCatLoading(false)
       }),
+      getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable))),
+      getDefontanaSuppliers().then(s => { setSuppliers(s); setSuppLoading(false) }),
     ])
   }, [])
 
@@ -685,7 +719,7 @@ function DefontanaTab() {
     setCfgSaving(true)
     setCfgError(null)
     try {
-      await updateDefontanaSettings({ contraAccount, voucherType, costCenter })
+      await updateDefontanaSettings({ contraAccount, voucherType, costCenter: costCenter || null, providerAccount: providerAccount || null })
       setCfgSaved(true)
       setTimeout(() => setCfgSaved(false), 3000)
     } catch (err) {
@@ -702,6 +736,25 @@ function DefontanaTab() {
     } finally {
       setSavingCat(null)
     }
+  }
+
+  async function handleAddSupplier(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newMerchant.trim() || !newCode.trim()) return
+    setSuppSaving(true)
+    try {
+      await addDefontanaSupplier(newMerchant.trim(), newCode.trim())
+      setNewMerchant(''); setNewCode('')
+      setSuppliers(await getDefontanaSuppliers())
+    } finally { setSuppSaving(false) }
+  }
+
+  async function handleDeleteSupplier(id: string) {
+    setSuppDeleting(id)
+    try {
+      await deleteDefontanaSupplier(id)
+      setSuppliers(s => s.filter(x => x.id !== id))
+    } finally { setSuppDeleting(null) }
   }
 
   const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount'
@@ -725,57 +778,103 @@ function DefontanaTab() {
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Cuenta contrapartida (Haber)
               </label>
-              <p className="text-xs text-ink-400 mb-1.5">La cuenta que se acredita por el total de cada rendición (ej: "2-01-001")</p>
-              <input
-                type="text"
-                value={contraAccount}
-                onChange={e => setContraAccount(e.target.value)}
-                placeholder="2-01-001"
-                className={inputCls}
-              />
+              <p className="text-xs text-ink-400 mb-1.5">La cuenta que se acredita por el total de cada rendición (ej: 2.1.1.01.001)</p>
+              <input type="text" value={contraAccount} onChange={e => setContraAccount(e.target.value)}
+                placeholder="2.1.1.01.001" className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo de comprobante</label>
               <p className="text-xs text-ink-400 mb-1.5">Nombre del tipo de comprobante en Defontana</p>
-              <input
-                type="text"
-                value={voucherType}
-                onChange={e => setVoucherType(e.target.value)}
-                placeholder="Egreso"
-                className={inputCls}
-              />
+              <input type="text" value={voucherType} onChange={e => setVoucherType(e.target.value)}
+                placeholder="EGRESO" className={inputCls} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Centro de costo (opcional)</label>
-              <p className="text-xs text-ink-400 mb-1.5">Se aplica a todas las líneas del asiento</p>
-              <input
-                type="text"
-                value={costCenter}
-                onChange={e => setCostCenter(e.target.value)}
-                placeholder="CC-001"
-                className={inputCls}
-              />
+              <label className="block text-xs font-semibold text-ink-600 mb-1">
+                Cuenta Proveedor Nacional (Facturas)
+              </label>
+              <p className="text-xs text-ink-400 mb-1.5">
+                Si el gasto tiene factura, se usa esta cuenta en lugar de la cuenta de gasto.
+                La factura ya fue ingresada en Defontana por AP — este asiento solo cancela la deuda.
+              </p>
+              <input type="text" value={providerAccount} onChange={e => setProviderAccount(e.target.value)}
+                placeholder="2.1.2.01.001" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Centro de costo por defecto</label>
+              <p className="text-xs text-ink-400 mb-1.5">Fallback cuando el empleado o ítem no tienen centro asignado</p>
+              <select value={costCenter} onChange={e => setCostCenter(e.target.value)}
+                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+                <option value="">— Sin centro por defecto —</option>
+                {costCenters.map(cc => (
+                  <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {cfgError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{cfgError}</div>
-          )}
-          {cfgSaved && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-item p-3">
-              ✓ Configuración guardada
-            </div>
-          )}
+          {cfgError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{cfgError}</div>}
+          {cfgSaved && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-item p-3">✓ Configuración guardada</div>}
 
-          <button
-            type="submit"
-            disabled={cfgSaving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
-          >
+          <button type="submit" disabled={cfgSaving}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
             <Check size={14} />
             {cfgSaving ? 'Guardando…' : 'Guardar configuración'}
           </button>
         </form>
+      )}
+
+      {/* ── Mapeo de proveedores (merchant → cuenta) ── */}
+      {suppLoading ? <Spinner /> : (
+        <div className="bg-white rounded-card shadow-card p-5 space-y-4">
+          <div>
+            <h3 className="text-sm font-bold text-ink-800">Mapeo de proveedores</h3>
+            <p className="text-xs text-ink-400 mt-0.5">
+              Si un proveedor específico siempre va a una cuenta distinta a la de su categoría, defínelo aquí.
+              Ejemplo: "COPEC" siempre va a Combustibles aunque el gasto esté en "Viajes".
+            </p>
+          </div>
+
+          {suppliers.length > 0 && (
+            <div className="divide-y divide-ink-50">
+              {suppliers.map(s => (
+                <div key={s.id} className="flex items-center gap-3 py-2.5">
+                  <span className="flex-1 text-sm text-ink-800 font-medium">{s.merchant_name}</span>
+                  <span className="font-mono-amount text-xs text-ink-500 bg-ink-50 px-2 py-1 rounded-item">
+                    {s.defontana_account_code}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteSupplier(s.id)}
+                    disabled={suppDeleting === s.id}
+                    className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors disabled:opacity-50"
+                  >
+                    {suppDeleting === s.id
+                      ? <div className="w-3.5 h-3.5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                      : <Trash2 size={14} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleAddSupplier} className="flex gap-2 items-end pt-1">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-ink-500 mb-1">Proveedor / Comercio</label>
+              <input type="text" value={newMerchant} onChange={e => setNewMerchant(e.target.value)}
+                placeholder="COPEC" required
+                className="w-full border border-ink-200 rounded-item px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+            </div>
+            <div className="w-36">
+              <label className="block text-xs font-semibold text-ink-500 mb-1">Cuenta Defontana</label>
+              <input type="text" value={newCode} onChange={e => setNewCode(e.target.value)}
+                placeholder="4.5.1030.10.13" required
+                className="w-full border border-ink-200 rounded-item px-2.5 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600" />
+            </div>
+            <button type="submit" disabled={suppSaving || !newMerchant.trim() || !newCode.trim()}
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors shrink-0">
+              {suppSaving ? '…' : '+ Agregar'}
+            </button>
+          </form>
+        </div>
       )}
 
       {/* ── Mapeo de cuentas por categoría ── */}
@@ -809,7 +908,7 @@ function DefontanaTab() {
                       value={catCodes[cat.id] ?? ''}
                       onChange={e => setCatCodes(prev => ({ ...prev, [cat.id]: e.target.value }))}
                       onBlur={() => handleSaveCatCode(cat.id)}
-                      placeholder="4-xx-xxx"
+                      placeholder="4.x.xxx"
                       className="w-28 border border-ink-200 rounded-item px-2.5 py-1.5 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
                     />
                     {savingCat === cat.id && (

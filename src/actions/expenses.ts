@@ -56,6 +56,8 @@ export async function addExpenseItem(
     doc_type?: 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
     doc_number?: string | null
     notes?: string | null
+    cost_center_id?: string | null
+    supplier_rut?: string | null
     ocr_raw?: Json | null
     ocr_confidence?: number | null
   }
@@ -99,6 +101,8 @@ export async function addExpenseItem(
       doc_type:             item.doc_type ?? null,
       doc_number:           item.doc_number ?? null,
       notes:                item.notes ?? null,
+      cost_center_id:       item.cost_center_id ?? null,
+      supplier_rut:         item.supplier_rut ?? null,
       ocr_raw:              item.ocr_raw ?? null,
       ocr_confidence:       item.ocr_confidence ?? null,
       status:               'pending',

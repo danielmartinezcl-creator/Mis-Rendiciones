@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
@@ -40,6 +40,7 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [empFilter,  setEmpFilter]  = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [reimb,      setReimb]      = useState<'all' | 'pending' | 'reimbursed'>('all')
+  const [defFilter,  setDefFilter]  = useState<'all' | 'notExported' | 'exported'>('all')
 
   // Reembolso inline
   const [reimbOpen,  setReimbOpen]  = useState<string | null>(null)
@@ -65,8 +66,16 @@ export function AdminReportsClient({ initialReports }: Props) {
     if (deptFilter && r.department   !== deptFilter)   return false
     if (reimb === 'pending'    && r.status === 'reimbursed') return false
     if (reimb === 'reimbursed' && r.status !== 'reimbursed') return false
+    if (defFilter === 'notExported' && r.defontana_exported_at) return false
+    if (defFilter === 'exported'    && !r.defontana_exported_at) return false
     return true
-  }), [reports, dateFrom, dateTo, statusSel, empFilter, deptFilter, reimb])
+  }), [reports, dateFrom, dateTo, statusSel, empFilter, deptFilter, reimb, defFilter])
+
+  // KPI: rendiciones en revisión con más de 5 días de espera
+  const staleSubmitted = useMemo(() => {
+    const cutoff = new Date(Date.now() - 5 * 86_400_000).toISOString()
+    return reports.filter(r => r.status === 'submitted' && r.submitted_at && r.submitted_at < cutoff).length
+  }, [reports])
 
   // KPIs del filtro actual
   const totalMonto    = filtered.reduce((s, r) => s + r.total_amount, 0)
@@ -130,7 +139,7 @@ export function AdminReportsClient({ initialReports }: Props) {
     setExporting('defontana')
     setDefontanaWarnings([])
     try {
-      const { reports: defReports, settings } = await getDefontanaExportData({
+      const { reports: defReports, settings, exportedReportIds } = await getDefontanaExportData({
         reportIds: filtered.map(r => r.id),
         dateFrom:  dateFrom || undefined,
         dateTo:    dateTo   || undefined,
@@ -143,12 +152,26 @@ export function AdminReportsClient({ initialReports }: Props) {
         alert('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
         return
       }
+      // Advertir si alguna rendición ya fue exportada antes
+      if (exportedReportIds.length > 0) {
+        const ok = window.confirm(
+          `⚠ ${exportedReportIds.length} rendición(es) del filtro ya fue(ron) exportada(s) a Defontana anteriormente.\n\n` +
+          `Exportar de nuevo puede generar asientos duplicados en la contabilidad.\n\n` +
+          `¿Deseas continuar de todas formas?`
+        )
+        if (!ok) return
+      }
       const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries(defReports, settings)
-      exportDefontanaToExcel(result, 'asientos-defontana')
+      const exportRef = `DEF-${new Date().toISOString().slice(0, 10)}`
+      exportDefontanaToExcel(result, `asientos-defontana-${exportRef}`)
+      // Marcar todas las rendiciones incluidas como exportadas
+      const justExportedIds = defReports.map(r => r.reportId)
+      await markDefontanaExported(justExportedIds, exportRef)
       if (result.warnings.length > 0) {
         setDefontanaWarnings(result.warnings.map(w => ({ reportTitle: w.reportTitle, categories: w.categories })))
       }
+      await load()
     } finally {
       setExporting(null)
     }
@@ -158,7 +181,7 @@ export function AdminReportsClient({ initialReports }: Props) {
     setStatusSel(prev => prev.includes(v) ? prev.filter(s => s !== v) : [...prev, v])
   }
 
-  const hasFilters = dateFrom || dateTo || statusSel.length > 0 || empFilter || deptFilter || reimb !== 'all'
+  const hasFilters = dateFrom || dateTo || statusSel.length > 0 || empFilter || deptFilter || reimb !== 'all' || defFilter !== 'all'
 
   return (
     <div className="space-y-4">
@@ -220,6 +243,16 @@ export function AdminReportsClient({ initialReports }: Props) {
         </div>
       )}
 
+      {/* KPI alerta: rendiciones en espera +5 días */}
+      {staleSubmitted > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-card p-3 flex items-center gap-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <p className="text-xs text-amber-800 font-medium">
+            <strong>{staleSubmitted} rendición{staleSubmitted !== 1 ? 'es' : ''}</strong> llevan más de 5 días sin revisión — el período contable puede verse afectado.
+          </p>
+        </div>
+      )}
+
       {/* KPIs */}
       <AdminKpiHero
         title="Resumen filtrado"
@@ -236,7 +269,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Filtros</p>
           {hasFilters && (
             <button
-              onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter(''); setDeptFilter(''); setReimb('all') }}
+              onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter(''); setDeptFilter(''); setReimb('all'); setDefFilter('all') }}
               className="text-xs text-brand-600 hover:underline"
             >
               Limpiar todo
@@ -277,8 +310,8 @@ export function AdminReportsClient({ initialReports }: Props) {
           </div>
         </div>
 
-        {/* Empleado / Depto / Reembolso */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {/* Empleado / Depto / Reembolso / Defontana */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <div>
             <label className="block text-xs text-slate-500 mb-1">Empleado</label>
             <select value={empFilter} onChange={e => setEmpFilter(e.target.value)}
@@ -302,6 +335,15 @@ export function AdminReportsClient({ initialReports }: Props) {
               <option value="all">Todos</option>
               <option value="pending">Pendiente de reembolso</option>
               <option value="reimbursed">Reembolsadas</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Defontana</label>
+            <select value={defFilter} onChange={e => setDefFilter(e.target.value as typeof defFilter)}
+              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              <option value="all">Todas</option>
+              <option value="notExported">Sin exportar</option>
+              <option value="exported">Ya exportadas</option>
             </select>
           </div>
         </div>
@@ -334,6 +376,12 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusCls(r.status)}`}>
                         {statusLabel(r.status)}
                       </span>
+                      {r.defontana_exported_at && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                          ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
+                          {r.defontana_export_ref && ` · ${r.defontana_export_ref}`}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       <strong>{r.submitter_name}</strong>

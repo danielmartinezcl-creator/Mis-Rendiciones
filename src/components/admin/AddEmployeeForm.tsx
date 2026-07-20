@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { importEmployees } from '@/actions/employees'
+import { getCostCenters } from '@/actions/admin'
+import type { CostCenter } from '@/lib/supabase/types'
 
 const ROLE_OPTIONS = [
   { value: 'employee',  label: 'Empleado' },
@@ -10,28 +12,38 @@ const ROLE_OPTIONS = [
 ]
 
 export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
-  const [fullName,   setFullName]   = useState('')
-  const [email,      setEmail]      = useState('')
-  const [role,       setRole]       = useState<'employee' | 'approver' | 'admin'>('employee')
-  const [department, setDepartment] = useState('')
-  const [saving,     setSaving]     = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const [success,    setSuccess]    = useState(false)
+  const [fullName,      setFullName]      = useState('')
+  const [email,         setEmail]         = useState('')
+  const [role,          setRole]          = useState<'employee' | 'approver' | 'admin'>('employee')
+  const [department,    setDepartment]    = useState('')
+  const [costCenterId,  setCostCenterId]  = useState('')
+  const [costCenters,   setCostCenters]   = useState<CostCenter[]>([])
+  const [saving,        setSaving]        = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+  const [success,       setSuccess]       = useState(false)
+
+  useEffect(() => {
+    getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError(null)
     try {
-      const results = await importEmployees([{ full_name: fullName.trim(), email: email.trim(), role, department: department.trim() || undefined }])
+      const results = await importEmployees([{
+        full_name:      fullName.trim(),
+        email:          email.trim(),
+        role,
+        department:     department.trim() || undefined,
+        cost_center_id: costCenterId || undefined,
+      }])
       if (results[0]?.success) {
         setSuccess(true)
         setTimeout(() => {
           setSuccess(false)
-          setFullName('')
-          setEmail('')
-          setRole('employee')
-          setDepartment('')
+          setFullName(''); setEmail(''); setRole('employee')
+          setDepartment(''); setCostCenterId('')
           onDone()
         }, 1500)
       } else {
@@ -98,6 +110,24 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
+      </div>
+
+      {/* ── Centro de costo ── */}
+      <div>
+        <label className="block text-xs font-medium text-slate-600 mb-1">Centro de costo</label>
+        <select
+          value={costCenterId}
+          onChange={e => setCostCenterId(e.target.value)}
+          className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+        >
+          <option value="">— Sin asignar —</option>
+          {costCenters.map(cc => (
+            <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+          ))}
+        </select>
+        <p className="text-xs text-slate-400 mt-1">
+          Los gastos de este empleado irán por defecto a este centro de costo.
+        </p>
       </div>
 
       {error && (

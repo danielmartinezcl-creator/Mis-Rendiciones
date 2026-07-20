@@ -18,9 +18,10 @@ export interface Database {
           created_at: string
           max_item_amount_clp:      number | null
           max_fund_amount_clp:      number | null
-          defontana_contra_account: string | null
-          defontana_voucher_type:   string | null
-          defontana_cost_center:    string | null
+          defontana_contra_account:   string | null
+          defontana_voucher_type:     string | null
+          defontana_cost_center:      string | null
+          defontana_provider_account: string | null
         }
         Insert: {
           id?: string
@@ -33,9 +34,10 @@ export interface Database {
           created_at?: string
           max_item_amount_clp?: number | null
           max_fund_amount_clp?: number | null
-          defontana_contra_account?: string | null
-          defontana_voucher_type?:   string | null
-          defontana_cost_center?:    string | null
+          defontana_contra_account?:   string | null
+          defontana_voucher_type?:     string | null
+          defontana_cost_center?:      string | null
+          defontana_provider_account?: string | null
         }
         Update: {
           id?: string
@@ -48,9 +50,10 @@ export interface Database {
           created_at?: string
           max_item_amount_clp?: number | null
           max_fund_amount_clp?: number | null
-          defontana_contra_account?: string | null
-          defontana_voucher_type?:   string | null
-          defontana_cost_center?:    string | null
+          defontana_contra_account?:   string | null
+          defontana_voucher_type?:     string | null
+          defontana_cost_center?:      string | null
+          defontana_provider_account?: string | null
         }
         Relationships: []
       }
@@ -70,6 +73,7 @@ export interface Database {
           bank_account_type: string | null
           approver_l1_id: string | null
           approver_l2_id: string | null
+          cost_center_id: string | null
           is_active: boolean
           created_at: string
         }
@@ -88,6 +92,7 @@ export interface Database {
           bank_account_type?: string | null
           approver_l1_id?: string | null
           approver_l2_id?: string | null
+          cost_center_id?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -106,6 +111,7 @@ export interface Database {
           bank_account_type?: string | null
           approver_l1_id?: string | null
           approver_l2_id?: string | null
+          cost_center_id?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -202,6 +208,8 @@ export interface Database {
           reimbursed_at: string | null
           reimbursed_by: string | null
           payment_reference: string | null
+          defontana_exported_at: string | null
+          defontana_export_ref:  string | null
           created_at: string
           updated_at: string
         }
@@ -221,6 +229,8 @@ export interface Database {
           reimbursed_at?: string | null
           reimbursed_by?: string | null
           payment_reference?: string | null
+          defontana_exported_at?: string | null
+          defontana_export_ref?:  string | null
           created_at?: string
           updated_at?: string
         }
@@ -240,6 +250,8 @@ export interface Database {
           reimbursed_at?: string | null
           reimbursed_by?: string | null
           payment_reference?: string | null
+          defontana_exported_at?: string | null
+          defontana_export_ref?:  string | null
           created_at?: string
           updated_at?: string
         }
@@ -279,6 +291,8 @@ export interface Database {
           notes: string | null
           status: 'pending' | 'approved' | 'rejected'
           rejection_reason: string | null
+          cost_center_id: string | null
+          supplier_rut:   string | null
           ocr_raw: Json | null
           ocr_confidence: number | null
           created_at: string
@@ -301,6 +315,8 @@ export interface Database {
           notes?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
+          cost_center_id?: string | null
+          supplier_rut?:   string | null
           ocr_raw?: Json | null
           ocr_confidence?: number | null
           created_at?: string
@@ -323,6 +339,8 @@ export interface Database {
           notes?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
+          cost_center_id?: string | null
+          supplier_rut?:   string | null
           ocr_raw?: Json | null
           ocr_confidence?: number | null
           created_at?: string
@@ -606,6 +624,57 @@ export interface Database {
         }
         Relationships: []
       }
+      cost_centers: {
+        Row: {
+          id:          string
+          descripcion: string
+          imputable:   boolean
+          activo:      boolean
+          created_at:  string
+        }
+        Insert: {
+          id:           string
+          descripcion:  string
+          imputable?:   boolean
+          activo?:      boolean
+          created_at?:  string
+        }
+        Update: {
+          descripcion?: string
+          imputable?:   boolean
+          activo?:      boolean
+        }
+        Relationships: []
+      }
+      defontana_suppliers: {
+        Row: {
+          id:                     string
+          org_id:                 string
+          merchant_name:          string
+          defontana_account_code: string
+          created_at:             string
+        }
+        Insert: {
+          id?:                    string
+          org_id:                 string
+          merchant_name:          string
+          defontana_account_code: string
+          created_at?:            string
+        }
+        Update: {
+          merchant_name?:          string
+          defontana_account_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'defontana_suppliers_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       approval_attachments: {
         Row: {
           id: string
@@ -666,3 +735,6 @@ export type Suggestion = Database['public']['Tables']['suggestions']['Row']
 export type SuggestionStatus = Suggestion['status']
 export type SuggestionCategory = Suggestion['category']
 export type ApprovalAttachment = Database['public']['Tables']['approval_attachments']['Row']
+
+export type CostCenter         = Database['public']['Tables']['cost_centers']['Row']
+export type DefontanaSupplier  = Database['public']['Tables']['defontana_suppliers']['Row']
