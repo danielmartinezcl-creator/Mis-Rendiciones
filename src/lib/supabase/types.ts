@@ -74,6 +74,7 @@ export interface Database {
           approver_l1_id: string | null
           approver_l2_id: string | null
           cost_center_id: string | null
+          invited_at: string | null
           is_active: boolean
           created_at: string
         }
@@ -93,6 +94,7 @@ export interface Database {
           approver_l1_id?: string | null
           approver_l2_id?: string | null
           cost_center_id?: string | null
+          invited_at?: string | null
           is_active?: boolean
           created_at?: string
         }
@@ -112,6 +114,7 @@ export interface Database {
           approver_l1_id?: string | null
           approver_l2_id?: string | null
           cost_center_id?: string | null
+          invited_at?: string | null
           is_active?: boolean
           created_at?: string
         }

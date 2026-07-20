@@ -60,7 +60,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
     return (
       <div className="bg-emerald-50 border border-emerald-200 rounded-card p-4 text-center">
         <p className="text-emerald-700 font-semibold text-sm">✓ Empleado agregado</p>
-        <p className="text-emerald-600 text-xs mt-1">Recibirá un email para activar su cuenta</p>
+        <p className="text-emerald-600 text-xs mt-1">Podés enviarle la invitación desde la lista de empleados.</p>
       </div>
     )
   }
@@ -140,7 +140,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           disabled={saving}
           className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-card transition-colors"
         >
-          {saving ? 'Creando cuenta...' : 'Agregar empleado'}
+          {saving ? 'Creando...' : 'Agregar empleado (sin email)'}
         </button>
         <button
           type="button"

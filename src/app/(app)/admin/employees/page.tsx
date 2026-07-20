@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail } from '@/actions/admin'
+import { sendInvitations } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2 } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 
 type EmployeeWithEmail = UserProfile & { email: string }
@@ -24,6 +25,10 @@ function approverSummary(emp: UserProfile, all: UserProfile[]): string {
   return l1.full_name.split(' ')[0]
 }
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
 export default function AdminEmployeesPage() {
   const [employees,        setEmployees]        = useState<EmployeeWithEmail[]>([])
   const [loading,          setLoading]          = useState(true)
@@ -31,10 +36,14 @@ export default function AdminEmployeesPage() {
   const [panel,            setPanel]            = useState<'none' | 'add' | 'import'>('none')
   const [expandedApprover, setExpandedApprover] = useState<string | null>(null)
 
-  /* Estado de edición de email: { userId, value } */
-  const [emailEdit, setEmailEdit] = useState<{ id: string; value: string } | null>(null)
+  // Selección para invitación masiva
+  const [selected,        setSelected]         = useState<Set<string>>(new Set())
+  const [inviting,        setInviting]         = useState<string | null>(null) // 'bulk' | userId
+  const [inviteResults,   setInviteResults]    = useState<{ ok: number; fail: number; msg: string } | null>(null)
+
+  const [emailEdit,  setEmailEdit]  = useState<{ id: string; value: string } | null>(null)
   const [emailSaving, setEmailSaving] = useState(false)
-  const [emailError, setEmailError] = useState<string | null>(null)
+  const [emailError,  setEmailError]  = useState<string | null>(null)
 
   async function load() {
     const data = await getOrgEmployees()
@@ -57,12 +66,8 @@ export default function AdminEmployeesPage() {
   async function handleSaveEmail(userId: string) {
     if (!emailEdit) return
     const newEmail = emailEdit.value.trim()
-    if (!newEmail || !newEmail.includes('@')) {
-      setEmailError('Ingresá un correo válido')
-      return
-    }
-    setEmailSaving(true)
-    setEmailError(null)
+    if (!newEmail || !newEmail.includes('@')) { setEmailError('Ingresá un correo válido'); return }
+    setEmailSaving(true); setEmailError(null)
     try {
       await updateEmployeeEmail(userId, newEmail)
       setEmailEdit(null)
@@ -72,6 +77,32 @@ export default function AdminEmployeesPage() {
     } finally {
       setEmailSaving(false)
     }
+  }
+
+  async function handleSendInvitations(userIds: string[]) {
+    const key = userIds.length > 1 ? 'bulk' : userIds[0]
+    setInviting(key)
+    setInviteResults(null)
+    try {
+      const results = await sendInvitations(userIds)
+      const ok   = results.filter(r => r.success).length
+      const fail = results.filter(r => !r.success).length
+      const firstError = results.find(r => !r.success)?.error
+      setInviteResults({ ok, fail, msg: firstError ?? '' })
+      await load()
+    } finally {
+      setInviting(null)
+    }
+  }
+
+  const notInvited = employees.filter(e => !e.invited_at)
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   if (loading) {
@@ -88,9 +119,11 @@ export default function AdminEmployeesPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Empleados</h1>
-          <p className="text-sm text-ink-500 mt-1">{employees.length} persona{employees.length !== 1 ? 's' : ''} en la organización</p>
+          <p className="text-sm text-ink-500 mt-1">
+            {employees.length} persona{employees.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
+          </p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 flex-wrap">
           <button
             onClick={() => setPanel(p => p === 'add' ? 'none' : 'add')}
             className={[
@@ -137,6 +170,61 @@ export default function AdminEmployeesPage() {
         </div>
       )}
 
+      {/* Banner de feedback de invitaciones */}
+      {inviteResults && (
+        <div className={`flex items-start gap-3 p-3 rounded-item border text-sm ${
+          inviteResults.fail === 0
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-amber-50 border-amber-200 text-amber-700'
+        }`}>
+          <div className="flex-1">
+            {inviteResults.ok > 0 && <span className="font-semibold">{inviteResults.ok} invitación{inviteResults.ok !== 1 ? 'es' : ''} enviada{inviteResults.ok !== 1 ? 's' : ''}</span>}
+            {inviteResults.fail > 0 && <span className="font-semibold ml-2 text-red-600">{inviteResults.fail} error{inviteResults.fail !== 1 ? 'es' : ''}</span>}
+            {inviteResults.msg && <p className="text-xs mt-0.5 text-red-600">{inviteResults.msg}</p>}
+          </div>
+          <button onClick={() => setInviteResults(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+        </div>
+      )}
+
+      {/* Barra de acciones de invitación */}
+      {employees.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Invitar a todos sin invitar */}
+          {notInvited.length > 0 && (
+            <button
+              onClick={() => handleSendInvitations(notInvited.map(e => e.id))}
+              disabled={inviting === 'bulk'}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-item transition-colors"
+            >
+              {inviting === 'bulk'
+                ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
+                : <><Send size={12} />Invitar a todos sin invitar ({notInvited.length})</>
+              }
+            </button>
+          )}
+
+          {/* Invitar seleccionados */}
+          {selected.size > 0 && (
+            <button
+              onClick={() => handleSendInvitations([...selected])}
+              disabled={!!inviting}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 rounded-item transition-colors"
+            >
+              {inviting && inviting !== 'bulk'
+                ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
+                : <><Send size={12} />Invitar seleccionados ({selected.size})</>
+              }
+            </button>
+          )}
+
+          {selected.size > 0 && (
+            <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-600">
+              Limpiar selección
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Lista de empleados */}
       <div className="space-y-2">
         {employees.length === 0 && panel === 'none' && (
@@ -152,24 +240,36 @@ export default function AdminEmployeesPage() {
         )}
 
         {employees.map(emp => {
-          const badge      = ROLE_BADGE[emp.role] ?? ROLE_BADGE.employee
-          const isOpen     = expandedApprover === emp.id
-          const summary    = approverSummary(emp, employees)
-          const hasApprover = !!emp.approver_l1_id
+          const badge        = ROLE_BADGE[emp.role] ?? ROLE_BADGE.employee
+          const isOpen       = expandedApprover === emp.id
+          const summary      = approverSummary(emp, employees)
+          const hasApprover  = !!emp.approver_l1_id
           const isEditingEmail = emailEdit?.id === emp.id
+          const isSelected   = selected.has(emp.id)
+          const isInvitingSingle = inviting === emp.id
 
           return (
             <div
               key={emp.id}
               className={[
-                'bg-white rounded-card shadow-card overflow-hidden',
+                'bg-white rounded-card shadow-card overflow-hidden transition-all',
                 !emp.is_active && 'opacity-60',
+                isSelected && 'ring-2 ring-brand-400',
               ].filter(Boolean).join(' ')}
             >
               <div className="p-4">
-                {/* Fila superior: avatar + info + rol */}
+                {/* Fila superior: checkbox + avatar + info + rol */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">
+                  {/* Checkbox de selección */}
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(emp.id)}
+                    className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500 shrink-0"
+                    title="Seleccionar para invitar"
+                  />
+
+                  <div className="w-9 h-9 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">
                     {emp.full_name[0].toUpperCase()}
                   </div>
 
@@ -177,20 +277,48 @@ export default function AdminEmployeesPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-ink-900">{emp.full_name}</p>
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                      {/* Badge estado invitación */}
+                      {emp.invited_at ? (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700">
+                          ✉ invitado {formatDate(emp.invited_at)}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                          ⏳ sin invitar
+                        </span>
+                      )}
                     </div>
                     {emp.department && <p className="text-xs text-ink-400 mt-0.5">{emp.department}</p>}
                   </div>
 
-                  <select
-                    value={emp.role}
-                    disabled={saving === emp.id}
-                    onChange={e => handleUpdate(emp.id, { role: e.target.value as UserProfile['role'] })}
-                    className="text-xs border border-ink-200 rounded-item px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
-                  >
-                    <option value="employee">Empleado</option>
-                    <option value="approver">Aprobador</option>
-                    <option value="admin">Administrador</option>
-                  </select>
+                  {/* Rol selector + botón invitar individual */}
+                  <div className="flex items-center gap-2">
+                    {!emp.invited_at && (
+                      <button
+                        onClick={() => handleSendInvitations([emp.id])}
+                        disabled={!!inviting}
+                        title="Enviar invitación"
+                        className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-40 rounded-item transition-colors border border-teal-200"
+                      >
+                        {isInvitingSingle
+                          ? <Loader2 size={11} className="animate-spin" />
+                          : <Send size={11} />
+                        }
+                        Invitar
+                      </button>
+                    )}
+
+                    <select
+                      value={emp.role}
+                      disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { role: e.target.value as UserProfile['role'] })}
+                      className="text-xs border border-ink-200 rounded-item px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    >
+                      <option value="employee">Empleado</option>
+                      <option value="approver">Aprobador</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Email */}
