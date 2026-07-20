@@ -201,6 +201,7 @@ export async function addFundItem(fundId: string, item: {
   merchant?:    string | null
   doc_type?:    'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
   doc_number?:  string | null
+  supplier_rut?: string | null
   notes?:       string | null
 }) {
   const { supabase, userId, profile } = await getProfile()
@@ -243,6 +244,7 @@ export async function addFundItem(fundId: string, item: {
     merchant:     item.merchant ?? null,
     doc_type:     item.doc_type ?? null,
     doc_number:   item.doc_number ?? null,
+    supplier_rut: item.supplier_rut ?? null,
     notes:        item.notes ?? null,
     status:       'pending',
   })

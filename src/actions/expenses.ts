@@ -256,15 +256,21 @@ export async function checkItemDuplicate(params: {
     }
   }
 
-  // Buscar en ítems de caja chica (no tiene supplier_rut — filtrar por doc_type + doc_number)
-  const { data: pcItems } = await supabase
+  // Buscar en ítems de caja chica
+  let pcQuery = supabase
     .from('petty_cash_items')
     .select('id, description, amount_clp, date, fund_id')
     .eq('org_id', profile.org_id)
     .eq('doc_number', docNum)
+
+  if (isFactura && rutLimpio) {
+    pcQuery = pcQuery.eq('supplier_rut', rutLimpio)
+  } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .eq('doc_type', params.doc_type as any)
-    .limit(1)
+    pcQuery = pcQuery.eq('doc_type', params.doc_type as any)
+  }
+
+  const { data: pcItems } = await pcQuery.limit(1)
 
   if (pcItems?.length) {
     const item = pcItems[0]

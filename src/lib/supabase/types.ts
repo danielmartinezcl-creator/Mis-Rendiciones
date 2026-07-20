@@ -514,6 +514,7 @@ export interface Database {
           merchant: string | null
           doc_type: 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
           doc_number: string | null
+          supplier_rut: string | null
           notes: string | null
           status: 'pending' | 'approved' | 'rejected'
           rejection_reason: string | null
@@ -533,6 +534,7 @@ export interface Database {
           merchant?: string | null
           doc_type?: 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
           doc_number?: string | null
+          supplier_rut?: string | null
           notes?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
