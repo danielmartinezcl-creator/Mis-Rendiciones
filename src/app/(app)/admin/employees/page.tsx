@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee } from '@/actions/admin'
+import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees } from '@/actions/admin'
 import { sendInvitations } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
@@ -47,6 +47,7 @@ export default function AdminEmployeesPage() {
 
   const [deletingId,     setDeletingId]     = useState<string | null>(null)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
+  const [deletingBulk,   setDeletingBulk]   = useState(false)
 
   async function load() {
     const data = await getOrgEmployees()
@@ -119,6 +120,29 @@ export default function AdminEmployeesPage() {
       alert(err instanceof Error ? err.message : 'Error al eliminar empleado')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function handleDeleteSelected() {
+    const names = [...selected].map(id => employees.find(e => e.id === id)?.full_name ?? id).join(', ')
+    if (!confirm(`¿Eliminar ${selected.size} empleado${selected.size !== 1 ? 's' : ''}?\n\n${names}\n\nSe eliminará su acceso. Sus rendiciones quedarán en el historial sin nombre asignado.\n\nEsta acción no se puede deshacer.`)) return
+    setDeletingBulk(true)
+    try {
+      const results = await deleteEmployees([...selected])
+      const errors = results.filter(r => r.error)
+      if (errors.length > 0) alert(`${errors.length} error(es) al eliminar:\n${errors.map(e => e.error).join('\n')}`)
+      setSelected(new Set())
+      await load()
+    } finally {
+      setDeletingBulk(false)
+    }
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === employees.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(employees.map(e => e.id)))
     }
   }
 
@@ -213,9 +237,23 @@ export default function AdminEmployeesPage() {
         </div>
       )}
 
-      {/* Barra de acciones de invitación */}
+      {/* Barra de acciones */}
       {employees.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Seleccionar todos */}
+          <label className="flex items-center gap-1.5 text-xs text-ink-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selected.size === employees.length && employees.length > 0}
+              ref={el => { if (el) el.indeterminate = selected.size > 0 && selected.size < employees.length }}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500"
+            />
+            {selected.size > 0 ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}` : 'Seleccionar todos'}
+          </label>
+
+          <span className="text-ink-200">|</span>
+
           {/* Invitar a todos sin invitar */}
           {notInvited.length > 0 && (
             <button
@@ -225,29 +263,40 @@ export default function AdminEmployeesPage() {
             >
               {inviting === 'bulk'
                 ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
-                : <><Send size={12} />Invitar a todos sin invitar ({notInvited.length})</>
+                : <><Send size={12} />Invitar sin invitar ({notInvited.length})</>
               }
             </button>
           )}
 
-          {/* Invitar seleccionados */}
+          {/* Acciones sobre seleccionados */}
           {selected.size > 0 && (
-            <button
-              onClick={() => handleSendInvitations([...selected])}
-              disabled={!!inviting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 rounded-item transition-colors"
-            >
-              {inviting && inviting !== 'bulk'
-                ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
-                : <><Send size={12} />Invitar seleccionados ({selected.size})</>
-              }
-            </button>
-          )}
+            <>
+              <button
+                onClick={() => handleSendInvitations([...selected])}
+                disabled={!!inviting || deletingBulk}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 rounded-item transition-colors"
+              >
+                {inviting && inviting !== 'bulk'
+                  ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
+                  : <><Send size={12} />Invitar ({selected.size})</>
+                }
+              </button>
 
-          {selected.size > 0 && (
-            <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-600">
-              Limpiar selección
-            </button>
+              <button
+                onClick={handleDeleteSelected}
+                disabled={deletingBulk || !!inviting}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 hover:bg-red-50 disabled:opacity-50 rounded-item transition-colors"
+              >
+                {deletingBulk
+                  ? <><Loader2 size={12} className="animate-spin" />Eliminando…</>
+                  : <><Trash2 size={12} />Eliminar ({selected.size})</>
+                }
+              </button>
+
+              <button onClick={() => setSelected(new Set())} className="text-xs text-ink-400 hover:text-ink-600">
+                Limpiar
+              </button>
+            </>
           )}
         </div>
       )}
@@ -293,7 +342,7 @@ export default function AdminEmployeesPage() {
                     checked={isSelected}
                     onChange={() => toggleSelect(emp.id)}
                     className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500 shrink-0"
-                    title="Seleccionar para invitar"
+                    title="Seleccionar empleado"
                   />
 
                   <div className="w-9 h-9 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">

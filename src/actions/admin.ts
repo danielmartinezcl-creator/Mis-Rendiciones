@@ -226,6 +226,22 @@ export async function deleteEmployee(userId: string) {
   revalidatePath('/admin/employees')
 }
 
+export async function deleteEmployees(userIds: string[]): Promise<{ id: string; error?: string }[]> {
+  await requireAdmin()
+  const adminClient = createAdminClient()
+
+  const results = await Promise.all(
+    userIds.map(async (id) => {
+      const { error } = await adminClient.auth.admin.deleteUser(id)
+      return { id, error: error?.message }
+    })
+  )
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/admin/employees')
+  return results
+}
+
 export async function updateEmployee(
   userId: string,
   updates: {
