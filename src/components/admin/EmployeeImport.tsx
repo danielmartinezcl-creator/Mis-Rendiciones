@@ -1,8 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { importEmployees } from '@/actions/employees'
+import { getCostCenters } from '@/actions/admin'
 import type { ImportEmployeeRow, ImportResult } from '@/actions/employees'
+import type { CostCenter } from '@/lib/supabase/types'
+import { Download } from 'lucide-react'
 
 type PreviewRow = ImportEmployeeRow & { _key: number }
 
@@ -12,13 +15,14 @@ const ROLE_OPTIONS = [
   { value: 'admin',     label: 'Administrador' },
 ]
 
-// Mapea nombres de columna del Excel a los campos esperados
 function mapHeader(h: string): keyof ImportEmployeeRow | null {
   const s = h.toLowerCase().trim()
-  if (['nombre', 'name', 'full_name', 'nombre completo'].includes(s)) return 'full_name'
+  if (['nombre', 'nombre y apellido', 'name', 'full_name', 'nombre completo'].includes(s)) return 'full_name'
   if (['email', 'correo', 'e-mail', 'correo electrónico'].includes(s)) return 'email'
-  if (['rol', 'role', 'perfil', 'cargo'].includes(s)) return 'role'
-  if (['departamento', 'department', 'área', 'area'].includes(s)) return 'department'
+  if (['rol', 'role', 'perfil'].includes(s)) return 'role'
+  if (['rut', 'rut empleado', 'r.u.t.'].includes(s)) return 'rut'
+  if (['cargo', 'puesto', 'título', 'position', 'job title', 'departamento', 'department', 'área', 'area'].includes(s)) return 'department'
+  if (['centro de costo', 'centro costo', 'cost center', 'cc', 'centro'].includes(s)) return 'cost_center_id'
   return null
 }
 
@@ -26,7 +30,56 @@ function normalizeRole(val: string): 'admin' | 'approver' | 'employee' {
   const v = val.toLowerCase().trim()
   if (['admin', 'administrador', 'administradora'].includes(v)) return 'admin'
   if (['approver', 'aprobador', 'aprobadora'].includes(v)) return 'approver'
-  return 'employee'
+  return 'employee'  // default
+}
+
+function resolveCostCenter(raw: string, costCenters: CostCenter[]): string {
+  const s = raw.trim()
+  if (!s) return ''
+  // Exacto por ID (case insensitive)
+  const byId = costCenters.find(cc => cc.id.toLowerCase() === s.toLowerCase())
+  if (byId) return byId.id
+  // Exacto por descripción
+  const byDesc = costCenters.find(cc => cc.descripcion.toLowerCase() === s.toLowerCase())
+  if (byDesc) return byDesc.id
+  // Parcial por descripción
+  const partial = costCenters.find(cc => cc.descripcion.toLowerCase().includes(s.toLowerCase()))
+  if (partial) return partial.id
+  return s  // devolver el valor crudo; se marcará como no reconocido en preview
+}
+
+async function downloadTemplate(costCenters: CostCenter[]) {
+  const XLSX = await import('xlsx')
+  const wb = XLSX.utils.book_new()
+
+  // Hoja 1: Nómina
+  const nominaData = [
+    ['Nombre', 'Email', 'RUT', 'Centro de Costo', 'Cargo', 'Rol'],
+    ['María González López', 'mgonzalez@empresa.cl', '12.345.678-9', 'EMPGESFINADM', 'Contadora', 'empleado'],
+    ['Juan Pérez Díaz', 'jperez@empresa.cl', '9.876.543-2', 'EMPGESGEGGEG', 'Gerente General', 'aprobador'],
+  ]
+  const wsNomina = XLSX.utils.aoa_to_sheet(nominaData)
+
+  // Anchos de columna
+  wsNomina['!cols'] = [
+    { wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 14 },
+  ]
+
+  // Hoja 2: Centros de costo disponibles
+  const ccData = [
+    ['ID (usar en "Centro de Costo")', 'Descripción', 'Imputable'],
+    ...costCenters
+      .filter(cc => cc.activo)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map(cc => [cc.id, cc.descripcion, cc.imputable ? 'Sí' : 'No']),
+  ]
+  const wsCenters = XLSX.utils.aoa_to_sheet(ccData)
+  wsCenters['!cols'] = [{ wch: 26 }, { wch: 36 }, { wch: 10 }]
+
+  XLSX.utils.book_append_sheet(wb, wsNomina, 'Nómina')
+  XLSX.utils.book_append_sheet(wb, wsCenters, 'Centros de Costo')
+
+  XLSX.writeFile(wb, 'plantilla-nomina.xlsx')
 }
 
 export function EmployeeImport({ onDone }: { onDone: () => void }) {
@@ -35,6 +88,11 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
   const [importing, setImporting]     = useState(false)
   const [results,  setResults]        = useState<ImportResult[] | null>(null)
   const [parseError, setParseError]   = useState<string | null>(null)
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+
+  useEffect(() => {
+    getCostCenters().then(cc => setCostCenters(cc))
+  }, [])
 
   async function handleFile(file: File) {
     setParseError(null)
@@ -57,15 +115,23 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         const mapped: Partial<ImportEmployeeRow> = {}
         for (const [col, val] of Object.entries(row)) {
           const field = mapHeader(col)
-          if (field === 'role') mapped.role = normalizeRole(String(val))
-          else if (field) (mapped as Record<string, string>)[field] = String(val).trim()
+          if (!field) continue
+          if (field === 'role') {
+            mapped.role = normalizeRole(String(val))
+          } else if (field === 'cost_center_id') {
+            mapped.cost_center_id = resolveCostCenter(String(val), costCenters)
+          } else {
+            (mapped as Record<string, string>)[field] = String(val).trim()
+          }
         }
         return {
-          _key: i,
-          full_name: mapped.full_name ?? '',
-          email:     mapped.email     ?? '',
-          role:      mapped.role      ?? 'employee',
-          department: mapped.department ?? '',
+          _key:           i,
+          full_name:      mapped.full_name      ?? '',
+          email:          mapped.email          ?? '',
+          role:           mapped.role           ?? 'employee',
+          rut:            mapped.rut            ?? '',
+          department:     mapped.department     ?? '',
+          cost_center_id: mapped.cost_center_id ?? '',
         }
       })
 
@@ -87,7 +153,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
 
   async function handleImport() {
     if (!preview?.length) return
-    const invalid = preview.filter(r => !r.email.includes('@') || !r.full_name)
+    const invalid = preview.filter(r => !r.email.includes('@') || !r.full_name.trim())
     if (invalid.length > 0) {
       setParseError(`${invalid.length} fila(s) con nombre o email inválido.`)
       return
@@ -96,8 +162,13 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     setImporting(true)
     setParseError(null)
     try {
-      const rows: ImportEmployeeRow[] = preview.map(({ full_name, email, role, department }) => ({
-        full_name, email, role, department: department || undefined
+      const rows: ImportEmployeeRow[] = preview.map(r => ({
+        full_name:      r.full_name,
+        email:          r.email,
+        role:           r.role,
+        rut:            r.rut          || undefined,
+        department:     r.department   || undefined,
+        cost_center_id: r.cost_center_id || undefined,
       }))
       const res = await importEmployees(rows)
       setResults(res)
@@ -110,14 +181,18 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     }
   }
 
-  // ── Pantalla de resultados ──────────────────────────────────────────────────
+  const inputCls = 'w-full border border-slate-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600'
+
+  // ── Resultados ──────────────────────────────────────────────────────────────
   if (results) {
     const ok  = results.filter(r => r.success)
     const err = results.filter(r => !r.success)
     return (
       <div className="space-y-4">
         <div className="bg-emerald-50 border border-emerald-200 rounded-card p-4">
-          <p className="font-semibold text-emerald-700">{ok.length} empleado{ok.length !== 1 ? 's' : ''} importado{ok.length !== 1 ? 's' : ''} correctamente</p>
+          <p className="font-semibold text-emerald-700">
+            {ok.length} empleado{ok.length !== 1 ? 's' : ''} importado{ok.length !== 1 ? 's' : ''} correctamente
+          </p>
           <p className="text-xs text-emerald-600 mt-1">Recibirán un email para activar su cuenta.</p>
         </div>
         {err.length > 0 && (
@@ -128,83 +203,102 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
             ))}
           </div>
         )}
-        <button
-          onClick={() => { setResults(null); setPreview(null) }}
-          className="text-sm text-brand-600 hover:underline"
-        >
+        <button onClick={() => { setResults(null); setPreview(null) }} className="text-sm text-brand-600 hover:underline">
           Importar más empleados
         </button>
       </div>
     )
   }
 
-  // ── Preview de filas ────────────────────────────────────────────────────────
+  // ── Preview ─────────────────────────────────────────────────────────────────
   if (preview) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-700">{preview.length} fila{preview.length !== 1 ? 's' : ''} detectada{preview.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm font-medium text-slate-700">
+            {preview.length} fila{preview.length !== 1 ? 's' : ''} detectada{preview.length !== 1 ? 's' : ''}
+          </p>
           <button onClick={() => setPreview(null)} className="text-xs text-slate-400 hover:text-slate-600">
             Cancelar
           </button>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+          <table className="w-full text-xs border-collapse min-w-[700px]">
             <thead>
-              <tr className="text-left text-slate-500">
+              <tr className="text-left text-slate-500 border-b border-slate-100">
                 <th className="pb-2 pr-2 font-medium">Nombre</th>
                 <th className="pb-2 pr-2 font-medium">Email</th>
+                <th className="pb-2 pr-2 font-medium">RUT</th>
+                <th className="pb-2 pr-2 font-medium">Centro de Costo</th>
+                <th className="pb-2 pr-2 font-medium">Cargo</th>
                 <th className="pb-2 pr-2 font-medium">Rol</th>
-                <th className="pb-2 pr-2 font-medium">Depto.</th>
                 <th className="pb-2 font-medium"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {preview.map(row => (
-                <tr key={row._key}>
-                  <td className="py-1.5 pr-2">
-                    <input
-                      value={row.full_name}
-                      onChange={e => updateRow(row._key, 'full_name', e.target.value)}
-                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-600"
-                    />
-                  </td>
-                  <td className="py-1.5 pr-2">
-                    <input
-                      value={row.email}
-                      onChange={e => updateRow(row._key, 'email', e.target.value)}
-                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-600"
-                    />
-                  </td>
-                  <td className="py-1.5 pr-2">
-                    <select
-                      value={row.role}
-                      onChange={e => updateRow(row._key, 'role', e.target.value)}
-                      className="border border-slate-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
-                    >
-                      {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </td>
-                  <td className="py-1.5 pr-2">
-                    <input
-                      value={row.department ?? ''}
-                      onChange={e => updateRow(row._key, 'department', e.target.value)}
-                      className="w-full border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-brand-600"
-                      placeholder="Opcional"
-                    />
-                  </td>
-                  <td className="py-1.5">
-                    <button
-                      onClick={() => removeRow(row._key)}
-                      className="text-red-400 hover:text-red-600 text-xs px-1"
-                      title="Eliminar fila"
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {preview.map(row => {
+                const ccValid = !row.cost_center_id || costCenters.some(cc => cc.id === row.cost_center_id)
+                return (
+                  <tr key={row._key}>
+                    <td className="py-1.5 pr-2 min-w-[140px]">
+                      <input value={row.full_name}
+                        onChange={e => updateRow(row._key, 'full_name', e.target.value)}
+                        className={inputCls + (!row.full_name.trim() ? ' border-red-300 ring-1 ring-red-300' : '')}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2 min-w-[160px]">
+                      <input value={row.email}
+                        onChange={e => updateRow(row._key, 'email', e.target.value)}
+                        className={inputCls + (!row.email.includes('@') ? ' border-red-300 ring-1 ring-red-300' : '')}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2 min-w-[100px]">
+                      <input value={row.rut ?? ''}
+                        onChange={e => updateRow(row._key, 'rut', e.target.value)}
+                        placeholder="12.345.678-9"
+                        className={inputCls}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2 min-w-[160px]">
+                      <select
+                        value={row.cost_center_id ?? ''}
+                        onChange={e => updateRow(row._key, 'cost_center_id', e.target.value)}
+                        className={`border rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 w-full ${!ccValid ? 'border-amber-400' : 'border-slate-200'}`}
+                      >
+                        <option value="">— Sin asignar —</option>
+                        {costCenters.filter(cc => cc.imputable).map(cc => (
+                          <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+                        ))}
+                      </select>
+                      {!ccValid && row.cost_center_id && (
+                        <p className="text-amber-600 text-[10px] mt-0.5">ID no reconocido</p>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-2 min-w-[120px]">
+                      <input value={row.department ?? ''}
+                        onChange={e => updateRow(row._key, 'department', e.target.value)}
+                        placeholder="Ej: Contador"
+                        className={inputCls}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <select value={row.role}
+                        onChange={e => updateRow(row._key, 'role', e.target.value)}
+                        className="border border-slate-200 rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600"
+                      >
+                        {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </td>
+                    <td className="py-1.5">
+                      <button onClick={() => removeRow(row._key)}
+                        className="text-red-400 hover:text-red-600 px-1 text-xs" title="Eliminar fila">
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -227,6 +321,18 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
   // ── Upload inicial ──────────────────────────────────────────────────────────
   return (
     <div className="space-y-3">
+      {/* Botón descargar plantilla */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => downloadTemplate(costCenters)}
+          className="flex items-center gap-1.5 text-xs text-brand-700 border border-brand-200 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-item transition-colors font-medium"
+        >
+          <Download size={13} />
+          Descargar plantilla Excel
+        </button>
+      </div>
+
+      {/* Drop zone */}
       <div
         onClick={() => inputRef.current?.click()}
         onDragOver={e => e.preventDefault()}
@@ -245,10 +351,21 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         />
       </div>
 
-      <div className="bg-slate-50 rounded-item p-3 text-xs text-slate-500 space-y-1">
-        <p className="font-medium text-slate-600">Columnas esperadas en el Excel:</p>
-        <p><span className="font-mono bg-white border border-slate-200 px-1 rounded">Nombre</span> <span className="font-mono bg-white border border-slate-200 px-1 rounded">Email</span> <span className="font-mono bg-white border border-slate-200 px-1 rounded">Rol</span> <span className="font-mono bg-white border border-slate-200 px-1 rounded">Departamento</span></p>
-        <p>Roles válidos: <em>empleado</em>, <em>aprobador</em>, <em>administrador</em></p>
+      {/* Descripción de columnas */}
+      <div className="bg-slate-50 rounded-item p-3 text-xs text-slate-500 space-y-1.5">
+        <p className="font-medium text-slate-600">Columnas del Excel:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {['Nombre', 'Email', 'RUT', 'Centro de Costo', 'Cargo', 'Rol'].map(col => (
+            <span key={col} className="font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-600">{col}</span>
+          ))}
+        </div>
+        <p className="text-slate-400">
+          Roles válidos: <em>empleado</em> (defecto), <em>aprobador</em>, <em>administrador</em>.
+          Solo <strong>Nombre</strong> y <strong>Email</strong> son obligatorios.
+        </p>
+        <p className="text-slate-400">
+          Para <strong>Centro de Costo</strong> usa el ID de la hoja de referencia incluida en la plantilla.
+        </p>
       </div>
 
       {parseError && (

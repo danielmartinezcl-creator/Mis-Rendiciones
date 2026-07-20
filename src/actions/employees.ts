@@ -8,7 +8,8 @@ export type ImportEmployeeRow = {
   full_name:       string
   email:           string
   role:            'admin' | 'approver' | 'employee'
-  department?:     string
+  rut?:            string
+  department?:     string   // usado para "Cargo" en la plantilla
   cost_center_id?: string
 }
 
@@ -61,6 +62,7 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
           org_id:         profile.org_id,
           full_name:      row.full_name.trim(),
           role:           row.role,
+          rut:            row.rut?.trim() || null,
           department:     row.department?.trim() || null,
           can_submit:     row.role !== 'approver',
           can_approve:    row.role === 'approver' || row.role === 'admin',
