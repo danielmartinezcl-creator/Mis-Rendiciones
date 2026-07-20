@@ -136,7 +136,8 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
       })
 
       setPreview(rows)
-    } catch {
+    } catch (err) {
+      console.error('[EmployeeImport] Error al parsear archivo:', err)
       setParseError('No se pudo leer el archivo. Asegúrate de que sea un .xlsx válido.')
     }
   }
@@ -171,9 +172,9 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         cost_center_id: r.cost_center_id || undefined,
       }))
       const res = await importEmployees(rows)
-      setResults(res)
       setPreview(null)
-      onDone()
+      setResults(res)
+      // No llamar onDone() aquí — deja que el usuario vea los resultados primero
     } catch (err) {
       setParseError(err instanceof Error ? err.message : 'Error al importar')
     } finally {
@@ -203,9 +204,20 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
             ))}
           </div>
         )}
-        <button onClick={() => { setResults(null); setPreview(null) }} className="text-sm text-brand-600 hover:underline">
-          Importar más empleados
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => { setResults(null); setPreview(null) }}
+            className="text-sm text-brand-600 hover:underline"
+          >
+            Importar más empleados
+          </button>
+          <button
+            onClick={onDone}
+            className="text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-4 py-1.5 rounded-item transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
     )
   }
