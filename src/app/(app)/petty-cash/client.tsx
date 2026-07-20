@@ -409,10 +409,10 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager }: 
       ) : (
         <div className="space-y-2">
           {filtered.map(f => (
-            <div key={f.id} className="relative group">
+            <div key={f.id} className="bg-white rounded-card shadow-card border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex items-stretch">
               <Link
                 href={`/petty-cash/${f.id}`}
-                className="block bg-white rounded-card shadow-card p-4 hover:shadow-md transition-shadow border-l-4 border-l-brand-600"
+                className="flex-1 block p-4"
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
@@ -437,14 +437,14 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager }: 
               </Link>
               {isManager && (
                 <button
-                  onClick={(e) => { e.preventDefault(); handleDeleteFund(f.id, f.name) }}
+                  onClick={() => handleDeleteFund(f.id, f.name)}
                   disabled={deletingId === f.id}
                   title="Eliminar fondo"
-                  className="absolute top-2 right-2 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                  className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-card"
                 >
                   {deletingId === f.id
                     ? <span className="text-xs">...</span>
-                    : <Trash2 size={14} />
+                    : <Trash2 size={15} />
                   }
                 </button>
               )}
