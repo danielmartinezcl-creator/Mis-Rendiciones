@@ -250,6 +250,8 @@ export async function updateEmployee(
     can_approve?:           boolean
     can_manage_petty_cash?: boolean
     is_active?:             boolean
+    full_name?:             string
+    rut?:                   string | null
     department?:            string | null
     bank_account?:          string | null
     cost_center_id?:        string | null

@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees } from '@/actions/admin'
+import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, getCostCenters } from '@/actions/admin'
 import { sendInvitations } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
 import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
+import type { CostCenter } from '@/lib/supabase/types'
 
 type EmployeeWithEmail = UserProfile & { email: string }
 
@@ -49,13 +50,21 @@ export default function AdminEmployeesPage() {
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
   const [deletingBulk,   setDeletingBulk]   = useState(false)
 
+  const [expandedEdit, setExpandedEdit] = useState<string | null>(null)
+  const [editForm, setEditForm]         = useState<{ full_name: string; rut: string; department: string; cost_center_id: string }>({ full_name: '', rut: '', department: '', cost_center_id: '' })
+  const [editSaving, setEditSaving]     = useState(false)
+  const [costCenters, setCostCenters]   = useState<CostCenter[]>([])
+
   async function load() {
     const data = await getOrgEmployees()
     setEmployees(data as EmployeeWithEmail[])
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
+  }, [])
 
   async function handleUpdate(userId: string, updates: Parameters<typeof updateEmployee>[1]) {
     setSaving(userId)
@@ -135,6 +144,32 @@ export default function AdminEmployeesPage() {
       await load()
     } finally {
       setDeletingBulk(false)
+    }
+  }
+
+  function openEdit(emp: EmployeeWithEmail) {
+    setEditForm({
+      full_name:      emp.full_name,
+      rut:            (emp as UserProfile & { email: string; rut?: string | null }).rut ?? '',
+      department:     emp.department ?? '',
+      cost_center_id: emp.cost_center_id ?? '',
+    })
+    setExpandedEdit(emp.id)
+  }
+
+  async function handleSaveEdit(userId: string) {
+    setEditSaving(true)
+    try {
+      await updateEmployee(userId, {
+        full_name:      editForm.full_name.trim() || undefined,
+        rut:            editForm.rut.trim() || null,
+        department:     editForm.department.trim() || null,
+        cost_center_id: editForm.cost_center_id || null,
+      })
+      setExpandedEdit(null)
+      await load()
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -316,13 +351,15 @@ export default function AdminEmployeesPage() {
         )}
 
         {employees.map(emp => {
-          const badge        = ROLE_BADGE[emp.role] ?? ROLE_BADGE.employee
-          const isOpen       = expandedApprover === emp.id
-          const summary      = approverSummary(emp, employees)
-          const hasApprover  = !!emp.approver_l1_id
-          const isEditingEmail = emailEdit?.id === emp.id
-          const isSelected   = selected.has(emp.id)
+          const badge           = ROLE_BADGE[emp.role] ?? ROLE_BADGE.employee
+          const isOpen          = expandedApprover === emp.id
+          const isEditOpen      = expandedEdit === emp.id
+          const summary         = approverSummary(emp, employees)
+          const hasApprover     = !!emp.approver_l1_id
+          const isEditingEmail  = emailEdit?.id === emp.id
+          const isSelected      = selected.has(emp.id)
           const isInvitingSingle = inviting === emp.id
+          const empRut          = (emp as UserProfile & { email: string; rut?: string | null }).rut
 
           return (
             <div
@@ -364,7 +401,13 @@ export default function AdminEmployeesPage() {
                         </span>
                       )}
                     </div>
-                    {emp.department && <p className="text-xs text-ink-400 mt-0.5">{emp.department}</p>}
+                    {(emp.department || empRut || emp.cost_center_id) && (
+                    <p className="text-xs text-ink-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                      {empRut && <span>RUT: <span className="font-medium text-ink-600">{empRut}</span></span>}
+                      {emp.department && <span>{empRut ? '· ' : ''}{emp.department}</span>}
+                      {emp.cost_center_id && <span className="text-brand-600">· {emp.cost_center_id}</span>}
+                    </p>
+                  )}
                   </div>
 
                   {/* Rol selector + botón invitar individual */}
@@ -498,7 +541,20 @@ export default function AdminEmployeesPage() {
                   </div>
 
                   <button
-                    onClick={() => setExpandedApprover(isOpen ? null : emp.id)}
+                    onClick={() => {
+                      if (isEditOpen) { setExpandedEdit(null) } else { openEdit(emp); setExpandedApprover(null) }
+                    }}
+                    className={[
+                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
+                      isEditOpen ? 'bg-ink-100 text-ink-500' : 'bg-slate-50 text-slate-600 hover:bg-slate-100',
+                    ].join(' ')}
+                  >
+                    <Pencil size={11} />
+                    {isEditOpen ? 'Cerrar' : 'Editar datos'}
+                  </button>
+
+                  <button
+                    onClick={() => { setExpandedApprover(isOpen ? null : emp.id); setExpandedEdit(null) }}
                     className={[
                       'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
                       isOpen
@@ -509,12 +565,77 @@ export default function AdminEmployeesPage() {
                     ].join(' ')}
                   >
                     <span>{isOpen ? '▲' : '▼'}</span>
-                    <span>
-                      {isOpen ? 'Cerrar' : hasApprover ? `⛓ ${summary}` : '⚠ Sin aprobador'}
-                    </span>
+                    <span>{isOpen ? 'Cerrar' : hasApprover ? `⛓ ${summary}` : '⚠ Sin aprobador'}</span>
                   </button>
                 </div>
               </div>
+
+              {/* Panel editar datos del empleado */}
+              {isEditOpen && (
+                <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
+                  <p className="text-xs font-semibold text-ink-600 mb-3 uppercase tracking-wide">Editar datos del empleado</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Nombre completo</label>
+                      <input
+                        type="text"
+                        value={editForm.full_name}
+                        onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        placeholder="Apellido Nombre"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">RUT</label>
+                      <input
+                        type="text"
+                        value={editForm.rut}
+                        onChange={e => setEditForm(f => ({ ...f, rut: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        placeholder="12.345.678-9"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Departamento / Cargo</label>
+                      <input
+                        type="text"
+                        value={editForm.department}
+                        onChange={e => setEditForm(f => ({ ...f, department: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        placeholder="Ej: Ingeniería, Gerencia..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Centro de costo</label>
+                      <select
+                        value={editForm.cost_center_id}
+                        onChange={e => setEditForm(f => ({ ...f, cost_center_id: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      >
+                        <option value="">— Sin asignar —</option>
+                        {costCenters.map(cc => (
+                          <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => handleSaveEdit(emp.id)}
+                      disabled={editSaving}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors"
+                    >
+                      {editSaving ? <><Loader2 size={12} className="animate-spin" />Guardando…</> : <><Check size={12} />Guardar</>}
+                    </button>
+                    <button
+                      onClick={() => setExpandedEdit(null)}
+                      className="px-4 py-2 text-xs text-ink-500 hover:text-ink-700 border border-ink-200 rounded-item hover:bg-white transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Panel cadena de aprobación */}
               {isOpen && (
