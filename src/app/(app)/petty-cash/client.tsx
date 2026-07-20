@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2 } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2 } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
-import { getPettyCashItemsForReport } from '@/actions/petty-cash'
+import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import type { FundListItem } from '@/actions/petty-cash'
 
 function fmtCLP(n: number) {
@@ -33,6 +33,23 @@ interface Props {
 }
 
 export function PettyCashClient({ initialFunds, initialCategories, isManager }: Props) {
+  // ── Estado local de fondos (permite eliminar sin recargar la página) ──────
+  const [funds, setFunds] = useState<FundListItem[]>(initialFunds)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function handleDeleteFund(id: string, name: string) {
+    if (!confirm(`¿Eliminar el fondo "${name}"?\n\nSe eliminarán todos sus ítems y aprobaciones.\nEsta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deletePettyCashFund(id)
+      setFunds(prev => prev.filter(f => f.id !== id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar el fondo')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   // ── Filtros de lista (cliente) ────────────────────────────────────────────
   const [statusFilter,   setStatusFilter]   = useState('all')
   const [dateFrom,       setDateFrom]       = useState('')
@@ -52,22 +69,22 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager }: 
   // Empleados únicos en los fondos cargados
   const employees = useMemo(() => {
     const map = new Map<string, string>()
-    for (const f of initialFunds) {
+    for (const f of funds) {
       if (!map.has(f.employee_id)) map.set(f.employee_id, f.employee_name)
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
-  }, [initialFunds])
+  }, [funds])
 
   // Filtrado cliente de la lista de fondos
   const filtered = useMemo(() => {
-    return initialFunds.filter(f => {
+    return funds.filter(f => {
       if (statusFilter !== 'all' && f.status !== statusFilter) return false
       if (dateFrom && f.period_end   < dateFrom) return false
       if (dateTo   && f.period_start > dateTo)   return false
       if (employeeSearch && !f.employee_name.toLowerCase().includes(employeeSearch.toLowerCase())) return false
       return true
     })
-  }, [initialFunds, statusFilter, dateFrom, dateTo, employeeSearch])
+  }, [funds, statusFilter, dateFrom, dateTo, employeeSearch])
 
   const activeFilters = statusFilter !== 'all' || dateFrom || dateTo || employeeSearch
 
@@ -364,7 +381,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager }: 
 
       {/* Lista de fondos */}
       {filtered.length === 0 ? (
-        initialFunds.length === 0 ? (
+        funds.length === 0 ? (
           <div className="text-center py-16 text-ink-400">
             <Wallet size={40} className="mx-auto mb-4 opacity-25" />
             <p className="text-sm font-medium">Sin fondos de caja chica</p>
@@ -392,32 +409,46 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager }: 
       ) : (
         <div className="space-y-2">
           {filtered.map(f => (
-            <Link
-              key={f.id}
-              href={`/petty-cash/${f.id}`}
-              className="block bg-white rounded-card shadow-card p-4 hover:shadow-md transition-shadow border-l-4 border-l-brand-600"
-            >
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-ink-900 truncate">{f.name}</p>
-                    <FundStatusBadge status={f.status} />
+            <div key={f.id} className="relative group">
+              <Link
+                href={`/petty-cash/${f.id}`}
+                className="block bg-white rounded-card shadow-card p-4 hover:shadow-md transition-shadow border-l-4 border-l-brand-600"
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-ink-900 truncate">{f.name}</p>
+                      <FundStatusBadge status={f.status} />
+                    </div>
+                    <p className="text-xs text-ink-500 mt-1">
+                      Empleado: <span className="font-medium text-ink-700">{f.employee_name}</span>
+                      {' · '}
+                      EFF: <span className="font-medium text-ink-700">{f.manager_name}</span>
+                    </p>
+                    <p className="text-xs text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
                   </div>
-                  <p className="text-xs text-ink-500 mt-1">
-                    Empleado: <span className="font-medium text-ink-700">{f.employee_name}</span>
-                    {' · '}
-                    EFF: <span className="font-medium text-ink-700">{f.manager_name}</span>
-                  </p>
-                  <p className="text-xs text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(f.amount_approved ?? f.amount_requested)}</p>
+                    {f.amount_approved != null && f.amount_approved !== f.amount_requested && (
+                      <p className="text-xs text-ink-400">Solicitado: {fmtCLP(f.amount_requested)}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(f.amount_approved ?? f.amount_requested)}</p>
-                  {f.amount_approved != null && f.amount_approved !== f.amount_requested && (
-                    <p className="text-xs text-ink-400">Solicitado: {fmtCLP(f.amount_requested)}</p>
-                  )}
-                </div>
-              </div>
-            </Link>
+              </Link>
+              {isManager && (
+                <button
+                  onClick={(e) => { e.preventDefault(); handleDeleteFund(f.id, f.name) }}
+                  disabled={deletingId === f.id}
+                  title="Eliminar fondo"
+                  className="absolute top-2 right-2 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                >
+                  {deletingId === f.id
+                    ? <span className="text-xs">...</span>
+                    : <Trash2 size={14} />
+                  }
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}

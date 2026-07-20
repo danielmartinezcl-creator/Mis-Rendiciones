@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getOrgEmployees, updateEmployee, updateEmployeeEmail } from '@/actions/admin'
+import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee } from '@/actions/admin'
 import { sendInvitations } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2 } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 
 type EmployeeWithEmail = UserProfile & { email: string }
@@ -44,6 +44,9 @@ export default function AdminEmployeesPage() {
   const [emailEdit,  setEmailEdit]  = useState<{ id: string; value: string } | null>(null)
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailError,  setEmailError]  = useState<string | null>(null)
+
+  const [deletingId,     setDeletingId]     = useState<string | null>(null)
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
 
   async function load() {
     const data = await getOrgEmployees()
@@ -92,6 +95,30 @@ export default function AdminEmployeesPage() {
       await load()
     } finally {
       setInviting(null)
+    }
+  }
+
+  async function handleDeactivate(userId: string, name: string) {
+    if (!confirm(`¿Inactivar a ${name}? Seguirá en el sistema pero no aparecerá en listas activas.`)) return
+    setDeactivatingId(userId)
+    try {
+      await deactivateEmployee(userId)
+      await load()
+    } finally {
+      setDeactivatingId(null)
+    }
+  }
+
+  async function handleDelete(userId: string, name: string) {
+    if (!confirm(`¿Eliminar a ${name} definitivamente?\n\nSe eliminará su cuenta y acceso. Sus rendiciones quedarán en el historial sin nombre asignado.\n\nEsta acción no se puede deshacer.`)) return
+    setDeletingId(userId)
+    try {
+      await deleteEmployee(userId)
+      await load()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar empleado')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -395,10 +422,36 @@ export default function AdminEmployeesPage() {
                     Activo
                   </label>
 
+                  {/* Acciones: inactivar / eliminar */}
+                  <div className="ml-auto flex items-center gap-1">
+                    {emp.is_active && (
+                      <button
+                        onClick={() => handleDeactivate(emp.id, emp.full_name)}
+                        disabled={deactivatingId === emp.id || deletingId === emp.id}
+                        title="Inactivar empleado"
+                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                      >
+                        {deactivatingId === emp.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <UserX size={14} />}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(emp.id, emp.full_name)}
+                      disabled={deletingId === emp.id || deactivatingId === emp.id}
+                      title="Eliminar empleado definitivamente"
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                    >
+                      {deletingId === emp.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Trash2 size={14} />}
+                    </button>
+                  </div>
+
                   <button
                     onClick={() => setExpandedApprover(isOpen ? null : emp.id)}
                     className={[
-                      'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
+                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
                       isOpen
                         ? 'bg-brand-100 text-brand-700'
                         : hasApprover

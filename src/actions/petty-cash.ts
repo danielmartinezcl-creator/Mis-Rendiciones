@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { FundStatus } from '@/lib/supabase/types'
@@ -393,6 +394,27 @@ export async function recordSettlement(fundId: string, data: {
     data.amount,
   )
   revalidatePath(`/petty-cash/${fundId}`)
+}
+
+// ── Eliminar fondo (solo admin) ───────────────────────────────────────────────
+
+export async function deletePettyCashFund(fundId: string) {
+  const { supabase } = await getProfile()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+  if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('petty_cash_funds')
+    .delete()
+    .eq('id', fundId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/petty-cash')
 }
 
 // ── Consultas ─────────────────────────────────────────────────────────────────

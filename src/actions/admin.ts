@@ -207,14 +207,18 @@ export async function resendInvitation(userId: string) {
   if (error) throw new Error(error.message)
 }
 
-export async function deleteEmployee(userId: string) {
+export async function deactivateEmployee(userId: string) {
   const { supabase } = await requireAdmin()
+  await supabase.from('users').update({ is_active: false }).eq('id', userId)
+  revalidatePath('/admin/employees')
+}
+
+export async function deleteEmployee(userId: string) {
+  await requireAdmin()
   const adminClient = createAdminClient()
 
-  /* Soft-delete en public.users primero para preservar historial de rendiciones */
-  await supabase.from('users').update({ is_active: false }).eq('id', userId)
-
-  /* Eliminar cuenta de auth (libera el acceso) */
+  // Hard delete: elimina de auth.users → CASCADE a public.users
+  // Las tablas relacionadas (expense_reports, petty_cash_funds, etc.) quedan con SET NULL
   const { error } = await adminClient.auth.admin.deleteUser(userId)
   if (error) throw new Error(error.message)
 
