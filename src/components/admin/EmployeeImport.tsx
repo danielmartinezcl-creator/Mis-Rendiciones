@@ -86,10 +86,26 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
   const [importError, setImportError] = useState<string | null>(null)
   const [detectedCols, setDetectedCols] = useState<string[]>([])
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [closeCountdown, setCloseCountdown] = useState(0)
 
   useEffect(() => {
     getCostCenters().then(cc => setCostCenters(cc)).catch(() => {/* silencioso */})
   }, [])
+
+  // Countdown de 10 s cuando aparecen errores en la pantalla de resultados
+  useEffect(() => {
+    if (step !== 'results') return
+    const errors = results.filter(r => !r.success)
+    if (errors.length === 0) return
+    setCloseCountdown(10)
+    const iv = setInterval(() => {
+      setCloseCountdown(prev => {
+        if (prev <= 1) { clearInterval(iv); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [step, results])
 
   async function handleFile(file: File) {
     setParseError(null)
@@ -233,9 +249,29 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
   if (step === 'results') {
     const ok  = results.filter(r => r.success)
     const err = results.filter(r => !r.success)
+    const canClose = closeCountdown === 0
     return (
       <div className="space-y-4">
-        {/* Banner principal */}
+        {/* Errores primero — más visibles */}
+        {err.length > 0 && (
+          <div className="bg-red-50 border-2 border-red-300 rounded-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <XCircle size={18} className="text-red-600 shrink-0" />
+              <p className="font-bold text-red-700">{err.length} empleado{err.length !== 1 ? 's' : ''} no se pudo{err.length !== 1 ? 'ron' : ''} importar</p>
+            </div>
+            <div className="space-y-2">
+              {err.map((r, i) => (
+                <div key={i} className="bg-white border border-red-200 rounded-item px-3 py-2 text-xs">
+                  <span className="font-semibold text-red-700">{r.full_name}</span>
+                  <span className="text-red-500 ml-1">({r.email})</span>
+                  <p className="text-red-600 mt-0.5">{r.error}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Éxitos */}
         {ok.length > 0 ? (
           <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-card p-4">
             <CheckCircle size={20} className="text-emerald-600 shrink-0 mt-0.5" />
@@ -244,7 +280,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                 {ok.length} empleado{ok.length !== 1 ? 's' : ''} importado{ok.length !== 1 ? 's' : ''} correctamente
               </p>
               <p className="text-xs text-emerald-600 mt-0.5">
-                Recibirán un email para activar su cuenta. Puede tardar unos minutos.
+                Podés enviarles la invitación desde la lista de empleados.
               </p>
               <ul className="mt-2 space-y-0.5">
                 {ok.map((r, i) => (
@@ -260,36 +296,19 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           </div>
         )}
 
-        {/* Errores detallados */}
-        {err.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-card p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <XCircle size={16} className="text-red-600" />
-              <p className="font-semibold text-red-700 text-sm">{err.length} error{err.length !== 1 ? 'es' : ''}</p>
-            </div>
-            <div className="space-y-1.5">
-              {err.map((r, i) => (
-                <div key={i} className="text-xs">
-                  <span className="font-medium text-red-700">{r.full_name} ({r.email}):</span>{' '}
-                  <span className="text-red-600">{r.error}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="flex gap-3 pt-1">
           <button
-            onClick={() => { setStep('upload'); setPreview([]); setResults([]) }}
+            onClick={() => { setStep('upload'); setPreview([]); setResults([]); setCloseCountdown(0) }}
             className="text-sm text-brand-600 hover:underline"
           >
             Importar más empleados
           </button>
           <button
             onClick={onDone}
-            className="ml-auto text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2 rounded-item transition-colors"
+            disabled={!canClose}
+            className="ml-auto text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 px-5 py-2 rounded-item transition-colors"
           >
-            Cerrar
+            {canClose ? 'Cerrar' : `Cerrar (${closeCountdown}s)`}
           </button>
         </div>
       </div>

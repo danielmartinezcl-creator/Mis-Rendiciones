@@ -10,6 +10,7 @@ import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import {
   addExpenseItem,
   deleteExpenseItem,
+  deleteExpenseReport,
   submitExpenseReport,
   uploadAttachment,
   getReportWithItems,
@@ -26,8 +27,10 @@ export default function ExpenseDetailPage() {
   const [categories, setCategories]               = useState<ExpenseCategory[]>([])
   const [costCenters, setCostCenters]             = useState<CostCenter[]>([])
   const [employeeCostCenterId, setEmployeeCC]     = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId]         = useState<string | null>(null)
   const [showForm, setShowForm]                   = useState(false)
   const [submitting, setSubmitting]               = useState(false)
+  const [deleting, setDeleting]                   = useState(false)
   const [error, setError]                         = useState<string | null>(null)
   const [loading, setLoading]                     = useState(true)
 
@@ -47,9 +50,10 @@ export default function ExpenseDetailPage() {
     // Centros de costo imputables
     supabase.from('cost_centers').select('*').eq('imputable', true).eq('activo', true)
       .then(({ data }) => setCostCenters(data ?? []))
-    // Centro de costo del empleado logueado
+    // Centro de costo y ID del empleado logueado
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
+      setCurrentUserId(user.id)
       supabase.from('users').select('cost_center_id').eq('id', user.id).single()
         .then(({ data }) => setEmployeeCC(data?.cost_center_id ?? null))
     })
@@ -104,6 +108,19 @@ export default function ExpenseDetailPage() {
     await load()
   }
 
+  async function handleDeleteReport() {
+    if (!confirm('¿Eliminar esta rendición? Esta acción no se puede deshacer.')) return
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteExpenseReport(id)
+      router.push('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar')
+      setDeleting(false)
+    }
+  }
+
   async function handleSubmit() {
     if (!confirm('¿Enviar esta rendición a revisión? No podrás editarla después.')) return
     setSubmitting(true)
@@ -142,8 +159,9 @@ export default function ExpenseDetailPage() {
     attachments: Pick<Attachment, 'id' | 'storage_path' | 'file_type'>[]
   }
 
-  const isDraft = report.status === 'draft'
-  const items   = (report.expense_items ?? []) as ItemWithRelations[]
+  const isDraft    = report.status === 'draft'
+  const isMyDraft  = isDraft && report.submitter_id === currentUserId
+  const items      = (report.expense_items ?? []) as ItemWithRelations[]
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -221,6 +239,16 @@ export default function ExpenseDetailPage() {
               {submitting
                 ? 'Enviando...'
                 : `Enviar a revisión — ${items.length} ítem${items.length !== 1 ? 's' : ''}`}
+            </button>
+          )}
+
+          {isMyDraft && !showForm && (
+            <button
+              onClick={handleDeleteReport}
+              disabled={deleting}
+              className="w-full py-2 text-red-500 hover:text-red-700 text-sm font-medium border border-red-200 hover:border-red-400 rounded-card transition-colors disabled:opacity-50"
+            >
+              {deleting ? 'Eliminando...' : 'Eliminar rendición'}
             </button>
           )}
         </div>

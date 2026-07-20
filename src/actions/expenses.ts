@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
@@ -290,6 +291,75 @@ export async function checkItemDuplicate(params: {
   }
 
   return null
+}
+
+// ── Eliminar rendición (empleado — solo borradores propios) ──────────────────
+
+export async function deleteExpenseReport(reportId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, status, submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) throw new Error('Rendición no encontrada')
+  if (report.submitter_id !== user.id) throw new Error('Solo podés eliminar tus propias rendiciones')
+  if (report.status !== 'draft') throw new Error('Solo se pueden eliminar rendiciones en borrador')
+
+  const { error } = await supabase
+    .from('expense_reports')
+    .delete()
+    .eq('id', reportId)
+    .eq('submitter_id', user.id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}
+
+// ── Eliminar rendición (admin — cualquier estado) ─────────────────────────────
+
+export async function adminDeleteExpenseReport(reportId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+  if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('expense_reports')
+    .delete()
+    .eq('id', reportId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/reports')
+}
+
+// ── Eliminar TODAS las rendiciones de la org (admin — para testing) ───────────
+
+export async function adminDeleteAllReports() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users').select('role, org_id').eq('id', user.id).single()
+  if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('expense_reports')
+    .delete()
+    .eq('org_id', profile.org_id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/reports')
 }
 
 export async function getReportWithItems(reportId: string) {

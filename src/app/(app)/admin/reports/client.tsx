@@ -3,9 +3,10 @@
 import { useState, useMemo } from 'react'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
+import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote } from 'lucide-react'
+import { Search, Banknote, Trash2 } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
@@ -46,6 +47,10 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [reimbOpen,  setReimbOpen]  = useState<string | null>(null)
   const [reimbRef,   setReimbRef]   = useState('')
   const [reimbSaving, setReimbSaving] = useState(false)
+
+  // Eliminar
+  const [deletingId,  setDeletingId]  = useState<string | null>(null)
+  const [deletingAll, setDeletingAll] = useState(false)
 
   async function load() {
     const data = await getAdminReports()
@@ -177,6 +182,37 @@ export function AdminReportsClient({ initialReports }: Props) {
     }
   }
 
+  async function handleDelete(id: string, title: string) {
+    if (!confirm(`¿Eliminar la rendición "${title}"?\n\nEsta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await adminDeleteExpenseReport(id)
+      await load()
+      if (expanded === id) setExpanded(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  async function handleDeleteAll() {
+    const confirmed = window.prompt(
+      `⚠ Esta acción eliminará TODAS las rendiciones de la organización.\n\nEscribí ELIMINAR para confirmar:`
+    )
+    if (confirmed !== 'ELIMINAR') return
+    setDeletingAll(true)
+    try {
+      await adminDeleteAllReports()
+      await load()
+      setExpanded(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar')
+    } finally {
+      setDeletingAll(false)
+    }
+  }
+
   function toggleStatus(v: string) {
     setStatusSel(prev => prev.includes(v) ? prev.filter(s => s !== v) : [...prev, v])
   }
@@ -191,7 +227,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <h1 className="text-xl font-bold text-slate-800">Rendiciones</h1>
           <p className="text-sm text-slate-500 mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 flex-wrap">
           <button
             onClick={() => handleExport('xlsx')}
             disabled={!!exporting || filtered.length === 0}
@@ -218,6 +254,15 @@ export function AdminReportsClient({ initialReports }: Props) {
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             {exporting === 'defontana' ? 'Exportando…' : 'Defontana'}
+          </button>
+          <button
+            onClick={handleDeleteAll}
+            disabled={!!exporting || deletingAll || reports.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-item disabled:opacity-40 transition-colors"
+            title="Eliminar todas las rendiciones (solo para pruebas)"
+          >
+            <Trash2 size={14} />
+            {deletingAll ? 'Eliminando…' : 'Eliminar todas'}
           </button>
         </div>
       </div>
@@ -395,7 +440,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-800">{formatCLP(r.total_amount)}</p>
                       {r.approved_amount > 0 && r.approved_amount !== r.total_amount && (
@@ -407,6 +452,14 @@ export function AdminReportsClient({ initialReports }: Props) {
                       className="text-xs text-brand-600 hover:text-brand-800 font-medium px-2 py-1 border border-brand-200 rounded-item hover:bg-brand-50 transition-colors"
                     >
                       {loading ? '...' : isOpen ? '▲ Cerrar' : '▼ Ver detalle'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(r.id, r.title)}
+                      disabled={deletingId === r.id}
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                      title="Eliminar rendición"
+                    >
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
