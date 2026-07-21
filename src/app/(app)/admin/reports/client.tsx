@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2, Pencil } from 'lucide-react'
+import { Search, Banknote, Trash2, Pencil, FilePen } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
@@ -499,6 +500,22 @@ export function AdminReportsClient({ initialReports }: Props) {
                     </button>
                   </div>
                 </div>
+
+                {/* Borrador: CTA para continuar editando */}
+                {r.status === 'draft' && (
+                  <div className="mt-3 pt-3 border-t border-amber-100 flex items-center justify-between gap-3 flex-wrap">
+                    <span className="flex items-center gap-1.5 text-xs text-amber-700 font-medium">
+                      <FilePen size={13} />
+                      Borrador — no enviada al aprobador
+                    </span>
+                    <Link
+                      href={`/expenses/${r.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-item transition-colors"
+                    >
+                      Continuar editando →
+                    </Link>
+                  </div>
+                )}
 
                 {/* Botón reembolso */}
                 {canReimb && !isReopened && (
