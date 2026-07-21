@@ -1,14 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { getAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import type { ReportStatus } from '@/lib/constants'
 
 export default async function ReimbursementsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthUser()
   if (!user) redirect('/login')
 
+  const supabase = await createClient()
   const { data: reports } = await supabase
     .from('expense_reports')
     .select('id, title, status, total_amount, approved_amount, currency, submitted_at, created_at, reimbursed_at, payment_reference')

@@ -1,22 +1,20 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getAuthProfile } from '@/lib/auth'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { LogoutButton } from '@/components/layout/LogoutButton'
 
+// Mueve las funciones a São Paulo — reduce latencia Chile → DC (170ms) a Chile → GRU (30ms)
+export const preferredRegion = 'gru1'
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [user, profile] = await Promise.all([
+    getAuthUser(),
+    getAuthProfile(),
+  ])
 
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) redirect('/login')
+  if (!user || !profile) redirect('/login')
 
   return (
     <div className="flex min-h-screen">
@@ -32,10 +30,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">
-          {children}
+          <Suspense fallback={<PageSkeleton />}>
+            {children}
+          </Suspense>
         </main>
       </div>
       <MobileNav user={profile} />
+    </div>
+  )
+}
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-32 bg-ink-100 rounded-card" />
+      <div className="h-12 bg-ink-100 rounded-card" />
+      <div className="space-y-2">
+        <div className="h-16 bg-ink-100 rounded-card" />
+        <div className="h-16 bg-ink-100 rounded-card" />
+        <div className="h-16 bg-ink-100 rounded-card" />
+      </div>
     </div>
   )
 }
