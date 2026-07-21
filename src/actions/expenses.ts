@@ -195,6 +195,7 @@ export async function getMyReports() {
       submitted_at, created_at, currency
     `)
     .eq('submitter_id', user.id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -334,11 +335,12 @@ export async function adminDeleteExpenseReport(reportId: string) {
   const adminClient = createAdminClient()
   const { error } = await adminClient
     .from('expense_reports')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', reportId)
 
   if (error) throw new Error(error.message)
   revalidatePath('/admin/reports')
+  revalidatePath('/admin/trash')
 }
 
 // ── Eliminar TODAS las rendiciones de la org (admin — para testing) ───────────
@@ -355,11 +357,13 @@ export async function adminDeleteAllReports() {
   const adminClient = createAdminClient()
   const { error } = await adminClient
     .from('expense_reports')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('org_id', profile.org_id)
+    .is('deleted_at', null)
 
   if (error) throw new Error(error.message)
   revalidatePath('/admin/reports')
+  revalidatePath('/admin/trash')
 }
 
 export async function getReportWithItems(reportId: string) {

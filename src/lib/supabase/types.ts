@@ -77,6 +77,7 @@ export interface Database {
           invited_at: string | null
           is_active: boolean
           created_at: string
+          deleted_at: string | null
         }
         Insert: {
           id: string
@@ -97,6 +98,7 @@ export interface Database {
           invited_at?: string | null
           is_active?: boolean
           created_at?: string
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -117,6 +119,7 @@ export interface Database {
           invited_at?: string | null
           is_active?: boolean
           created_at?: string
+          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -215,6 +218,7 @@ export interface Database {
           defontana_export_ref:  string | null
           created_at: string
           updated_at: string
+          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -236,6 +240,7 @@ export interface Database {
           defontana_export_ref?:  string | null
           created_at?: string
           updated_at?: string
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -257,6 +262,7 @@ export interface Database {
           defontana_export_ref?:  string | null
           created_at?: string
           updated_at?: string
+          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -474,6 +480,7 @@ export interface Database {
           settled_at: string | null
           created_at: string
           updated_at: string
+          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -491,6 +498,7 @@ export interface Database {
           settled_at?: string | null
           created_at?: string
           updated_at?: string
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -499,6 +507,7 @@ export interface Database {
           status?: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
           settled_at?: string | null
           updated_at?: string
+          deleted_at?: string | null
         }
         Relationships: []
       }

@@ -32,6 +32,9 @@ export const metadata: Metadata = {
   title: 'Penta Rend',
   description: 'Gestión de rendiciones de gastos — Penta Ingenieros Asociados',
   manifest: '/manifest.json',
+  icons: {
+    apple: '/icons/icon-192.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

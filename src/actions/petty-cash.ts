@@ -410,11 +410,12 @@ export async function deletePettyCashFund(fundId: string) {
   const adminClient = createAdminClient()
   const { error } = await adminClient
     .from('petty_cash_funds')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', fundId)
 
   if (error) throw new Error(error.message)
   revalidatePath('/petty-cash')
+  revalidatePath('/admin/trash')
 }
 
 // ── Consultas ─────────────────────────────────────────────────────────────────
@@ -425,6 +426,7 @@ export async function listPettyCashFunds() {
   let query = supabase
     .from('petty_cash_funds')
     .select('id, name, status, amount_requested, amount_approved, currency, period_start, period_end, employee_id, manager_id, created_at')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (profile.role !== 'admin') {

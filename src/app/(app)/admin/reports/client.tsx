@@ -220,7 +220,7 @@ export function AdminReportsClient({ initialReports }: Props) {
   }
 
   async function handleDelete(id: string, title: string) {
-    if (!confirm(`¿Eliminar la rendición "${title}"?\n\nEsta acción no se puede deshacer.`)) return
+    if (!confirm(`¿Mover a la papelera la rendición "${title}"?\n\nPodrás recuperarla desde Admin → Papelera durante 90 días.`)) return
     setDeletingId(id)
     try {
       await adminDeleteExpenseReport(id)
@@ -235,7 +235,7 @@ export function AdminReportsClient({ initialReports }: Props) {
 
   async function handleDeleteAll() {
     const confirmed = window.prompt(
-      `⚠ Esta acción eliminará TODAS las rendiciones de la organización.\n\nEscribí ELIMINAR para confirmar:`
+      `⚠ Esta acción moverá TODAS las rendiciones a la papelera.\n\nPodrás recuperarlas desde Admin → Papelera durante 90 días.\n\nEscribí ELIMINAR para confirmar:`
     )
     if (confirmed !== 'ELIMINAR') return
     setDeletingAll(true)
