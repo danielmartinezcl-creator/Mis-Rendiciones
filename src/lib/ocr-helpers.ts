@@ -41,7 +41,7 @@ export function parseOcrResponse(raw: string): OcrResult | null {
 
     const data = JSON.parse(jsonMatch[0])
 
-    if (typeof data.confidence !== 'number' || data.confidence < 0.7) return null
+    if (typeof data.confidence !== 'number' || data.confidence < 0.5) return null
 
     // Normalizar fecha DD/MM/YYYY → YYYY-MM-DD
     let date = data.date ?? null

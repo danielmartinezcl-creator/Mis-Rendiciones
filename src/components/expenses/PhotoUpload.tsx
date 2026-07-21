@@ -9,6 +9,44 @@ interface PhotoUploadProps {
   disabled?: boolean
 }
 
+// Redimensiona imágenes grandes a max 1200px de ancho antes de enviar al servidor.
+// Esto evita el límite de payload de Server Actions y reduce el costo OCR.
+// PDFs se pasan sin modificar (Canvas no puede procesarlos).
+async function resizeIfNeeded(file: File): Promise<{ base64: string; mimeType: string }> {
+  if (file.type === 'application/pdf') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const dataUrl = ev.target?.result as string
+        resolve({ base64: dataUrl.split(',')[1], mimeType: 'application/pdf' })
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const MAX_W = 1200
+      const scale = img.width > MAX_W ? MAX_W / img.width : 1
+      const canvas = document.createElement('canvas')
+      canvas.width  = Math.round(img.width  * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+      resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' })
+    }
+
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo cargar la imagen')) }
+    img.src = url
+  })
+}
+
 export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
   const [status, setStatus] = useState<'idle' | 'reading' | 'processing' | 'done' | 'error'>('idle')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -23,18 +61,15 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('El archivo no puede superar 10 MB')
+    if (file.size > 20 * 1024 * 1024) {
+      alert('El archivo no puede superar 20 MB')
       return
     }
 
     setStatus('reading')
 
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string
-      const base64 = dataUrl.split(',')[1]
-      const mimeType = file.type
+    try {
+      const { base64, mimeType } = await resizeIfNeeded(file)
 
       setStatus('processing')
 
@@ -46,8 +81,10 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
         setStatus('error')
         onOcrResult(null, file)
       }
+    } catch {
+      setStatus('error')
+      onOcrResult(null, file)
     }
-    reader.readAsDataURL(file)
   }
 
   const labels = {
