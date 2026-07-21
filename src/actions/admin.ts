@@ -503,11 +503,11 @@ export async function getDefontanaExportData(filters: {
   const submitterIds = [...new Set(reports.map(r => r.submitter_id))]
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, cost_center_id')
+    .select('id, full_name, cost_center_id, rut')
     .in('id', submitterIds)
 
   const userMap = Object.fromEntries(
-    (users ?? []).map(u => [u.id, { name: u.full_name, costCenter: u.cost_center_id }])
+    (users ?? []).map(u => [u.id, { name: u.full_name, costCenter: u.cost_center_id, rut: u.rut }])
   )
 
   // Ítems aprobados con todos los campos nuevos
@@ -565,6 +565,7 @@ export async function getDefontanaExportData(filters: {
       reportTitle:          r.title,
       date:                 (r.reimbursed_at ?? r.approved_at ?? '').split('T')[0],
       employeeName:         submitter?.name ?? 'Desconocido',
+      employeeRut:          submitter?.rut ?? null,
       employeeCostCenterId: submitter?.costCenter ?? null,
       items:                mappedItems,
     }

@@ -25,6 +25,7 @@ export interface DefontanaReportInput {
   reportTitle:          string
   date:                 string   // YYYY-MM-DD — fecha del ítem más antiguo del reporte
   employeeName:         string
+  employeeRut:          string | null  // RUT del rendidor → va en cod_ficha de la línea contrapartida
   employeeCostCenterId: string | null
   items:                DefontanaItem[]
 }
@@ -226,7 +227,8 @@ export function buildDefontanaEntries(
       totalDebe += g.total
     }
 
-    // Línea Haber (contrapartida)
+    // Línea Haber (contrapartida — Fondos por Rendir)
+    // cod_ficha = RUT del rendidor (Defontana exige ficha del empleado en esta cuenta)
     if (totalDebe > 0 && contraCode) {
       lines.push({
         numero:           voucher,
@@ -239,11 +241,11 @@ export function buildDefontanaEntries(
         glosa:            `${report.reportTitle} — ${report.employeeName}`,
         debe:             '',
         haber:            totalDebe,
-        cod_ficha:        '',
+        cod_ficha:        report.employeeRut ?? '',
         tipo_doc:         '',
         nro_doc:          '',
         centro_negocios:  report.employeeCostCenterId ?? settings.costCenter ?? '',
-        codigo_legal:     '',
+        codigo_legal:     report.employeeRut ?? '',
         nombre:           report.employeeName,
       })
     }

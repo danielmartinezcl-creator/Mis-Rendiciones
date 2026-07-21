@@ -383,12 +383,12 @@ export function AdminReportsClient({ initialReports }: Props) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Defontana</label>
+            <label className="block text-xs text-slate-500 mb-1">Contabilización</label>
             <select value={defFilter} onChange={e => setDefFilter(e.target.value as typeof defFilter)}
               className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="all">Todas</option>
-              <option value="notExported">Sin exportar</option>
-              <option value="exported">Ya exportadas</option>
+              <option value="notExported">Sin contabilizar</option>
+              <option value="exported">Contabilizadas</option>
             </select>
           </div>
         </div>
@@ -423,7 +423,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       </span>
                       {r.defontana_exported_at && (
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-                          ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
+                          ✓ Contabilizado {formatDate(r.defontana_exported_at.split('T')[0])}
                           {r.defontana_export_ref && ` · ${r.defontana_export_ref}`}
                         </span>
                       )}
