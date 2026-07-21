@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2 } from 'lucide-react'
+import { Search, Banknote, Trash2, Pencil } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
@@ -51,6 +51,42 @@ export function AdminReportsClient({ initialReports }: Props) {
   // Eliminar
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
   const [deletingAll, setDeletingAll] = useState(false)
+
+  // Reclasificación de ítems
+  type Category = Awaited<ReturnType<typeof getOrgCategories>>[number]
+  const [categories,       setCategories]       = useState<Category[]>([])
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false)
+  const [reclassifyingItem, setReclassifyingItem] = useState<string | null>(null)
+  const [reclassifySaving,  setReclassifySaving]  = useState(false)
+
+  async function startReclassify(itemId: string) {
+    if (!categoriesLoaded) {
+      const cats = await getOrgCategories()
+      setCategories(cats)
+      setCategoriesLoaded(true)
+    }
+    setReclassifyingItem(itemId)
+  }
+
+  async function handleReclassify(reportId: string, itemId: string, categoryId: string) {
+    setReclassifySaving(true)
+    try {
+      await reclassifyExpenseItem(itemId, categoryId)
+      const newCatName = categories.find(c => c.id === categoryId)?.name ?? null
+      setDetails(prev => ({
+        ...prev,
+        [reportId]: {
+          ...prev[reportId],
+          items: prev[reportId].items.map(it =>
+            it.id === itemId ? { ...it, category_id: categoryId, category_name: newCatName } : it
+          ),
+        },
+      }))
+    } finally {
+      setReclassifyingItem(null)
+      setReclassifySaving(false)
+    }
+  }
 
   async function load() {
     const data = await getAdminReports()
@@ -544,7 +580,37 @@ export function AdminReportsClient({ initialReports }: Props) {
                               {detail.items.map((item, i) => (
                                 <tr key={i}>
                                   <td className="py-1.5 pr-3 text-slate-700">{item.description}</td>
-                                  <td className="py-1.5 pr-3 text-slate-500">{item.category_name ?? '—'}</td>
+                                  <td className="py-1.5 pr-3 text-slate-500">
+                                    {reclassifyingItem === item.id ? (
+                                      <select
+                                        autoFocus
+                                        defaultValue={item.category_id ?? ''}
+                                        disabled={reclassifySaving}
+                                        onChange={async e => {
+                                          if (e.target.value) await handleReclassify(r.id, item.id, e.target.value)
+                                          else setReclassifyingItem(null)
+                                        }}
+                                        onBlur={() => !reclassifySaving && setReclassifyingItem(null)}
+                                        className="text-xs border border-slate-300 rounded px-1 py-0.5 bg-white max-w-[160px]"
+                                      >
+                                        <option value="">— cancelar —</option>
+                                        {categories.map(c => (
+                                          <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <span className="flex items-center gap-1 group/cat">
+                                        <span>{item.category_name ?? '—'}</span>
+                                        <button
+                                          onClick={() => startReclassify(item.id)}
+                                          className="opacity-0 group-hover/cat:opacity-100 transition-opacity text-slate-400 hover:text-brand-600 shrink-0"
+                                          title="Reclasificar categoría"
+                                        >
+                                          <Pencil size={10} />
+                                        </button>
+                                      </span>
+                                    )}
+                                  </td>
                                   <td className="py-1.5 pr-3 text-right font-mono text-slate-800">{formatCLP(item.amount_clp)}</td>
                                   <td className="py-1.5 pr-3">
                                     <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${statusCls(item.status)}`}>

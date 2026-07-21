@@ -54,12 +54,12 @@ export async function getAdminReports() {
 export async function getReportDetailForAdmin(reportId: string) {
   const { supabase } = await requireAdmin()
 
-  type RawItem = { description: string; amount_clp: number; status: string; rejection_reason: string | null; expense_categories: { name: string } | null }
+  type RawItem = { id: string; category_id: string | null; description: string; amount_clp: number; status: string; rejection_reason: string | null; expense_categories: { name: string } | null }
 
   const [itemsRes, approvalsRes] = await Promise.all([
     supabase
       .from('expense_items')
-      .select('description, amount_clp, status, rejection_reason, expense_categories(name)')
+      .select('id, category_id, description, amount_clp, status, rejection_reason, expense_categories(name)')
       .eq('report_id', reportId)
       .order('created_at', { ascending: true }),
     supabase
@@ -85,6 +85,8 @@ export async function getReportDetailForAdmin(reportId: string) {
     items: (itemsRes.data ?? [] as RawItem[]).map(i => {
       const item = i as unknown as RawItem
       return {
+        id:               item.id,
+        category_id:      item.category_id,
         description:      item.description,
         amount_clp:       item.amount_clp,
         status:           item.status,
@@ -338,6 +340,18 @@ export async function deleteCategory(id: string) {
 
   if (error) throw new Error(error.message)
   revalidatePath('/admin/settings')
+}
+
+export async function reclassifyExpenseItem(itemId: string, categoryId: string) {
+  const { supabase } = await requireAdmin()
+
+  const { error } = await supabase
+    .from('expense_items')
+    .update({ category_id: categoryId })
+    .eq('id', itemId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/reports')
 }
 
 // ─── Políticas de aprobación ─────────────────────────────────────────────────
