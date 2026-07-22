@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, ScanLine, CheckCircle2, BarChart3, Wallet, Lightbulb } from 'lucide-react'
+import { LayoutDashboard, ScanLine, CheckCircle2, BarChart3, Wallet, Lightbulb, Clock } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 
 interface MobileNavProps {
@@ -17,6 +17,7 @@ const mobileItems = [
   { href: '/approvals',    label: 'Aprobar', Icon: CheckCircle2,    requiresSubmit: false, requiresApprove: true,  requiresAdmin: false },
   { href: '/suggestions',  label: 'Ideas',   Icon: Lightbulb,       requiresSubmit: false, requiresApprove: false, requiresAdmin: false },
   { href: '/admin',        label: 'Admin',   Icon: BarChart3,       requiresSubmit: false, requiresApprove: false, requiresAdmin: true  },
+  { href: '/admin/carga-historica', label: 'Carga Histórica', Icon: Clock, requiresSubmit: false, requiresApprove: false, requiresAdmin: true },
 ]
 
 export function MobileNav({ user }: MobileNavProps) {
