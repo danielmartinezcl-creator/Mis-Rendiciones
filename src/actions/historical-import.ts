@@ -7,9 +7,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { parseExcelBuffer, type ParsedHistoricalImport } from '@/lib/historical-import/parser'
 import { buildCategorizerPrompt, parseCategorizeResponse, type CategorySuggestion } from '@/lib/historical-import/categorizer'
 
-export type { ParsedHistoricalImport } from '@/lib/historical-import/parser'
-export type { CategorySuggestion } from '@/lib/historical-import/categorizer'
-
 export interface HistoricalGridRow {
   employeeName:  string
   description:   string
