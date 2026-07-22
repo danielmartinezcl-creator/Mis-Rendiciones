@@ -216,6 +216,7 @@ export interface Database {
           payment_reference: string | null
           defontana_exported_at: string | null
           defontana_export_ref:  string | null
+          is_historical_import: boolean
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -238,6 +239,7 @@ export interface Database {
           payment_reference?: string | null
           defontana_exported_at?: string | null
           defontana_export_ref?:  string | null
+          is_historical_import?: boolean
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -260,6 +262,7 @@ export interface Database {
           payment_reference?: string | null
           defontana_exported_at?: string | null
           defontana_export_ref?:  string | null
+          is_historical_import?: boolean
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -481,6 +484,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          is_historical_import: boolean
         }
         Insert: {
           id?: string
@@ -499,6 +503,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          is_historical_import?: boolean
         }
         Update: {
           id?: string
@@ -508,6 +513,7 @@ export interface Database {
           settled_at?: string | null
           updated_at?: string
           deleted_at?: string | null
+          is_historical_import?: boolean
         }
         Relationships: []
       }
