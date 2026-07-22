@@ -118,7 +118,10 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
         prev.map((row, idx) => {
           const sug = suggestions.find(s => s.index === idx)
           if (sug && sug.categoryId && sug.confidence >= 0.7) {
-            return { ...row, categoryId: sug.categoryId }
+            const catExists = categories.some(c => c.id === sug.categoryId)
+            if (catExists) {
+              return { ...row, categoryId: sug.categoryId }
+            }
           }
           return row
         })
