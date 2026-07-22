@@ -6,11 +6,11 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import {
-  parseUploadedExcel,
   categorizeItems,
   commitHistoricalImport,
   type HistoricalGridRow,
 } from '@/actions/historical-import'
+import { parseExcelBuffer } from '@/lib/historical-import/parser'
 import type { ParsedHistoricalImport } from '@/lib/historical-import/parser'
 import type { CategorySuggestion } from '@/lib/historical-import/categorizer'
 import type { ExpenseCategory, UserProfile, CostCenter } from '@/lib/supabase/types'
@@ -84,9 +84,9 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
     setIsLoading(true)
     setError(null)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const result = await parseUploadedExcel(fd)
+      // Parsear el Excel en el browser (SheetJS funciona client-side)
+      const buffer = await file.arrayBuffer()
+      const result = parseExcelBuffer(buffer)
       setParsed(result)
 
       // Pre-llenar header
