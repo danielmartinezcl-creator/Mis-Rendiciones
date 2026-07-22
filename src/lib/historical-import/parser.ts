@@ -25,7 +25,7 @@ export function xlSerialToDate(serial: number): string {
 
 /** Parsea un ArrayBuffer de .xlsx con la estructura de los archivos del cliente */
 export function parseExcelBuffer(buffer: ArrayBuffer): ParsedHistoricalImport {
-  const wb = XLSX.read(buffer, { type: 'array' })
+  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
   const ws = wb.Sheets[wb.SheetNames[0]]
   // Leer como array 2D; defval '' para celdas vacías
   const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' }) as unknown[][]

@@ -19,8 +19,11 @@ describe('parseExcelBuffer', () => {
     const ws = XLSX.utils.aoa_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Rendición')
-    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
-    return buf
+    // XLSX.write puede retornar Uint8Array o number[] según la versión
+    // new Uint8Array(output) funciona para ambos; .buffer.slice() da ArrayBuffer exacto
+    const output = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+    const u8 = new Uint8Array(output)
+    return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
   }
 
   it('extrae el tipo caja_chica cuando el encabezado dice CAJA CHICA', () => {
