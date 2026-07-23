@@ -884,12 +884,15 @@ export async function getHistoricalCajaChicaImports() {
 
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, total_amount, approved_at, fund_number, submitter_id, created_at')
+    .select(`
+      id, title, total_amount, approved_at, fund_number, submitter_id, created_at,
+      expense_items(id, item_type, amount_clp, description, date, doc_type)
+    `)
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
     .eq('historical_type', 'caja_chica')
     .is('deleted_at', null)
-    .order('approved_at', { ascending: false })
+    .order('approved_at', { ascending: true })
 
   if (!data?.length) return []
 
@@ -901,8 +904,25 @@ export async function getHistoricalCajaChicaImports() {
 
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
-  return data.map(r => ({
-    ...r,
-    submitter_name: userMap[r.submitter_id] ?? 'Desconocido',
-  }))
+  return data.map(r => {
+    type RawItem = { id: string; item_type: string; amount_clp: number; description: string; date: string; doc_type: string | null }
+    const items = (r.expense_items ?? []) as unknown as RawItem[]
+    const advance_total = items.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
+    const expense_total = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
+    const return_total  = items.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
+    return {
+      id:             r.id,
+      title:          r.title,
+      total_amount:   r.total_amount,
+      approved_at:    r.approved_at,
+      fund_number:    r.fund_number,
+      submitter_id:   r.submitter_id,
+      created_at:     r.created_at,
+      submitter_name: userMap[r.submitter_id] ?? 'Desconocido',
+      items,
+      advance_total,
+      expense_total,
+      return_total,
+    }
+  })
 }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
@@ -492,59 +492,246 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 
       {/* ── Carga histórica ─────────────────────────────────────────────────── */}
       {historicalImports.length > 0 && (
-        <div className="mt-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <History size={15} className="text-ink-400" />
-            <h2 className="text-sm font-semibold text-ink-600">Carga histórica</h2>
-            <span className="text-xs text-ink-400">({historicalImports.length})</span>
-          </div>
-          <div className="space-y-2">
-            {historicalImports.map(h => (
-              <div
-                key={h.id}
-                className="bg-white rounded-card shadow-card border-l-4 border-l-ink-300 p-4 flex items-center justify-between gap-4"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-ink-900 truncate text-sm">{h.title}</p>
-                  <p className="text-xs text-ink-400 mt-0.5">
-                    {h.fund_number && <span className="mr-2">Fondo N°{h.fund_number}</span>}
-                    {h.approved_at && <span>Fecha: {formatDate(h.approved_at.split('T')[0])}</span>}
-                    <span className="ml-2 text-ink-300">· Cargado por {h.submitter_name}</span>
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="text-right">
-                    <p className="font-mono-amount font-bold text-ink-900 text-sm">{formatCLP(h.total_amount)}</p>
-                    <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
-                      Histórica
+        <HistoricalSection
+          imports={historicalImports}
+          isManager={isManager}
+          movingHistId={movingHistId}
+          deletingHistId={deletingHistId}
+          onMove={handleMoveToRendicion}
+          onDelete={handleDeleteHistorical}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Sección histórica agrupada por fondo ──────────────────────────────────────
+
+interface HistoricalSectionProps {
+  imports:       HistoricalImport[]
+  isManager:     boolean
+  movingHistId:  string | null
+  deletingHistId: string | null
+  onMove:        (id: string, title: string) => void
+  onDelete:      (id: string, title: string) => void
+}
+
+const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
+  advance: <ArrowDownToLine size={12} className="text-blue-500 shrink-0" />,
+  expense: <Receipt size={12} className="text-ink-400 shrink-0" />,
+  return:  <ArrowUpFromLine size={12} className="text-emerald-500 shrink-0" />,
+}
+const ITEM_TYPE_LABEL: Record<string, string> = {
+  advance: 'Adelanto',
+  expense: 'Gasto',
+  return:  'Devolución',
+}
+
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete }: HistoricalSectionProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  function toggle(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  // Agrupar por fund_number. Los sin fondo forman grupos individuales.
+  const groups = useMemo(() => {
+    const map = new Map<string, HistoricalImport[]>()
+    for (const h of imports) {
+      const key = h.fund_number ?? `__solo__${h.id}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(h)
+    }
+    return Array.from(map.entries())
+  }, [imports])
+
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <History size={15} className="text-ink-400" />
+        <h2 className="text-sm font-semibold text-ink-600">Carga histórica</h2>
+        <span className="text-xs text-ink-400">({imports.length})</span>
+      </div>
+
+      {groups.map(([groupKey, group]) => {
+        const hasFund   = !groupKey.startsWith('__solo__')
+        const fundLabel = hasFund ? `Fondo N°${groupKey}` : null
+
+        // Balance consolidado del grupo
+        const groupAdvance = group.reduce((s, h) => s + h.advance_total, 0)
+        const groupExpense = group.reduce((s, h) => s + h.expense_total, 0)
+        const groupReturn  = group.reduce((s, h) => s + h.return_total,  0)
+        const groupDiff    = groupAdvance - groupExpense - groupReturn
+        const isBalanced   = Math.abs(groupDiff) < 1
+
+        return (
+          <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund && group.length > 1 ? 'border border-blue-100' : ''}`}>
+            {/* Cabecera del grupo (solo si comparten fondo) */}
+            {hasFund && group.length > 1 && (
+              <div className="bg-blue-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-blue-100">
+                <span className="text-xs font-bold text-blue-700">{fundLabel}</span>
+                <div className="flex items-center gap-3 text-xs">
+                  {groupAdvance > 0 && (
+                    <span className="text-blue-700 font-mono-amount">
+                      <ArrowDownToLine size={10} className="inline mr-0.5" />
+                      {formatCLP(groupAdvance)}
                     </span>
-                  </div>
-                  {isManager && (
-                    <>
-                      <button
-                        onClick={() => handleMoveToRendicion(h.id, h.title)}
-                        disabled={movingHistId === h.id}
-                        title="Mover a Rendiciones"
-                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40 shrink-0"
-                      >
-                        <ArrowRightLeft size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteHistorical(h.id, h.title)}
-                        disabled={deletingHistId === h.id}
-                        title="Eliminar"
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40 shrink-0"
-                      >
-                        {deletingHistId === h.id ? <span className="text-xs">...</span> : <Trash2 size={14} />}
-                      </button>
-                    </>
                   )}
+                  {groupExpense > 0 && (
+                    <span className="text-ink-600 font-mono-amount">
+                      <Receipt size={10} className="inline mr-0.5" />
+                      ({formatCLP(groupExpense)})
+                    </span>
+                  )}
+                  {groupReturn > 0 && (
+                    <span className="text-emerald-600 font-mono-amount">
+                      <ArrowUpFromLine size={10} className="inline mr-0.5" />
+                      ({formatCLP(groupReturn)})
+                    </span>
+                  )}
+                  <span className={`font-bold font-mono-amount ${isBalanced ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {isBalanced ? '✓ Cuadra' : `Dif: ${formatCLP(Math.abs(groupDiff))}`}
+                  </span>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Filas del grupo */}
+            <div className="divide-y divide-ink-50">
+              {group.map(h => {
+                const isExpanded = expandedIds.has(h.id)
+                // Determinar qué mostrar como monto principal
+                const isAdvanceOnly = h.advance_total > 0 && h.expense_total === 0 && h.return_total === 0
+                const isExpenseOnly = h.advance_total === 0 && h.expense_total > 0
+                const displayAmount = isAdvanceOnly ? h.advance_total : h.expense_total || h.return_total || h.total_amount
+
+                return (
+                  <div key={h.id} className="bg-white">
+                    <div className="p-4 flex items-center gap-3">
+                      {/* Expand toggle */}
+                      <button
+                        onClick={() => toggle(h.id)}
+                        className="text-ink-300 hover:text-ink-600 transition-colors shrink-0"
+                        title={isExpanded ? 'Cerrar detalle' : 'Ver ítems'}
+                      >
+                        {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      </button>
+
+                      {/* Contenido */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-ink-900 text-sm truncate">{h.title}</p>
+                          {!hasFund && h.fund_number && (
+                            <span className="text-xs text-ink-400">Fondo N°{h.fund_number}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-ink-400 mt-0.5">
+                          {h.approved_at && <span>Fecha: {formatDate(h.approved_at.split('T')[0])}</span>}
+                          <span className="ml-2 text-ink-300">· {h.submitter_name}</span>
+                        </p>
+                      </div>
+
+                      {/* Monto y acciones */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          {isAdvanceOnly ? (
+                            <p className="font-mono-amount font-bold text-blue-600 text-sm">
+                              <ArrowDownToLine size={11} className="inline mr-0.5 mb-0.5" />
+                              {formatCLP(h.advance_total)}
+                            </p>
+                          ) : isExpenseOnly ? (
+                            <p className="font-mono-amount font-bold text-ink-900 text-sm">{formatCLP(h.expense_total)}</p>
+                          ) : (
+                            <div className="space-y-0.5">
+                              {h.advance_total > 0 && <p className="font-mono-amount text-blue-600 text-xs">{formatCLP(h.advance_total)} adelanto</p>}
+                              {h.expense_total > 0 && <p className="font-mono-amount text-ink-700 text-xs">({formatCLP(h.expense_total)}) gastos</p>}
+                              {h.return_total  > 0 && <p className="font-mono-amount text-emerald-600 text-xs">({formatCLP(h.return_total)}) devuelto</p>}
+                            </div>
+                          )}
+                          <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
+                            Histórica
+                          </span>
+                        </div>
+                        {isManager && (
+                          <>
+                            <button
+                              onClick={() => onMove(h.id, h.title)}
+                              disabled={movingHistId === h.id}
+                              title="Mover a Rendiciones"
+                              className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                            >
+                              <ArrowRightLeft size={14} />
+                            </button>
+                            <button
+                              onClick={() => onDelete(h.id, h.title)}
+                              disabled={deletingHistId === h.id}
+                              title="Eliminar"
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                            >
+                              {deletingHistId === h.id ? <span className="text-xs">...</span> : <Trash2 size={14} />}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Detalle expandido */}
+                    {isExpanded && h.items.length > 0 && (
+                      <div className="bg-ink-50 border-t border-ink-100 px-6 py-3">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-ink-400 border-b border-ink-200">
+                              <th className="text-left pb-1.5 font-medium">Tipo</th>
+                              <th className="text-left pb-1.5 font-medium">Descripción</th>
+                              <th className="text-left pb-1.5 font-medium">Fecha</th>
+                              <th className="text-right pb-1.5 font-medium">Monto</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-ink-100">
+                            {h.items.map(item => (
+                              <tr key={item.id} className="text-ink-700">
+                                <td className="py-1.5 pr-3">
+                                  <span className="flex items-center gap-1">
+                                    {ITEM_TYPE_ICON[item.item_type] ?? null}
+                                    <span className={
+                                      item.item_type === 'advance' ? 'text-blue-600 font-medium' :
+                                      item.item_type === 'return'  ? 'text-emerald-600 font-medium' :
+                                      'text-ink-600'
+                                    }>
+                                      {ITEM_TYPE_LABEL[item.item_type] ?? item.item_type}
+                                    </span>
+                                  </span>
+                                </td>
+                                <td className="py-1.5 pr-3 text-ink-600 max-w-[200px] truncate">{item.description || '—'}</td>
+                                <td className="py-1.5 pr-3 text-ink-400">{item.date ? formatDate(item.date) : '—'}</td>
+                                <td className={`py-1.5 text-right font-mono-amount font-semibold ${
+                                  item.item_type === 'advance' ? 'text-blue-600' :
+                                  item.item_type === 'return'  ? 'text-emerald-600' :
+                                  'text-ink-900'
+                                }`}>
+                                  {formatCLP(item.amount_clp)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {isExpanded && h.items.length === 0 && (
+                      <div className="bg-ink-50 border-t border-ink-100 px-6 py-3 text-xs text-ink-400 text-center">
+                        Sin ítems registrados
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })}
     </div>
   )
 }
