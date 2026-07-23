@@ -135,17 +135,20 @@ export async function getAdminKpis() {
       .from('expense_reports')
       .select('id, total_amount', { count: 'exact' })
       .eq('org_id', orgId)
-      .in('status', ['submitted', 'pending_l2']),
+      .in('status', ['submitted', 'pending_l2'])
+      .is('deleted_at', null),
     supabase
       .from('expense_reports')
       .select('id, approved_amount', { count: 'exact' })
       .eq('org_id', orgId)
-      .in('status', ['approved', 'partially_approved']),
+      .in('status', ['approved', 'partially_approved'])
+      .is('deleted_at', null),
     supabase
       .from('expense_reports')
       .select('id, approved_amount', { count: 'exact' })
       .eq('org_id', orgId)
-      .eq('status', 'reimbursed'),
+      .eq('status', 'reimbursed')
+      .is('deleted_at', null),
   ])
 
   const pendingAmount    = (pending.data    ?? []).reduce((s, r) => s + r.total_amount,    0)
@@ -513,12 +516,13 @@ export async function getDefontanaExportData(filters: {
     supplierMap[s.merchant_name.toLowerCase()] = s.defontana_account_code
   }
 
-  // Rendiciones aprobadas / reembolsadas
+  // Rendiciones aprobadas / reembolsadas (excluye papelera)
   let query = supabase
     .from('expense_reports')
     .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at')
     .eq('org_id', orgId)
     .in('status', ['approved', 'partially_approved', 'reimbursed'])
+    .is('deleted_at', null)
     .order('approved_at', { ascending: true })
 
   if (filters.dateFrom)         query = query.gte('approved_at', filters.dateFrom)
