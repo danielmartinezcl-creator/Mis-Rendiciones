@@ -159,8 +159,6 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
     if (!approvedDate) { setError('La fecha de rendición es obligatoria'); return }
     if (!responsibleId) { setError('El responsable es obligatorio'); return }
     if (rows.length === 0) { setError('Agregá al menos un ítem'); return }
-    const hasExpenses = rows.some(r => r.itemType === 'expense')
-    if (!hasExpenses) { setError('Debe haber al menos un ítem de tipo Gasto'); return }
 
     setIsCommitting(true)
     setError(null)
