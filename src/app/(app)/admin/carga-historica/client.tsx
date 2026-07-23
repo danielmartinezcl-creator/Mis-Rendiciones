@@ -389,6 +389,11 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
                   categories={categories}
                   costCenters={costCenters}
                   employees={employees}
+                  advanceDefaults={{
+                    employeeId:   responsibleId || null,
+                    employeeName: employees.find(e => e.id === responsibleId)?.full_name ?? '',
+                    date:         approvedDate || new Date().toISOString().split('T')[0],
+                  }}
                   onChange={patch => updateRow(row._key, patch)}
                   onRemove={() => removeRow(row._key)}
                 />
@@ -488,13 +493,20 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
 
 // ── Sub-componente por fila ────────────────────────────────────────────────────
 
+interface AdvanceDefaults {
+  employeeId:   string | null
+  employeeName: string
+  date:         string
+}
+
 interface GridRowEditorProps {
-  row:         GridRow
-  categories:  ExpenseCategory[]
-  costCenters: CostCenter[]
-  employees:   UserProfile[]
-  onChange:    (patch: Partial<GridRow>) => void
-  onRemove:    () => void
+  row:             GridRow
+  categories:      ExpenseCategory[]
+  costCenters:     CostCenter[]
+  employees:       UserProfile[]
+  advanceDefaults: AdvanceDefaults
+  onChange:        (patch: Partial<GridRow>) => void
+  onRemove:        () => void
 }
 
 const ITEM_TYPE_STYLES: Record<string, string> = {
@@ -503,7 +515,7 @@ const ITEM_TYPE_STYLES: Record<string, string> = {
   return:  'border-emerald-200 bg-emerald-50/40',
 }
 
-function GridRowEditor({ row, categories, costCenters, employees, onChange, onRemove }: GridRowEditorProps) {
+function GridRowEditor({ row, categories, costCenters, employees, advanceDefaults, onChange, onRemove }: GridRowEditorProps) {
   const isExpense = row.itemType === 'expense'
   const isFactura = isExpense && (row.docType === 'factura' || row.docType === 'factura_exenta')
   const rowBg = row.itemType === 'advance' ? 'bg-blue-50/30' : row.itemType === 'return' ? 'bg-emerald-50/30' : ''
@@ -514,12 +526,19 @@ function GridRowEditor({ row, categories, costCenters, employees, onChange, onRe
   }
 
   function handleTypeChange(newType: 'expense' | 'advance' | 'return') {
-    onChange({
+    const patch: Partial<GridRow> = {
       itemType:    newType,
       categoryId:  null,
       docNumber:   null,
       supplierRut: null,
-    })
+    }
+    if (newType === 'advance') {
+      patch.employeeId   = advanceDefaults.employeeId
+      patch.employeeName = advanceDefaults.employeeName
+      patch.date         = advanceDefaults.date || row.date
+      if (!row.description) patch.description = 'Adelanto Caja Chica'
+    }
+    onChange(patch)
   }
 
   return (
