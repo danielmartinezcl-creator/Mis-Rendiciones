@@ -1,43 +1,38 @@
-import { getAdminKpis, getPendingToRenderList } from '@/actions/admin'
-import { AdminKpiHero }          from '@/components/ui/AdminKpiHero'
-import { CurrencyAmount }        from '@/components/ui/CurrencyAmount'
-import { PendingToRenderPanel }  from '@/components/admin/PendingToRenderPanel'
+import {
+  getAdminKpis,
+  getPendingToRenderList,
+  getPendingApprovalList,
+  getPendingReimbursementList,
+} from '@/actions/admin'
+import { AdminKpiHero }              from '@/components/ui/AdminKpiHero'
+import { PendingApprovalPanel }      from '@/components/admin/PendingApprovalPanel'
+import { PendingReimbursementPanel } from '@/components/admin/PendingReimbursementPanel'
+import { PendingToRenderPanel }      from '@/components/admin/PendingToRenderPanel'
 import { ReceiptText, Users, Settings2, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function AdminPage() {
-  const [kpis, pendingList] = await Promise.all([
+  const [kpis, pendingList, approvalList, reimbursementList] = await Promise.all([
     getAdminKpis(),
     getPendingToRenderList(),
+    getPendingApprovalList(),
+    getPendingReimbursementList(),
   ])
 
-  // Tarjetas combinadas (rendiciones + caja chica)
-  const cards = [
-    {
-      label:  'Pendientes de aprobación',
-      count:  kpis.pendingCount  + kpis.pcPendingCount,
-      amount: kpis.pendingAmount + kpis.pcPendingAmount,
-      color:  'border-t-amber-400',
-      href:   '/admin/reports?status=submitted',
-    },
-    {
-      label:  'Aprobadas / Liquidadas (sin reembolsar)',
-      count:  kpis.approvedCount  + kpis.pcApprovedCount,
-      amount: kpis.approvedAmount + kpis.pcApprovedAmount,
-      color:  'border-t-emerald-400',
-      href:   '/admin/reports?status=approved',
-    },
-    {
-      label:  'Reembolsadas',
-      count:  kpis.reimbursedCount,
-      amount: kpis.reimbursedAmount,
-      color:  'border-t-sky-400',
-      href:   '/admin/reports?status=reimbursed',
-    },
-  ]
+  // Totales combinados (rendiciones + caja chica)
+  const approvalCount  = kpis.pendingCount  + kpis.pcPendingCount
+  const approvalAmount = kpis.pendingAmount + kpis.pcPendingAmount
 
-  const totalAmount = kpis.pendingAmount + kpis.approvedAmount + kpis.reimbursedAmount
-    + kpis.pcPendingAmount + kpis.pcApprovedAmount + kpis.pendingToRenderAmount
+  const reimbursementCount  = kpis.approvedCount  + kpis.pcApprovedCount
+  const reimbursementAmount = kpis.approvedAmount + kpis.pcApprovedAmount
+
+  // Pendiente de rendición: suma directa desde la lista (incluye históricas con adelanto)
+  const toRenderAmount =
+    pendingList.pettyCashFunds.reduce((s, f) => s + f.amount, 0) +
+    pendingList.historicalImports.reduce((s, h) => s + h.amount, 0)
+
+  // Hero: lo que la empresa debe a empleados − lo que empleados deben rendir
+  const heroTotal = reimbursementAmount - toRenderAmount
 
   return (
     <div className="space-y-6">
@@ -46,36 +41,43 @@ export default async function AdminPage() {
         <p className="text-sm text-ink-500 mt-1">Vista general de rendiciones y caja chica</p>
       </div>
 
-      {/* Hero KPI */}
+      {/* Hero KPI — saldo neto: cuánto debe la empresa a empleados menos lo pendiente de rendir */}
       <AdminKpiHero
-        title="Movimiento total"
-        total={totalAmount}
+        title="Saldo neto empresa ↔ empleados"
+        total={heroTotal}
         secondary={[
-          { label: 'Por aprobar',      value: kpis.pendingAmount  + kpis.pcPendingAmount,  color: 'amber' },
-          { label: 'Sin reembolsar',   value: kpis.approvedAmount + kpis.pcApprovedAmount, color: 'emerald' },
+          { label: 'A reembolsar a empleados', value: reimbursementAmount, color: 'emerald' },
+          { label: 'Pendiente de rendir',      value: toRenderAmount,      color: 'amber'   },
         ]}
       />
 
-      {/* KPI cards */}
+      {/* KPI cards — todas expandibles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map(card => (
-          <Link
-            key={card.label}
-            href={card.href}
-            className={`bg-white rounded-card shadow-card border-t-[3px] ${card.color} p-5 hover:shadow-md transition-shadow`}
-          >
-            <p className="text-xs font-medium text-ink-500 leading-tight mb-3">{card.label}</p>
-            <p className="text-2xl font-bold text-ink-900 mb-0.5">{card.count}</p>
-            <CurrencyAmount amount={card.amount} currency="CLP" size="sm" muted />
-          </Link>
-        ))}
-
-        {/* Tarjeta especial — Pendiente de Rendición (expandible) */}
-        <PendingToRenderPanel
-          count={kpis.pendingToRenderCount}
-          amount={kpis.pendingToRenderAmount}
-          list={pendingList}
+        <PendingApprovalPanel
+          count={approvalCount}
+          amount={approvalAmount}
+          list={approvalList}
         />
+
+        <PendingReimbursementPanel
+          count={reimbursementCount}
+          amount={reimbursementAmount}
+          list={reimbursementList}
+        />
+
+        {/* Reembolsadas — solo link, sin expandir */}
+        <Link
+          href="/admin/reports?status=reimbursed"
+          className="bg-white rounded-card shadow-card border-t-[3px] border-t-sky-400 p-5 hover:shadow-md transition-shadow"
+        >
+          <p className="text-xs font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
+          <p className="text-2xl font-bold text-ink-900 mb-0.5">{kpis.reimbursedCount}</p>
+          <p className="text-sm font-mono-amount font-semibold text-sky-600">
+            {'$ ' + Math.round(kpis.reimbursedAmount).toLocaleString('es-CL')}
+          </p>
+        </Link>
+
+        <PendingToRenderPanel list={pendingList} />
       </div>
 
       {/* Accesos rápidos */}

@@ -259,6 +259,118 @@ export async function getPendingToRenderList() {
 
 export type PendingToRenderList = Awaited<ReturnType<typeof getPendingToRenderList>>
 
+/** Lista de rendiciones y cajas chicas pendientes de aprobación */
+export async function getPendingApprovalList() {
+  const { supabase, orgId } = await requireAdmin()
+
+  const [reportsRes, fundsRes] = await Promise.all([
+    supabase.from('expense_reports')
+      .select('id, title, submitter_id, total_amount, submitted_at, status')
+      .eq('org_id', orgId)
+      .in('status', ['submitted', 'pending_l2'])
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: false }),
+    supabase.from('petty_cash_funds')
+      .select('id, name, employee_id, amount_requested, amount_approved, status, created_at')
+      .eq('org_id', orgId)
+      .in('status', ['pending_approval', 'submitted', 'pending_liquidation_approval'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const reports = reportsRes.data ?? []
+  const funds   = fundsRes.data   ?? []
+  const empIds  = [...new Set([...reports.map(r => r.submitter_id), ...funds.map(f => f.employee_id)])]
+  const { data: users } = empIds.length
+    ? await supabase.from('users').select('id, full_name').in('id', empIds)
+    : { data: [] }
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return {
+    reports: reports.map(r => ({
+      id: r.id, title: r.title,
+      employeeName: userMap[r.submitter_id] ?? 'Desconocido',
+      amount: r.total_amount, status: r.status,
+      submittedAt: r.submitted_at ?? '',
+    })),
+    pettyCashFunds: funds.map(f => ({
+      id: f.id, name: f.name,
+      employeeName: userMap[f.employee_id] ?? 'Desconocido',
+      amount: f.amount_approved ?? f.amount_requested, status: f.status,
+    })),
+  }
+}
+export type PendingApprovalList = Awaited<ReturnType<typeof getPendingApprovalList>>
+
+/** Lista de rendiciones y cajas chicas aprobadas pendientes de reembolso */
+export async function getPendingReimbursementList() {
+  const { supabase, orgId } = await requireAdmin()
+
+  const [reportsRes, fundsRes] = await Promise.all([
+    supabase.from('expense_reports')
+      .select('id, title, submitter_id, approved_amount, approved_at, status')
+      .eq('org_id', orgId)
+      .in('status', ['approved', 'partially_approved'])
+      .is('deleted_at', null)
+      .order('approved_at', { ascending: false }),
+    supabase.from('petty_cash_funds')
+      .select('id, name, employee_id, amount_approved, updated_at')
+      .eq('org_id', orgId)
+      .eq('status', 'settled')
+      .is('deleted_at', null)
+      .order('updated_at', { ascending: false }),
+  ])
+
+  const reports = reportsRes.data ?? []
+  const funds   = fundsRes.data   ?? []
+  const empIds  = [...new Set([...reports.map(r => r.submitter_id), ...funds.map(f => f.employee_id)])]
+  const { data: users } = empIds.length
+    ? await supabase.from('users').select('id, full_name').in('id', empIds)
+    : { data: [] }
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return {
+    reports: reports.map(r => ({
+      id: r.id, title: r.title,
+      employeeName: userMap[r.submitter_id] ?? 'Desconocido',
+      amount: r.approved_amount, status: r.status,
+      approvedAt: r.approved_at ?? '',
+    })),
+    pettyCashFunds: funds.map(f => ({
+      id: f.id, name: f.name,
+      employeeName: userMap[f.employee_id] ?? 'Desconocido',
+      amount: f.amount_approved ?? 0,
+    })),
+  }
+}
+export type PendingReimbursementList = Awaited<ReturnType<typeof getPendingReimbursementList>>
+
+/** Editar un ítem de una importación histórica (solo admin) */
+export async function updateHistoricalExpenseItem(itemId: string, patch: {
+  description?: string
+  amount_clp?:  number
+  date?:        string
+  item_type?:   'expense' | 'advance' | 'return'
+  category_id?: string | null
+}) {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: item } = await supabase
+    .from('expense_items').select('report_id').eq('id', itemId).single()
+  if (!item) throw new Error('Ítem no encontrado')
+
+  const { data: report } = await supabase
+    .from('expense_reports').select('org_id, is_historical_import').eq('id', item.report_id).single()
+  if (!report || report.org_id !== orgId || !report.is_historical_import)
+    throw new Error('Sin permiso para editar este ítem')
+
+  const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+}
+
 // ─── Empleados ───────────────────────────────────────────────────────────────
 
 export async function getOrgEmployees() {

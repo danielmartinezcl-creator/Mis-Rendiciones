@@ -10,16 +10,16 @@ function fmtCLP(n: number) {
 }
 
 interface Props {
-  count:  number
-  amount: number
-  list:   PendingToRenderList
+  list: PendingToRenderList
 }
 
-export function PendingToRenderPanel({ count, amount, list }: Props) {
+export function PendingToRenderPanel({ list }: Props) {
   const [expanded, setExpanded] = useState(false)
 
-  const total = list.pettyCashFunds.length + list.historicalImports.length
-  const isEmpty = total === 0
+  const count  = list.pettyCashFunds.length + list.historicalImports.length
+  const amount = list.pettyCashFunds.reduce((s, f) => s + f.amount, 0)
+              + list.historicalImports.reduce((s, h) => s + h.amount, 0)
+  const isEmpty = count === 0
 
   return (
     <div className="bg-white rounded-card shadow-card border-t-[3px] border-t-violet-400 overflow-hidden">
@@ -32,7 +32,9 @@ export function PendingToRenderPanel({ count, amount, list }: Props) {
           <div>
             <p className="text-xs font-medium text-ink-500 leading-tight mb-3">Pendiente de rendición</p>
             <p className="text-2xl font-bold text-ink-900 mb-0.5">{count}</p>
-            <p className="text-sm font-mono-amount font-semibold text-violet-600">{fmtCLP(amount)}</p>
+            <p className={`text-sm font-mono-amount font-semibold ${amount > 0 ? 'text-violet-600' : 'text-ink-400'}`}>
+              {fmtCLP(amount)}
+            </p>
           </div>
           <span className="mt-1 text-ink-400">
             {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}

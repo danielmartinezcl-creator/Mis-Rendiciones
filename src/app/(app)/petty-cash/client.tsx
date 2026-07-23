@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
-import { changeHistoricalImportType, markHistoricalImportDefontana } from '@/actions/admin'
+import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
@@ -550,6 +550,115 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
   return:  'Devolución',
 }
 
+// ── Tabla de ítems de carga histórica con edición inline ────────────────────
+type HistItem = HistoricalImport['items'][number]
+
+function HistoricalItemsTable({ reportId, items }: { reportId: string; items: HistItem[] }) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDesc,  setEditDesc]  = useState('')
+  const [editAmt,   setEditAmt]   = useState('')
+  const [editDate,  setEditDate]  = useState('')
+  const [saving,    setSaving]    = useState(false)
+
+  function startEdit(item: HistItem) {
+    setEditingId(item.id)
+    setEditDesc(item.description || '')
+    setEditAmt(String(item.amount_clp))
+    setEditDate(item.date || '')
+  }
+
+  async function saveEdit(itemId: string) {
+    const amount = parseFloat(editAmt)
+    if (!editDesc.trim() || isNaN(amount) || amount <= 0) return
+    setSaving(true)
+    try {
+      await updateHistoricalExpenseItem(itemId, {
+        description: editDesc.trim(),
+        amount_clp:  amount,
+        date:        editDate || undefined,
+      })
+      setEditingId(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = 'px-2 py-1 text-xs border border-ink-200 rounded-item focus:outline-none focus:ring-1 focus:ring-brand-600'
+
+  return (
+    <div className="bg-ink-50 border-t border-ink-100 px-4 py-3">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-ink-400 border-b border-ink-200">
+            <th className="text-left pb-1.5 font-medium">Tipo</th>
+            <th className="text-left pb-1.5 font-medium">Descripción</th>
+            <th className="text-left pb-1.5 font-medium">Fecha</th>
+            <th className="text-right pb-1.5 font-medium">Monto</th>
+            <th className="w-8" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-ink-100">
+          {items.map(item => {
+            const isEdit = editingId === item.id
+            return (
+              <tr key={item.id} className={`text-ink-700 ${isEdit ? 'bg-white' : ''}`}>
+                <td className="py-1.5 pr-2 whitespace-nowrap">
+                  <span className="flex items-center gap-1">
+                    {ITEM_TYPE_ICON[item.item_type] ?? null}
+                    <span className={
+                      item.item_type === 'advance' ? 'text-blue-600 font-medium' :
+                      item.item_type === 'return'  ? 'text-emerald-600 font-medium' :
+                      'text-ink-600'
+                    }>{ITEM_TYPE_LABEL[item.item_type] ?? item.item_type}</span>
+                  </span>
+                </td>
+                {isEdit ? (
+                  <>
+                    <td className="py-1.5 pr-2">
+                      <input value={editDesc} onChange={e => setEditDesc(e.target.value)}
+                        className={`${inputCls} w-full`} />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                        className={inputCls} />
+                    </td>
+                    <td className="py-1.5 text-right">
+                      <input type="number" value={editAmt} onChange={e => setEditAmt(e.target.value)}
+                        className={`${inputCls} w-24 text-right font-mono-amount`} />
+                    </td>
+                    <td className="py-1.5 pl-1">
+                      <button onClick={() => saveEdit(item.id)} disabled={saving}
+                        className="p-1 text-brand-600 hover:bg-brand-50 rounded transition-colors disabled:opacity-40">
+                        <Check size={13} />
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-1.5 pr-2 text-ink-600 max-w-[180px] truncate">{item.description || '—'}</td>
+                    <td className="py-1.5 pr-2 text-ink-400">{item.date ? formatDate(item.date) : '—'}</td>
+                    <td className={`py-1.5 text-right font-mono-amount font-semibold ${
+                      item.item_type === 'advance' ? 'text-blue-600' :
+                      item.item_type === 'return'  ? 'text-emerald-600' :
+                      'text-ink-900'
+                    }`}>{formatCLP(item.amount_clp)}</td>
+                    <td className="py-1.5 pl-1">
+                      <button onClick={() => startEdit(item)}
+                        className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
+                        <Pencil size={12} />
+                      </button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
@@ -770,45 +879,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
 
                     {/* Detalle expandido */}
                     {isExpanded && h.items.length > 0 && (
-                      <div className="bg-ink-50 border-t border-ink-100 px-6 py-3">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-ink-400 border-b border-ink-200">
-                              <th className="text-left pb-1.5 font-medium">Tipo</th>
-                              <th className="text-left pb-1.5 font-medium">Descripción</th>
-                              <th className="text-left pb-1.5 font-medium">Fecha</th>
-                              <th className="text-right pb-1.5 font-medium">Monto</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-ink-100">
-                            {h.items.map(item => (
-                              <tr key={item.id} className="text-ink-700">
-                                <td className="py-1.5 pr-3">
-                                  <span className="flex items-center gap-1">
-                                    {ITEM_TYPE_ICON[item.item_type] ?? null}
-                                    <span className={
-                                      item.item_type === 'advance' ? 'text-blue-600 font-medium' :
-                                      item.item_type === 'return'  ? 'text-emerald-600 font-medium' :
-                                      'text-ink-600'
-                                    }>
-                                      {ITEM_TYPE_LABEL[item.item_type] ?? item.item_type}
-                                    </span>
-                                  </span>
-                                </td>
-                                <td className="py-1.5 pr-3 text-ink-600 max-w-[200px] truncate">{item.description || '—'}</td>
-                                <td className="py-1.5 pr-3 text-ink-400">{item.date ? formatDate(item.date) : '—'}</td>
-                                <td className={`py-1.5 text-right font-mono-amount font-semibold ${
-                                  item.item_type === 'advance' ? 'text-blue-600' :
-                                  item.item_type === 'return'  ? 'text-emerald-600' :
-                                  'text-ink-900'
-                                }`}>
-                                  {formatCLP(item.amount_clp)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <HistoricalItemsTable reportId={h.id} items={h.items} />
                     )}
                     {isExpanded && h.items.length === 0 && (
                       <div className="bg-ink-50 border-t border-ink-100 px-6 py-3 text-xs text-ink-400 text-center">
