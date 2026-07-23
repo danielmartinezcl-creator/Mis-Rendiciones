@@ -30,7 +30,7 @@ export async function getAdminReports() {
 
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id')
+    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number')
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .or('historical_type.neq.caja_chica,historical_type.is.null')
@@ -842,6 +842,35 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   }
 
   revalidatePath('/admin/trash')
+}
+
+/** Cambia el módulo de una importación histórica entre 'rendicion' y 'caja_chica'.
+ *  Solo aplica a registros con is_historical_import = true. */
+export async function changeHistoricalImportType(
+  reportId: string,
+  newType: 'rendicion' | 'caja_chica',
+): Promise<void> {
+  const { supabase } = await requireAdmin()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('is_historical_import')
+    .eq('id', reportId)
+    .single()
+
+  if (!report?.is_historical_import) {
+    throw new Error('Solo se pueden reclasificar importaciones históricas')
+  }
+
+  const { error } = await supabase
+    .from('expense_reports')
+    .update({ historical_type: newType })
+    .eq('id', reportId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/petty-cash')
 }
 
 /** Retorna las importaciones históricas de Caja Chica (expense_reports con historical_type='caja_chica').

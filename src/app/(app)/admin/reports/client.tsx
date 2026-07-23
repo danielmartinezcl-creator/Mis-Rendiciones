@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
@@ -52,6 +52,9 @@ export function AdminReportsClient({ initialReports }: Props) {
   // Eliminar
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
   const [deletingAll, setDeletingAll] = useState(false)
+
+  // Mover módulo (rendicion ↔ caja_chica)
+  const [movingId, setMovingId] = useState<string | null>(null)
 
   // Reclasificación de ítems
   type Category = Awaited<ReturnType<typeof getOrgCategories>>[number]
@@ -247,6 +250,20 @@ export function AdminReportsClient({ initialReports }: Props) {
       alert(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setDeletingAll(false)
+    }
+  }
+
+  async function handleMoveModule(reportId: string, title: string) {
+    if (!confirm(`¿Mover "${title}" al módulo Caja Chica?\n\nDesaparecerá de Rendiciones y aparecerá en Caja Chica → Carga histórica.`)) return
+    setMovingId(reportId)
+    try {
+      await changeHistoricalImportType(reportId, 'caja_chica')
+      setReports(prev => prev.filter(r => r.id !== reportId))
+      setExpanded(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al mover')
+    } finally {
+      setMovingId(null)
     }
   }
 
@@ -490,6 +507,16 @@ export function AdminReportsClient({ initialReports }: Props) {
                     >
                       {loading ? '...' : isOpen ? '▲ Cerrar' : '▼ Ver detalle'}
                     </button>
+                    {r.is_historical_import && (
+                      <button
+                        onClick={() => handleMoveModule(r.id, r.title)}
+                        disabled={movingId === r.id}
+                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                        title="Mover a Caja Chica"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(r.id, r.title)}
                       disabled={deletingId === r.id}

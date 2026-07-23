@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
+import { changeHistoricalImportType } from '@/actions/admin'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
 
@@ -36,10 +37,14 @@ interface Props {
   historicalImports: HistoricalImport[]
 }
 
-export function PettyCashClient({ initialFunds, initialCategories, isManager, historicalImports }: Props) {
+export function PettyCashClient({ initialFunds, initialCategories, isManager, historicalImports: initialHistoricalImports }: Props) {
   // ── Estado local de fondos (permite eliminar sin recargar la página) ──────
   const [funds, setFunds] = useState<FundListItem[]>(initialFunds)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // ── Estado local de históricas (permite mover sin recargar) ──────────────
+  const [historicalImports, setHistoricalImports] = useState(initialHistoricalImports)
+  const [movingHistId, setMovingHistId] = useState<string | null>(null)
 
   async function handleDeleteFund(id: string, name: string) {
     if (!confirm(`¿Eliminar el fondo "${name}"?\n\nSe eliminarán todos sus ítems y aprobaciones.\nEsta acción no se puede deshacer.`)) return
@@ -51,6 +56,19 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
       alert(err instanceof Error ? err.message : 'Error al eliminar el fondo')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function handleMoveToRendicion(id: string, title: string) {
+    if (!confirm(`¿Mover "${title}" al módulo Rendiciones?\n\nDesaparecerá de Caja Chica y aparecerá en Admin → Rendiciones.`)) return
+    setMovingHistId(id)
+    try {
+      await changeHistoricalImportType(id, 'rendicion')
+      setHistoricalImports(prev => prev.filter(h => h.id !== id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al mover')
+    } finally {
+      setMovingHistId(null)
     }
   }
 
@@ -479,11 +497,23 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
                     <span className="ml-2 text-ink-300">· Cargado por {h.submitter_name}</span>
                   </p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="font-mono-amount font-bold text-ink-900 text-sm">{formatCLP(h.total_amount)}</p>
-                  <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
-                    Histórica
-                  </span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="font-mono-amount font-bold text-ink-900 text-sm">{formatCLP(h.total_amount)}</p>
+                    <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
+                      Histórica
+                    </span>
+                  </div>
+                  {isManager && (
+                    <button
+                      onClick={() => handleMoveToRendicion(h.id, h.title)}
+                      disabled={movingHistId === h.id}
+                      title="Mover a Rendiciones"
+                      className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40 shrink-0"
+                    >
+                      <ArrowRightLeft size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
