@@ -254,6 +254,54 @@ export async function addFundItem(fundId: string, item: {
   revalidatePath(`/petty-cash/${fundId}`)
 }
 
+// ── Empleado/Admin: editar ítem ──────────────────────────────────────────────
+
+export async function updateFundItem(itemId: string, patch: {
+  description?:  string
+  amount_clp?:   number
+  date?:         string
+  category_id?:  string | null
+  merchant?:     string | null
+  doc_type?:     'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
+  doc_number?:   string | null
+  supplier_rut?: string | null
+  notes?:        string | null
+}) {
+  const { supabase, userId, profile } = await getProfile()
+
+  const { data: item } = await supabase
+    .from('petty_cash_items')
+    .select('fund_id')
+    .eq('id', itemId)
+    .single()
+
+  if (!item) throw new Error('Ítem no encontrado')
+
+  const { data: fund } = await supabase
+    .from('petty_cash_funds')
+    .select('employee_id, manager_id, status')
+    .eq('id', item.fund_id)
+    .single()
+
+  if (!fund) throw new Error('Fondo no encontrado')
+
+  const isEmployee = fund.employee_id === userId
+  const isAdmin    = profile.role === 'admin'
+
+  if (!isEmployee && !isAdmin) throw new Error('Sin permiso para editar este ítem')
+  if (fund.status !== 'funds_sent' && !isAdmin) {
+    throw new Error('Solo se pueden editar ítems cuando los fondos han sido enviados')
+  }
+
+  const { error } = await supabase
+    .from('petty_cash_items')
+    .update(patch)
+    .eq('id', itemId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath(`/petty-cash/${item.fund_id}`)
+}
+
 // ── Empleado: eliminar ítem ───────────────────────────────────────────────────
 
 export async function removeFundItem(itemId: string) {

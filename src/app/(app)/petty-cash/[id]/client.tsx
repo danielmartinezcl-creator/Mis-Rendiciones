@@ -14,11 +14,12 @@ import {
   removeFundItem,
 } from '@/actions/petty-cash'
 import type { FundDetail } from '@/actions/petty-cash'
-import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
-import { FundTimeline }    from '@/components/petty-cash/FundTimeline'
-import { AddFundItemForm } from '@/components/petty-cash/AddFundItemForm'
+import { FundStatusBadge }   from '@/components/petty-cash/FundStatusBadge'
+import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
+import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
+import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
 import { calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation } from '@/lib/petty-cash-helpers'
-import { ArrowLeft, Plus, Trash2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil } from 'lucide-react'
 import Link from 'next/link'
 
 function fmtCLP(n: number) {
@@ -37,6 +38,7 @@ interface Props {
 export function FundDetailClient({ id, initialDetail }: Props) {
   const [detail, setDetail]               = useState<FundDetail | null>(initialDetail)
   const [showAddItem, setShowAddItem]     = useState(false)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [pending, startTrans]             = useTransition()
   const [error, setError]                 = useState<string | null>(null)
 
@@ -275,64 +277,84 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             <div className="divide-y divide-ink-50">
               {items.map(item => {
                 const cls = ITEM_STATUS_CLASS[item.status] ?? 'text-slate-500 bg-slate-50'
-                const canDelete = fund.status === 'funds_sent' && isEmployee
+                const canDelete = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
+                const canEdit   = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
                 const deciding  = fund.status === 'pending_liquidation_approval' && isApprover
+                const isEditing = editingItemId === item.id
 
                 return (
                   <div key={item.id} className="px-4 py-3">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium text-ink-800 truncate">{item.description}</p>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cls}`}>
-                            {item.status === 'pending' ? 'Pendiente' : item.status === 'approved' ? 'Aprobado' : 'Rechazado'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-ink-400 mt-0.5">
-                          {new Date(item.date + 'T00:00:00').toLocaleDateString('es-CL')}
-                          {item.merchant && ` · ${item.merchant}`}
-                          {item.doc_type && ` · ${item.doc_type}`}
-                        </p>
-                        {item.rejection_reason && (
-                          <p className="text-xs text-rose-600 mt-1 bg-rose-50 px-2 py-1 rounded-item">Rechazo: {item.rejection_reason}</p>
-                        )}
-                        {item.notes && <p className="text-xs text-ink-500 mt-0.5 italic">{item.notes}</p>}
-                        {deciding && (
-                          <div className="mt-2 space-y-1">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'approved' }))}
-                                className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'approved' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}
-                              >✓ Aprobar</button>
-                              <button
-                                onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'rejected' }))}
-                                className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'rejected' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-300 text-rose-700 hover:bg-rose-50'}`}
-                              >✗ Rechazar</button>
-                            </div>
-                            {decidingItems[item.id] === 'rejected' && (
-                              <input
-                                value={rejectionReasons[item.id] ?? ''}
-                                onChange={e => setRejReasons(r => ({ ...r, [item.id]: e.target.value }))}
-                                placeholder="Motivo de rechazo"
-                                className="w-full px-2 py-1 text-xs border border-rose-200 rounded-item focus:outline-none focus:ring-1 focus:ring-rose-400"
-                              />
-                            )}
+                    {isEditing ? (
+                      <EditFundItemForm
+                        item={item}
+                        categories={categories}
+                        onDone={() => { setEditingItemId(null); load() }}
+                      />
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-ink-800 truncate">{item.description}</p>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cls}`}>
+                              {item.status === 'pending' ? 'Pendiente' : item.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                            </span>
                           </div>
-                        )}
+                          <p className="text-xs text-ink-400 mt-0.5">
+                            {new Date(item.date + 'T00:00:00').toLocaleDateString('es-CL')}
+                            {item.merchant && ` · ${item.merchant}`}
+                            {item.doc_type && ` · ${item.doc_type}`}
+                          </p>
+                          {item.rejection_reason && (
+                            <p className="text-xs text-rose-600 mt-1 bg-rose-50 px-2 py-1 rounded-item">Rechazo: {item.rejection_reason}</p>
+                          )}
+                          {item.notes && <p className="text-xs text-ink-500 mt-0.5 italic">{item.notes}</p>}
+                          {deciding && (
+                            <div className="mt-2 space-y-1">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'approved' }))}
+                                  className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'approved' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}
+                                >✓ Aprobar</button>
+                                <button
+                                  onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'rejected' }))}
+                                  className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'rejected' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-300 text-rose-700 hover:bg-rose-50'}`}
+                                >✗ Rechazar</button>
+                              </div>
+                              {decidingItems[item.id] === 'rejected' && (
+                                <input
+                                  value={rejectionReasons[item.id] ?? ''}
+                                  onChange={e => setRejReasons(r => ({ ...r, [item.id]: e.target.value }))}
+                                  placeholder="Motivo de rechazo"
+                                  className="w-full px-2 py-1 text-xs border border-rose-200 rounded-item focus:outline-none focus:ring-1 focus:ring-rose-400"
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="font-mono-amount text-sm font-bold text-ink-800">{fmtCLP(item.amount_clp)}</span>
+                          {canEdit && (
+                            <button
+                              onClick={() => setEditingItemId(item.id)}
+                              className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors"
+                              title="Editar ítem"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              disabled={pending}
+                              onClick={() => act(() => removeFundItem(item.id))}
+                              className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors"
+                              title="Eliminar ítem"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono-amount text-sm font-bold text-ink-800">{fmtCLP(item.amount_clp)}</span>
-                        {canDelete && (
-                          <button
-                            disabled={pending}
-                            onClick={() => act(() => removeFundItem(item.id))}
-                            className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )
               })}
