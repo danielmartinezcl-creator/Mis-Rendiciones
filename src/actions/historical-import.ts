@@ -8,6 +8,8 @@ import { parseExcelBuffer, type ParsedHistoricalImport } from '@/lib/historical-
 import { buildCategorizerPrompt, parseCategorizeResponse, type CategorySuggestion } from '@/lib/historical-import/categorizer'
 
 export interface HistoricalGridRow {
+  itemType:      'expense' | 'advance' | 'return'
+  employeeId:    string | null   // null para filas importadas desde Excel sin match en DB
   employeeName:  string
   description:   string
   date:          string
@@ -85,7 +87,10 @@ export async function commitHistoricalImport(data: {
   if (!data.rows.length) throw new Error('No hay ítems para importar')
   if (!data.approvedDate) throw new Error('La fecha de rendición es obligatoria')
 
-  const totalAmount = data.rows.reduce((s, r) => s + r.amountCLP, 0)
+  // total_amount = solo gastos reales (excluye adelantos y devoluciones)
+  const totalAmount = data.rows
+    .filter(r => r.itemType === 'expense')
+    .reduce((s, r) => s + r.amountCLP, 0)
 
   // 1. Crear el expense_report directamente en estado 'approved'
   const { data: report, error: repErr } = await supabase
@@ -115,19 +120,20 @@ export async function commitHistoricalImport(data: {
   const itemInserts = data.rows.map(row => ({
     report_id:            reportId,
     org_id:               orgId,
-    description:          row.description.trim(),
+    description:          row.description.trim() || (row.itemType === 'advance' ? 'Adelanto' : row.itemType === 'return' ? 'Devolución' : ''),
     amount:               row.amountCLP,
     currency:             'CLP',
     exchange_rate:        1,
     exchange_rate_source: 'manual' as const,
     amount_clp:           row.amountCLP,
     date:                 row.date,
-    category_id:          row.categoryId,
-    cost_center_id:       row.costCenterId || null,
-    doc_type:             row.docType,
-    doc_number:           row.docNumber || null,
-    supplier_rut:         row.supplierRut || null,
-    merchant:             row.employeeName || null,  // empleado como merchant para trazabilidad
+    item_type:            row.itemType,
+    category_id:          row.itemType === 'expense' ? row.categoryId : null,
+    cost_center_id:       row.itemType === 'expense' ? (row.costCenterId || null) : null,
+    doc_type:             row.itemType === 'expense' ? row.docType : 'otro' as const,
+    doc_number:           row.itemType === 'expense' ? (row.docNumber || null) : null,
+    supplier_rut:         row.itemType === 'expense' ? (row.supplierRut || null) : null,
+    merchant:             row.employeeName || null,
     status:               'approved' as const,
   }))
 

@@ -311,6 +311,7 @@ export interface Database {
           rejection_reason: string | null
           cost_center_id: string | null
           supplier_rut:   string | null
+          item_type: 'expense' | 'advance' | 'return'
           ocr_raw: Json | null
           ocr_confidence: number | null
           created_at: string
@@ -335,6 +336,7 @@ export interface Database {
           rejection_reason?: string | null
           cost_center_id?: string | null
           supplier_rut?:   string | null
+          item_type?: 'expense' | 'advance' | 'return'
           ocr_raw?: Json | null
           ocr_confidence?: number | null
           created_at?: string
@@ -359,6 +361,7 @@ export interface Database {
           rejection_reason?: string | null
           cost_center_id?: string | null
           supplier_rut?:   string | null
+          item_type?: 'expense' | 'advance' | 'return'
           ocr_raw?: Json | null
           ocr_confidence?: number | null
           created_at?: string
