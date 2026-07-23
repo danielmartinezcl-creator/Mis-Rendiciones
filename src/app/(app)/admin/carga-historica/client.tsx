@@ -91,7 +91,15 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
   }
 
   function addRow(type: ItemType = 'expense') {
-    setRows(prev => [...prev, { ...emptyRow(), itemType: type }])
+    const base = { ...emptyRow(), itemType: type }
+    if (type === 'advance') {
+      const emp = employees.find(e => e.id === responsibleId)
+      base.employeeId   = responsibleId || null
+      base.employeeName = emp?.full_name ?? ''
+      base.date         = approvedDate || base.date
+      base.description  = 'Adelanto Caja Chica'
+    }
+    setRows(prev => [...prev, base])
   }
 
   function removeRow(key: string) {

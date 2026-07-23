@@ -617,6 +617,9 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
         const groupReturn  = group.reduce((s, h) => s + h.return_total,  0)
         const groupDiff    = groupAdvance - groupExpense - groupReturn
         const isBalanced   = Math.abs(groupDiff) < 1
+        const isPending    = groupAdvance > 0 && groupExpense === 0 && groupReturn === 0
+        const isOweEmp     = groupDiff < -1
+        const isOweComp    = !isPending && groupDiff > 1
 
         return (
           <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund ? 'border border-blue-100' : ''}`}>
@@ -649,9 +652,18 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
                       ({formatCLP(groupReturn)})
                     </span>
                   )}
-                  <span className={`font-bold font-mono-amount ${isBalanced ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {isBalanced ? '✓ Cuadra' : `Dif: ${formatCLP(Math.abs(groupDiff))}`}
-                  </span>
+                  {isBalanced && (
+                    <span className="font-bold text-emerald-600">✓ Cuadra</span>
+                  )}
+                  {isPending && (
+                    <span className="font-bold text-amber-500">⏳ Pendiente de rendir</span>
+                  )}
+                  {isOweEmp && (
+                    <span className="font-bold text-blue-600">↑ Reembolsar al empleado {formatCLP(Math.abs(groupDiff))}</span>
+                  )}
+                  {isOweComp && (
+                    <span className="font-bold text-orange-500">↓ Devolver a empresa {formatCLP(groupDiff)}</span>
+                  )}
                 </div>
               </button>
             )}
