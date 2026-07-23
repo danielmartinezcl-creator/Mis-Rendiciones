@@ -33,6 +33,7 @@ export async function getAdminReports() {
     .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id')
     .eq('org_id', orgId)
     .is('deleted_at', null)
+    .or('historical_type.neq.caja_chica,historical_type.is.null')
     .order('created_at', { ascending: false })
 
   if (!data?.length) return []
@@ -841,4 +842,34 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   }
 
   revalidatePath('/admin/trash')
+}
+
+/** Retorna las importaciones históricas de Caja Chica (expense_reports con historical_type='caja_chica').
+ *  Se usa en el módulo /petty-cash para mostrar históricas separadas de los fondos activos. */
+export async function getHistoricalCajaChicaImports() {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data } = await supabase
+    .from('expense_reports')
+    .select('id, title, total_amount, approved_at, fund_number, submitter_id, created_at')
+    .eq('org_id', orgId)
+    .eq('is_historical_import', true)
+    .eq('historical_type', 'caja_chica')
+    .is('deleted_at', null)
+    .order('approved_at', { ascending: false })
+
+  if (!data?.length) return []
+
+  const submitterIds = [...new Set(data.map(r => r.submitter_id))]
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .in('id', submitterIds)
+
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return data.map(r => ({
+    ...r,
+    submitter_name: userMap[r.submitter_id] ?? 'Desconocido',
+  }))
 }

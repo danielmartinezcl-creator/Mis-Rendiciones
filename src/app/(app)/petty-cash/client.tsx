@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2 } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
+import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import type { FundListItem } from '@/actions/petty-cash'
+import type { getHistoricalCajaChicaImports } from '@/actions/admin'
 
 function fmtCLP(n: number) {
   return '$ ' + Math.round(n).toLocaleString('es-CL')
@@ -25,14 +27,16 @@ const FUND_STATUSES = [
 ]
 
 type Category = { id: string; name: string; color: string | null }
+type HistoricalImport = Awaited<ReturnType<typeof getHistoricalCajaChicaImports>>[number]
 
 interface Props {
   initialFunds:      FundListItem[]
   initialCategories: Category[]
   isManager:         boolean
+  historicalImports: HistoricalImport[]
 }
 
-export function PettyCashClient({ initialFunds, initialCategories, isManager }: Props) {
+export function PettyCashClient({ initialFunds, initialCategories, isManager, historicalImports }: Props) {
   // ── Estado local de fondos (permite eliminar sin recargar la página) ──────
   const [funds, setFunds] = useState<FundListItem[]>(initialFunds)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -450,6 +454,40 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager }: 
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Carga histórica ─────────────────────────────────────────────────── */}
+      {historicalImports.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <History size={15} className="text-ink-400" />
+            <h2 className="text-sm font-semibold text-ink-600">Carga histórica</h2>
+            <span className="text-xs text-ink-400">({historicalImports.length})</span>
+          </div>
+          <div className="space-y-2">
+            {historicalImports.map(h => (
+              <div
+                key={h.id}
+                className="bg-white rounded-card shadow-card border-l-4 border-l-ink-300 p-4 flex items-center justify-between gap-4"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-ink-900 truncate text-sm">{h.title}</p>
+                  <p className="text-xs text-ink-400 mt-0.5">
+                    {h.fund_number && <span className="mr-2">Fondo N°{h.fund_number}</span>}
+                    {h.approved_at && <span>Fecha: {formatDate(h.approved_at.split('T')[0])}</span>}
+                    <span className="ml-2 text-ink-300">· Cargado por {h.submitter_name}</span>
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-mono-amount font-bold text-ink-900 text-sm">{formatCLP(h.total_amount)}</p>
+                  <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
+                    Histórica
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -167,6 +167,7 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
 
   // ── Pantalla de éxito ──────────────────────────────────────────────────────
   if (successId) {
+    const isCajaChica = docType === 'caja_chica'
     return (
       <div className="max-w-lg mx-auto py-16 text-center space-y-4">
         <CheckCircle2 size={48} className="mx-auto text-brand-500" />
@@ -174,8 +175,10 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
           Importación completada
         </h2>
         <p className="text-ink-500">
-          La rendición histórica fue creada en estado <strong>Aprobada</strong> y ya
-          aparece en el panel de admin y en el exportador a Defontana.
+          {isCajaChica
+            ? <>La caja chica histórica fue creada en estado <strong>Aprobada</strong> y ya aparece en el módulo de <strong>Caja Chica</strong>.</>
+            : <>La rendición histórica fue creada en estado <strong>Aprobada</strong> y ya aparece en el panel de admin y en el exportador a Defontana.</>
+          }
         </p>
         <div className="flex gap-3 justify-center pt-2">
           <Button
@@ -192,8 +195,8 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
           >
             Importar otra
           </Button>
-          <a href="/admin/reports">
-            <Button>Ver en reportes</Button>
+          <a href={isCajaChica ? '/petty-cash' : '/admin/reports'}>
+            <Button>{isCajaChica ? 'Ver en Caja Chica' : 'Ver en reportes'}</Button>
           </a>
         </div>
       </div>
