@@ -528,7 +528,9 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
 }
 
 function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete }: HistoricalSectionProps) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
+  const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
+
   function toggle(id: string) {
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -548,17 +550,43 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
     return Array.from(map.entries())
   }, [imports])
 
+  const allCollapsed = collapsedGroups.size === groups.length
+  function toggleAllGroups() {
+    if (allCollapsed) {
+      setCollapsedGroups(new Set())
+    } else {
+      setCollapsedGroups(new Set(groups.map(([key]) => key)))
+    }
+  }
+  function toggleGroup(key: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
   return (
     <div className="mt-6 space-y-4">
       <div className="flex items-center gap-2">
         <History size={15} className="text-ink-400" />
         <h2 className="text-sm font-semibold text-ink-600">Carga histórica</h2>
         <span className="text-xs text-ink-400">({imports.length})</span>
+        <button
+          onClick={toggleAllGroups}
+          className="ml-auto text-xs text-ink-400 hover:text-ink-700 border border-ink-200 rounded-item px-2.5 py-1 transition-colors flex items-center gap-1.5"
+        >
+          {allCollapsed
+            ? <><ChevronDown size={12} /> Expandir todo</>
+            : <><ChevronRight size={12} /> Contraer todo</>
+          }
+        </button>
       </div>
 
       {groups.map(([groupKey, group]) => {
-        const hasFund   = !groupKey.startsWith('__solo__')
-        const fundLabel = hasFund ? `Fondo N°${groupKey}` : null
+        const hasFund       = !groupKey.startsWith('__solo__')
+        const fundLabel     = hasFund ? `Fondo N°${groupKey}` : null
+        const isCollapsed   = collapsedGroups.has(groupKey)
 
         // Balance consolidado del grupo
         const groupAdvance = group.reduce((s, h) => s + h.advance_total, 0)
@@ -569,10 +597,16 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
 
         return (
           <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund && group.length > 1 ? 'border border-blue-100' : ''}`}>
-            {/* Cabecera del grupo (solo si comparten fondo) */}
+            {/* Cabecera del grupo — siempre visible, clickeable para colapsar */}
             {hasFund && group.length > 1 && (
-              <div className="bg-blue-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-blue-100">
-                <span className="text-xs font-bold text-blue-700">{fundLabel}</span>
+              <button
+                onClick={() => toggleGroup(groupKey)}
+                className="w-full bg-blue-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-blue-100 hover:bg-blue-100 transition-colors"
+              >
+                <span className="flex items-center gap-1.5 text-xs font-bold text-blue-700">
+                  {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                  {fundLabel}
+                </span>
                 <div className="flex items-center gap-3 text-xs">
                   {groupAdvance > 0 && (
                     <span className="text-blue-700 font-mono-amount">
@@ -596,11 +630,11 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                     {isBalanced ? '✓ Cuadra' : `Dif: ${formatCLP(Math.abs(groupDiff))}`}
                   </span>
                 </div>
-              </div>
+              </button>
             )}
 
-            {/* Filas del grupo */}
-            <div className="divide-y divide-ink-50">
+            {/* Filas del grupo — ocultas cuando el grupo está colapsado */}
+            {!isCollapsed && <div className="divide-y divide-ink-50">
               {group.map(h => {
                 const isExpanded = expandedIds.has(h.id)
                 // Determinar qué mostrar como monto principal
@@ -728,7 +762,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                   </div>
                 )
               })}
-            </div>
+            </div>}
           </div>
         )
       })}
