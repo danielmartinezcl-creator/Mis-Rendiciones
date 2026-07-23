@@ -7,7 +7,7 @@ import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
-import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem } from '@/actions/admin'
+import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
@@ -30,6 +30,16 @@ const FUND_STATUSES = [
 
 type Category = { id: string; name: string; color: string | null }
 type HistoricalImport = Awaited<ReturnType<typeof getHistoricalCajaChicaImports>>[number]
+type HistItem = HistoricalImport['items'][number]
+
+// Patch que se pasa al padre para recalcular totales sin recargar página
+type ItemSavedPatch = {
+  item_type:   'expense' | 'advance' | 'return'
+  description: string
+  amount_clp:  number
+  date:        string
+  merchant:    string | null
+}
 
 interface Props {
   initialFunds:      FundListItem[]
@@ -48,6 +58,22 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   const [movingHistId,      setMovingHistId]      = useState<string | null>(null)
   const [deletingHistId,    setDeletingHistId]    = useState<string | null>(null)
   const [defontanaMarkingId, setDefontanaMarkingId] = useState<string | null>(null)
+
+  // Actualiza items Y recalcula totales del grupo sin recargar página
+  function handleItemSaved(reportId: string, itemId: string, patch: ItemSavedPatch) {
+    setHistoricalImports(prev => prev.map(h => {
+      if (h.id !== reportId) return h
+      const updatedItems = h.items.map(i => i.id === itemId ? { ...i, ...patch } : i)
+      const advance_total = updatedItems.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
+      const expense_total = updatedItems.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
+      const return_total  = updatedItems.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
+      return { ...h, items: updatedItems, advance_total, expense_total, return_total }
+    }))
+  }
+
+  function handleTitleUpdated(reportId: string, title: string) {
+    setHistoricalImports(prev => prev.map(h => h.id === reportId ? { ...h, title } : h))
+  }
 
   async function handleDeleteHistorical(id: string, title: string) {
     if (!confirm(`¿Eliminar la carga histórica "${title}"?\n\nEsta acción la moverá a la papelera.`)) return
@@ -520,6 +546,8 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           onMove={handleMoveToRendicion}
           onDelete={handleDeleteHistorical}
           onMarkDefontana={handleMarkDefontana}
+          onItemSaved={handleItemSaved}
+          onTitleUpdated={handleTitleUpdated}
         />
       )}
     </div>
@@ -537,6 +565,8 @@ interface HistoricalSectionProps {
   onMove:             (id: string, title: string) => void
   onDelete:           (id: string, title: string) => void
   onMarkDefontana:    (id: string, title: string) => void
+  onItemSaved:        (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+  onTitleUpdated:     (reportId: string, title: string) => void
 }
 
 const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
@@ -551,19 +581,20 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
 }
 
 // ── Tabla de ítems de carga histórica con edición inline ────────────────────
-type HistItem = HistoricalImport['items'][number]
 
-function HistoricalItemsTable({ items: initialItems }: { reportId: string; items: HistItem[] }) {
-  // Copia local para actualizar optimistamente después de guardar
-  const [items,       setItems]       = useState<HistItem[]>(initialItems)
-  const [editingId,   setEditingId]   = useState<string | null>(null)
-  const [editType,    setEditType]    = useState<'expense' | 'advance' | 'return'>('expense')
-  const [editDesc,    setEditDesc]    = useState('')
-  const [editAmt,     setEditAmt]     = useState('')
-  const [editDate,    setEditDate]    = useState('')
+function HistoricalItemsTable({ reportId, items, onItemSaved }: {
+  reportId:    string
+  items:       HistItem[]
+  onItemSaved: (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+}) {
+  const [editingId,    setEditingId]    = useState<string | null>(null)
+  const [editType,     setEditType]     = useState<'expense' | 'advance' | 'return'>('expense')
+  const [editDesc,     setEditDesc]     = useState('')
+  const [editAmt,      setEditAmt]      = useState('')
+  const [editDate,     setEditDate]     = useState('')
   const [editMerchant, setEditMerchant] = useState('')
-  const [saving,      setSaving]      = useState(false)
-  const [saveError,   setSaveError]   = useState<string | null>(null)
+  const [saving,       setSaving]       = useState(false)
+  const [saveError,    setSaveError]    = useState<string | null>(null)
 
   function startEdit(item: HistItem) {
     setEditingId(item.id)
@@ -581,19 +612,17 @@ function HistoricalItemsTable({ items: initialItems }: { reportId: string; items
     if (isNaN(amount) || amount <= 0) { setSaveError('Monto inválido'); return }
     setSaving(true)
     setSaveError(null)
+    const patch: ItemSavedPatch = {
+      item_type:   editType,
+      description: editDesc.trim(),
+      amount_clp:  amount,
+      date:        editDate,
+      merchant:    editMerchant.trim() || null,
+    }
     try {
-      await updateHistoricalExpenseItem(itemId, {
-        item_type:   editType,
-        description: editDesc.trim(),
-        amount_clp:  amount,
-        date:        editDate || undefined,
-        merchant:    editMerchant.trim() || null,
-      })
-      // Actualizar estado local optimistamente
-      setItems(prev => prev.map(i => i.id === itemId
-        ? { ...i, item_type: editType, description: editDesc.trim(), amount_clp: amount, date: editDate || i.date, merchant: editMerchant.trim() || null }
-        : i
-      ))
+      await updateHistoricalExpenseItem(itemId, patch)
+      // Notifica al padre para actualizar totales del grupo
+      onItemSaved(reportId, itemId, patch)
       setEditingId(null)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Error al guardar')
@@ -726,9 +755,30 @@ function HistoricalItemsTable({ items: initialItems }: { reportId: string; items
   )
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana, onItemSaved, onTitleUpdated }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
+
+  // Estado para edición inline del título
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
+  const [editTitle,      setEditTitle]      = useState('')
+  const [savingTitle,    setSavingTitle]    = useState(false)
+  const [titleError,     setTitleError]     = useState<string | null>(null)
+
+  async function handleSaveTitle(reportId: string) {
+    if (!editTitle.trim()) return
+    setSavingTitle(true)
+    setTitleError(null)
+    try {
+      await updateHistoricalImportTitle(reportId, editTitle.trim())
+      onTitleUpdated(reportId, editTitle.trim())
+      setEditingTitleId(null)
+    } catch (err) {
+      setTitleError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSavingTitle(false)
+    }
+  }
 
   function toggle(id: string) {
     setExpandedIds(prev => {
@@ -868,7 +918,42 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
                       {/* Contenido */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-ink-900 text-sm truncate">{h.title}</p>
+                          {editingTitleId === h.id ? (
+                            <div className="flex items-center gap-1 flex-1 min-w-0">
+                              <input
+                                value={editTitle}
+                                onChange={e => setEditTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveTitle(h.id)
+                                  if (e.key === 'Escape') setEditingTitleId(null)
+                                }}
+                                autoFocus
+                                className="flex-1 min-w-0 px-2 py-0.5 text-sm border border-ink-300 rounded-item focus:outline-none focus:ring-1 focus:ring-brand-600 font-semibold text-ink-900"
+                              />
+                              <button onClick={() => handleSaveTitle(h.id)} disabled={savingTitle}
+                                className="p-0.5 text-brand-600 hover:bg-brand-50 rounded disabled:opacity-40">
+                                <Check size={13} />
+                              </button>
+                              <button onClick={() => { setEditingTitleId(null); setTitleError(null) }}
+                                className="p-0.5 text-ink-400 hover:bg-ink-100 rounded">
+                                <X size={13} />
+                              </button>
+                              {titleError && <span className="text-xs text-rose-500">{titleError}</span>}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/title min-w-0">
+                              <p className="font-semibold text-ink-900 text-sm truncate">{h.title}</p>
+                              {isManager && (
+                                <button
+                                  onClick={() => { setEditingTitleId(h.id); setEditTitle(h.title); setTitleError(null) }}
+                                  title="Renombrar"
+                                  className="p-0.5 text-ink-200 hover:text-ink-500 rounded opacity-0 group-hover/title:opacity-100 transition-opacity shrink-0"
+                                >
+                                  <Pencil size={11} />
+                                </button>
+                              )}
+                            </div>
+                          )}
                           {!hasFund && h.fund_number && (
                             <span className="text-xs text-ink-400">Fondo N°{h.fund_number}</span>
                           )}
@@ -946,7 +1031,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
 
                     {/* Detalle expandido */}
                     {isExpanded && h.items.length > 0 && (
-                      <HistoricalItemsTable reportId={h.id} items={h.items} />
+                      <HistoricalItemsTable reportId={h.id} items={h.items} onItemSaved={onItemSaved} />
                     )}
                     {isExpanded && h.items.length === 0 && (
                       <div className="bg-ink-50 border-t border-ink-100 px-6 py-3 text-xs text-ink-400 text-center">

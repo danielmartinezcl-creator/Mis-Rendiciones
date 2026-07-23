@@ -375,6 +375,25 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   revalidatePath('/admin/carga-historica')
 }
 
+/** Renombrar una importación histórica (solo admin) */
+export async function updateHistoricalImportTitle(reportId: string, title: string): Promise<void> {
+  const { supabase, orgId } = await requireAdmin()
+  if (!title.trim()) throw new Error('El título no puede estar vacío')
+
+  const { data: report } = await supabase
+    .from('expense_reports').select('org_id, is_historical_import').eq('id', reportId).single()
+  if (!report || report.org_id !== orgId || !report.is_historical_import)
+    throw new Error('Sin permiso para renombrar este registro')
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('expense_reports').update({ title: title.trim() }).eq('id', reportId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+}
+
 // ─── Empleados ───────────────────────────────────────────────────────────────
 
 export async function getOrgEmployees() {
