@@ -123,20 +123,33 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
       setTitle(`${prefix} N°${result.fundNumber} — ${result.officeName}`)
       setApprovedDate(result.rendicionDate)
 
-      const newRows: GridRow[] = result.items.map(item => ({
-        _key:         crypto.randomUUID(),
-        itemType:     'expense' as const,
-        employeeId:   null,
-        employeeName: item.employeeName,
-        description:  item.description,
-        date:         item.date,
-        amountCLP:    item.amountCLP,
-        categoryId:   null,
-        costCenterId: DEFAULT_COST_CENTER,
-        docType:      'boleta' as const,
-        docNumber:    null,
-        supplierRut:  null,
-      }))
+      // Intentar hacer match por nombre (ignorando mayúsculas y acentos)
+      function normalize(s: string) {
+        return s.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      }
+      function findEmployee(name: string) {
+        if (!name) return null
+        const n = normalize(name)
+        return employees.find(e => normalize(e.full_name) === n) ?? null
+      }
+
+      const newRows: GridRow[] = result.items.map(item => {
+        const matched = findEmployee(item.employeeName)
+        return {
+          _key:         crypto.randomUUID(),
+          itemType:     'expense' as const,
+          employeeId:   matched?.id ?? null,
+          employeeName: matched?.full_name ?? item.employeeName,
+          description:  item.description,
+          date:         item.date,
+          amountCLP:    item.amountCLP,
+          categoryId:   null,
+          costCenterId: DEFAULT_COST_CENTER,
+          docType:      'boleta' as const,
+          docNumber:    null,
+          supplierRut:  null,
+        }
+      })
       setRows(newRows)
 
       setIsCategorizing(true)
@@ -520,9 +533,13 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
   const isFactura = isExpense && (row.docType === 'factura' || row.docType === 'factura_exenta')
   const rowBg = row.itemType === 'advance' ? 'bg-blue-50/30' : row.itemType === 'return' ? 'bg-emerald-50/30' : ''
 
-  function handleEmployeeSelect(employeeId: string) {
-    const emp = employees.find(e => e.id === employeeId)
-    onChange({ employeeId: employeeId || null, employeeName: emp?.full_name ?? '' })
+  function handleEmployeeSelect(value: string) {
+    if (value === '' || value === '__ext__') {
+      onChange({ employeeId: null })
+      return
+    }
+    const emp = employees.find(e => e.id === value)
+    onChange({ employeeId: value, employeeName: emp?.full_name ?? '' })
   }
 
   function handleTypeChange(newType: 'expense' | 'advance' | 'return') {
@@ -559,7 +576,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
       {/* Empleado (dropdown) */}
       <td className="py-1.5 pr-2">
         <select
-          value={row.employeeId ?? ''}
+          value={row.employeeId ?? (row.employeeName ? '__ext__' : '')}
           onChange={e => handleEmployeeSelect(e.target.value)}
           className="w-36 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
         >
@@ -567,9 +584,9 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           {employees.map(emp => (
             <option key={emp.id} value={emp.id}>{emp.full_name}</option>
           ))}
-          {/* Si el nombre viene de Excel y no matchea ningún empleado, mostrarlo igual */}
+          {/* Nombre externo de Excel sin match en empleados registrados */}
           {row.employeeId === null && row.employeeName && (
-            <option value="" disabled>{row.employeeName} (Excel)</option>
+            <option value="__ext__">{row.employeeName} (externo)</option>
           )}
         </select>
       </td>
