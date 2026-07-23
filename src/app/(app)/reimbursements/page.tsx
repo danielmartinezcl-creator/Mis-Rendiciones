@@ -14,6 +14,7 @@ export default async function ReimbursementsPage() {
     .from('expense_reports')
     .select('id, title, status, total_amount, approved_amount, currency, submitted_at, created_at, reimbursed_at, payment_reference')
     .eq('submitter_id', user.id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   const all             = reports ?? []

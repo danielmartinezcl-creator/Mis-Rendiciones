@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
-import { changeHistoricalImportType } from '@/actions/admin'
+import { changeHistoricalImportType, markHistoricalImportDefontana } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
@@ -45,8 +45,9 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 
   // ── Estado local de históricas (permite mover sin recargar) ──────────────
   const [historicalImports, setHistoricalImports] = useState(initialHistoricalImports)
-  const [movingHistId,   setMovingHistId]   = useState<string | null>(null)
-  const [deletingHistId, setDeletingHistId] = useState<string | null>(null)
+  const [movingHistId,      setMovingHistId]      = useState<string | null>(null)
+  const [deletingHistId,    setDeletingHistId]    = useState<string | null>(null)
+  const [defontanaMarkingId, setDefontanaMarkingId] = useState<string | null>(null)
 
   async function handleDeleteHistorical(id: string, title: string) {
     if (!confirm(`¿Eliminar la carga histórica "${title}"?\n\nEsta acción la moverá a la papelera.`)) return
@@ -58,6 +59,24 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
       alert(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setDeletingHistId(null)
+    }
+  }
+
+  async function handleMarkDefontana(id: string, title: string) {
+    const ref = prompt(`Marcar "${title}" como contabilizada en Defontana.\n\nNúmero de comprobante Defontana (opcional):`)
+    if (ref === null) return  // canceló
+    setDefontanaMarkingId(id)
+    try {
+      await markHistoricalImportDefontana(id, ref)
+      setHistoricalImports(prev => prev.map(h =>
+        h.id === id
+          ? { ...h, defontana_exported_at: new Date().toISOString(), defontana_export_ref: ref || null }
+          : h
+      ))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al marcar')
+    } finally {
+      setDefontanaMarkingId(null)
     }
   }
 
@@ -497,8 +516,10 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           isManager={isManager}
           movingHistId={movingHistId}
           deletingHistId={deletingHistId}
+          defontanaMarkingId={defontanaMarkingId}
           onMove={handleMoveToRendicion}
           onDelete={handleDeleteHistorical}
+          onMarkDefontana={handleMarkDefontana}
         />
       )}
     </div>
@@ -508,12 +529,14 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 // ── Sección histórica agrupada por fondo ──────────────────────────────────────
 
 interface HistoricalSectionProps {
-  imports:       HistoricalImport[]
-  isManager:     boolean
-  movingHistId:  string | null
-  deletingHistId: string | null
-  onMove:        (id: string, title: string) => void
-  onDelete:      (id: string, title: string) => void
+  imports:            HistoricalImport[]
+  isManager:          boolean
+  movingHistId:       string | null
+  deletingHistId:     string | null
+  defontanaMarkingId: string | null
+  onMove:             (id: string, title: string) => void
+  onDelete:           (id: string, title: string) => void
+  onMarkDefontana:    (id: string, title: string) => void
 }
 
 const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
@@ -527,7 +550,7 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
   return:  'Devolución',
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
 
@@ -685,12 +708,33 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                               {h.return_total  > 0 && <p className="font-mono-amount text-emerald-600 text-xs">({formatCLP(h.return_total)})</p>}
                             </div>
                           )}
-                          <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
-                            Histórica
-                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap justify-end">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
+                              Histórica
+                            </span>
+                            {h.defontana_exported_at && (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium flex items-center gap-1"
+                                title={h.defontana_export_ref ? `Ref: ${h.defontana_export_ref}` : 'Contabilizado en Defontana'}
+                              >
+                                <BookCheck size={10} />
+                                Defontana
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {isManager && (
                           <>
+                            {!h.defontana_exported_at && (
+                              <button
+                                onClick={() => onMarkDefontana(h.id, h.title)}
+                                disabled={defontanaMarkingId === h.id}
+                                title="Marcar como contabilizado en Defontana"
+                                className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-item transition-colors disabled:opacity-40"
+                              >
+                                {defontanaMarkingId === h.id ? <span className="text-xs">...</span> : <BookCheck size={14} />}
+                              </button>
+                            )}
                             <button
                               onClick={() => onMove(h.id, h.title)}
                               disabled={movingHistId === h.id}

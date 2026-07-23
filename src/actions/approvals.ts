@@ -33,6 +33,7 @@ export async function getPendingApprovals() {
     `)
     .eq('org_id', profile.org_id)
     .in('status', ['submitted', 'pending_l2'])
+    .is('deleted_at', null)
     .order('submitted_at', { ascending: true })
 
   const reports = data ?? []

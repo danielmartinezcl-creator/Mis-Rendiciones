@@ -886,6 +886,7 @@ export async function getHistoricalCajaChicaImports() {
     .from('expense_reports')
     .select(`
       id, title, total_amount, approved_at, fund_number, submitter_id, created_at,
+      defontana_exported_at, defontana_export_ref,
       expense_items(id, item_type, amount_clp, description, date, doc_type)
     `)
     .eq('org_id', orgId)
@@ -911,18 +912,38 @@ export async function getHistoricalCajaChicaImports() {
     const expense_total = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
     const return_total  = items.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
     return {
-      id:             r.id,
-      title:          r.title,
-      total_amount:   r.total_amount,
-      approved_at:    r.approved_at,
-      fund_number:    r.fund_number,
-      submitter_id:   r.submitter_id,
-      created_at:     r.created_at,
-      submitter_name: userMap[r.submitter_id] ?? 'Desconocido',
+      id:                     r.id,
+      title:                  r.title,
+      total_amount:           r.total_amount,
+      approved_at:            r.approved_at,
+      fund_number:            r.fund_number,
+      submitter_id:           r.submitter_id,
+      created_at:             r.created_at,
+      defontana_exported_at:  r.defontana_exported_at,
+      defontana_export_ref:   r.defontana_export_ref,
+      submitter_name:         userMap[r.submitter_id] ?? 'Desconocido',
       items,
       advance_total,
       expense_total,
       return_total,
     }
   })
+}
+
+/** Marca una importación histórica (caja chica o rendición) como contabilizada en Defontana */
+export async function markHistoricalImportDefontana(
+  reportId: string,
+  exportRef: string,
+): Promise<void> {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase
+    .from('expense_reports')
+    .update({
+      defontana_exported_at: new Date().toISOString(),
+      defontana_export_ref:  exportRef || null,
+    })
+    .eq('id', reportId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/reports')
 }
