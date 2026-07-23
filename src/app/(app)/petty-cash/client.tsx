@@ -619,9 +619,9 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
         const isBalanced   = Math.abs(groupDiff) < 1
 
         return (
-          <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund && group.length > 1 ? 'border border-blue-100' : ''}`}>
+          <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund ? 'border border-blue-100' : ''}`}>
             {/* Cabecera del grupo — siempre visible, clickeable para colapsar */}
-            {hasFund && group.length > 1 && (
+            {hasFund && (
               <button
                 onClick={() => toggleGroup(groupKey)}
                 className="w-full bg-blue-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-blue-100 hover:bg-blue-100 transition-colors"
