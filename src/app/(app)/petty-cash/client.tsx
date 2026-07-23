@@ -555,19 +555,23 @@ type HistItem = HistoricalImport['items'][number]
 
 function HistoricalItemsTable({ items: initialItems }: { reportId: string; items: HistItem[] }) {
   // Copia local para actualizar optimistamente después de guardar
-  const [items,     setItems]     = useState<HistItem[]>(initialItems)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editDesc,  setEditDesc]  = useState('')
-  const [editAmt,   setEditAmt]   = useState('')
-  const [editDate,  setEditDate]  = useState('')
-  const [saving,    setSaving]    = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
+  const [items,       setItems]       = useState<HistItem[]>(initialItems)
+  const [editingId,   setEditingId]   = useState<string | null>(null)
+  const [editType,    setEditType]    = useState<'expense' | 'advance' | 'return'>('expense')
+  const [editDesc,    setEditDesc]    = useState('')
+  const [editAmt,     setEditAmt]     = useState('')
+  const [editDate,    setEditDate]    = useState('')
+  const [editMerchant, setEditMerchant] = useState('')
+  const [saving,      setSaving]      = useState(false)
+  const [saveError,   setSaveError]   = useState<string | null>(null)
 
   function startEdit(item: HistItem) {
     setEditingId(item.id)
+    setEditType((item.item_type as 'expense' | 'advance' | 'return') || 'expense')
     setEditDesc(item.description || '')
     setEditAmt(String(item.amount_clp))
     setEditDate(item.date || '')
+    setEditMerchant(item.merchant || '')
     setSaveError(null)
   }
 
@@ -579,13 +583,15 @@ function HistoricalItemsTable({ items: initialItems }: { reportId: string; items
     setSaveError(null)
     try {
       await updateHistoricalExpenseItem(itemId, {
+        item_type:   editType,
         description: editDesc.trim(),
         amount_clp:  amount,
         date:        editDate || undefined,
+        merchant:    editMerchant.trim() || null,
       })
       // Actualizar estado local optimistamente
       setItems(prev => prev.map(i => i.id === itemId
-        ? { ...i, description: editDesc.trim(), amount_clp: amount, date: editDate || i.date }
+        ? { ...i, item_type: editType, description: editDesc.trim(), amount_clp: amount, date: editDate || i.date, merchant: editMerchant.trim() || null }
         : i
       ))
       setEditingId(null)
@@ -603,10 +609,10 @@ function HistoricalItemsTable({ items: initialItems }: { reportId: string; items
       <table className="w-full text-xs">
         <thead>
           <tr className="text-ink-400 border-b border-ink-200">
-            <th className="text-left pb-1.5 font-medium">Tipo</th>
-            <th className="text-left pb-1.5 font-medium">Descripción</th>
-            <th className="text-left pb-1.5 font-medium">Fecha</th>
-            <th className="text-right pb-1.5 font-medium">Monto</th>
+            <th className="text-left pb-1.5 font-medium w-28">Tipo</th>
+            <th className="text-left pb-1.5 font-medium">Descripción / Empleado</th>
+            <th className="text-left pb-1.5 font-medium w-28">Fecha</th>
+            <th className="text-right pb-1.5 font-medium w-24">Monto</th>
             <th className="w-8" />
           </tr>
         </thead>
@@ -615,31 +621,79 @@ function HistoricalItemsTable({ items: initialItems }: { reportId: string; items
             const isEdit = editingId === item.id
             return (
               <tr key={item.id} className={`text-ink-700 ${isEdit ? 'bg-white' : ''}`}>
-                <td className="py-1.5 pr-2 whitespace-nowrap">
-                  <span className="flex items-center gap-1">
-                    {ITEM_TYPE_ICON[item.item_type] ?? null}
-                    <span className={
-                      item.item_type === 'advance' ? 'text-blue-600 font-medium' :
-                      item.item_type === 'return'  ? 'text-emerald-600 font-medium' :
-                      'text-ink-600'
-                    }>{ITEM_TYPE_LABEL[item.item_type] ?? item.item_type}</span>
-                  </span>
+                {/* Columna Tipo */}
+                <td className="py-1.5 pr-2 whitespace-nowrap align-top">
+                  {isEdit ? (
+                    <select
+                      value={editType}
+                      onChange={e => setEditType(e.target.value as 'expense' | 'advance' | 'return')}
+                      className={inputCls}
+                    >
+                      <option value="expense">Gasto</option>
+                      <option value="advance">Adelanto</option>
+                      <option value="return">Devolución</option>
+                    </select>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      {ITEM_TYPE_ICON[item.item_type] ?? null}
+                      <span className={
+                        item.item_type === 'advance' ? 'text-blue-600 font-medium' :
+                        item.item_type === 'return'  ? 'text-emerald-600 font-medium' :
+                        'text-ink-600'
+                      }>{ITEM_TYPE_LABEL[item.item_type] ?? item.item_type}</span>
+                    </span>
+                  )}
                 </td>
+
+                {/* Columna Descripción / Empleado */}
                 {isEdit ? (
-                  <>
-                    <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-2 align-top">
+                    <div className="space-y-1">
                       <input value={editDesc} onChange={e => setEditDesc(e.target.value)}
+                        placeholder="Descripción"
                         className={`${inputCls} w-full`} />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
-                        className={inputCls} />
-                    </td>
-                    <td className="py-1.5 text-right">
-                      <input type="number" value={editAmt} onChange={e => setEditAmt(e.target.value)}
-                        className={`${inputCls} w-24 text-right font-mono-amount`} />
-                    </td>
-                    <td className="py-1.5 pl-1 flex gap-0.5">
+                      <input value={editMerchant} onChange={e => setEditMerchant(e.target.value)}
+                        placeholder="Empleado (opcional)"
+                        className={`${inputCls} w-full text-ink-500`} />
+                    </div>
+                  </td>
+                ) : (
+                  <td className="py-1.5 pr-2 align-top">
+                    <p className="text-ink-600 truncate max-w-[180px]">{item.description || '—'}</p>
+                    {item.merchant && (
+                      <p className="text-ink-400 text-[10px] truncate max-w-[180px]">{item.merchant}</p>
+                    )}
+                  </td>
+                )}
+
+                {/* Columna Fecha */}
+                {isEdit ? (
+                  <td className="py-1.5 pr-2 align-top">
+                    <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                      className={inputCls} />
+                  </td>
+                ) : (
+                  <td className="py-1.5 pr-2 text-ink-400 align-top">{item.date ? formatDate(item.date) : '—'}</td>
+                )}
+
+                {/* Columna Monto */}
+                {isEdit ? (
+                  <td className="py-1.5 text-right align-top">
+                    <input type="number" value={editAmt} onChange={e => setEditAmt(e.target.value)}
+                      className={`${inputCls} w-24 text-right font-mono-amount`} />
+                  </td>
+                ) : (
+                  <td className={`py-1.5 text-right font-mono-amount font-semibold align-top ${
+                    item.item_type === 'advance' ? 'text-blue-600' :
+                    item.item_type === 'return'  ? 'text-emerald-600' :
+                    'text-ink-900'
+                  }`}>{formatCLP(item.amount_clp)}</td>
+                )}
+
+                {/* Acciones */}
+                {isEdit ? (
+                  <td className="py-1.5 pl-1 align-top">
+                    <div className="flex gap-0.5">
                       <button onClick={() => saveEdit(item.id)} disabled={saving}
                         title="Guardar"
                         className="p-1 text-brand-600 hover:bg-brand-50 rounded transition-colors disabled:opacity-40">
@@ -650,24 +704,15 @@ function HistoricalItemsTable({ items: initialItems }: { reportId: string; items
                         className="p-1 text-ink-400 hover:bg-ink-100 rounded transition-colors">
                         <X size={13} />
                       </button>
-                    </td>
-                  </>
+                    </div>
+                  </td>
                 ) : (
-                  <>
-                    <td className="py-1.5 pr-2 text-ink-600 max-w-[180px] truncate">{item.description || '—'}</td>
-                    <td className="py-1.5 pr-2 text-ink-400">{item.date ? formatDate(item.date) : '—'}</td>
-                    <td className={`py-1.5 text-right font-mono-amount font-semibold ${
-                      item.item_type === 'advance' ? 'text-blue-600' :
-                      item.item_type === 'return'  ? 'text-emerald-600' :
-                      'text-ink-900'
-                    }`}>{formatCLP(item.amount_clp)}</td>
-                    <td className="py-1.5 pl-1">
-                      <button onClick={() => startEdit(item)} title="Editar ítem"
-                        className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
-                        <Pencil size={12} />
-                      </button>
-                    </td>
-                  </>
+                  <td className="py-1.5 pl-1 align-top">
+                    <button onClick={() => startEdit(item)} title="Editar ítem"
+                      className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
+                      <Pencil size={12} />
+                    </button>
+                  </td>
                 )}
               </tr>
             )

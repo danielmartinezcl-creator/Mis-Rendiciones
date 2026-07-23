@@ -352,6 +352,7 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   date?:        string
   item_type?:   'expense' | 'advance' | 'return'
   category_id?: string | null
+  merchant?:    string | null
 }) {
   const { supabase, orgId } = await requireAdmin()
 
@@ -1093,7 +1094,7 @@ export async function getHistoricalCajaChicaImports() {
     .select(`
       id, title, total_amount, approved_at, fund_number, submitter_id, created_at,
       defontana_exported_at, defontana_export_ref,
-      expense_items(id, item_type, amount_clp, description, date, doc_type)
+      expense_items(id, item_type, amount_clp, description, date, doc_type, merchant)
     `)
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
@@ -1112,7 +1113,7 @@ export async function getHistoricalCajaChicaImports() {
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
   return data.map(r => {
-    type RawItem = { id: string; item_type: string; amount_clp: number; description: string; date: string; doc_type: string | null }
+    type RawItem = { id: string; item_type: string; amount_clp: number; description: string; date: string; doc_type: string | null; merchant: string | null }
     const items = (r.expense_items ?? []) as unknown as RawItem[]
     const advance_total = items.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
     const expense_total = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
