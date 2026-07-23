@@ -130,40 +130,134 @@ export async function getAllReports(status?: string) {
 export async function getAdminKpis() {
   const { supabase, orgId } = await requireAdmin()
 
-  const [pending, approved, reimbursed] = await Promise.all([
-    supabase
-      .from('expense_reports')
-      .select('id, total_amount', { count: 'exact' })
-      .eq('org_id', orgId)
-      .in('status', ['submitted', 'pending_l2'])
-      .is('deleted_at', null),
-    supabase
-      .from('expense_reports')
-      .select('id, approved_amount', { count: 'exact' })
-      .eq('org_id', orgId)
-      .in('status', ['approved', 'partially_approved'])
-      .is('deleted_at', null),
-    supabase
-      .from('expense_reports')
-      .select('id, approved_amount', { count: 'exact' })
-      .eq('org_id', orgId)
-      .eq('status', 'reimbursed')
-      .is('deleted_at', null),
+  const [pending, approved, reimbursed, pcPendingApproval, pcFundsSent, pcLiquidationPending, pcSettled] = await Promise.all([
+    // Rendiciones pendientes de aprobación
+    supabase.from('expense_reports').select('id, total_amount', { count: 'exact' })
+      .eq('org_id', orgId).in('status', ['submitted', 'pending_l2']).is('deleted_at', null),
+    // Rendiciones aprobadas sin reembolsar
+    supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
+      .eq('org_id', orgId).in('status', ['approved', 'partially_approved']).is('deleted_at', null),
+    // Rendiciones reembolsadas
+    supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
+      .eq('org_id', orgId).eq('status', 'reimbursed').is('deleted_at', null),
+    // Caja chica: pendiente de aprobación inicial del fondo
+    supabase.from('petty_cash_funds').select('id, amount_requested', { count: 'exact' })
+      .eq('org_id', orgId).eq('status', 'pending_approval').is('deleted_at', null),
+    // Caja chica: fondos enviados (pendiente de rendición por empleado)
+    supabase.from('petty_cash_funds').select('id, amount_approved, amount_requested', { count: 'exact' })
+      .eq('org_id', orgId).eq('status', 'funds_sent').is('deleted_at', null),
+    // Caja chica: liquidación pendiente de aprobación
+    supabase.from('petty_cash_funds').select('id, amount_approved', { count: 'exact' })
+      .eq('org_id', orgId).in('status', ['submitted', 'pending_liquidation_approval']).is('deleted_at', null),
+    // Caja chica: liquidadas (dinero aprobado, esperando transferencia de diferencia)
+    supabase.from('petty_cash_funds').select('id, amount_approved', { count: 'exact' })
+      .eq('org_id', orgId).eq('status', 'settled').is('deleted_at', null),
   ])
 
   const pendingAmount    = (pending.data    ?? []).reduce((s, r) => s + r.total_amount,    0)
   const approvedAmount   = (approved.data   ?? []).reduce((s, r) => s + r.approved_amount, 0)
   const reimbursedAmount = (reimbursed.data ?? []).reduce((s, r) => s + r.approved_amount, 0)
 
+  const pcPendingAmount      = (pcPendingApproval.data     ?? []).reduce((s, f) => s + f.amount_requested, 0)
+  const pcFundsSentAmount    = (pcFundsSent.data           ?? []).reduce((s, f) => s + (f.amount_approved ?? f.amount_requested), 0)
+  const pcLiquidationAmount  = (pcLiquidationPending.data  ?? []).reduce((s, f) => s + (f.amount_approved ?? 0), 0)
+  const pcSettledAmount      = (pcSettled.data             ?? []).reduce((s, f) => s + (f.amount_approved ?? 0), 0)
+
   return {
+    // Rendiciones
     pendingCount:    pending.count    ?? 0,
     pendingAmount,
     approvedCount:   approved.count   ?? 0,
     approvedAmount,
     reimbursedCount: reimbursed.count ?? 0,
     reimbursedAmount,
+    // Caja chica — para sumar a las tarjetas
+    pcPendingCount:   (pcPendingApproval.count ?? 0) + (pcLiquidationPending.count ?? 0),
+    pcPendingAmount:  pcPendingAmount + pcLiquidationAmount,
+    pcApprovedCount:  pcSettled.count ?? 0,
+    pcApprovedAmount: pcSettledAmount,
+    // Pendiente de rendición (fondos enviados al empleado, no rendidos aún)
+    pendingToRenderCount:  pcFundsSent.count ?? 0,
+    pendingToRenderAmount: pcFundsSentAmount,
   }
 }
+
+/** Lista detallada de fondos/importaciones pendientes de rendir — para el panel expandible del dashboard */
+export async function getPendingToRenderList() {
+  const { supabase, orgId } = await requireAdmin()
+
+  const [fundsRes, historicalRes] = await Promise.all([
+    supabase
+      .from('petty_cash_funds')
+      .select('id, name, amount_approved, amount_requested, employee_id, period_start, period_end')
+      .eq('org_id', orgId)
+      .eq('status', 'funds_sent')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('expense_reports')
+      .select('id, title, submitter_id, approved_at')
+      .eq('org_id', orgId)
+      .eq('is_historical_import', true)
+      .is('deleted_at', null),
+  ])
+
+  const funds     = fundsRes.data     ?? []
+  const historical = historicalRes.data ?? []
+
+  // Para importaciones históricas: obtener ítems y filtrar las que son solo adelantos
+  let historicalPending: typeof historical = []
+  const advanceTotals: Record<string, number> = {}
+  if (historical.length > 0) {
+    const { data: items } = await supabase
+      .from('expense_items')
+      .select('report_id, item_type, amount_clp')
+      .in('report_id', historical.map(r => r.id))
+
+    const byReport = new Map<string, { advance: number; expense: number }>()
+    for (const item of (items ?? [])) {
+      if (!byReport.has(item.report_id)) byReport.set(item.report_id, { advance: 0, expense: 0 })
+      const e = byReport.get(item.report_id)!
+      if (item.item_type === 'advance') e.advance += item.amount_clp
+      if (item.item_type === 'expense') e.expense += item.amount_clp
+    }
+
+    historicalPending = historical.filter(r => {
+      const t = byReport.get(r.id)
+      return t && t.advance > 0 && t.expense === 0
+    })
+    for (const r of historicalPending) {
+      advanceTotals[r.id] = byReport.get(r.id)?.advance ?? 0
+    }
+  }
+
+  // Nombres de empleados
+  const empIds = [...new Set([...funds.map(f => f.employee_id), ...historicalPending.map(r => r.submitter_id)])]
+  const { data: users } = empIds.length
+    ? await supabase.from('users').select('id, full_name').in('id', empIds)
+    : { data: [] }
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return {
+    pettyCashFunds: funds.map(f => ({
+      id:           f.id,
+      name:         f.name,
+      employeeName: userMap[f.employee_id] ?? 'Desconocido',
+      amount:       f.amount_approved ?? f.amount_requested,
+      period_start: f.period_start,
+      period_end:   f.period_end,
+    })),
+    historicalImports: historicalPending.map(r => ({
+      id:           r.id,
+      title:        r.title,
+      employeeName: userMap[r.submitter_id] ?? 'Desconocido',
+      amount:       advanceTotals[r.id] ?? 0,
+      date:         r.approved_at ?? '',
+    })),
+  }
+}
+
+export type PendingToRenderList = Awaited<ReturnType<typeof getPendingToRenderList>>
 
 // ─── Empleados ───────────────────────────────────────────────────────────────
 
