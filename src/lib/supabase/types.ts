@@ -311,7 +311,8 @@ export interface Database {
           rejection_reason: string | null
           cost_center_id: string | null
           supplier_rut:   string | null
-          item_type: 'expense' | 'advance' | 'return'
+          item_type: 'expense' | 'advance' | 'return' | 'transfer'
+          transfer_id: string | null
           ocr_raw: Json | null
           ocr_confidence: number | null
           created_at: string
@@ -336,7 +337,8 @@ export interface Database {
           rejection_reason?: string | null
           cost_center_id?: string | null
           supplier_rut?:   string | null
-          item_type?: 'expense' | 'advance' | 'return'
+          item_type?: 'expense' | 'advance' | 'return' | 'transfer'
+          transfer_id?: string | null
           ocr_raw?: Json | null
           ocr_confidence?: number | null
           created_at?: string
@@ -361,7 +363,8 @@ export interface Database {
           rejection_reason?: string | null
           cost_center_id?: string | null
           supplier_rut?:   string | null
-          item_type?: 'expense' | 'advance' | 'return'
+          item_type?: 'expense' | 'advance' | 'return' | 'transfer'
+          transfer_id?: string | null
           ocr_raw?: Json | null
           ocr_confidence?: number | null
           created_at?: string
@@ -545,6 +548,7 @@ export interface Database {
           notes: string | null
           status: 'pending' | 'approved' | 'rejected'
           rejection_reason: string | null
+          transfer_id: string | null
           created_at: string
         }
         Insert: {
@@ -565,11 +569,13 @@ export interface Database {
           notes?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
+          transfer_id?: string | null
           created_at?: string
         }
         Update: {
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
+          transfer_id?: string | null
         }
         Relationships: []
       }
@@ -734,6 +740,49 @@ export interface Database {
         }
         Relationships: []
       }
+      fund_transfers: {
+        Row: {
+          id: string
+          org_id: string
+          date: string
+          amount: number
+          description: string | null
+          payer_employee_id: string
+          payer_fund_id: string | null
+          payer_report_id: string | null
+          receiver_employee_id: string
+          receiver_fund_id: string | null
+          receiver_report_id: string | null
+          matched: boolean
+          matched_at: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          date: string
+          amount: number
+          description?: string | null
+          payer_employee_id: string
+          payer_fund_id?: string | null
+          payer_report_id?: string | null
+          receiver_employee_id: string
+          receiver_fund_id?: string | null
+          receiver_report_id?: string | null
+          matched?: boolean
+          matched_at?: string | null
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          receiver_fund_id?: string | null
+          receiver_report_id?: string | null
+          matched?: boolean
+          matched_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -767,3 +816,4 @@ export type ApprovalAttachment = Database['public']['Tables']['approval_attachme
 
 export type CostCenter         = Database['public']['Tables']['cost_centers']['Row']
 export type DefontanaSupplier  = Database['public']['Tables']['defontana_suppliers']['Row']
+export type FundTransfer       = Database['public']['Tables']['fund_transfers']['Row']

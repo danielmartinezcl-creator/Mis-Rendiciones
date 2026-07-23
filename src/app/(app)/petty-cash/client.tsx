@@ -2,15 +2,17 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
+import { createFundTransfer, linkFundTransfer, getEmployeeTargets } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
+import type { FundTransferRow, EmployeeTarget } from '@/actions/fund-transfers'
 
 function fmtCLP(n: number) {
   return '$ ' + Math.round(n).toLocaleString('es-CL')
@@ -34,11 +36,19 @@ type HistItem = HistoricalImport['items'][number]
 
 // Patch que se pasa al padre para recalcular totales sin recargar página
 type ItemSavedPatch = {
-  item_type:   'expense' | 'advance' | 'return'
+  item_type:   'expense' | 'advance' | 'return' | 'transfer'
   description: string
   amount_clp:  number
   date:        string
   merchant:    string | null
+}
+
+// Estado para el modal de creación de traspaso
+type TransferSource = {
+  fundId?:       string
+  reportId?:     string
+  defaultAmount: number
+  payerEmpId:    string
 }
 
 interface Props {
@@ -46,9 +56,11 @@ interface Props {
   initialCategories: Category[]
   isManager:         boolean
   historicalImports: HistoricalImport[]
+  orgEmployees:      { id: string; full_name: string }[]
+  pendingTransfers:  FundTransferRow[]
 }
 
-export function PettyCashClient({ initialFunds, initialCategories, isManager, historicalImports: initialHistoricalImports }: Props) {
+export function PettyCashClient({ initialFunds, initialCategories, isManager, historicalImports: initialHistoricalImports, orgEmployees, pendingTransfers: initialPendingTransfers }: Props) {
   // ── Estado local de fondos (permite eliminar sin recargar la página) ──────
   const [funds, setFunds] = useState<FundListItem[]>(initialFunds)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -58,6 +70,27 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   const [movingHistId,      setMovingHistId]      = useState<string | null>(null)
   const [deletingHistId,    setDeletingHistId]    = useState<string | null>(null)
   const [defontanaMarkingId, setDefontanaMarkingId] = useState<string | null>(null)
+
+  // ── Estado de traspasos ──────────────────────────────────────────────────
+  const [pendingTransfers, setPendingTransfers] = useState<FundTransferRow[]>(initialPendingTransfers)
+
+  // Modal crear traspaso
+  const [transferSource,  setTransferSource]  = useState<TransferSource | null>(null)
+  const [trReceiverId,    setTrReceiverId]    = useState('')
+  const [trAmount,        setTrAmount]        = useState('')
+  const [trDate,          setTrDate]          = useState('')
+  const [trDesc,          setTrDesc]          = useState('')
+  const [trSaving,        setTrSaving]        = useState(false)
+  const [trError,         setTrError]         = useState<string | null>(null)
+
+  // Modal vincular traspaso
+  const [linkingTransfer, setLinkingTransfer] = useState<FundTransferRow | null>(null)
+  const [linkTargets,     setLinkTargets]     = useState<EmployeeTarget[]>([])
+  const [linkTargetId,    setLinkTargetId]    = useState('')
+  const [linkTargetType,  setLinkTargetType]  = useState<'fund' | 'report'>('fund')
+  const [loadingTargets,  setLoadingTargets]  = useState(false)
+  const [linkSaving,      setLinkSaving]      = useState(false)
+  const [linkError,       setLinkError]       = useState<string | null>(null)
 
   // Actualiza items Y recalcula totales del grupo sin recargar página
   function handleItemSaved(reportId: string, itemId: string, patch: ItemSavedPatch) {
@@ -73,6 +106,81 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 
   function handleTitleUpdated(reportId: string, title: string) {
     setHistoricalImports(prev => prev.map(h => h.id === reportId ? { ...h, title } : h))
+  }
+
+  // ── Handlers de traspaso ─────────────────────────────────────────────────
+
+  function openTransferModal(source: TransferSource) {
+    setTransferSource(source)
+    setTrReceiverId('')
+    setTrAmount(String(Math.round(source.defaultAmount)))
+    setTrDate(new Date().toISOString().split('T')[0])
+    setTrDesc('')
+    setTrError(null)
+  }
+
+  async function handleCreateTransfer() {
+    if (!transferSource) return
+    if (!trReceiverId) { setTrError('Selecciona un empleado receptor'); return }
+    const amount = parseFloat(trAmount)
+    if (isNaN(amount) || amount <= 0) { setTrError('Ingresa un monto válido'); return }
+    if (!trDate) { setTrError('Selecciona una fecha'); return }
+    setTrSaving(true)
+    setTrError(null)
+    try {
+      await createFundTransfer({
+        date:                 trDate,
+        amount,
+        description:          trDesc.trim() || undefined,
+        receiver_employee_id: trReceiverId,
+        payer_fund_id:        transferSource.fundId,
+        payer_report_id:      transferSource.reportId,
+      })
+      setTransferSource(null)
+      // La revalidación actualiza la lista; recargamos manualmente el listado de pendientes
+      window.location.reload()
+    } catch (err) {
+      setTrError(err instanceof Error ? err.message : 'Error al registrar traspaso')
+    } finally {
+      setTrSaving(false)
+    }
+  }
+
+  async function openLinkModal(transfer: FundTransferRow) {
+    setLinkingTransfer(transfer)
+    setLinkTargetId('')
+    setLinkError(null)
+    setLoadingTargets(true)
+    try {
+      const targets = await getEmployeeTargets(transfer.receiver_employee_id)
+      setLinkTargets(targets)
+      if (targets.length) {
+        setLinkTargetId(targets[0].id)
+        setLinkTargetType(targets[0].type)
+      }
+    } catch {
+      setLinkTargets([])
+    } finally {
+      setLoadingTargets(false)
+    }
+  }
+
+  async function handleLinkTransfer() {
+    if (!linkingTransfer || !linkTargetId) return
+    setLinkSaving(true)
+    setLinkError(null)
+    try {
+      await linkFundTransfer(linkingTransfer.id, {
+        fundId:   linkTargetType === 'fund'   ? linkTargetId : undefined,
+        reportId: linkTargetType === 'report' ? linkTargetId : undefined,
+      })
+      setPendingTransfers(prev => prev.filter(t => t.id !== linkingTransfer.id))
+      setLinkingTransfer(null)
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : 'Error al vincular')
+    } finally {
+      setLinkSaving(false)
+    }
   }
 
   async function handleDeleteHistorical(id: string, title: string) {
@@ -394,6 +502,46 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
         </div>
       )}
 
+      {/* ── Traspasos sin vincular ──────────────────────────────────────────── */}
+      {isManager && pendingTransfers.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-card p-4 space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Link2 size={14} className="text-amber-600" />
+            <span className="text-sm font-bold text-amber-800">
+              {pendingTransfers.length === 1
+                ? '1 traspaso sin vincular'
+                : `${pendingTransfers.length} traspasos sin vincular`}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {pendingTransfers.map(t => (
+              <div key={t.id} className="flex items-center gap-3 bg-white rounded-item border border-amber-100 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-ink-800">
+                    <span className="text-amber-600 mr-1">↙</span>
+                    {fmtCLP(t.amount)} → <span className="text-ink-600">{t.receiver_employee_name}</span>
+                  </p>
+                  <p className="text-[11px] text-ink-400 mt-0.5">
+                    De: {t.payer_employee_name}
+                    {t.payer_fund_name && ` · ${t.payer_fund_name}`}
+                    {t.payer_report_title && ` · ${t.payer_report_title}`}
+                    {' · '}{formatDate(t.date)}
+                    {t.description && ` — ${t.description}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => openLinkModal(t)}
+                  className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 border border-amber-300 rounded-item hover:bg-amber-100 transition-colors"
+                >
+                  <Link2 size={11} />
+                  Vincular
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filtros de la lista */}
       {initialFunds.length > 0 && (
         <div className="bg-white rounded-card shadow-card p-4 space-y-3">
@@ -518,17 +666,30 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
                 </div>
               </Link>
               {isManager && (
-                <button
-                  onClick={() => handleDeleteFund(f.id, f.name)}
-                  disabled={deletingId === f.id}
-                  title="Eliminar fondo"
-                  className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-card"
-                >
-                  {deletingId === f.id
-                    ? <span className="text-xs">...</span>
-                    : <Trash2 size={15} />
-                  }
-                </button>
+                <div className="flex items-stretch border-l border-ink-100">
+                  <button
+                    onClick={() => openTransferModal({
+                      fundId:        f.id,
+                      defaultAmount: f.amount_approved ?? f.amount_requested,
+                      payerEmpId:    f.employee_id,
+                    })}
+                    title="Registrar traspaso a otro empleado"
+                    className="px-2.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                  >
+                    <SendHorizontal size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteFund(f.id, f.name)}
+                    disabled={deletingId === f.id}
+                    title="Eliminar fondo"
+                    className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-card"
+                  >
+                    {deletingId === f.id
+                      ? <span className="text-xs">...</span>
+                      : <Trash2 size={15} />
+                    }
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -548,7 +709,173 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           onMarkDefontana={handleMarkDefontana}
           onItemSaved={handleItemSaved}
           onTitleUpdated={handleTitleUpdated}
+          onTransfer={(reportId, submitterId, defaultAmount) => openTransferModal({
+            reportId,
+            defaultAmount,
+            payerEmpId: submitterId,
+          })}
         />
+      )}
+
+      {/* ── Modal crear traspaso ─────────────────────────────────────────────── */}
+      {transferSource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
+                <SendHorizontal size={18} className="text-violet-600" />
+                Registrar traspaso
+              </h2>
+              <button onClick={() => setTransferSource(null)} className="text-ink-400 hover:text-ink-700">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-ink-500">
+              El saldo traspasado quedará como ítem en el fondo origen. El receptor lo verá como saldo flotante hasta vincularlo a su propio fondo.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Empleado receptor</label>
+                <select
+                  value={trReceiverId}
+                  onChange={e => setTrReceiverId(e.target.value)}
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                >
+                  <option value="">— Seleccionar empleado —</option>
+                  {orgEmployees
+                    .filter(e => e.id !== transferSource.payerEmpId)
+                    .map(e => (
+                      <option key={e.id} value={e.id}>{e.full_name}</option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Monto (CLP)</label>
+                  <input
+                    type="number"
+                    value={trAmount}
+                    onChange={e => setTrAmount(e.target.value)}
+                    min="1"
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    value={trDate}
+                    onChange={e => setTrDate(e.target.value)}
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Descripción (opcional)</label>
+                <input
+                  type="text"
+                  value={trDesc}
+                  onChange={e => setTrDesc(e.target.value)}
+                  placeholder="Motivo del traspaso…"
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+            </div>
+            {trError && (
+              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{trError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleCreateTransfer}
+                disabled={trSaving}
+                className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
+                style={{ background: 'linear-gradient(130deg, #12152E 0%, #7c3aed 100%)' }}
+              >
+                {trSaving ? 'Registrando…' : 'Registrar traspaso'}
+              </button>
+              <button
+                onClick={() => setTransferSource(null)}
+                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal vincular traspaso ──────────────────────────────────────────── */}
+      {linkingTransfer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
+                <Link2 size={18} className="text-amber-600" />
+                Vincular traspaso
+              </h2>
+              <button onClick={() => setLinkingTransfer(null)} className="text-ink-400 hover:text-ink-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="bg-amber-50 border border-amber-100 rounded-item px-3 py-2 text-xs text-amber-800 space-y-0.5">
+              <p><span className="font-semibold">De:</span> {linkingTransfer.payer_employee_name}
+                {linkingTransfer.payer_fund_name && ` · ${linkingTransfer.payer_fund_name}`}
+                {linkingTransfer.payer_report_title && ` · ${linkingTransfer.payer_report_title}`}
+              </p>
+              <p><span className="font-semibold">Para:</span> {linkingTransfer.receiver_employee_name}</p>
+              <p><span className="font-semibold">Monto:</span> {fmtCLP(linkingTransfer.amount)} · {formatDate(linkingTransfer.date)}</p>
+              {linkingTransfer.description && <p className="text-amber-600 italic">{linkingTransfer.description}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">
+                Vincular al fondo o carga histórica de <span className="text-ink-900">{linkingTransfer.receiver_employee_name}</span>
+              </label>
+              {loadingTargets ? (
+                <p className="text-xs text-ink-400 py-2">Cargando fondos…</p>
+              ) : linkTargets.length === 0 ? (
+                <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">
+                  No hay fondos ni cargas históricas disponibles para este empleado. Crea uno primero.
+                </p>
+              ) : (
+                <select
+                  value={linkTargetId}
+                  onChange={e => {
+                    setLinkTargetId(e.target.value)
+                    const target = linkTargets.find(t => t.id === e.target.value)
+                    if (target) setLinkTargetType(target.type)
+                  }}
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                >
+                  <option value="">— Seleccionar destino —</option>
+                  {linkTargets.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.type === 'fund' ? '🟣 Fondo: ' : '📋 Histórica: '}{t.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {linkError && (
+              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{linkError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleLinkTransfer}
+                disabled={linkSaving || !linkTargetId || loadingTargets}
+                className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
+                style={{ background: 'linear-gradient(130deg, #92400e 0%, #d97706 100%)' }}
+              >
+                {linkSaving ? 'Vinculando…' : 'Vincular traspaso'}
+              </button>
+              <button
+                onClick={() => setLinkingTransfer(null)}
+                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -567,17 +894,20 @@ interface HistoricalSectionProps {
   onMarkDefontana:    (id: string, title: string) => void
   onItemSaved:        (reportId: string, itemId: string, patch: ItemSavedPatch) => void
   onTitleUpdated:     (reportId: string, title: string) => void
+  onTransfer:         (reportId: string, submitterId: string, defaultAmount: number) => void
 }
 
 const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
-  advance: <ArrowDownToLine size={12} className="text-blue-500 shrink-0" />,
-  expense: <Receipt size={12} className="text-ink-400 shrink-0" />,
-  return:  <ArrowUpFromLine size={12} className="text-emerald-500 shrink-0" />,
+  advance:  <ArrowDownToLine  size={12} className="text-blue-500 shrink-0" />,
+  expense:  <Receipt          size={12} className="text-ink-400 shrink-0" />,
+  return:   <ArrowUpFromLine  size={12} className="text-emerald-500 shrink-0" />,
+  transfer: <SendHorizontal   size={12} className="text-violet-500 shrink-0" />,
 }
 const ITEM_TYPE_LABEL: Record<string, string> = {
-  advance: 'Adelanto',
-  expense: 'Gasto',
-  return:  'Devolución',
+  advance:  'Adelanto',
+  expense:  'Gasto',
+  return:   'Devolución',
+  transfer: 'Traspaso',
 }
 
 // ── Tabla de ítems de carga histórica con edición inline ────────────────────
@@ -737,10 +1067,12 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
                   </td>
                 ) : (
                   <td className="py-1.5 pl-1 align-top">
-                    <button onClick={() => startEdit(item)} title="Editar ítem"
-                      className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
-                      <Pencil size={12} />
-                    </button>
+                    {item.item_type !== 'transfer' && (
+                      <button onClick={() => startEdit(item)} title="Editar ítem"
+                        className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
+                        <Pencil size={12} />
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -755,7 +1087,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
   )
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana, onItemSaved, onTitleUpdated }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana, onItemSaved, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
 
@@ -998,6 +1330,13 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
                         </div>
                         {isManager && (
                           <>
+                            <button
+                              onClick={() => onTransfer(h.id, h.submitter_id, h.advance_total || h.total_amount)}
+                              title="Registrar traspaso a otro empleado"
+                              className="p-1.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-item transition-colors"
+                            >
+                              <SendHorizontal size={14} />
+                            </button>
                             {!h.defontana_exported_at && (
                               <button
                                 onClick={() => onMarkDefontana(h.id, h.title)}

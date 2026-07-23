@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(git commit -m ' *)",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "mcp__claude_ai_Vercel__get_deployment_build_logs",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__list_migrations",
+      "mcp__claude_ai_Vercel__get_runtime_errors",
+      "PowerShell(vercel --version 2>&1)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" 5037f5fbedb89227d9628363325fa3247d4e31d4 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"c:\\\\Users\\\\danie\\\\AUTOMATIZACIONES DANIEL\\\\PENTA\\\\App PENTA\\\\App Rindegastos\\\\docs\\\\superpowers\\\\plans\\\\2026-07-22-importador-historico.md\" 2)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" f9024ee890515ddecc02e19187ed93d4c9928285 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"c:\\\\Users\\\\danie\\\\AUTOMATIZACIONES DANIEL\\\\PENTA\\\\App PENTA\\\\App Rindegastos\\\\docs\\\\superpowers\\\\plans\\\\2026-07-22-importador-historico.md\" 3)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" b88a5c847f98ecb6c4aa8a34375c3d03ccbd6e46 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" 4e26958d8da105f10436a707ee991ece992bbfa9 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"c:\\\\Users\\\\danie\\\\AUTOMATIZACIONES DANIEL\\\\PENTA\\\\App PENTA\\\\App Rindegastos\\\\docs\\\\superpowers\\\\plans\\\\2026-07-22-importador-historico.md\" 5)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" e564259547fb6429931f8c5457d4fe8d8647a3d6 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"c:\\\\Users\\\\danie\\\\AUTOMATIZACIONES DANIEL\\\\PENTA\\\\App PENTA\\\\App Rindegastos\\\\docs\\\\superpowers\\\\plans\\\\2026-07-22-importador-historico.md\" 6)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" 1a529b1f01e224932a16547a3af2b993f3547a24 HEAD)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(npx vitest *)",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "Bash(git commit -m 'fix: parsear Excel en el browser en vez de Server Action *)",
+      "Bash(git commit *)",
+      "Bash(git commit -m 'fix: rename '\\\\''Empleado'\\\\'' label to '\\\\''Destinatario / receptor'\\\\'' for clarity *)"
+    ]
+  }
+}

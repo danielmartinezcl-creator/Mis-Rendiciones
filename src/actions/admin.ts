@@ -350,7 +350,7 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   description?: string
   amount_clp?:  number
   date?:        string
-  item_type?:   'expense' | 'advance' | 'return'
+  item_type?:   'expense' | 'advance' | 'return' | 'transfer'
   category_id?: string | null
   merchant?:    string | null
 }) {
