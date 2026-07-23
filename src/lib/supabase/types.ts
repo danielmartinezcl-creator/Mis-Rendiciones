@@ -217,6 +217,8 @@ export interface Database {
           defontana_exported_at: string | null
           defontana_export_ref:  string | null
           is_historical_import: boolean
+          historical_type: 'rendicion' | 'caja_chica' | null
+          fund_number: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -240,6 +242,8 @@ export interface Database {
           defontana_exported_at?: string | null
           defontana_export_ref?:  string | null
           is_historical_import?: boolean
+          historical_type?: 'rendicion' | 'caja_chica' | null
+          fund_number?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -263,6 +267,8 @@ export interface Database {
           defontana_exported_at?: string | null
           defontana_export_ref?:  string | null
           is_historical_import?: boolean
+          historical_type?: 'rendicion' | 'caja_chica' | null
+          fund_number?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

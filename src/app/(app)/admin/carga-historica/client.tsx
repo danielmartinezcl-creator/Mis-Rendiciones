@@ -53,6 +53,8 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
   const [tab, setTab] = useState<'excel' | 'manual'>('excel')
   const [parsed, setParsed] = useState<ParsedHistoricalImport | null>(null)
   const [rows, setRows] = useState<GridRow[]>([emptyRow()])
+  const [docType, setDocType] = useState<'rendicion' | 'caja_chica'>('rendicion')
+  const [fundNumber, setFundNumber] = useState('')
   const [title, setTitle] = useState('')
   const [responsibleId, setResponsibleId] = useState(employees[0]?.id ?? '')
   const [approvedDate, setApprovedDate] = useState('')
@@ -89,7 +91,11 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
       const result = parseExcelBuffer(buffer)
       setParsed(result)
 
-      // Pre-llenar header
+      // Pre-llenar tipo y número de fondo desde el parser
+      setDocType(result.importType)
+      setFundNumber(result.fundNumber)
+
+      // Pre-llenar título
       const prefix = result.importType === 'caja_chica' ? 'Caja Chica' : 'Rendición'
       setTitle(`${prefix} N°${result.fundNumber} — ${result.officeName}`)
       setApprovedDate(result.rendicionDate)
@@ -148,6 +154,8 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
         responsibleUserId: responsibleId,
         approvedDate,
         rows: rows.map(({ _key, ...rest }) => rest),
+        docType,
+        fundNumber: fundNumber || undefined,
       })
       setSuccessId(result.reportId)
     } catch (err) {
@@ -176,6 +184,8 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
               setSuccessId(null)
               setRows([emptyRow()])
               setParsed(null)
+              setDocType('rendicion')
+              setFundNumber('')
               setTitle('')
               setApprovedDate('')
             }}
@@ -261,6 +271,43 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
       <Card>
         <h2 className="font-semibold text-ink-800 mb-4">Datos del documento</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+          {/* Tipo de documento + N° de fondo */}
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-ink-600 mb-2">Tipo de documento</label>
+            <div className="flex gap-3">
+              {([
+                { value: 'rendicion',  label: 'Rendición de gastos' },
+                { value: 'caja_chica', label: 'Caja Chica' },
+              ] as const).map(opt => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="docType"
+                    value={opt.value}
+                    checked={docType === opt.value}
+                    onChange={() => setDocType(opt.value)}
+                    className="accent-brand-600"
+                  />
+                  <span className="text-sm font-medium text-ink-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-600 mb-1">
+              N° de fondo / referencia
+              <span className="ml-1 text-ink-400 font-normal">(para vincular documentos)</span>
+            </label>
+            <input
+              type="text"
+              value={fundNumber}
+              onChange={e => setFundNumber(e.target.value)}
+              placeholder="ej: 173"
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
           <div className="sm:col-span-3">
             <label className="block text-xs font-medium text-ink-600 mb-1">Título</label>
             <input

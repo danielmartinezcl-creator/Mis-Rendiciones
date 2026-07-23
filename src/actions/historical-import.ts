@@ -77,6 +77,8 @@ export async function commitHistoricalImport(data: {
   responsibleUserId:  string
   approvedDate:       string  // YYYY-MM-DD — fecha de rendición del documento fuente
   rows:               HistoricalGridRow[]
+  docType?:           'rendicion' | 'caja_chica'
+  fundNumber?:        string
 }): Promise<{ reportId: string }> {
   const { supabase, orgId } = await requireAdmin()
 
@@ -100,6 +102,8 @@ export async function commitHistoricalImport(data: {
       submitted_at:         data.approvedDate + 'T12:00:00Z',
       approved_at:          data.approvedDate + 'T12:00:00Z',
       is_historical_import: true,
+      historical_type:      data.docType ?? null,
+      fund_number:          data.fundNumber || null,
     })
     .select('id')
     .single()
