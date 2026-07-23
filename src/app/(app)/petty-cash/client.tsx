@@ -553,31 +553,44 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
 // ── Tabla de ítems de carga histórica con edición inline ────────────────────
 type HistItem = HistoricalImport['items'][number]
 
-function HistoricalItemsTable({ reportId, items }: { reportId: string; items: HistItem[] }) {
+function HistoricalItemsTable({ items: initialItems }: { reportId: string; items: HistItem[] }) {
+  // Copia local para actualizar optimistamente después de guardar
+  const [items,     setItems]     = useState<HistItem[]>(initialItems)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDesc,  setEditDesc]  = useState('')
   const [editAmt,   setEditAmt]   = useState('')
   const [editDate,  setEditDate]  = useState('')
   const [saving,    setSaving]    = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   function startEdit(item: HistItem) {
     setEditingId(item.id)
     setEditDesc(item.description || '')
     setEditAmt(String(item.amount_clp))
     setEditDate(item.date || '')
+    setSaveError(null)
   }
 
   async function saveEdit(itemId: string) {
     const amount = parseFloat(editAmt)
-    if (!editDesc.trim() || isNaN(amount) || amount <= 0) return
+    if (!editDesc.trim()) { setSaveError('La descripción es obligatoria'); return }
+    if (isNaN(amount) || amount <= 0) { setSaveError('Monto inválido'); return }
     setSaving(true)
+    setSaveError(null)
     try {
       await updateHistoricalExpenseItem(itemId, {
         description: editDesc.trim(),
         amount_clp:  amount,
         date:        editDate || undefined,
       })
+      // Actualizar estado local optimistamente
+      setItems(prev => prev.map(i => i.id === itemId
+        ? { ...i, description: editDesc.trim(), amount_clp: amount, date: editDate || i.date }
+        : i
+      ))
       setEditingId(null)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
     }
@@ -586,7 +599,7 @@ function HistoricalItemsTable({ reportId, items }: { reportId: string; items: Hi
   const inputCls = 'px-2 py-1 text-xs border border-ink-200 rounded-item focus:outline-none focus:ring-1 focus:ring-brand-600'
 
   return (
-    <div className="bg-ink-50 border-t border-ink-100 px-4 py-3">
+    <div className="bg-ink-50 border-t border-ink-100 px-4 py-3 space-y-2">
       <table className="w-full text-xs">
         <thead>
           <tr className="text-ink-400 border-b border-ink-200">
@@ -626,10 +639,16 @@ function HistoricalItemsTable({ reportId, items }: { reportId: string; items: Hi
                       <input type="number" value={editAmt} onChange={e => setEditAmt(e.target.value)}
                         className={`${inputCls} w-24 text-right font-mono-amount`} />
                     </td>
-                    <td className="py-1.5 pl-1">
+                    <td className="py-1.5 pl-1 flex gap-0.5">
                       <button onClick={() => saveEdit(item.id)} disabled={saving}
+                        title="Guardar"
                         className="p-1 text-brand-600 hover:bg-brand-50 rounded transition-colors disabled:opacity-40">
                         <Check size={13} />
+                      </button>
+                      <button onClick={() => { setEditingId(null); setSaveError(null) }}
+                        title="Cancelar"
+                        className="p-1 text-ink-400 hover:bg-ink-100 rounded transition-colors">
+                        <X size={13} />
                       </button>
                     </td>
                   </>
@@ -643,7 +662,7 @@ function HistoricalItemsTable({ reportId, items }: { reportId: string; items: Hi
                       'text-ink-900'
                     }`}>{formatCLP(item.amount_clp)}</td>
                     <td className="py-1.5 pl-1">
-                      <button onClick={() => startEdit(item)}
+                      <button onClick={() => startEdit(item)} title="Editar ítem"
                         className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
                         <Pencil size={12} />
                       </button>
@@ -655,6 +674,9 @@ function HistoricalItemsTable({ reportId, items }: { reportId: string; items: Hi
           })}
         </tbody>
       </table>
+      {saveError && (
+        <p className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-item">{saveError}</p>
+      )}
     </div>
   )
 }
