@@ -639,7 +639,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
         <thead>
           <tr className="text-ink-400 border-b border-ink-200">
             <th className="text-left pb-1.5 font-medium w-28">Tipo</th>
-            <th className="text-left pb-1.5 font-medium">Descripción / Empleado</th>
+            <th className="text-left pb-1.5 font-medium">Descripción / Destinatario</th>
             <th className="text-left pb-1.5 font-medium w-28">Fecha</th>
             <th className="text-right pb-1.5 font-medium w-24">Monto</th>
             <th className="w-8" />
@@ -682,7 +682,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
                         placeholder="Descripción"
                         className={`${inputCls} w-full`} />
                       <input value={editMerchant} onChange={e => setEditMerchant(e.target.value)}
-                        placeholder="Empleado (opcional)"
+                        placeholder="Destinatario / receptor (opcional)"
                         className={`${inputCls} w-full text-ink-500`} />
                     </div>
                   </td>
