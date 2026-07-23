@@ -648,7 +648,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                             <div className="space-y-0.5">
                               {h.advance_total > 0 && <p className="font-mono-amount text-blue-600 text-xs">{formatCLP(h.advance_total)} adelanto</p>}
                               {h.expense_total > 0 && <p className="font-mono-amount text-ink-700 text-xs">({formatCLP(h.expense_total)}) gastos</p>}
-                              {h.return_total  > 0 && <p className="font-mono-amount text-emerald-600 text-xs">({formatCLP(h.return_total)}) devuelto</p>}
+                              {h.return_total  > 0 && <p className="font-mono-amount text-emerald-600 text-xs">({formatCLP(h.return_total)})</p>}
                             </div>
                           )}
                           <span className="inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
