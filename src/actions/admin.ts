@@ -365,7 +365,10 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   if (!report || report.org_id !== orgId || !report.is_historical_import)
     throw new Error('Sin permiso para editar este ítem')
 
-  const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId)
+  // Usar adminClient para el UPDATE porque RLS bloquea ediciones de ítems
+  // cuyo submitter_id no es el usuario actual (el admin edita ítems de empleados)
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.from('expense_items').update(patch).eq('id', itemId)
   if (error) throw new Error(error.message)
 
   revalidatePath('/petty-cash')
