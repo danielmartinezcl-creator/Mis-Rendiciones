@@ -7,7 +7,7 @@ import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2, Pencil, FilePen } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
@@ -514,7 +514,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                         className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
                         title="Mover a Caja Chica"
                       >
-                        <Pencil size={14} />
+                        <ArrowRightLeft size={14} />
                       </button>
                     )}
                     <button
@@ -650,7 +650,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                                           className="opacity-0 group-hover/cat:opacity-100 transition-opacity text-slate-400 hover:text-brand-600 shrink-0"
                                           title="Reclasificar categoría"
                                         >
-                                          <Pencil size={10} />
+                                          <FilePen size={10} />
                                         </button>
                                       </span>
                                     )}

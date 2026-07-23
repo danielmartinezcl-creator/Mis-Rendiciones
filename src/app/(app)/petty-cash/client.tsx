@@ -8,6 +8,7 @@ import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType } from '@/actions/admin'
+import { deleteExpenseReport } from '@/actions/expenses'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
 
@@ -44,7 +45,21 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 
   // ── Estado local de históricas (permite mover sin recargar) ──────────────
   const [historicalImports, setHistoricalImports] = useState(initialHistoricalImports)
-  const [movingHistId, setMovingHistId] = useState<string | null>(null)
+  const [movingHistId,   setMovingHistId]   = useState<string | null>(null)
+  const [deletingHistId, setDeletingHistId] = useState<string | null>(null)
+
+  async function handleDeleteHistorical(id: string, title: string) {
+    if (!confirm(`¿Eliminar la carga histórica "${title}"?\n\nEsta acción la moverá a la papelera.`)) return
+    setDeletingHistId(id)
+    try {
+      await deleteExpenseReport(id)
+      setHistoricalImports(prev => prev.filter(h => h.id !== id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar')
+    } finally {
+      setDeletingHistId(null)
+    }
+  }
 
   async function handleDeleteFund(id: string, name: string) {
     if (!confirm(`¿Eliminar el fondo "${name}"?\n\nSe eliminarán todos sus ítems y aprobaciones.\nEsta acción no se puede deshacer.`)) return
@@ -505,14 +520,24 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
                     </span>
                   </div>
                   {isManager && (
-                    <button
-                      onClick={() => handleMoveToRendicion(h.id, h.title)}
-                      disabled={movingHistId === h.id}
-                      title="Mover a Rendiciones"
-                      className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40 shrink-0"
-                    >
-                      <ArrowRightLeft size={14} />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleMoveToRendicion(h.id, h.title)}
+                        disabled={movingHistId === h.id}
+                        title="Mover a Rendiciones"
+                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40 shrink-0"
+                      >
+                        <ArrowRightLeft size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteHistorical(h.id, h.title)}
+                        disabled={deletingHistId === h.id}
+                        title="Eliminar"
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40 shrink-0"
+                      >
+                        {deletingHistId === h.id ? <span className="text-xs">...</span> : <Trash2 size={14} />}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
