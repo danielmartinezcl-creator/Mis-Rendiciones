@@ -361,6 +361,7 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
     .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId)
   const items = (allItems ?? []) as { id: string; status: string; amount_clp: number }[]
 
+  const isL1 = report.status === 'submitted'
   const allApproved = items.every(i => i.status === 'approved')
   const approvedAmt = computeApprovedAmount(items)
 
@@ -374,7 +375,6 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
     // Todos aprobados — verificar cadena L2
     const { data: submitter } = await supabase
       .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
-    const isL1 = report.status === 'submitted'
     const hasL2 = !!submitter?.approver_l2_id
 
     let newStatus: 'pending_l2' | 'approved'
@@ -396,16 +396,17 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
         approved_at:     newStatus === 'approved' ? new Date().toISOString() : null,
       })
       .eq('id', reportId)
-
-    await supabase.from('expense_report_approvals').insert({
-      report_id:      reportId,
-      approver_id:    user.id,
-      level:          isL1 ? 1 : 2,
-      action:         'approved',
-      items_approved: itemIds,
-      notes:          'Aprobación masiva de ítems rutinarios (análisis IA)',
-    })
   }
+
+  // Registro de auditoría — siempre, independiente de si quedan ítems pendientes
+  await supabase.from('expense_report_approvals').insert({
+    report_id:      reportId,
+    approver_id:    user.id,
+    level:          isL1 ? 1 : 2,
+    action:         'approved',
+    items_approved: itemIds,
+    notes:          `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`,
+  })
 
   revalidatePath(`/approvals/${reportId}`)
   revalidatePath('/approvals')

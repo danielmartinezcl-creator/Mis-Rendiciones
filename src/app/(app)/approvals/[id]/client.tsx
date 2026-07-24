@@ -129,10 +129,16 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     setBulkApproving(true)
     try {
       await bulkApproveItems(id, analysis.routine_item_ids)
+      // Sincronizar decisiones locales para los ítems aprobados en bulk
+      const bulkDecisions: Record<string, Decision> = {}
+      analysis.routine_item_ids.forEach(itemId => {
+        bulkDecisions[itemId] = { action: 'approve', reason: '' }
+      })
+      setDecisions(prev => ({ ...prev, ...bulkDecisions }))
       setBulkDone(true)
       router.refresh()
     } catch (err) {
-      console.error('Bulk approve error:', err)
+      setError(err instanceof Error ? err.message : 'Error al aprobar ítems')
     } finally {
       setBulkApproving(false)
     }
@@ -174,11 +180,10 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             <li key={i} className="text-xs text-amber-600">{r}</li>
           ))}
         </ul>
-        {attItem.suggestion !== 'revisar' && (
-          <p className="text-xs font-medium text-amber-700 mt-1">
-            Sugerencia IA: {attItem.suggestion === 'aprobar' ? 'Aprobar' : 'Rechazar'}
-          </p>
-        )}
+        <p className="text-xs font-medium text-amber-700 mt-1">
+          Sugerencia IA: {attItem.suggestion === 'aprobar' ? 'Aprobar' :
+           attItem.suggestion === 'rechazar' ? 'Rechazar' : 'Revisión manual recomendada'}
+        </p>
       </div>
     )
   }
