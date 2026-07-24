@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal, FileSpreadsheet } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
-import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/actions/admin'
+import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle, getHistoricalFundDefontanaData, markExpenseItemsDefontanaExported } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
 import { createFundTransfer, linkFundTransfer, getEmployeeTargets } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
@@ -212,6 +212,45 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
     } finally {
       setDefontanaMarkingId(null)
     }
+  }
+
+  async function handleExportDefontanaFund(
+    reportId:  string,
+    itemTypes: ('expense' | 'advance' | 'return')[],
+    title:     string,
+  ): Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }> {
+    const { report, settings, itemIds } = await getHistoricalFundDefontanaData(reportId, itemTypes)
+
+    if (!settings.contraAccount) {
+      alert('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
+      return { warnings: null }
+    }
+    if (!itemIds.length) {
+      alert('No hay ítems pendientes de contabilizar para los tipos seleccionados.')
+      return { warnings: null }
+    }
+
+    const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
+    const result = buildDefontanaEntries([report], settings)
+    const exportRef = `CC-${title.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}`
+    exportDefontanaToExcel(result, `caja-chica-defontana-${exportRef}`)
+
+    await markExpenseItemsDefontanaExported(itemIds)
+
+    // Actualizar estado local: marcar los ítems como exportados
+    setHistoricalImports(prev => prev.map(h => {
+      if (h.id !== reportId) return h
+      const now = new Date().toISOString()
+      return {
+        ...h,
+        items: h.items.map(i =>
+          itemIds.includes(i.id) ? { ...i, defontana_exported_at: now } : i
+        ),
+      }
+    }))
+
+    const w = result.warnings[0]
+    return { warnings: w ? { categories: w.categories, unmappedCLP: w.unmappedCLP } : null }
   }
 
   async function handleDeleteFund(id: string, name: string) {
@@ -703,10 +742,9 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           isManager={isManager}
           movingHistId={movingHistId}
           deletingHistId={deletingHistId}
-          defontanaMarkingId={defontanaMarkingId}
           onMove={handleMoveToRendicion}
           onDelete={handleDeleteHistorical}
-          onMarkDefontana={handleMarkDefontana}
+          onExportDefontana={handleExportDefontanaFund}
           onItemSaved={handleItemSaved}
           onTitleUpdated={handleTitleUpdated}
           onTransfer={(reportId, submitterId, defaultAmount) => openTransferModal({
@@ -888,10 +926,9 @@ interface HistoricalSectionProps {
   isManager:          boolean
   movingHistId:       string | null
   deletingHistId:     string | null
-  defontanaMarkingId: string | null
   onMove:             (id: string, title: string) => void
   onDelete:           (id: string, title: string) => void
-  onMarkDefontana:    (id: string, title: string) => void
+  onExportDefontana:  (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
   onItemSaved:        (reportId: string, itemId: string, patch: ItemSavedPatch) => void
   onTitleUpdated:     (reportId: string, title: string) => void
   onTransfer:         (reportId: string, submitterId: string, defaultAmount: number) => void
@@ -1087,7 +1124,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
   )
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, defontanaMarkingId, onMove, onDelete, onMarkDefontana, onItemSaved, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onItemSaved, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
 
@@ -1096,6 +1133,43 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
   const [editTitle,      setEditTitle]      = useState('')
   const [savingTitle,    setSavingTitle]    = useState(false)
   const [titleError,     setTitleError]     = useState<string | null>(null)
+
+  // Estado del panel Defontana
+  const [defPanelId,       setDefPanelId]       = useState<string | null>(null)
+  const [defSelectedTypes, setDefSelectedTypes] = useState<Set<string>>(new Set())
+  const [defExporting,     setDefExporting]     = useState(false)
+  const [defExportWarnings, setDefExportWarnings] = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
+
+  function openDefPanel(h: HistoricalImport) {
+    const pending = new Set<string>()
+    for (const item of h.items) {
+      if (['expense', 'advance', 'return'].includes(item.item_type || '') && !item.defontana_exported_at) {
+        pending.add(item.item_type!)
+      }
+    }
+    setDefSelectedTypes(pending)
+    setDefExportWarnings(null)
+    setDefPanelId(defPanelId === h.id ? null : h.id)
+  }
+
+  async function runExport(h: HistoricalImport) {
+    const types = Array.from(defSelectedTypes) as ('expense' | 'advance' | 'return')[]
+    if (!types.length) return
+    setDefExporting(true)
+    setDefExportWarnings(null)
+    try {
+      const result = await onExportDefontana(h.id, types, h.title)
+      if (result.warnings) {
+        setDefExportWarnings(result.warnings)
+      } else {
+        setDefPanelId(null)
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al exportar')
+    } finally {
+      setDefExporting(false)
+    }
+  }
 
   async function handleSaveTitle(reportId: string) {
     if (!editTitle.trim()) return
@@ -1313,20 +1387,23 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
                               {h.return_total  > 0 && <p className="font-mono-amount text-emerald-600 text-xs">({formatCLP(h.return_total)})</p>}
                             </div>
                           )}
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap justify-end">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
-                              Histórica
-                            </span>
-                            {h.defontana_exported_at && (
-                              <span
-                                className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium flex items-center gap-1"
-                                title={h.defontana_export_ref ? `Ref: ${h.defontana_export_ref}` : 'Contabilizado en Defontana'}
-                              >
-                                <BookCheck size={10} />
-                                Defontana
-                              </span>
-                            )}
-                          </div>
+                          {(() => {
+                            const exportedCount = h.items.filter(i => i.defontana_exported_at).length
+                            const totalExportable = h.items.filter(i => ['expense','advance','return'].includes(i.item_type || '')).length
+                            return (
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap justify-end">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
+                                  Histórica
+                                </span>
+                                {exportedCount > 0 && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium flex items-center gap-1">
+                                    <BookCheck size={10} />
+                                    {exportedCount === totalExportable ? 'Contabilizado' : `${exportedCount}/${totalExportable} contabilizados`}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </div>
                         {isManager && (
                           <>
@@ -1337,16 +1414,18 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
                             >
                               <SendHorizontal size={14} />
                             </button>
-                            {!h.defontana_exported_at && (
-                              <button
-                                onClick={() => onMarkDefontana(h.id, h.title)}
-                                disabled={defontanaMarkingId === h.id}
-                                title="Marcar como contabilizado en Defontana"
-                                className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-item transition-colors disabled:opacity-40"
-                              >
-                                {defontanaMarkingId === h.id ? <span className="text-xs">...</span> : <BookCheck size={14} />}
-                              </button>
-                            )}
+                            <button
+                              onClick={() => openDefPanel(h)}
+                              title="Exportar a Defontana"
+                              className={[
+                                'p-1.5 rounded-item transition-colors',
+                                defPanelId === h.id
+                                  ? 'text-teal-700 bg-teal-100'
+                                  : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50',
+                              ].join(' ')}
+                            >
+                              <FileSpreadsheet size={14} />
+                            </button>
                             <button
                               onClick={() => onMove(h.id, h.title)}
                               disabled={movingHistId === h.id}
@@ -1367,6 +1446,99 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, d
                         )}
                       </div>
                     </div>
+
+                    {/* Panel Defontana export */}
+                    {defPanelId === h.id && (() => {
+                      const EXPORTABLE = ['expense', 'advance', 'return'] as const
+                      const typeInfo = EXPORTABLE.map(type => {
+                        const all      = h.items.filter(i => i.item_type === type)
+                        const pending  = all.filter(i => !i.defontana_exported_at)
+                        const exported = all.filter(i =>  i.defontana_exported_at)
+                        const total    = pending.reduce((s, i) => s + i.amount_clp, 0)
+                        return { type, all, pending, exported, total }
+                      }).filter(t => t.all.length > 0)
+
+                      const hasAnythingPending = typeInfo.some(t => t.pending.length > 0 && defSelectedTypes.has(t.type))
+                      const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones' }
+
+                      return (
+                        <div className="border-t border-teal-100 bg-teal-50 px-4 py-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-teal-900 flex items-center gap-1.5">
+                              <FileSpreadsheet size={14} /> Exportar a Defontana
+                            </h4>
+                            <button onClick={() => setDefPanelId(null)} className="text-teal-400 hover:text-teal-700 transition-colors">
+                              <X size={14} />
+                            </button>
+                          </div>
+
+                          {typeInfo.length === 0 ? (
+                            <p className="text-xs text-ink-500">Sin ítems exportables en esta carga.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {typeInfo.map(({ type, pending, exported, total }) => {
+                                const allDone   = pending.length === 0
+                                const isChecked = defSelectedTypes.has(type)
+                                return (
+                                  <label
+                                    key={type}
+                                    className={`flex items-center gap-3 text-sm rounded-item px-2 py-1.5 bg-white border ${allDone ? 'border-teal-100 opacity-60' : 'border-ink-100 cursor-pointer hover:border-teal-200'}`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked && !allDone}
+                                      disabled={allDone}
+                                      onChange={() => {
+                                        setDefSelectedTypes(prev => {
+                                          const next = new Set(prev)
+                                          next.has(type) ? next.delete(type) : next.add(type)
+                                          return next
+                                        })
+                                      }}
+                                      className="accent-teal-600 w-4 h-4 shrink-0"
+                                    />
+                                    <span className="flex-1 text-ink-700 font-medium">{LABEL[type]}</span>
+                                    {allDone ? (
+                                      <span className="text-xs text-teal-600 font-medium flex items-center gap-1">
+                                        <BookCheck size={11} /> {exported.length} contabilizados
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-ink-500">
+                                        {pending.length} pendientes · {formatCLP(total)}
+                                        {exported.length > 0 && <span className="text-teal-600 ml-1">(+{exported.length} ya contabilizados)</span>}
+                                      </span>
+                                    )}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          )}
+
+                          {defExportWarnings && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-item px-3 py-2 text-xs text-amber-700">
+                              ⚠ Sin cuenta Defontana: {defExportWarnings.categories.join(', ')}
+                              {defExportWarnings.unmappedCLP > 0 && ` — ${formatCLP(defExportWarnings.unmappedCLP)} no incluidos en el asiento`}
+                            </div>
+                          )}
+
+                          {typeInfo.length > 0 && (
+                            <div className="flex items-center gap-3 pt-1">
+                              <button
+                                onClick={() => runExport(h)}
+                                disabled={defExporting || !hasAnythingPending}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-item transition-colors disabled:opacity-40"
+                              >
+                                {defExporting
+                                  ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> Exportando...</>
+                                  : <><FileSpreadsheet size={13} /> Generar Excel</>
+                                }
+                              </button>
+                              <span className="text-xs text-ink-400">Solo ítems sin contabilizar previo</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* Detalle expandido */}
                     {isExpanded && h.items.length > 0 && (

@@ -1120,7 +1120,7 @@ export async function getHistoricalCajaChicaImports() {
     .select(`
       id, title, total_amount, approved_at, fund_number, submitter_id, created_at,
       defontana_exported_at, defontana_export_ref,
-      expense_items(id, item_type, amount_clp, description, date, doc_type, merchant)
+      expense_items(id, item_type, amount_clp, description, date, doc_type, doc_number, merchant, category_id, supplier_rut, defontana_exported_at)
     `)
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
@@ -1139,7 +1139,11 @@ export async function getHistoricalCajaChicaImports() {
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
   return data.map(r => {
-    type RawItem = { id: string; item_type: string; amount_clp: number; description: string; date: string; doc_type: string | null; merchant: string | null }
+    type RawItem = {
+      id: string; item_type: string; amount_clp: number; description: string; date: string
+      doc_type: string | null; doc_number: string | null; merchant: string | null
+      category_id: string | null; supplier_rut: string | null; defontana_exported_at: string | null
+    }
     const items = (r.expense_items ?? []) as unknown as RawItem[]
     const advance_total = items.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
     const expense_total = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
@@ -1179,4 +1183,119 @@ export async function markHistoricalImportDefontana(
   if (error) throw new Error(error.message)
   revalidatePath('/petty-cash')
   revalidatePath('/admin/reports')
+}
+
+// ─── Export Defontana por tipo de ítem (caja chica histórica) ────────────────
+
+export async function getHistoricalFundDefontanaData(
+  reportId:  string,
+  itemTypes: ('expense' | 'advance' | 'return')[],
+) {
+  const { supabase, orgId } = await requireAdmin()
+
+  const [reportRes, orgRes, suppliersRes] = await Promise.all([
+    supabase
+      .from('expense_reports')
+      .select('id, title, approved_at, submitter_id')
+      .eq('id', reportId)
+      .single(),
+    supabase
+      .from('organizations')
+      .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+      .eq('id', orgId)
+      .single(),
+    supabase
+      .from('defontana_suppliers')
+      .select('merchant_name, defontana_account_code')
+      .eq('org_id', orgId),
+  ])
+
+  const report = reportRes.data
+  if (!report) throw new Error('Reporte no encontrado')
+
+  const supplierMap: Record<string, string> = {}
+  for (const s of suppliersRes.data ?? []) {
+    supplierMap[s.merchant_name.toLowerCase()] = s.defontana_account_code
+  }
+
+  const { data: empUser } = await supabase
+    .from('users')
+    .select('full_name, rut, cost_center_id')
+    .eq('id', report.submitter_id)
+    .single()
+
+  // Ítems de los tipos seleccionados que NO han sido exportados todavía
+  const { data: rawItems } = await supabase
+    .from('expense_items')
+    .select('id, description, amount_clp, date, merchant, doc_type, doc_number, supplier_rut, expense_categories(name, defontana_account_code)')
+    .eq('report_id', reportId)
+    .in('item_type', itemTypes)
+    .is('defontana_exported_at', null)
+
+  type RawItem = {
+    id: string
+    description: string
+    amount_clp: number
+    date: string | null
+    merchant: string | null
+    doc_type: string | null
+    doc_number: string | null
+    supplier_rut: string | null
+    expense_categories: { name: string; defontana_account_code: string | null } | null
+  }
+
+  const items = (rawItems ?? []) as unknown as RawItem[]
+  const itemIds = items.map(i => i.id)
+
+  const dates = items.map(i => i.date).filter(Boolean).sort() as string[]
+  const reportDate = dates[0] ?? (report.approved_at ?? '').split('T')[0]
+
+  const mappedItems = items.map(i => {
+    const cat = i.expense_categories
+    const merchantKey = (i.merchant ?? '').toLowerCase()
+    return {
+      description:            i.description,
+      amount_clp:             i.amount_clp,
+      category_name:          cat?.name ?? null,
+      defontana_account_code: cat?.defontana_account_code ?? null,
+      supplier_account_code:  merchantKey ? (supplierMap[merchantKey] ?? null) : null,
+      doc_type:               i.doc_type,
+      doc_number:             i.doc_number,
+      cost_center_id:         null as string | null,
+      supplier_rut:           i.supplier_rut,
+      merchant:               i.merchant,
+    }
+  })
+
+  const orgData = orgRes.data
+
+  return {
+    report: {
+      reportId:             report.id,
+      reportTitle:          report.title,
+      date:                 reportDate,
+      employeeName:         empUser?.full_name ?? 'Desconocido',
+      employeeRut:          empUser?.rut ?? null,
+      employeeCostCenterId: empUser?.cost_center_id ?? null,
+      items:                mappedItems,
+    },
+    settings: {
+      contraAccount:   orgData?.defontana_contra_account   ?? '',
+      voucherType:     orgData?.defontana_voucher_type      ?? 'Egreso',
+      costCenter:      orgData?.defontana_cost_center       ?? null,
+      providerAccount: orgData?.defontana_provider_account  ?? null,
+    },
+    itemIds,
+  }
+}
+
+export async function markExpenseItemsDefontanaExported(itemIds: string[]) {
+  if (!itemIds.length) return
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase
+    .from('expense_items')
+    .update({ defontana_exported_at: new Date().toISOString() })
+    .in('id', itemIds)
+  if (error) throw new Error(error.message)
+  revalidatePath('/petty-cash')
 }

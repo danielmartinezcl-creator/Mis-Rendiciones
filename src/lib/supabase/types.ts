@@ -323,6 +323,7 @@ export interface Database {
           ocr_confidence: number | null
           policy_justification: string | null
           policy_violations:    Json | null
+          defontana_exported_at: string | null
           created_at: string
         }
         Insert: {
@@ -351,6 +352,7 @@ export interface Database {
           ocr_confidence?: number | null
           policy_justification?: string | null
           policy_violations?:    Json | null
+          defontana_exported_at?: string | null
           created_at?: string
         }
         Update: {
@@ -379,6 +381,7 @@ export interface Database {
           ocr_confidence?: number | null
           policy_justification?: string | null
           policy_violations?:    Json | null
+          defontana_exported_at?: string | null
           created_at?: string
         }
         Relationships: [
@@ -568,6 +571,7 @@ export interface Database {
           rejection_reason: string | null
           transfer_id: string | null
           created_at: string
+          defontana_exported_at: string | null
         }
         Insert: {
           id?: string
@@ -589,11 +593,13 @@ export interface Database {
           rejection_reason?: string | null
           transfer_id?: string | null
           created_at?: string
+          defontana_exported_at?: string | null
         }
         Update: {
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
           transfer_id?: string | null
+          defontana_exported_at?: string | null
         }
         Relationships: []
       }
