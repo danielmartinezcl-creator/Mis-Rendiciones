@@ -64,7 +64,6 @@ interface ExpenseItemFormProps {
   categories:           ExpenseCategory[]
   costCenters:          CostCenter[]
   employeeCostCenterId: string | null
-  employeeId:           string
   onSave:               (data: ItemFormData) => Promise<void>
   onCancel:             () => void
 }
@@ -73,7 +72,6 @@ export function ExpenseItemForm({
   categories,
   costCenters,
   employeeCostCenterId,
-  employeeId: _employeeId, // recibido por API, la server action usa la sesión Supabase
   onSave,
   onCancel,
 }: ExpenseItemFormProps) {
@@ -119,8 +117,8 @@ export function ExpenseItemForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.currency, form.date])
 
-  // ─── Validación de políticas (debounce 600ms) ─────────────────────────────
-  function triggerPolicyCheck(amount: string, catId: string | null) {
+  // ─── Validación de políticas (debounce 600ms; inmediato para selects) ───────
+  function triggerPolicyCheck(amount: string, catId: string | null, immediate = false) {
     if (pendingCheck.current) clearTimeout(pendingCheck.current)
 
     const numericAmount = parseInt(amount.replace(/\D/g, ''), 10)
@@ -129,6 +127,7 @@ export function ExpenseItemForm({
       return
     }
 
+    const delay = immediate ? 0 : 600
     pendingCheck.current = setTimeout(async () => {
       setPolicyLoading(true)
       try {
@@ -144,7 +143,7 @@ export function ExpenseItemForm({
       } finally {
         setPolicyLoading(false)
       }
-    }, 600)
+    }, delay)
   }
 
   function handleAmountChange(raw: string) {
@@ -232,6 +231,7 @@ export function ExpenseItemForm({
 
   const isSaveDisabled =
     saving ||
+    policyLoading ||
     !!policyResult?.hasBlock ||
     (!!policyResult?.hasJustificationRequired && !policyResult.hasBlock && !policyJustification.trim())
 
@@ -376,7 +376,7 @@ export function ExpenseItemForm({
           value={form.category_id}
           onChange={e => {
             set('category_id', e.target.value)
-            triggerPolicyCheck(form.amount, e.target.value || null)
+            triggerPolicyCheck(form.amount, e.target.value || null, true)
           }}
           className={inputCls}
         >

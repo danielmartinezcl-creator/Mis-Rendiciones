@@ -83,6 +83,8 @@ export default function ExpenseDetailPage() {
       supplier_rut:         data.supplier_rut || null,
       ocr_raw:              data.ocr_raw as Json | null,
       ocr_confidence:       data.ocr_confidence,
+      policy_justification: data.policy_justification ?? null,
+      policy_violations:    data.policy_violations as unknown as Json | null ?? null,
     })
 
     // Subir foto si existe
@@ -213,7 +215,6 @@ export default function ExpenseDetailPage() {
           categories={categories}
           costCenters={costCenters}
           employeeCostCenterId={employeeCostCenterId}
-          employeeId={currentUserId ?? ''}
           onSave={handleSaveItem}
           onCancel={() => setShowForm(false)}
         />
