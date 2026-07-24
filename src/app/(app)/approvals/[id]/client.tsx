@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Sparkles, CheckCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getReportForApproval, submitApprovalDecision } from '@/actions/approvals'
+import { getReportForApproval, submitApprovalDecision, bulkApproveItems } from '@/actions/approvals'
 import { notifySubmitterOfDecision } from '@/actions/notifications'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
@@ -11,6 +12,7 @@ import { ReportStatusBadge } from '@/components/ui/Badge'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDate } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
+import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
 import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment } from '@/lib/supabase/types'
 
 type ItemWithRelations = ExpenseItem & {
@@ -26,9 +28,10 @@ interface Props {
   id: string
   initialReport: ReportData
   initialAttachments: (ApprovalAttachment & { uploader_name: string; url: string | null })[]
+  analysis: AiAnalysis | null
 }
 
-export function ApprovalDetailClient({ id, initialReport, initialAttachments }: Props) {
+export function ApprovalDetailClient({ id, initialReport, initialAttachments, analysis }: Props) {
   const router = useRouter()
 
   const [report,    setReport]    = useState<ReportData>(initialReport)
@@ -37,6 +40,8 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments }: 
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]     = useState<string | null>(null)
   const [notes,      setNotes]     = useState('')
+  const [bulkApproving, setBulkApproving] = useState(false)
+  const [bulkDone, setBulkDone] = useState(false)
 
   // Initialize decisions from initialReport using lazy initializer
   const [decisions, setDecisions] = useState<Record<string, Decision>>(() => {
@@ -119,6 +124,20 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments }: 
     }
   }
 
+  async function handleBulkApprove() {
+    if (!analysis?.routine_item_ids?.length) return
+    setBulkApproving(true)
+    try {
+      await bulkApproveItems(id, analysis.routine_item_ids)
+      setBulkDone(true)
+      router.refresh()
+    } catch (err) {
+      console.error('Bulk approve error:', err)
+    } finally {
+      setBulkApproving(false)
+    }
+  }
+
   if (!report) {
     return (
       <div className="text-center py-12 text-slate-400">
@@ -132,6 +151,37 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments }: 
 
   const isActionable = report.status === 'submitted' || report.status === 'pending_l2'
   const items = (report.expense_items ?? []) as ItemWithRelations[]
+
+  // AI analysis helpers
+  const attentionItemIds = new Set(analysis?.attention_items.map(a => a.item_id) ?? [])
+  const sortedItems = [...items].sort((a, b) => {
+    const aIsAttention = attentionItemIds.has(a.id)
+    const bIsAttention = attentionItemIds.has(b.id)
+    if (aIsAttention && !bIsAttention) return -1
+    if (!aIsAttention && bIsAttention) return 1
+    return 0
+  })
+
+  function renderAttentionReasons(itemId: string) {
+    if (!analysis || !attentionItemIds.has(itemId)) return null
+    const attItem = analysis.attention_items.find(a => a.item_id === itemId)
+    if (!attItem) return null
+    return (
+      <div className="mt-1.5 px-2 py-1.5 bg-amber-50 rounded-item border border-amber-200">
+        <p className="text-xs font-semibold text-amber-700 mb-0.5">Requiere atención:</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          {attItem.reasons.map((r, i) => (
+            <li key={i} className="text-xs text-amber-600">{r}</li>
+          ))}
+        </ul>
+        {attItem.suggestion !== 'revisar' && (
+          <p className="text-xs font-medium text-amber-700 mt-1">
+            Sugerencia IA: {attItem.suggestion === 'aprobar' ? 'Aprobar' : 'Rechazar'}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -163,9 +213,87 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments }: 
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
+      {/* Tarjeta de análisis IA */}
+      {analysis && (
+        <div className={`rounded-card border p-4 space-y-3 ${
+          analysis.risk_level === 'high'   ? 'bg-rose-50 border-rose-200' :
+          analysis.risk_level === 'medium' ? 'bg-amber-50 border-amber-200' :
+                                             'bg-emerald-50 border-emerald-200'
+        }`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                analysis.risk_level === 'high'   ? 'bg-rose-500' :
+                analysis.risk_level === 'medium' ? 'bg-amber-500' :
+                                                   'bg-emerald-500'
+              }`} />
+              <span className={`text-xs font-semibold uppercase tracking-wide ${
+                analysis.risk_level === 'high'   ? 'text-rose-600' :
+                analysis.risk_level === 'medium' ? 'text-amber-600' :
+                                                   'text-emerald-600'
+              }`}>
+                {analysis.risk_level === 'high' ? 'Riesgo alto' :
+                 analysis.risk_level === 'medium' ? 'Riesgo medio' : 'Riesgo bajo'}
+              </span>
+            </div>
+            <span className="text-xs text-ink-400 flex items-center gap-1">
+              <Sparkles size={12} />
+              Análisis IA
+            </span>
+          </div>
+
+          <p className="text-sm font-medium text-ink-800">{analysis.headline}</p>
+
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-500">
+            <span>${analysis.stats.total_clp.toLocaleString('es-CL')} total</span>
+            <span>{analysis.stats.vs_employee_avg} vs su promedio</span>
+            {analysis.stats.policy_violations > 0 && (
+              <span className="text-amber-600">
+                {analysis.stats.policy_violations} {analysis.stats.policy_violations === 1 ? 'violación' : 'violaciones'} de política
+              </span>
+            )}
+            {analysis.stats.missing_docs > 0 && (
+              <span className="text-amber-600">
+                {analysis.stats.missing_docs} doc{analysis.stats.missing_docs !== 1 ? 's' : ''} faltante{analysis.stats.missing_docs !== 1 ? 's' : ''}
+              </span>
+            )}
+            {analysis.stats.new_merchants > 0 && (
+              <span className="text-ink-500">
+                {analysis.stats.new_merchants} proveedor{analysis.stats.new_merchants !== 1 ? 'es' : ''} nuevo{analysis.stats.new_merchants !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {!bulkDone && analysis.routine_item_ids.length > 0 && (
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleBulkApprove}
+                disabled={bulkApproving}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-xs font-semibold transition-colors"
+              >
+                <CheckCheck size={13} />
+                {bulkApproving
+                  ? 'Aprobando...'
+                  : `Aprobar ${analysis.routine_item_ids.length} ítem${analysis.routine_item_ids.length !== 1 ? 's' : ''} rutinario${analysis.routine_item_ids.length !== 1 ? 's' : ''}`
+                }
+              </button>
+              <span className="text-xs text-ink-400 self-center">
+                {analysis.attention_items.length > 0
+                  ? `Los ${analysis.attention_items.length} de atención quedan para revisión manual`
+                  : 'Todos los ítems son rutinarios'
+                }
+              </span>
+            </div>
+          )}
+          {bulkDone && (
+            <p className="text-xs text-emerald-600 font-medium">Ítems rutinarios aprobados — revisa los de atención abajo</p>
+          )}
+        </div>
+      )}
+
       {/* Ítems para revisar */}
       <div className="space-y-3">
-        {items.map(item => {
+        {sortedItems.map(item => {
           const d        = decisions[item.id] ?? { action: null, reason: '' }
           const docLabel = DOC_TYPES.find(dt => dt.value === item.doc_type)?.label
           const itemAttachments = (item.attachments ?? []) as Pick<Attachment, 'id' | 'storage_path' | 'file_type'>[]
@@ -178,6 +306,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments }: 
                 d.action === 'approve' ? 'border-l-emerald-400' :
                 d.action === 'reject'  ? 'border-l-red-400'     :
                                          'border-l-slate-200',
+                attentionItemIds.has(item.id) ? 'ring-2 ring-amber-400' : '',
               ].join(' ')}
             >
               {/* Info del ítem */}
@@ -207,6 +336,9 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments }: 
               {item.notes && (
                 <p className="text-xs text-slate-400 italic bg-slate-50 rounded p-2">{item.notes}</p>
               )}
+
+              {/* Razones de atención IA */}
+              {renderAttentionReasons(item.id)}
 
               {/* Fotos adjuntas */}
               {itemAttachments.length > 0 && (
