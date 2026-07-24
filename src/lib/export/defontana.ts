@@ -103,15 +103,16 @@ function resolveAccount(item: DefontanaItem, settings: DefontanaSettings): strin
 /**
  * Prioridad de centro de costo:
  * 1. item.cost_center_id (override por ítem)
- * 2. employeeCostCenterId (default del empleado)
- * 3. settings.costCenter (fallback org)
+ * 2. settings.costCenter (fallback org)
+ * El CC del responsable del fondo/rendición NO se usa como fallback
+ * porque los ítems pueden pertenecer a distintos centros.
  */
 function resolveCostCenter(
   item: DefontanaItem,
-  empCC: string | null,
+  _empCC: string | null,
   settings: DefontanaSettings,
 ): string {
-  return item.cost_center_id ?? empCC ?? settings.costCenter ?? ''
+  return item.cost_center_id ?? settings.costCenter ?? ''
 }
 
 function tipoDocDefontana(docType: string | null): string {
@@ -163,9 +164,10 @@ export function buildDefontanaEntries(
       const isFactura   = item.doc_type === 'factura' || item.doc_type === 'factura_exenta'
 
       if (isFactura) {
-        // Facturas: línea individual (no agrupar — preserva RUT, tipo doc, número)
+        // Facturas: línea individual (no agrupar — preserva RUT, tipo doc, número).
+        // La factura ya fue ingresada en Defontana con su CC y cuenta de gasto.
+        // Aquí solo se rebaja la cuenta del proveedor nacional → sin CC, sin codigo_legal.
         if (!item.supplier_rut) {
-          // Advertencia pero no bloqueo — continúa generando la línea
           console.warn(`[Defontana] Factura sin RUT proveedor: ${item.description}`)
         }
         lines.push({
@@ -182,8 +184,8 @@ export function buildDefontanaEntries(
           cod_ficha:        item.supplier_rut ?? '',
           tipo_doc:         tipoDocDefontana(item.doc_type),
           nro_doc:          item.doc_number ?? '',
-          centro_negocios:  cc,
-          codigo_legal:     item.supplier_rut ?? '',
+          centro_negocios:  '',   // no va en facturas — ya está en Defontana al ingresar la factura
+          codigo_legal:     '',   // no va en ítems de gasto/proveedor
           nombre:           item.merchant ?? report.employeeName,
         })
         totalDebe += item.amount_clp

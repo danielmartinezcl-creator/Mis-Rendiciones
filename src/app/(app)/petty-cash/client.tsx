@@ -214,6 +214,8 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
     }
   }
 
+  // Solo genera y descarga el Excel — NO marca ítems como contabilizados.
+  // La confirmación es un paso separado (handleConfirmContabilizado).
   async function handleExportDefontanaFund(
     reportId:  string,
     itemTypes: ('expense' | 'advance' | 'return')[],
@@ -232,25 +234,46 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 
     const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
     const result = buildDefontanaEntries([report], settings)
-    const exportRef = `CC-${title.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}`
-    exportDefontanaToExcel(result, `caja-chica-defontana-${exportRef}`)
+    exportDefontanaToExcel(result, `caja-chica-defontana-CC-${title.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}`)
 
-    await markExpenseItemsDefontanaExported(itemIds)
+    const w = result.warnings[0]
+    return { warnings: w ? { categories: w.categories, unmappedCLP: w.unmappedCLP } : null }
+  }
 
-    // Actualizar estado local: marcar los ítems como exportados
+  // Marca los ítems de los tipos seleccionados como contabilizados en Defontana,
+  // con número de comprobante opcional. Llama a este handler DESPUÉS de confirmar
+  // que la importación en Defontana fue exitosa.
+  async function handleConfirmContabilizado(
+    reportId:    string,
+    itemTypes:   ('expense' | 'advance' | 'return')[],
+    comprobante: string,
+  ): Promise<void> {
+    const fund = historicalImports.find(h => h.id === reportId)
+    if (!fund) return
+
+    const itemIds = fund.items
+      .filter(i => (itemTypes as string[]).includes(i.item_type || '') && !i.defontana_exported_at)
+      .map(i => i.id)
+
+    if (itemIds.length > 0) {
+      await markExpenseItemsDefontanaExported(itemIds)
+    }
+
+    if (comprobante.trim()) {
+      await markHistoricalImportDefontana(reportId, comprobante.trim())
+    }
+
+    const now = new Date().toISOString()
     setHistoricalImports(prev => prev.map(h => {
       if (h.id !== reportId) return h
-      const now = new Date().toISOString()
       return {
         ...h,
+        defontana_export_ref:  comprobante.trim() || h.defontana_export_ref,
         items: h.items.map(i =>
           itemIds.includes(i.id) ? { ...i, defontana_exported_at: now } : i
         ),
       }
     }))
-
-    const w = result.warnings[0]
-    return { warnings: w ? { categories: w.categories, unmappedCLP: w.unmappedCLP } : null }
   }
 
   async function handleDeleteFund(id: string, name: string) {
@@ -745,6 +768,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           onMove={handleMoveToRendicion}
           onDelete={handleDeleteHistorical}
           onExportDefontana={handleExportDefontanaFund}
+          onConfirmContabilizado={handleConfirmContabilizado}
           onItemSaved={handleItemSaved}
           onTitleUpdated={handleTitleUpdated}
           onTransfer={(reportId, submitterId, defaultAmount) => openTransferModal({
@@ -922,16 +946,17 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 // ── Sección histórica agrupada por fondo ──────────────────────────────────────
 
 interface HistoricalSectionProps {
-  imports:            HistoricalImport[]
-  isManager:          boolean
-  movingHistId:       string | null
-  deletingHistId:     string | null
-  onMove:             (id: string, title: string) => void
-  onDelete:           (id: string, title: string) => void
-  onExportDefontana:  (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
-  onItemSaved:        (reportId: string, itemId: string, patch: ItemSavedPatch) => void
-  onTitleUpdated:     (reportId: string, title: string) => void
-  onTransfer:         (reportId: string, submitterId: string, defaultAmount: number) => void
+  imports:                  HistoricalImport[]
+  isManager:                boolean
+  movingHistId:             string | null
+  deletingHistId:           string | null
+  onMove:                   (id: string, title: string) => void
+  onDelete:                 (id: string, title: string) => void
+  onExportDefontana:        (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
+  onConfirmContabilizado:   (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], comprobante: string) => Promise<void>
+  onItemSaved:              (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+  onTitleUpdated:           (reportId: string, title: string) => void
+  onTransfer:               (reportId: string, submitterId: string, defaultAmount: number) => void
 }
 
 const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
@@ -1124,7 +1149,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
   )
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onItemSaved, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onItemSaved, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
 
@@ -1135,10 +1160,12 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
   const [titleError,     setTitleError]     = useState<string | null>(null)
 
   // Estado del panel Defontana
-  const [defPanelId,       setDefPanelId]       = useState<string | null>(null)
-  const [defSelectedTypes, setDefSelectedTypes] = useState<Set<string>>(new Set())
-  const [defExporting,     setDefExporting]     = useState(false)
+  const [defPanelId,        setDefPanelId]        = useState<string | null>(null)
+  const [defSelectedTypes,  setDefSelectedTypes]  = useState<Set<string>>(new Set())
+  const [defExporting,      setDefExporting]      = useState(false)
   const [defExportWarnings, setDefExportWarnings] = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
+  const [defComprobante,    setDefComprobante]    = useState('')
+  const [defConfirming,     setDefConfirming]     = useState(false)
 
   function openDefPanel(h: HistoricalImport) {
     const pending = new Set<string>()
@@ -1149,6 +1176,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
     }
     setDefSelectedTypes(pending)
     setDefExportWarnings(null)
+    setDefComprobante('')
     setDefPanelId(defPanelId === h.id ? null : h.id)
   }
 
@@ -1159,15 +1187,26 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
     setDefExportWarnings(null)
     try {
       const result = await onExportDefontana(h.id, types, h.title)
-      if (result.warnings) {
-        setDefExportWarnings(result.warnings)
-      } else {
-        setDefPanelId(null)
-      }
+      if (result.warnings) setDefExportWarnings(result.warnings)
+      // No cerramos el panel — el usuario debe confirmar la contabilización por separado
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al exportar')
     } finally {
       setDefExporting(false)
+    }
+  }
+
+  async function runConfirmContabilizado(h: HistoricalImport) {
+    const types = Array.from(defSelectedTypes) as ('expense' | 'advance' | 'return')[]
+    setDefConfirming(true)
+    try {
+      await onConfirmContabilizado(h.id, types, defComprobante)
+      setDefPanelId(null)
+      setDefComprobante('')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al confirmar contabilización')
+    } finally {
+      setDefConfirming(false)
     }
   }
 
@@ -1396,9 +1435,15 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                                   Histórica
                                 </span>
                                 {exportedCount > 0 && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium flex items-center gap-1">
+                                  <span
+                                    className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium flex items-center gap-1"
+                                    title={h.defontana_export_ref ? `Comprobante: ${h.defontana_export_ref}` : undefined}
+                                  >
                                     <BookCheck size={10} />
                                     {exportedCount === totalExportable ? 'Contabilizado' : `${exportedCount}/${totalExportable} contabilizados`}
+                                    {h.defontana_export_ref && (
+                                      <span className="font-mono opacity-75 text-[10px]">{h.defontana_export_ref}</span>
+                                    )}
                                   </span>
                                 )}
                               </div>
@@ -1522,18 +1567,55 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                           )}
 
                           {typeInfo.length > 0 && (
-                            <div className="flex items-center gap-3 pt-1">
-                              <button
-                                onClick={() => runExport(h)}
-                                disabled={defExporting || !hasAnythingPending}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-item transition-colors disabled:opacity-40"
-                              >
-                                {defExporting
-                                  ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> Exportando...</>
-                                  : <><FileSpreadsheet size={13} /> Generar Excel</>
-                                }
-                              </button>
-                              <span className="text-xs text-ink-400">Solo ítems sin contabilizar previo</span>
+                            <div className="space-y-3 pt-1">
+                              {/* Paso 1: descargar Excel */}
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => runExport(h)}
+                                  disabled={defExporting || defConfirming || !hasAnythingPending}
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-teal-700 bg-white border border-teal-300 hover:bg-teal-50 rounded-item transition-colors disabled:opacity-40"
+                                >
+                                  {defExporting
+                                    ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full" /> Generando...</>
+                                    : <><FileSpreadsheet size={13} /> Generar Excel para Defontana</>
+                                  }
+                                </button>
+                              </div>
+
+                              {/* Paso 2: confirmar después de cargar en Defontana */}
+                              <div className="border-t border-teal-100 pt-3 space-y-2">
+                                <p className="text-xs font-semibold text-teal-800">
+                                  ✓ Confirmar contabilización
+                                </p>
+                                <p className="text-xs text-ink-500">
+                                  Hacé clic aquí solo después de haber importado el Excel en Defontana exitosamente.
+                                </p>
+                                {h.defontana_export_ref && (
+                                  <p className="text-xs text-teal-600 font-mono">
+                                    Último comprobante registrado: {h.defontana_export_ref}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="N° comprobante Defontana (opcional)"
+                                    value={defComprobante}
+                                    onChange={e => setDefComprobante(e.target.value)}
+                                    disabled={defExporting || defConfirming}
+                                    className="flex-1 border border-ink-200 rounded-item px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => runConfirmContabilizado(h)}
+                                  disabled={defConfirming || defExporting || (!hasAnythingPending && !defComprobante.trim())}
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-item transition-colors disabled:opacity-40"
+                                >
+                                  {defConfirming
+                                    ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> Guardando...</>
+                                    : <><BookCheck size={13} /> Confirmar contabilización</>
+                                  }
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
