@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
+import Anthropic from '@anthropic-ai/sdk'
+import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
+import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
+import type { Json } from '@/lib/supabase/types'
 
 export interface ApprovalDecision {
   itemId: string
@@ -208,6 +212,200 @@ export async function submitApprovalDecision(
       items_rejected: rejectedIds.length > 0 ? rejectedIds : null,
       notes:          notes?.trim() || null,
     })
+
+  revalidatePath(`/approvals/${reportId}`)
+  revalidatePath('/approvals')
+  revalidatePath('/')
+}
+
+export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<AiAnalysis | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, total_amount, submitter_id, ai_analysis, ai_analysis_at, updated_at')
+    .eq('id', reportId)
+    .single()
+  if (!report) return null
+
+  // Usar análisis cacheado si está actualizado
+  if (report.ai_analysis && report.ai_analysis_at) {
+    const analysisAt = new Date(report.ai_analysis_at as string).getTime()
+    const updatedAt  = new Date(report.updated_at as string).getTime()
+    if (analysisAt > updatedAt) {
+      return report.ai_analysis as unknown as AiAnalysis
+    }
+  }
+
+  // Cargar ítems actuales
+  const { data: itemsRaw } = await supabase
+    .from('expense_items')
+    .select(`id, description, amount_clp, merchant, doc_type, doc_number, policy_violations, expense_categories (name)`)
+    .eq('report_id', reportId)
+    .order('created_at', { ascending: true })
+
+  const { data: submitterData } = await supabase
+    .from('users').select('full_name').eq('id', report.submitter_id as string).single()
+
+  // Historial de 6 meses
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+  const { data: histReports } = await supabase
+    .from('expense_reports')
+    .select('id')
+    .eq('submitter_id', report.submitter_id as string)
+    .neq('id', reportId)
+    .gte('created_at', sixMonthsAgo.toISOString())
+
+  const histRids = (histReports ?? []).map((r: { id: string }) => r.id)
+  let historyItems: HistoricalItem[] = []
+
+  if (histRids.length > 0) {
+    const { data: histItemsRaw } = await supabase
+      .from('expense_items')
+      .select(`description, amount_clp, merchant, status, rejection_reason, expense_categories (name)`)
+      .in('report_id', histRids)
+
+    historyItems = (histItemsRaw ?? []).map(h => {
+      const raw = h as unknown as {
+        description: string; amount_clp: number; merchant: string | null; status: string
+        rejection_reason: string | null; expense_categories: { name: string } | null
+      }
+      return {
+        description:      raw.description,
+        amount_clp:       raw.amount_clp,
+        merchant:         raw.merchant,
+        category_name:    raw.expense_categories?.name ?? null,
+        status:           raw.status,
+        rejection_reason: raw.rejection_reason,
+      }
+    })
+  }
+
+  const reportForAnalysis: ReportForAnalysis = {
+    id:             reportId,
+    title:          report.title as string,
+    submitter_name: submitterData?.full_name ?? 'Empleado',
+    expense_items:  (itemsRaw ?? []).map(i => {
+      const raw = i as unknown as {
+        id: string; description: string; amount_clp: number; merchant: string | null
+        doc_type: string | null; doc_number: string | null; policy_violations: unknown
+        expense_categories: { name: string } | null
+      }
+      return {
+        id:                raw.id,
+        description:       raw.description,
+        amount_clp:        raw.amount_clp,
+        category_name:     raw.expense_categories?.name ?? null,
+        merchant:          raw.merchant,
+        doc_type:          raw.doc_type,
+        doc_number:        raw.doc_number,
+        policy_violations: raw.policy_violations,
+      }
+    }),
+  }
+
+  const prompt = buildAnalysisPrompt(reportForAnalysis, historyItems)
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+
+  const response = await anthropic.messages.create({
+    model:      'claude-sonnet-4-6',
+    max_tokens: 1024,
+    messages:   [{ role: 'user', content: prompt }],
+  })
+
+  const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
+  const analysis = parseAnalysisResponse(rawText)
+
+  await supabase
+    .from('expense_reports')
+    .update({
+      ai_analysis:    analysis as unknown as Json,
+      ai_analysis_at: new Date().toISOString(),
+    })
+    .eq('id', reportId)
+
+  return analysis
+}
+
+export async function bulkApproveItems(reportId: string, itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0) return
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users').select('org_id, can_approve, role').eq('id', user.id).single()
+  if (!profile || (!profile.can_approve && profile.role !== 'admin')) {
+    throw new Error('Sin permiso para aprobar rendiciones')
+  }
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('status, submitter_id, org_id')
+    .eq('id', reportId)
+    .single()
+  if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
+
+  // Aprobar ítems indicados
+  await supabase
+    .from('expense_items')
+    .update({ status: 'approved' })
+    .in('id', itemIds)
+
+  // Leer todos los ítems para calcular estado global
+  const { data: allItems } = await supabase
+    .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId)
+  const items = (allItems ?? []) as { id: string; status: string; amount_clp: number }[]
+
+  const allApproved = items.every(i => i.status === 'approved')
+  const approvedAmt = computeApprovedAmount(items)
+
+  if (!allApproved) {
+    // Quedan ítems pendientes — actualizar monto aprobado parcial
+    await supabase
+      .from('expense_reports')
+      .update({ approved_amount: approvedAmt })
+      .eq('id', reportId)
+  } else {
+    // Todos aprobados — verificar cadena L2
+    const { data: submitter } = await supabase
+      .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
+    const isL1 = report.status === 'submitted'
+    const hasL2 = !!submitter?.approver_l2_id
+
+    let newStatus: 'pending_l2' | 'approved'
+    if (isL1 && hasL2) {
+      newStatus = 'pending_l2'
+      await supabase
+        .from('expense_items')
+        .update({ status: 'pending', rejection_reason: null })
+        .eq('report_id', reportId)
+    } else {
+      newStatus = 'approved'
+    }
+
+    await supabase
+      .from('expense_reports')
+      .update({
+        status:          newStatus,
+        approved_amount: approvedAmt,
+        approved_at:     newStatus === 'approved' ? new Date().toISOString() : null,
+      })
+      .eq('id', reportId)
+
+    await supabase.from('expense_report_approvals').insert({
+      report_id:      reportId,
+      approver_id:    user.id,
+      level:          isL1 ? 1 : 2,
+      action:         'approved',
+      items_approved: itemIds,
+      notes:          'Aprobación masiva de ítems rutinarios (análisis IA)',
+    })
+  }
 
   revalidatePath(`/approvals/${reportId}`)
   revalidatePath('/approvals')

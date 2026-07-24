@@ -61,6 +61,8 @@ export async function addExpenseItem(
     supplier_rut?: string | null
     ocr_raw?: Json | null
     ocr_confidence?: number | null
+    policy_justification?: string | null
+    policy_violations?:    Json | null
   }
 ) {
   const supabase = await createClient()
@@ -106,6 +108,8 @@ export async function addExpenseItem(
       supplier_rut:         item.supplier_rut ?? null,
       ocr_raw:              item.ocr_raw ?? null,
       ocr_confidence:       item.ocr_confidence ?? null,
+      policy_justification: item.policy_justification ?? null,
+      policy_violations:    item.policy_violations    ?? null,
       status:               'pending',
     })
     .select('id')
@@ -123,6 +127,12 @@ export async function addExpenseItem(
   await supabase
     .from('expense_reports')
     .update({ total_amount: total })
+    .eq('id', reportId)
+
+  // Invalidar análisis IA cacheado — el reporte cambió
+  await supabase
+    .from('expense_reports')
+    .update({ ai_analysis: null, ai_analysis_at: null })
     .eq('id', reportId)
 
   revalidatePath(`/expenses/${reportId}`)
@@ -148,6 +158,12 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
   await supabase
     .from('expense_reports')
     .update({ total_amount: total })
+    .eq('id', reportId)
+
+  // Invalidar análisis IA cacheado — el reporte cambió
+  await supabase
+    .from('expense_reports')
+    .update({ ai_analysis: null, ai_analysis_at: null })
     .eq('id', reportId)
 
   revalidatePath(`/expenses/${reportId}`)
