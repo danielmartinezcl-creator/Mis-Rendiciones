@@ -1299,3 +1299,60 @@ export async function markExpenseItemsDefontanaExported(itemIds: string[]) {
   if (error) throw new Error(error.message)
   revalidatePath('/petty-cash')
 }
+
+export interface CategoryBreakdownItem {
+  category_name: string
+  amount_clp:    number
+  item_count:    number
+  percentage:    number
+}
+
+/** Breakdown de gastos aprobados por categoría (rendiciones + cargas históricas). */
+export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownItem[]> {
+  const { supabase, orgId } = await requireAdmin()
+
+  // Todos los reportes aprobados/reembolsados de la org (incluye históricas)
+  const { data: reportIds } = await supabase
+    .from('expense_reports')
+    .select('id')
+    .eq('org_id', orgId)
+    .in('status', ['approved', 'partially_approved', 'reimbursed'])
+    .is('deleted_at', null)
+
+  if (!reportIds || reportIds.length === 0) return []
+
+  const ids = reportIds.map((r: { id: string }) => r.id)
+
+  const { data: items } = await supabase
+    .from('expense_items')
+    .select('amount_clp, expense_categories (name)')
+    .in('report_id', ids)
+    .eq('status', 'approved')
+
+  if (!items || items.length === 0) return []
+
+  // Agrupar por categoría
+  const map = new Map<string, { amount: number; count: number }>()
+  let total = 0
+
+  for (const item of items) {
+    const raw = item as unknown as { amount_clp: number; expense_categories: { name: string } | null }
+    const name = raw.expense_categories?.name ?? 'Sin categoría'
+    const existing = map.get(name) ?? { amount: 0, count: 0 }
+    existing.amount += raw.amount_clp
+    existing.count  += 1
+    map.set(name, existing)
+    total += raw.amount_clp
+  }
+
+  const result = Array.from(map.entries())
+    .map(([category_name, { amount, count }]) => ({
+      category_name,
+      amount_clp:  Math.round(amount),
+      item_count:  count,
+      percentage:  total > 0 ? Math.round((amount / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.amount_clp - a.amount_clp)
+
+  return result
+}

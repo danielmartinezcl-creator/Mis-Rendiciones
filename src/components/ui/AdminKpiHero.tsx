@@ -57,12 +57,12 @@ export function AdminKpiHero({
       <div className="relative flex items-center justify-between gap-6 flex-wrap p-6">
         {/* Total principal */}
         <div>
-          <p className="text-xs font-semibold tracking-wider uppercase"
+          <p className="text-sm font-semibold tracking-wider uppercase"
              style={{ color: '#9EA0DF', marginBottom: 6 }}>
             {title}
           </p>
           <p className="font-mono-amount text-white"
-             style={{ fontSize: 32, letterSpacing: '-0.025em' }}>
+             style={{ fontSize: 36, letterSpacing: '-0.025em' }}>
             {fmtCLP(total)}
           </p>
         </div>
@@ -72,11 +72,11 @@ export function AdminKpiHero({
           <div className="flex gap-8">
             {secondary.map((s, i) => (
               <div key={i}>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,.45)', marginBottom: 4 }}>
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,.45)', marginBottom: 4 }}>
                   {s.label}
                 </p>
                 <p className="font-mono-amount" style={{
-                  fontSize: 18,
+                  fontSize: 20,
                   color: colorMap[s.color ?? 'white'],
                 }}>
                   {fmtCLP(s.value)}

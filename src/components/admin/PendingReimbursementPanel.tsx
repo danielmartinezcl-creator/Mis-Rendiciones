@@ -27,9 +27,9 @@ export function PendingReimbursementPanel({ count, amount, list }: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium text-ink-500 leading-tight mb-3">Pendientes de reembolsar</p>
-            <p className="text-2xl font-bold text-ink-900 mb-0.5">{count}</p>
-            <p className="text-sm font-mono-amount font-semibold text-emerald-600">{fmtCLP(amount)}</p>
+            <p className="text-sm font-medium text-ink-500 leading-tight mb-3">Pendientes de reembolsar</p>
+            <p className="text-3xl font-bold text-ink-900 mb-0.5">{count}</p>
+            <p className="text-base font-mono-amount font-semibold text-emerald-600">{fmtCLP(amount)}</p>
           </div>
           <span className="mt-1 text-ink-400">
             {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}

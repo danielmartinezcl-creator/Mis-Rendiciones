@@ -3,20 +3,23 @@ import {
   getPendingToRenderList,
   getPendingApprovalList,
   getPendingReimbursementList,
+  getExpenseCategoryBreakdown,
 } from '@/actions/admin'
 import { AdminKpiHero }              from '@/components/ui/AdminKpiHero'
 import { PendingApprovalPanel }      from '@/components/admin/PendingApprovalPanel'
 import { PendingReimbursementPanel } from '@/components/admin/PendingReimbursementPanel'
 import { PendingToRenderPanel }      from '@/components/admin/PendingToRenderPanel'
+import { CategoryDonutChart }        from '@/components/admin/CategoryDonutChart'
 import { ReceiptText, Users, Settings2, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function AdminPage() {
-  const [kpis, pendingList, approvalList, reimbursementList] = await Promise.all([
+  const [kpis, pendingList, approvalList, reimbursementList, categoryBreakdown] = await Promise.all([
     getAdminKpis(),
     getPendingToRenderList(),
     getPendingApprovalList(),
     getPendingReimbursementList(),
+    getExpenseCategoryBreakdown(),
   ])
 
   // Totales combinados (rendiciones + caja chica)
@@ -37,8 +40,8 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Dashboard Admin</h1>
-        <p className="text-sm text-ink-500 mt-1">Vista general de rendiciones y caja chica</p>
+        <h1 className="font-display font-extrabold text-3xl tracking-tight text-ink-900">Dashboard Admin</h1>
+        <p className="text-base text-ink-500 mt-1">Vista general de rendiciones y caja chica</p>
       </div>
 
       {/* Hero KPI — saldo neto: cuánto debe la empresa a empleados menos lo pendiente de rendir */}
@@ -70,15 +73,18 @@ export default async function AdminPage() {
           href="/admin/reports?status=reimbursed"
           className="bg-white rounded-card shadow-card border-t-[3px] border-t-sky-400 p-5 hover:shadow-md transition-shadow"
         >
-          <p className="text-xs font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
-          <p className="text-2xl font-bold text-ink-900 mb-0.5">{kpis.reimbursedCount}</p>
-          <p className="text-sm font-mono-amount font-semibold text-sky-600">
+          <p className="text-sm font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
+          <p className="text-3xl font-bold text-ink-900 mb-0.5">{kpis.reimbursedCount}</p>
+          <p className="text-base font-mono-amount font-semibold text-sky-600">
             {'$ ' + Math.round(kpis.reimbursedAmount).toLocaleString('es-CL')}
           </p>
         </Link>
 
         <PendingToRenderPanel list={pendingList} />
       </div>
+
+      {/* Gráfico de gastos por categoría */}
+      <CategoryDonutChart data={categoryBreakdown} />
 
       {/* Accesos rápidos */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -90,11 +96,11 @@ export default async function AdminPage() {
           <Link
             key={link.href}
             href={link.href}
-            className="flex items-center gap-3 bg-white rounded-card shadow-card p-4 hover:bg-ink-50 transition-colors"
+            className="flex items-center gap-3 bg-white rounded-card shadow-card p-5 hover:bg-ink-50 transition-colors"
           >
-            <link.Icon size={18} className="text-brand-600 shrink-0" />
-            <span className="text-sm font-medium text-ink-800">{link.label}</span>
-            <ChevronRight size={14} className="ml-auto text-ink-300" />
+            <link.Icon size={20} className="text-brand-600 shrink-0" />
+            <span className="text-base font-medium text-ink-800">{link.label}</span>
+            <ChevronRight size={16} className="ml-auto text-ink-300" />
           </Link>
         ))}
       </div>
