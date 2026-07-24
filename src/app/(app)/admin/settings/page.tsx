@@ -19,9 +19,11 @@ import {
   getCostCenters,
   getDefontanaSuppliers, addDefontanaSupplier, deleteDefontanaSupplier,
 } from '@/actions/admin'
-import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier } from '@/lib/supabase/types'
+import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier, ExpensePolicy } from '@/lib/supabase/types'
+import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deletePolicy } from '@/actions/policies'
+import type { PolicyInput } from '@/actions/policies'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -120,6 +122,7 @@ export default function AdminSettingsPage() {
           { id: 'chains',     label: 'Aprobación' },
           { id: 'limits',     label: 'Límites' },
           { id: 'defontana',  label: 'Defontana' },
+          { id: 'policies',   label: 'Políticas' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -141,6 +144,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'chains'     && <ChainsTab />}
       {activeTab === 'limits'     && <LimitsTab />}
       {activeTab === 'defontana'  && <DefontanaTab />}
+      {activeTab === 'policies'   && <PoliciesTab />}
     </div>
   )
 }
@@ -1048,6 +1052,328 @@ function LimitsTab() {
           {saving ? 'Guardando…' : 'Guardar límites'}
         </button>
       </form>
+    </section>
+  )
+}
+
+/* ── Tab: Políticas de Gastos ───────────────────────────────────────────── */
+const ENFORCEMENT_OPTS = [
+  { value: '',                      label: 'Sin límite' },
+  { value: 'warn',                  label: 'Advertencia (sin bloqueo)' },
+  { value: 'require_justification', label: 'Requerir justificación' },
+  { value: 'block',                 label: 'Bloquear ítem' },
+] as const
+
+type EnforcementValue = '' | 'warn' | 'require_justification' | 'block'
+
+function enforcementBadge(e: string | null) {
+  if (!e) return null
+  const label =
+    e === 'warn'                  ? 'Aviso' :
+    e === 'require_justification' ? 'Justif.' : 'Bloqueo'
+  const cls =
+    e === 'warn'                  ? 'bg-amber-100 text-amber-700' :
+    e === 'require_justification' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-rose-100 text-rose-600'
+  return <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cls}`}>{label}</span>
+}
+
+interface PolicyFormState {
+  name:                  string
+  category_id:           string
+  scope:                 'org' | 'dept' | 'user'
+  department:            string
+  target_user_id:        string
+  item_limit:            string
+  item_enforcement:      EnforcementValue
+  monthly_limit:         string
+  monthly_enforcement:   EnforcementValue
+  quarterly_limit:       string
+  quarterly_enforcement: EnforcementValue
+  annual_limit:          string
+  annual_enforcement:    EnforcementValue
+}
+
+const emptyPolicyForm = (): PolicyFormState => ({
+  name: '', category_id: '', scope: 'org', department: '',
+  target_user_id: '', item_limit: '', item_enforcement: '',
+  monthly_limit: '', monthly_enforcement: '',
+  quarterly_limit: '', quarterly_enforcement: '',
+  annual_limit: '', annual_enforcement: '',
+})
+
+function parseLimitNum(s: string): number | null {
+  const n = parseInt(s.replace(/\./g, ''), 10)
+  return isNaN(n) || n <= 0 ? null : n
+}
+
+function PoliciesTab() {
+  const [policies,   setPolicies]   = useState<ExpensePolicy[]>([])
+  const [categories, setCategories] = useState<ExpenseCategory[]>([])
+  const [employees,  setEmployees]  = useState<{ id: string; full_name: string; department: string | null }[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [showForm,   setShowForm]   = useState(false)
+  const [editingId,  setEditingId]  = useState<string | null>(null)
+  const [form,       setForm]       = useState<PolicyFormState>(emptyPolicyForm())
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      getOrgPolicies(),
+      getOrgCategories(),
+      getOrgEmployees(),
+    ]).then(([pol, cats, emps]) => {
+      setPolicies(pol)
+      setCategories(cats as ExpenseCategory[])
+      setEmployees(emps as { id: string; full_name: string; department: string | null }[])
+      setLoading(false)
+    })
+  }, [])
+
+  function setF(field: keyof PolicyFormState, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  function startEdit(policy: ExpensePolicy) {
+    setForm({
+      name:                  policy.name,
+      category_id:           policy.category_id ?? '',
+      scope:                 policy.target_user_id ? 'user' : policy.department ? 'dept' : 'org',
+      department:            policy.department ?? '',
+      target_user_id:        policy.target_user_id ?? '',
+      item_limit:            policy.item_limit != null ? String(policy.item_limit) : '',
+      item_enforcement:      (policy.item_enforcement ?? '') as EnforcementValue,
+      monthly_limit:         policy.monthly_limit != null ? String(policy.monthly_limit) : '',
+      monthly_enforcement:   (policy.monthly_enforcement ?? '') as EnforcementValue,
+      quarterly_limit:       policy.quarterly_limit != null ? String(policy.quarterly_limit) : '',
+      quarterly_enforcement: (policy.quarterly_enforcement ?? '') as EnforcementValue,
+      annual_limit:          policy.annual_limit != null ? String(policy.annual_limit) : '',
+      annual_enforcement:    (policy.annual_enforcement ?? '') as EnforcementValue,
+    })
+    setEditingId(policy.id)
+    setShowForm(true)
+  }
+
+  function cancelForm() {
+    setShowForm(false)
+    setEditingId(null)
+    setForm(emptyPolicyForm())
+    setError(null)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name.trim()) { setError('El nombre es obligatorio'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      const data: PolicyInput = {
+        name:                  form.name.trim(),
+        category_id:           form.category_id || null,
+        department:            form.scope === 'dept' ? form.department || null : null,
+        target_user_id:        form.scope === 'user' ? form.target_user_id || null : null,
+        item_limit:            form.item_enforcement ? parseLimitNum(form.item_limit) : null,
+        item_enforcement:      (form.item_enforcement || null) as 'warn' | 'require_justification' | 'block' | null,
+        monthly_limit:         form.monthly_enforcement ? parseLimitNum(form.monthly_limit) : null,
+        monthly_enforcement:   (form.monthly_enforcement || null) as 'warn' | 'require_justification' | 'block' | null,
+        quarterly_limit:       form.quarterly_enforcement ? parseLimitNum(form.quarterly_limit) : null,
+        quarterly_enforcement: (form.quarterly_enforcement || null) as 'warn' | 'require_justification' | 'block' | null,
+        annual_limit:          form.annual_enforcement ? parseLimitNum(form.annual_limit) : null,
+        annual_enforcement:    (form.annual_enforcement || null) as 'warn' | 'require_justification' | 'block' | null,
+      }
+      if (editingId) {
+        await updatePolicy(editingId, data)
+      } else {
+        await createPolicy(data)
+      }
+      const updated = await getOrgPolicies()
+      setPolicies(updated)
+      cancelForm()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleToggle(id: string, active: boolean) {
+    await togglePolicyActive(id, active)
+    setPolicies(prev => prev.map(p => p.id === id ? { ...p, is_active: active } : p))
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('¿Eliminar esta política? Los ítems existentes conservan sus violaciones registradas.')) return
+    await deletePolicy(id)
+    setPolicies(prev => prev.filter(p => p.id !== id))
+  }
+
+  if (loading) return <Spinner />
+
+  const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const selectCls = `${inputCls} bg-white`
+
+  const dimLabels: Record<string, string> = {
+    item: 'Límite por ítem', monthly: 'Límite mensual',
+    quarterly: 'Límite trimestral', annual: 'Límite anual',
+  }
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-base font-display font-bold text-ink-900">Políticas de gastos</h2>
+          <p className="text-sm text-ink-500 mt-0.5">
+            Define límites por ítem o por período. Cada política puede aplicar a toda la org, un departamento o un empleado específico.
+          </p>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold transition-colors"
+          >
+            Nueva política
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSave} className="bg-white rounded-card shadow-sm p-5 space-y-4 border border-ink-100 border-t-[3px] border-t-brand-600">
+          <h3 className="font-semibold text-ink-900 text-sm">{editingId ? 'Editar política' : 'Nueva política'}</h3>
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">Nombre *</label>
+            <input type="text" value={form.name} onChange={e => setF('name', e.target.value)}
+              placeholder="Ej: Límite almuerzos" className={inputCls} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Categoría (opcional)</label>
+              <select value={form.category_id} onChange={e => setF('category_id', e.target.value)} className={selectCls}>
+                <option value="">Todas las categorías</option>
+                {categories.filter(c => c.is_active).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Aplica a</label>
+              <select value={form.scope} onChange={e => setF('scope', e.target.value as 'org' | 'dept' | 'user')} className={selectCls}>
+                <option value="org">Toda la organización</option>
+                <option value="dept">Departamento específico</option>
+                <option value="user">Empleado específico</option>
+              </select>
+            </div>
+          </div>
+
+          {form.scope === 'dept' && (
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Nombre del departamento</label>
+              <input type="text" value={form.department} onChange={e => setF('department', e.target.value)}
+                placeholder="Ej: Comercial" className={inputCls} />
+            </div>
+          )}
+          {form.scope === 'user' && (
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Empleado</label>
+              <select value={form.target_user_id} onChange={e => setF('target_user_id', e.target.value)} className={selectCls}>
+                <option value="">Seleccionar empleado...</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.full_name}{emp.department ? ` (${emp.department})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {(['item', 'monthly', 'quarterly', 'annual'] as const).map(dim => {
+            const enfField = `${dim}_enforcement` as keyof PolicyFormState
+            const limField = `${dim}_limit` as keyof PolicyFormState
+            return (
+              <div key={dim} className="grid grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">{dimLabels[dim]}</label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm text-ink-500">$</span>
+                    <input
+                      type="text" inputMode="numeric"
+                      value={form[limField] as string}
+                      onChange={e => setF(limField, e.target.value.replace(/\D/g, ''))}
+                      placeholder="Sin límite"
+                      className={`${inputCls} font-mono`}
+                      disabled={!form[enfField]}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo de restricción</label>
+                  <select value={form[enfField] as string} onChange={e => setF(enfField, e.target.value)} className={selectCls}>
+                    {ENFORCEMENT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+            )
+          })}
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={cancelForm}
+              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors">
+              {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear política'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {policies.length === 0 ? (
+        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+          No hay políticas configuradas. Las políticas permiten controlar los gastos por categoría, departamento o empleado.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {policies.map(p => {
+            const catName = categories.find(c => c.id === p.category_id)?.name
+            const empName = employees.find(e => e.id === p.target_user_id)?.full_name
+            const scope   = p.target_user_id ? `👤 ${empName ?? p.target_user_id}`
+                          : p.department     ? `🏢 ${p.department}` : '🌐 Toda la org'
+            return (
+              <div key={p.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!p.is_active ? 'opacity-50' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-ink-900">{p.name}</span>
+                    {catName && <span className="text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded-full">{catName}</span>}
+                    <span className="text-xs text-ink-400">{scope}</span>
+                  </div>
+                  <div className="flex gap-3 flex-wrap mt-1.5">
+                    {p.item_limit     && <span className="text-xs text-ink-500">Ítem: ${p.item_limit.toLocaleString('es-CL')} {enforcementBadge(p.item_enforcement)}</span>}
+                    {p.monthly_limit  && <span className="text-xs text-ink-500">Mensual: ${p.monthly_limit.toLocaleString('es-CL')} {enforcementBadge(p.monthly_enforcement)}</span>}
+                    {p.quarterly_limit && <span className="text-xs text-ink-500">Trimestral: ${p.quarterly_limit.toLocaleString('es-CL')} {enforcementBadge(p.quarterly_enforcement)}</span>}
+                    {p.annual_limit   && <span className="text-xs text-ink-500">Anual: ${p.annual_limit.toLocaleString('es-CL')} {enforcementBadge(p.annual_enforcement)}</span>}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => handleToggle(p.id, !p.is_active)}
+                    className={`px-2 py-1 rounded-item text-xs font-semibold transition-colors ${p.is_active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'}`}
+                  >
+                    {p.is_active ? 'Activa' : 'Inactiva'}
+                  </button>
+                  <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }
