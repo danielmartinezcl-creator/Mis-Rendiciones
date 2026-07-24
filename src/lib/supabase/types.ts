@@ -222,6 +222,8 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          ai_analysis:    Json | null
+          ai_analysis_at: string | null
         }
         Insert: {
           id?: string
@@ -247,6 +249,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          ai_analysis?:    Json | null
+          ai_analysis_at?: string | null
         }
         Update: {
           id?: string
@@ -272,6 +276,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          ai_analysis?:    Json | null
+          ai_analysis_at?: string | null
         }
         Relationships: [
           {
@@ -315,6 +321,8 @@ export interface Database {
           transfer_id: string | null
           ocr_raw: Json | null
           ocr_confidence: number | null
+          policy_justification: string | null
+          policy_violations:    Json | null
           created_at: string
         }
         Insert: {
@@ -341,6 +349,8 @@ export interface Database {
           transfer_id?: string | null
           ocr_raw?: Json | null
           ocr_confidence?: number | null
+          policy_justification?: string | null
+          policy_violations?:    Json | null
           created_at?: string
         }
         Update: {
@@ -367,6 +377,8 @@ export interface Database {
           transfer_id?: string | null
           ocr_raw?: Json | null
           ocr_confidence?: number | null
+          policy_justification?: string | null
+          policy_violations?:    Json | null
           created_at?: string
         }
         Relationships: [
@@ -710,6 +722,60 @@ export interface Database {
           }
         ]
       }
+      expense_policies: {
+        Row: {
+          id:                    string
+          org_id:                string
+          name:                  string
+          category_id:           string | null
+          department:            string | null
+          target_user_id:        string | null
+          item_limit:            number | null
+          item_enforcement:      'warn' | 'require_justification' | 'block' | null
+          monthly_limit:         number | null
+          monthly_enforcement:   'warn' | 'require_justification' | 'block' | null
+          quarterly_limit:       number | null
+          quarterly_enforcement: 'warn' | 'require_justification' | 'block' | null
+          annual_limit:          number | null
+          annual_enforcement:    'warn' | 'require_justification' | 'block' | null
+          is_active:             boolean
+          created_at:            string
+        }
+        Insert: {
+          id?:                    string
+          org_id:                 string
+          name:                   string
+          category_id?:           string | null
+          department?:            string | null
+          target_user_id?:        string | null
+          item_limit?:            number | null
+          item_enforcement?:      'warn' | 'require_justification' | 'block' | null
+          monthly_limit?:         number | null
+          monthly_enforcement?:   'warn' | 'require_justification' | 'block' | null
+          quarterly_limit?:       number | null
+          quarterly_enforcement?: 'warn' | 'require_justification' | 'block' | null
+          annual_limit?:          number | null
+          annual_enforcement?:    'warn' | 'require_justification' | 'block' | null
+          is_active?:             boolean
+          created_at?:            string
+        }
+        Update: {
+          name?:                  string
+          category_id?:           string | null
+          department?:            string | null
+          target_user_id?:        string | null
+          item_limit?:            number | null
+          item_enforcement?:      'warn' | 'require_justification' | 'block' | null
+          monthly_limit?:         number | null
+          monthly_enforcement?:   'warn' | 'require_justification' | 'block' | null
+          quarterly_limit?:       number | null
+          quarterly_enforcement?: 'warn' | 'require_justification' | 'block' | null
+          annual_limit?:          number | null
+          annual_enforcement?:    'warn' | 'require_justification' | 'block' | null
+          is_active?:             boolean
+        }
+        Relationships: []
+      }
       approval_attachments: {
         Row: {
           id: string
@@ -817,3 +883,4 @@ export type ApprovalAttachment = Database['public']['Tables']['approval_attachme
 export type CostCenter         = Database['public']['Tables']['cost_centers']['Row']
 export type DefontanaSupplier  = Database['public']['Tables']['defontana_suppliers']['Row']
 export type FundTransfer       = Database['public']['Tables']['fund_transfers']['Row']
+export type ExpensePolicy      = Database['public']['Tables']['expense_policies']['Row']
