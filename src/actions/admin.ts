@@ -134,9 +134,10 @@ export async function getAdminKpis() {
     // Rendiciones pendientes de aprobación
     supabase.from('expense_reports').select('id, total_amount', { count: 'exact' })
       .eq('org_id', orgId).in('status', ['submitted', 'pending_l2']).is('deleted_at', null),
-    // Rendiciones aprobadas sin reembolsar
+    // Rendiciones aprobadas sin reembolsar (excluye cargas históricas de caja chica — la empresa dio dinero, no el empleado)
     supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
-      .eq('org_id', orgId).in('status', ['approved', 'partially_approved']).is('deleted_at', null),
+      .eq('org_id', orgId).in('status', ['approved', 'partially_approved']).is('deleted_at', null)
+      .or('is_historical_import.eq.false,historical_type.eq.rendicion'),
     // Rendiciones reembolsadas
     supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
       .eq('org_id', orgId).eq('status', 'reimbursed').is('deleted_at', null),
@@ -219,15 +220,18 @@ export async function getPendingToRenderList() {
       if (!byReport.has(item.report_id)) byReport.set(item.report_id, { advance: 0, expense: 0 })
       const e = byReport.get(item.report_id)!
       if (item.item_type === 'advance') e.advance += item.amount_clp
-      if (item.item_type === 'expense') e.expense += item.amount_clp
+      // expense Y return reducen el saldo pendiente (devoluciones = dinero devuelto)
+      if (item.item_type === 'expense' || item.item_type === 'return') e.expense += item.amount_clp
     }
 
+    // Solo fondos donde el neto es positivo: advance > expense (excluye "cuadradas")
     historicalPending = historical.filter(r => {
       const t = byReport.get(r.id)
-      return t && t.advance > 0 && t.expense === 0
+      return t && t.advance > t.expense
     })
     for (const r of historicalPending) {
-      advanceTotals[r.id] = byReport.get(r.id)?.advance ?? 0
+      const t = byReport.get(r.id)!
+      advanceTotals[r.id] = t.advance - t.expense  // monto neto aún no rendido
     }
   }
 
@@ -324,24 +328,19 @@ export type PendingApprovalList = Awaited<ReturnType<typeof getPendingApprovalLi
 export async function getPendingReimbursementList() {
   const { supabase, orgId } = await requireAdmin()
 
-  const [reportsRes, fundsRes] = await Promise.all([
+  const [reportsRes] = await Promise.all([
     supabase.from('expense_reports')
       .select('id, title, submitter_id, approved_amount, approved_at, status')
       .eq('org_id', orgId)
       .in('status', ['approved', 'partially_approved'])
       .is('deleted_at', null)
+      // Solo rendiciones donde el empleado gastó de su bolsillo; excluye cajas históricas
+      .or('is_historical_import.eq.false,historical_type.eq.rendicion')
       .order('approved_at', { ascending: false }),
-    supabase.from('petty_cash_funds')
-      .select('id, name, employee_id, amount_approved, updated_at')
-      .eq('org_id', orgId)
-      .eq('status', 'settled')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false }),
   ])
 
   const reports = reportsRes.data ?? []
-  const funds   = fundsRes.data   ?? []
-  const empIds  = [...new Set([...reports.map(r => r.submitter_id), ...funds.map(f => f.employee_id)])]
+  const empIds  = [...new Set(reports.map(r => r.submitter_id))]
   const { data: users } = empIds.length
     ? await supabase.from('users').select('id, full_name').in('id', empIds)
     : { data: [] }
@@ -354,11 +353,7 @@ export async function getPendingReimbursementList() {
       amount: r.approved_amount, status: r.status,
       approvedAt: r.approved_at ?? '',
     })),
-    pettyCashFunds: funds.map(f => ({
-      id: f.id, name: f.name,
-      employeeName: userMap[f.employee_id] ?? 'Desconocido',
-      amount: f.amount_approved ?? 0,
-    })),
+    pettyCashFunds: [] as { id: string; name: string; employeeName: string; amount: number }[],
   }
 }
 export type PendingReimbursementList = Awaited<ReturnType<typeof getPendingReimbursementList>>

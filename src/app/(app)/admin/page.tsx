@@ -26,8 +26,13 @@ export default async function AdminPage() {
   const approvalCount  = kpis.pendingCount  + kpis.pcPendingCount
   const approvalAmount = kpis.pendingAmount + kpis.pcPendingAmount
 
-  const reimbursementCount  = kpis.approvedCount  + kpis.pcApprovedCount
-  const reimbursementAmount = kpis.approvedAmount + kpis.pcApprovedAmount
+  // Solo rendiciones aprobadas sin reembolsar (cajas chicas históricas ya excluidas del KPI)
+  const reimbursementCount  = kpis.approvedCount
+  const reimbursementAmount = kpis.approvedAmount
+
+  // Reembolsadas: rendiciones reembolsadas + cajas chicas liquidadas (settled)
+  const completedCount  = kpis.reimbursedCount  + kpis.pcApprovedCount
+  const completedAmount = kpis.reimbursedAmount + kpis.pcApprovedAmount
 
   // Pendiente de rendición: suma directa desde la lista (incluye históricas con adelanto)
   const toRenderAmount =
@@ -68,15 +73,15 @@ export default async function AdminPage() {
           list={reimbursementList}
         />
 
-        {/* Reembolsadas — solo link, sin expandir */}
+        {/* Reembolsadas — rendiciones pagadas + cajas chicas liquidadas */}
         <Link
           href="/admin/reports?status=reimbursed"
           className="bg-white rounded-card shadow-card border-t-[3px] border-t-sky-400 p-5 hover:shadow-md transition-shadow"
         >
-          <p className="text-sm font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
-          <p className="text-3xl font-bold text-ink-900 mb-0.5">{kpis.reimbursedCount}</p>
+          <p className="text-base font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
+          <p className="text-3xl font-bold text-ink-900 mb-0.5">{completedCount}</p>
           <p className="text-base font-mono-amount font-semibold text-sky-600">
-            {'$ ' + Math.round(kpis.reimbursedAmount).toLocaleString('es-CL')}
+            {'$ ' + Math.round(completedAmount).toLocaleString('es-CL')}
           </p>
         </Link>
 

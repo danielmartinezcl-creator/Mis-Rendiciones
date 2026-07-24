@@ -30,7 +30,7 @@ export function PendingToRenderPanel({ list }: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-ink-500 leading-tight mb-3">Pendiente de rendición</p>
+            <p className="text-base font-medium text-ink-500 leading-tight mb-3">Pendiente de rendición</p>
             <p className="text-3xl font-bold text-ink-900 mb-0.5">{count}</p>
             <p className={`text-base font-mono-amount font-semibold ${amount > 0 ? 'text-violet-600' : 'text-ink-400'}`}>
               {fmtCLP(amount)}
