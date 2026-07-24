@@ -12,6 +12,8 @@ import {
   approveLiquidation,
   recordSettlement,
   removeFundItem,
+  getPettyCashFundDefontanaData,
+  markPettyCashFundDefontanaExported,
 } from '@/actions/petty-cash'
 import type { FundDetail } from '@/actions/petty-cash'
 import { FundStatusBadge }   from '@/components/petty-cash/FundStatusBadge'
@@ -19,7 +21,7 @@ import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
 import { calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation } from '@/lib/petty-cash-helpers'
-import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, FileSpreadsheet } from 'lucide-react'
 import Link from 'next/link'
 
 function fmtCLP(n: number) {
@@ -62,6 +64,44 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const [settleAmount, setSettleAmount]   = useState('')
   const [settleRef, setSettleRef]         = useState('')
   const [settleDate, setSettleDate]       = useState(today())
+  const [exportingDef, setExportingDef]   = useState(false)
+  const [defWarnings, setDefWarnings]     = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
+
+  async function handleExportDefontana() {
+    setExportingDef(true)
+    setDefWarnings(null)
+    try {
+      const { report, settings, alreadyExported } = await getPettyCashFundDefontanaData(id)
+
+      if (!settings.contraAccount) {
+        alert('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
+        return
+      }
+
+      if (alreadyExported) {
+        const ok = confirm('Este fondo ya fue exportado a Defontana anteriormente.\n\n¿Exportar igualmente y sobreescribir el registro?')
+        if (!ok) return
+      }
+
+      const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
+      const result = buildDefontanaEntries([report], settings)
+
+      const exportRef = `CC-${new Date().toISOString().slice(0, 10)}`
+      exportDefontanaToExcel(result, `caja-chica-defontana-${exportRef}`)
+
+      await markPettyCashFundDefontanaExported(id, exportRef)
+      await load()
+
+      if (result.warnings.length > 0) {
+        const w = result.warnings[0]
+        setDefWarnings({ categories: w.categories, unmappedCLP: w.unmappedCLP })
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al exportar')
+    } finally {
+      setExportingDef(false)
+    }
+  }
 
   async function load() {
     const d = await getFundDetail(id)
@@ -489,6 +529,46 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Exportar a Defontana — solo admin, fondo liquidado */}
+      {fund.status === 'settled' && currentUser.role === 'admin' && (
+        <div className="bg-white rounded-card shadow-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet size={16} className="text-teal-600" />
+              <p className="text-sm font-semibold text-ink-800">Contabilidad Defontana</p>
+            </div>
+            {fund.defontana_exported_at && (
+              <span className="text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full font-medium">
+                ✓ Contabilizado {new Date(fund.defontana_exported_at).toLocaleDateString('es-CL')}
+                {(fund as { defontana_export_ref?: string | null }).defontana_export_ref
+                  ? ` · ${(fund as { defontana_export_ref?: string | null }).defontana_export_ref}`
+                  : ''}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-ink-500">
+            Genera el asiento contable de los ítems aprobados en formato Defontana (importador de comprobantes).
+          </p>
+          {defWarnings && (
+            <div className="bg-amber-50 border border-amber-200 rounded-item p-3 text-xs text-amber-800 space-y-1">
+              <p className="font-semibold">Categorías sin código Defontana ({fmtCLP(defWarnings.unmappedCLP)} no incluidos):</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                {defWarnings.categories.map(c => <li key={c}>{c}</li>)}
+              </ul>
+              <p className="text-amber-600 mt-1">Asigna sus códigos en Configuración → Defontana.</p>
+            </div>
+          )}
+          <button
+            onClick={handleExportDefontana}
+            disabled={exportingDef}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold rounded-item transition-colors"
+          >
+            <FileSpreadsheet size={14} />
+            {exportingDef ? 'Generando...' : (fund.defontana_exported_at ? 'Re-exportar a Defontana' : 'Exportar a Defontana')}
+          </button>
         </div>
       )}
 

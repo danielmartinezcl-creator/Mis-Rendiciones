@@ -640,3 +640,120 @@ export async function getPettyCashItemsForReport(filters: {
 
   return { items: enriched, totalCLP }
 }
+
+// ── Export Defontana ──────────────────────────────────────────────────────────
+
+export async function getPettyCashFundDefontanaData(fundId: string) {
+  const { supabase, profile } = await getProfile()
+  if (profile.role !== 'admin') throw new Error('Sin permiso')
+
+  const [fundRes, orgRes, suppliersRes] = await Promise.all([
+    supabase
+      .from('petty_cash_funds')
+      .select('id, name, period_start, employee_id, defontana_exported_at')
+      .eq('id', fundId)
+      .single(),
+    supabase
+      .from('organizations')
+      .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+      .eq('id', profile.org_id)
+      .single(),
+    supabase
+      .from('defontana_suppliers')
+      .select('merchant_name, defontana_account_code')
+      .eq('org_id', profile.org_id),
+  ])
+
+  const fund = fundRes.data
+  if (!fund) throw new Error('Fondo no encontrado')
+
+  const supplierMap: Record<string, string> = {}
+  for (const s of suppliersRes.data ?? []) {
+    supplierMap[s.merchant_name.toLowerCase()] = s.defontana_account_code
+  }
+
+  // Empleado: nombre, RUT y centro de costo
+  const { data: empUser } = await supabase
+    .from('users')
+    .select('full_name, rut, cost_center_id')
+    .eq('id', fund.employee_id)
+    .single()
+
+  // Ítems aprobados con cuenta Defontana de la categoría
+  const { data: rawItems } = await supabase
+    .from('petty_cash_items')
+    .select('description, amount_clp, date, merchant, doc_type, doc_number, supplier_rut, expense_categories(name, defontana_account_code)')
+    .eq('fund_id', fundId)
+    .eq('status', 'approved')
+
+  type RawPCItem = {
+    description:       string
+    amount_clp:        number
+    date:              string
+    merchant:          string | null
+    doc_type:          string | null
+    doc_number:        string | null
+    supplier_rut:      string | null
+    expense_categories: { name: string; defontana_account_code: string | null } | null
+  }
+
+  const items = (rawItems ?? []) as unknown as RawPCItem[]
+
+  // Usar la fecha del ítem más antiguo como fecha del asiento
+  const dates = items.map(i => i.date).sort()
+  const reportDate = dates[0] ?? fund.period_start
+
+  const mappedItems = items.map(i => {
+    const cat = i.expense_categories
+    const merchantKey = (i.merchant ?? '').toLowerCase()
+    return {
+      description:            i.description,
+      amount_clp:             i.amount_clp,
+      category_name:          cat?.name ?? null,
+      defontana_account_code: cat?.defontana_account_code ?? null,
+      supplier_account_code:  merchantKey ? (supplierMap[merchantKey] ?? null) : null,
+      doc_type:               i.doc_type,
+      doc_number:             i.doc_number,
+      cost_center_id:         null,   // los ítems de caja chica no tienen override; usa el del empleado
+      supplier_rut:           i.supplier_rut,
+      merchant:               i.merchant,
+    }
+  })
+
+  const orgData = orgRes.data
+
+  return {
+    report: {
+      reportId:             fund.id,
+      reportTitle:          fund.name,
+      date:                 reportDate,
+      employeeName:         empUser?.full_name ?? 'Desconocido',
+      employeeRut:          empUser?.rut ?? null,
+      employeeCostCenterId: empUser?.cost_center_id ?? null,
+      items:                mappedItems,
+    },
+    settings: {
+      contraAccount:   orgData?.defontana_contra_account   ?? '',
+      voucherType:     orgData?.defontana_voucher_type      ?? 'Egreso',
+      costCenter:      orgData?.defontana_cost_center       ?? null,
+      providerAccount: orgData?.defontana_provider_account  ?? null,
+    },
+    alreadyExported: !!fund.defontana_exported_at,
+    exportedAt:      fund.defontana_exported_at ?? null,
+  }
+}
+
+export async function markPettyCashFundDefontanaExported(fundId: string, ref: string) {
+  const { supabase, profile } = await getProfile()
+  if (profile.role !== 'admin') throw new Error('Sin permiso')
+  const { error } = await supabase
+    .from('petty_cash_funds')
+    .update({
+      defontana_exported_at: new Date().toISOString(),
+      defontana_export_ref:  ref,
+    })
+    .eq('id', fundId)
+    .eq('org_id', profile.org_id)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/petty-cash/${fundId}`)
+}

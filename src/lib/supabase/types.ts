@@ -509,6 +509,8 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
           is_historical_import: boolean
+          defontana_exported_at: string | null
+          defontana_export_ref: string | null
         }
         Insert: {
           id?: string
@@ -528,6 +530,8 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           is_historical_import?: boolean
+          defontana_exported_at?: string | null
+          defontana_export_ref?: string | null
         }
         Update: {
           id?: string
@@ -538,6 +542,8 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           is_historical_import?: boolean
+          defontana_exported_at?: string | null
+          defontana_export_ref?: string | null
         }
         Relationships: []
       }
