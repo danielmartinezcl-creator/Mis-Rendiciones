@@ -35,8 +35,8 @@ describe('parseOcrResponse', () => {
     expect(result).toBeNull()
   })
 
-  it('retorna null si confidence < 0.7', () => {
-    const raw = JSON.stringify({ amount: 1000, confidence: 0.5 })
+  it('retorna null si confidence < 0.5', () => {
+    const raw = JSON.stringify({ amount: 1000, confidence: 0.4 })
     const result = parseOcrResponse(raw)
     expect(result).toBeNull()
   })
