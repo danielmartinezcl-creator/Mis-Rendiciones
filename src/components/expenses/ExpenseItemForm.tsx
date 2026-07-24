@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { PhotoUpload } from './PhotoUpload'
 import { getHistoricalRate } from '@/actions/exchange-rate'
 import { checkItemDuplicate } from '@/actions/expenses'
+import { checkPolicyViolations } from '@/actions/policies'
+import { formatViolationMessage } from '@/lib/policy-helpers'
 import { formatCLP, formatExchangeRate, formatDate } from '@/lib/utils'
 import { CURRENCIES, DOC_TYPES, type Currency } from '@/lib/constants'
 import type { OcrResult } from '@/lib/ocr-helpers'
+import type { PolicyCheckResult } from '@/actions/policies'
+import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { ExpenseCategory, CostCenter, Json } from '@/lib/supabase/types'
 
 type DuplicateResult = Awaited<ReturnType<typeof checkItemDuplicate>>
@@ -30,6 +34,8 @@ export interface ItemFormData {
   ocr_raw:              Json | null
   ocr_confidence:       number | null
   file:                 File | null
+  policy_justification: string | null
+  policy_violations:    PolicyViolation[] | null
 }
 
 const emptyForm = (): ItemFormData => ({
@@ -50,12 +56,15 @@ const emptyForm = (): ItemFormData => ({
   ocr_raw:              null,
   ocr_confidence:       null,
   file:                 null,
+  policy_justification: null,
+  policy_violations:    null,
 })
 
 interface ExpenseItemFormProps {
   categories:           ExpenseCategory[]
   costCenters:          CostCenter[]
   employeeCostCenterId: string | null
+  employeeId:           string
   onSave:               (data: ItemFormData) => Promise<void>
   onCancel:             () => void
 }
@@ -64,6 +73,7 @@ export function ExpenseItemForm({
   categories,
   costCenters,
   employeeCostCenterId,
+  employeeId: _employeeId, // recibido por API, la server action usa la sesión Supabase
   onSave,
   onCancel,
 }: ExpenseItemFormProps) {
@@ -72,6 +82,12 @@ export function ExpenseItemForm({
   const [saving, setSaving]           = useState(false)
   const [errors, setErrors]           = useState<string[]>([])
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateResult>(null)
+
+  // ─── Estado de validación de políticas ────────────────────────────────────
+  const [policyResult, setPolicyResult]         = useState<PolicyCheckResult | null>(null)
+  const [policyLoading, setPolicyLoading]       = useState(false)
+  const [policyJustification, setPolicyJustification] = useState('')
+  const pendingCheck = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function set(field: keyof ItemFormData, value: unknown) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -103,9 +119,38 @@ export function ExpenseItemForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.currency, form.date])
 
+  // ─── Validación de políticas (debounce 600ms) ─────────────────────────────
+  function triggerPolicyCheck(amount: string, catId: string | null) {
+    if (pendingCheck.current) clearTimeout(pendingCheck.current)
+
+    const numericAmount = parseInt(amount.replace(/\D/g, ''), 10)
+    if (!numericAmount || numericAmount <= 0) {
+      setPolicyResult(null)
+      return
+    }
+
+    pendingCheck.current = setTimeout(async () => {
+      setPolicyLoading(true)
+      try {
+        const result = await checkPolicyViolations({
+          categoryId: catId || null,
+          amount:     numericAmount,
+          date:       form.date || new Date().toISOString().split('T')[0],
+        })
+        setPolicyResult(result)
+        if (!result.violations.length) setPolicyJustification('')
+      } catch {
+        setPolicyResult(null)
+      } finally {
+        setPolicyLoading(false)
+      }
+    }, 600)
+  }
+
   function handleAmountChange(raw: string) {
     set('amount', raw)
     recalcAmountClp(raw, form.exchange_rate)
+    triggerPolicyCheck(raw, form.category_id || null)
   }
 
   function handleRateChange(raw: string) {
@@ -135,8 +180,14 @@ export function ExpenseItemForm({
   async function doSave() {
     setSaving(true)
     try {
-      await onSave(form)
+      await onSave({
+        ...form,
+        policy_justification: policyJustification || null,
+        policy_violations:    policyResult?.violations.length ? policyResult.violations : null,
+      })
       setDuplicateWarning(null)
+      setPolicyResult(null)
+      setPolicyJustification('')
     } finally {
       setSaving(false)
     }
@@ -178,6 +229,11 @@ export function ExpenseItemForm({
     : 'Sin centro asignado'
 
   const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+
+  const isSaveDisabled =
+    saving ||
+    !!policyResult?.hasBlock ||
+    (!!policyResult?.hasJustificationRequired && !policyResult.hasBlock && !policyJustification.trim())
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-4">
@@ -254,7 +310,7 @@ export function ExpenseItemForm({
             value={form.amount}
             onChange={e => handleAmountChange(e.target.value)}
             placeholder="15000"
-            className={`${inputCls} font-[Manrope] tabular-nums`}
+            className={`${inputCls} font-[Manrope] tabular-nums ${policyResult?.hasBlock ? 'border-rose-400 bg-rose-50' : ''}`}
           />
         </div>
         <div>
@@ -318,7 +374,10 @@ export function ExpenseItemForm({
         <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
         <select
           value={form.category_id}
-          onChange={e => set('category_id', e.target.value)}
+          onChange={e => {
+            set('category_id', e.target.value)
+            triggerPolicyCheck(form.amount, e.target.value || null)
+          }}
           className={inputCls}
         >
           <option value="">Sin categoría</option>
@@ -428,6 +487,54 @@ export function ExpenseItemForm({
         />
       </div>
 
+      {/* ─── Banner de validación de políticas ──────────────────────────────── */}
+      {policyLoading && (
+        <div className="text-xs text-ink-400 flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
+          Verificando políticas...
+        </div>
+      )}
+
+      {!policyLoading && policyResult && policyResult.violations.length > 0 && (
+        <div className={`rounded-item p-3 space-y-1.5 ${
+          policyResult.hasBlock
+            ? 'bg-rose-50 border border-rose-200'
+            : 'bg-amber-50 border border-amber-200'
+        }`}>
+          <div className={`flex items-start gap-2 text-sm font-semibold ${
+            policyResult.hasBlock ? 'text-rose-700' : 'text-amber-700'
+          }`}>
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <span>
+              {policyResult.hasBlock ? 'Gasto bloqueado por política' : 'Advertencia de política'}
+            </span>
+          </div>
+          {policyResult.violations.map((v, i) => (
+            <p key={i} className={`text-xs ml-5 ${
+              policyResult.hasBlock ? 'text-rose-600' : 'text-amber-600'
+            }`}>
+              {formatViolationMessage(v)}
+            </p>
+          ))}
+
+          {/* Campo justificación — solo si require_justification y no block */}
+          {policyResult.hasJustificationRequired && !policyResult.hasBlock && (
+            <div className="mt-2">
+              <label className="block text-xs font-semibold text-amber-700 mb-1">
+                Justificación requerida *
+              </label>
+              <textarea
+                value={policyJustification}
+                onChange={e => setPolicyJustification(e.target.value)}
+                placeholder="Explica por qué es necesario este gasto..."
+                className="w-full border border-amber-300 rounded-item px-2.5 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+                rows={2}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Botones */}
       <div className="flex gap-3">
         <button
@@ -440,7 +547,7 @@ export function ExpenseItemForm({
         </button>
         <button
           type="submit"
-          disabled={saving}
+          disabled={isSaveDisabled}
           className="flex-1 py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
         >
           {saving ? 'Guardando...' : 'Agregar ítem'}

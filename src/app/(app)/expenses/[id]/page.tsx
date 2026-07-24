@@ -213,6 +213,7 @@ export default function ExpenseDetailPage() {
           categories={categories}
           costCenters={costCenters}
           employeeCostCenterId={employeeCostCenterId}
+          employeeId={currentUserId ?? ''}
           onSave={handleSaveItem}
           onCancel={() => setShowForm(false)}
         />
