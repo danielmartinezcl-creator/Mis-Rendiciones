@@ -748,7 +748,7 @@ export async function getDefontanaExportData(filters: {
   // Rendiciones aprobadas / reembolsadas (excluye papelera)
   let query = supabase
     .from('expense_reports')
-    .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at')
+    .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at, defontana_export_ref')
     .eq('org_id', orgId)
     .in('status', ['approved', 'partially_approved', 'reimbursed'])
     .is('deleted_at', null)
@@ -779,7 +779,7 @@ export async function getDefontanaExportData(filters: {
   // Ítems aprobados con todos los campos nuevos
   const { data: rawItems } = await supabase
     .from('expense_items')
-    .select('report_id, description, amount_clp, merchant, doc_type, doc_number, cost_center_id, supplier_rut, expense_categories(name, defontana_account_code)')
+    .select('report_id, description, amount_clp, date, merchant, doc_type, doc_number, cost_center_id, supplier_rut, expense_categories(name, defontana_account_code)')
     .in('report_id', reports.map(r => r.id))
     .eq('status', 'approved')
 
@@ -787,6 +787,7 @@ export async function getDefontanaExportData(filters: {
     report_id:       string
     description:     string
     amount_clp:      number
+    date:            string | null
     merchant:        string | null
     doc_type:        string | null
     doc_number:      string | null
@@ -809,6 +810,9 @@ export async function getDefontanaExportData(filters: {
     // Fecha = fecha del ítem más antiguo del reporte (o approved_at como fallback)
     const reportItems = itemsByReport[r.id] ?? []
 
+    const itemDates = reportItems.map(i => i.date).filter(Boolean).sort() as string[]
+    const reportDate = itemDates[0] ?? (r.reimbursed_at ?? r.approved_at ?? '').split('T')[0]
+
     const mappedItems = reportItems.map(i => {
       const rawCat = i.expense_categories
       const merchantKey = (i.merchant ?? '').toLowerCase()
@@ -829,7 +833,7 @@ export async function getDefontanaExportData(filters: {
     return {
       reportId:             r.id,
       reportTitle:          r.title,
-      date:                 (r.reimbursed_at ?? r.approved_at ?? '').split('T')[0],
+      date:                 reportDate,
       employeeName:         submitter?.name ?? 'Desconocido',
       employeeRut:          submitter?.rut ?? null,
       employeeCostCenterId: submitter?.costCenter ?? null,
