@@ -196,7 +196,7 @@ export async function getPendingToRenderList() {
       .order('created_at', { ascending: false }),
     supabase
       .from('expense_reports')
-      .select('id, title, submitter_id, approved_at')
+      .select('id, title, submitter_id, approved_at, fund_number')
       .eq('org_id', orgId)
       .eq('is_historical_import', true)
       .is('deleted_at', null),
@@ -238,6 +238,24 @@ export async function getPendingToRenderList() {
     : { data: [] }
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
+  // Agrupar importaciones históricas por fund_number → cada caja chica = 1 entrada en el panel
+  const fundGroups = new Map<string, {
+    id: string; title: string; submitterId: string; approvedAt: string | null; amount: number
+  }>()
+  for (const r of historicalPending) {
+    const key = r.fund_number ?? r.id
+    if (!fundGroups.has(key)) {
+      fundGroups.set(key, {
+        id:          r.id,
+        title:       r.fund_number ? `Fondo Nº ${r.fund_number}` : r.title,
+        submitterId: r.submitter_id,
+        approvedAt:  r.approved_at,
+        amount:      0,
+      })
+    }
+    fundGroups.get(key)!.amount += advanceTotals[r.id] ?? 0
+  }
+
   return {
     pettyCashFunds: funds.map(f => ({
       id:           f.id,
@@ -247,12 +265,12 @@ export async function getPendingToRenderList() {
       period_start: f.period_start,
       period_end:   f.period_end,
     })),
-    historicalImports: historicalPending.map(r => ({
-      id:           r.id,
-      title:        r.title,
-      employeeName: userMap[r.submitter_id] ?? 'Desconocido',
-      amount:       advanceTotals[r.id] ?? 0,
-      date:         r.approved_at ?? '',
+    historicalImports: Array.from(fundGroups.values()).map(g => ({
+      id:           g.id,
+      title:        g.title,
+      employeeName: userMap[g.submitterId] ?? 'Desconocido',
+      amount:       g.amount,
+      date:         g.approvedAt ?? '',
     })),
   }
 }
@@ -1328,6 +1346,7 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
     .select('amount_clp, expense_categories (name)')
     .in('report_id', ids)
     .eq('status', 'approved')
+    .eq('item_type', 'expense')
 
   if (!items || items.length === 0) return []
 
