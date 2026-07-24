@@ -79,16 +79,25 @@ description: >
 ## Entidades del dominio
 
 ```
-organizations       → Organization       (tenant raíz, 1 por empresa cliente)
-users               → UserProfile        (roles: admin | approver | employee)
-approval_policies   → ApprovalPolicy     (levels: jsonb, soporta N niveles)
-employee_policies   →                    (join: qué política aplica a cada empleado)
-expense_categories  → ExpenseCategory    (org_id=null = global; con org_id = por org)
-expense_reports     → ExpenseReport      (cabecera de rendición)
-expense_items       → ExpenseItem        (ítems individuales)
-attachments         → Attachment         (fotos/PDFs en Supabase Storage)
-expense_report_approvals →               (log auditoría — APPEND ONLY)
-notifications       → Notification       (in-app)
+organizations            → Organization       (tenant raíz, 1 por empresa cliente)
+users                    → UserProfile        (roles: admin | approver | employee)
+approval_policies        → ApprovalPolicy     (levels: jsonb, soporta N niveles)
+employee_policies        →                    (join: qué política aplica a cada empleado)
+expense_categories       → ExpenseCategory    (org_id=null = global; con org_id = por org)
+expense_reports          → ExpenseReport      (cabecera de rendición O carga histórica)
+expense_items            → ExpenseItem        (ítems individuales; item_type: expense|advance|return|transfer)
+attachments              → Attachment         (fotos/PDFs en Supabase Storage)
+expense_report_approvals →                    (log auditoría — APPEND ONLY)
+notifications            → Notification       (in-app)
+suggestions              →                    (mejoras/bugs enviados por empleados)
+approval_attachments     →                    (correos/PDFs de respaldo de aprobaciones)
+-- Módulo Caja Chica (migración 004)
+petty_cash_funds         →                    (fondos de caja chica por empleado)
+petty_cash_items         →                    (gastos individuales del fondo)
+petty_cash_approvals     →                    (audit trail append-only del fondo)
+petty_cash_transfers     →                    (transferencias bancarias al fondo)
+-- Traspasos entre empleados (migración 010)
+fund_transfers           → FundTransfer       (traspaso entre cajas chicas — matching 2 fases)
 ```
 
 ### Tipos clave (`src/lib/constants.ts`)
@@ -98,6 +107,7 @@ ReportStatus = 'draft' | 'submitted' | 'pending_l2' | 'approved' |
                'partially_approved' | 'rejected' | 'reimbursed'
 ItemStatus   = 'pending' | 'approved' | 'rejected'
 DocType      = 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro'
+ItemType     = 'expense' | 'advance' | 'return' | 'transfer'   // en expense_items
 ```
 
 ---
@@ -108,23 +118,47 @@ DocType      = 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro'
 src/
 ├── app/
 │   ├── (app)/              ← rutas autenticadas (layout carga perfil Supabase)
+│   │   ├── page.tsx                      ← Dashboard empleado
+│   │   ├── expenses/new + [id]/          ← Rendición empleado
+│   │   ├── reimbursements/               ← Historial reembolsos
+│   │   ├── approvals/ + [id]/            ← Bandeja aprobador
+│   │   ├── admin/                        ← KPIs + reports + employees + settings
+│   │   │   ├── carga-historica/          ← Importador histórico Excel
+│   │   │   └── trash/                    ← Papelera (soft delete, 90 días)
+│   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica
+│   │   ├── profile/                      ← Perfil + datos bancarios
+│   │   └── suggestions/                  ← Sugerencias y bugs
 │   ├── (auth)/login/       ← 'use client', Suspense para useSearchParams
 │   ├── api/auth/callback/  ← OAuth code exchange
 │   └── globals.css         ← Tailwind v4 @theme + clases fallback
+├── actions/                ← 13 server actions
+│   ├── admin.ts, approvals.ts, employees.ts, expenses.ts
+│   ├── fund-transfers.ts, historical-import.ts, notifications.ts
+│   ├── ocr.ts, petty-cash.ts, profile.ts, suggestions.ts
+│   ├── approval-attachments.ts, exchange-rate.ts
 ├── components/
-│   ├── layout/             ← Sidebar, MobileNav, LogoutButton
-│   └── ui/                 ← Button, Card, Badge, CurrencyAmount
+│   ├── layout/             ← Sidebar (drag&drop), MobileNav, LogoutButton
+│   ├── ui/                 ← Button, Card, Badge, CurrencyAmount
+│   └── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig
 ├── lib/
-│   ├── constants.ts        ← CURRENCIES, DOC_TYPES, STATUS_COLORS
+│   ├── constants.ts        ← CURRENCIES, DOC_TYPES, STATUS_COLORS, STATUS_DOT
 │   ├── utils.ts            ← formatCLP, formatAmount, formatDate, cn
-│   └── supabase/           ← client.ts, server.ts, types.ts
+│   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
+│   └── export/             ← excel.ts, pdf.ts
 ├── proxy.ts                ← protección de rutas (Next.js 16)
 └── tests/
 supabase/
-├── migrations/001_initial_schema.sql
+├── migrations/
+│   ├── 001_initial_schema.sql     ← tablas base + RLS + triggers
+│   ├── 004_petty_cash.sql         ← caja chica (4 tablas)
+│   ├── 005_suggestions_and_approval_attachments.sql
+│   ├── 007_historical_import_flag.sql
+│   ├── 008_historical_import_type_and_fund_number.sql
+│   ├── 009_expense_items_item_type.sql
+│   └── 010_fund_transfers.sql     ← traspasos entre cajas chicas
 └── seed.sql
 docs/superpowers/
-├── plans/                  ← Plan A, B, C
+├── plans/
 └── specs/
 ```
 
@@ -212,27 +246,59 @@ docs/superpowers/
 - `exportAdminReportsToPDF()` — horizontal, tabla principal + página adicional de rechazos
 
 ### ✅ Reforma visual — "Mi rendición" (2026-06-04)
+- **Nombre del app**: "Rindegastos — PENTA" → **"Mi rendición"**
+- **Color brand**: indigo → teal `#0D9488` — usar siempre clases `brand-*`, nunca `indigo-*`
+- **Paleta neutral**: ink (escala `#080C16`…`#F6F8FB`, azul-negro frío); Sidebar bg `#0B1120`
+- **Radios**: `rounded-item` (14px) y `rounded-card` (18px) — no usar valores hardcodeados
+- **Íconos**: Lucide React (no emoji en UI)
+- **Fuentes**: `npm install geist lucide-react` ya instalado
+- **`tsconfig.json`**: `"Mi rendición — Design System"` en `exclude` (TS lo procesaba como código)
+- **`STATUS_DOT`**: export en `constants.ts` para el dot de color sólido
 
-**Cambios aplicados** (archivos en `Mi rendición — Design System/design_handoff_reform/`):
-- **Nombre del app**: "Rindegastos — PENTA" → **"Mi rendición"** (layout.tsx, manifest)
-- **Color brand**: indigo `#4f46e5` → **teal `#0D9488`** — todas las referencias `indigo-*` reemplazadas por `brand-*`
-- **Paleta neutral**: slate → **ink** (escala `#080C16`…`#F6F8FB`, azul-negro frío)
-- **Sidebar bg**: `#0f172a` → `#0B1120`
-- **Radios**: items 8px → 14px (`rounded-item`), cards 12px → 18px (`rounded-card`)
-- **Íconos**: emoji → **Lucide React** en Sidebar, MobileNav y páginas
-- **AdminKpiHero**: nuevo componente hero con degradé `ink→teal` en `/admin` y `/admin/reports`
-- **Botones export**: degradé `ink→esmeralda` (Excel) y `ink→rose` (PDF)
-- **Categorías settings**: íconos emoji eliminados → mapa nombre→Lucide con fallback `Tag`; circle tintado con color de la categoría
-- **STATUS_DOT**: nuevo export en `constants.ts` para el dot de color sólido en `ReportStatusBadge`
-- **`tsconfig.json`**: agrega `"Mi rendición — Design System"` a `exclude` (TypeScript lo procesaba como código)
+### ✅ Soft delete + Papelera (post-reforma)
+- `expense_reports.deleted_at timestamptz` — null=activo, valor=papelera
+- `/admin/trash` — restaurar o eliminar definitivamente
+- PWA icons apple-touch-icon
 
-**Dependencias instaladas**: `npm install geist lucide-react`
+### ✅ Módulo Caja Chica (migración 004)
+- 4 tablas: `petty_cash_funds`, `petty_cash_items`, `petty_cash_approvals` (append-only), `petty_cash_transfers`
+- `users.can_manage_petty_cash boolean` — permiso de encargado de fondo
+- `src/actions/petty-cash.ts` — CRUD fondos, ítems, flujo de estados, liquidación
+- Páginas: `/petty-cash`, `/petty-cash/new`, `/petty-cash/[id]`
+- Flujo: `draft → pending_approval → approved → funds_sent → submitted → pending_liquidation_approval → settled`
+- Edición inline de ítems históricos con actualización optimista
 
-### ⏳ Pendiente
-- Iconos PWA: crear `/public/icons/icon-192.png` y `/public/icons/icon-512.png`
-- Service worker offline: `next-pwa` incompatible con Turbopack — evaluar workbox directamente
-- Notificaciones email: requiere `SUPABASE_SERVICE_ROLE_KEY` para lookup de emails de `auth.users`
-- Deploy en Vercel: ✅ Proyecto creado y desplegado (`vercel --prod`)
+### ✅ Importador histórico (migraciones 007/008)
+- `/admin/carga-historica` — importar Excel de rendiciones y cajas chicas de períodos anteriores
+- `src/actions/historical-import.ts`
+- Campos nuevos en `expense_reports`: `is_historical_import bool`, `historical_type text` ('rendicion'|'caja_chica'), `fund_number text`
+- Campos nuevos en `petty_cash_funds`: `is_historical_import bool`
+- Edición inline: categoría, item_type, merchant, fecha, monto
+
+### ✅ Sugerencias y adjuntos de aprobación (migración 005)
+- `suggestions`: empleados envían mejoras/bugs; admin gestiona estado
+- `approval_attachments`: correos/PDFs de respaldo vinculados a rendición O fondo
+- Bucket `approval-attachments` en Storage
+- `src/actions/suggestions.ts`, `src/actions/approval-attachments.ts`
+- Página `/suggestions`
+
+### ✅ Traspasos entre cajas chicas (migración 010)
+- Tabla `fund_transfers` — matching en 2 fases (payer siempre conocido; receiver nullable hasta vincular)
+- `expense_items.item_type = 'transfer'` + `transfer_id uuid`; `petty_cash_items.transfer_id uuid`
+- `src/actions/fund-transfers.ts`: `createFundTransfer`, `linkFundTransfer`, `getOrgFundTransfers`, `getEmployeeTargets`, `getOrgEmployeesSimple`
+- UI `/petty-cash`: sección "Traspasos sin vincular", botón SendHorizontal en fondos y cargas históricas, modales crear/vincular
+- Ítems con `item_type='transfer'` NO son editables inline
+
+### ✅ Deploy
+- Repo GitHub: `danielmartinezcl-creator/Mis-Rendiciones` (branch `main`)
+- Auto-deploy en Vercel en cada push a `main`
+
+### ⏳ Pendiente / Backlog
+- Export Defontana formato real 34 columnas (plan en `docs/superpowers/plans/`)
+- Centro de costo por empleado (`users.cost_center_id`) — migración pendiente
+- `expense_items.supplier_rut` para crédito fiscal IVA en facturas
+- Notificaciones email: requiere service role para lookup en `auth.users`
+- Service worker offline (`next-pwa` incompatible con Turbopack)
 
 ---
 
@@ -296,11 +362,22 @@ docs/superpowers/
     ```
     `public.users` no tiene columna `email` — solo `auth.users` la tiene.
 
-11. **Índices clave**:
-   - `idx_expense_reports_submitter (submitter_id, status)`
-   - `idx_notifications_user_unread (user_id, read) WHERE read = false` ← partial index
+11. **Traspasos — fund_transfers — matching en 2 fases**:
+    - Fase 1: `createFundTransfer` → `payer_*` set, `receiver_fund_id/report_id = null`, `matched = false`
+    - Fase 2: `linkFundTransfer(transferId, {fundId?, reportId?})` → set receiver, `matched = true`
+    - Saldo flotante visible en `/petty-cash` bajo "Traspasos sin vincular" (filtrado: `!t.matched`)
+    - Todas las escrituras usan `createAdminClient()` tras verificar org con cliente regular
 
-8. **`src/lib/supabase/types.ts` — reglas de tipado** (críticas para el build):
+12. **Importador histórico — `expense_reports` como contenedor**:
+    - Las cargas históricas son `expense_reports` con `is_historical_import = true`
+    - `historical_type = 'rendicion' | 'caja_chica'` distingue el tipo dentro del mismo flujo
+    - `fund_number` vincula con `petty_cash_funds` para cajas chicas
+    - Los ítems históricos tienen `item_type` editable inline (expense/advance/return/transfer)
+
+13. **`petty_cash_approvals` y `expense_report_approvals` son append-only a nivel PostgreSQL**:
+    - Mismo patrón: `create rule no_update_... as on update to ... do instead nothing`
+
+14. **`src/lib/supabase/types.ts` — reglas de tipado** (críticas para el build):
    - Cada tabla DEBE tener `Relationships: []` (o con sus FK reales) — sin ello `Schema = never` y `.insert()` acepta `never[]`, rompiendo el tipo de todos los inserts
    - Los tipos `Insert` y `Update` deben ser **explícitos** — NO usar `Omit<Database['public']['Tables'][x]['Row'], ...>` (auto-referencial → puede resolver a `never` en TS strict)
    - `Update: never` en tablas append-only rompe el constraint — usar `Update: Record<string, never>`
@@ -346,3 +423,9 @@ docs/superpowers/
 | Nested select con `as unknown as T[]` | Workaround alternativo al cast `as T[]` cuando el tipo es `never` | `(data ?? []).map(i => { const item = i as unknown as RawType; return {...} })` |
 | `.map(i => i.description)` falla: "no existe en tipo never" | Nested select Supabase sin cast explícito | Definir `type RawItem = {...}` encima y castear: `i as unknown as RawItem` |
 | Sidebar items vacíos en primer render | `useState([])` + `useEffect` para cargar orden: hay flash | Inicializar `useState` con `visible` (el array filtrado), luego aplicar orden guardado en `useEffect` |
+| Excel con nombres de empleados del importador no matchean | Los nombres en Excel vienen con espacios/mayúsculas distintas al DB | Normalizar ambos lados: `.trim().toLowerCase()` antes de comparar |
+| `window.location.reload()` después de createFundTransfer | `revalidatePath` server-side no actualiza estado client-side de fondos ya renderizados | Reload forzado es el patrón correcto para esta situación |
+| `item_type='transfer'` no editable inline | Los ítems de traspaso NO deben modificarse — representan un movimiento contable ya registrado | Ocultar botón de edición cuando `item.item_type === 'transfer'` |
+| `getOrgEmployeesSimple` vs `getOrgEmployees` | `getOrgEmployees` hace join a `auth.users` para el email → lento y puede fallar con anon key si hay muchos users | Para selects de receptor de traspaso usar `getOrgEmployeesSimple` (solo id + full_name) |
+| Commit en PowerShell con mensaje multilínea | `git commit -m "$(cat <<'EOF'..."` es sintaxis bash, no PowerShell | Usar here-string de PowerShell: `git commit -m @'...'@` (cierre `'@` en columna 0) |
+| Archivos de referencia (.xlsx, .pdf, Design System) en git | `git add .` los incluye sin querer | Agregar a `.gitignore`; sacar de tracking con `git rm --cached` (no borra el archivo local) |
