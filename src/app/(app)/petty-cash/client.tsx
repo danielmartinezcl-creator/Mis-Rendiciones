@@ -316,7 +316,6 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 
   // ── Panel de informe ─────────────────────────────────────────────────────
   type ReportResult = Awaited<ReturnType<typeof getPettyCashItemsForReport>>
-  const [showReport,       setShowReport]       = useState(false)
   const [reportDateFrom,   setReportDateFrom]   = useState('')
   const [reportDateTo,     setReportDateTo]     = useState('')
   const [selectedCatIds,   setSelectedCatIds]   = useState<string[]>([])
@@ -409,25 +408,35 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Caja Chica</h1>
           <p className="text-sm text-ink-500 mt-1">
-            {filtered.length !== initialFunds.length
-              ? `${filtered.length} de ${initialFunds.length} fondos`
-              : `${initialFunds.length} fondo${initialFunds.length !== 1 ? 's' : ''} registrado${initialFunds.length !== 1 ? 's' : ''}`}
+            {reportData
+              ? `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} encontrado${reportData.items.length !== 1 ? 's' : ''}`
+              : filtered.length !== initialFunds.length
+                ? `${filtered.length} de ${initialFunds.length} fondos`
+                : `${initialFunds.length} fondo${initialFunds.length !== 1 ? 's' : ''} registrado${initialFunds.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {isManager && (
-            <button
-              onClick={() => setShowReport(s => !s)}
-              className={[
-                'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-item transition-all border',
-                showReport
-                  ? 'bg-brand-50 border-brand-300 text-brand-700'
-                  : 'bg-white border-ink-200 text-ink-700 hover:border-brand-300 hover:text-brand-700',
-              ].join(' ')}
-            >
-              <BarChart2 size={14} />
-              Generar informe
-            </button>
+            <>
+              <button
+                onClick={() => handleExport('excel')}
+                disabled={!!generating || !reportData?.items.length}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-40 transition-all shadow-sm hover:shadow-md active:scale-[.97]"
+                style={{ background: 'linear-gradient(130deg, #12152E 0%, #059669 100%)' }}
+              >
+                <FileSpreadsheet size={14} />
+                {generating === true ? 'Exportando…' : 'Excel'}
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                disabled={!!generating || !reportData?.items.length}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-40 transition-all shadow-sm hover:shadow-md active:scale-[.97]"
+                style={{ background: 'linear-gradient(130deg, #12152E 0%, #e11d48 100%)' }}
+              >
+                <Download size={14} />
+                {generating === true ? 'Exportando…' : 'PDF'}
+              </button>
+            </>
           )}
           <Link
             href="/petty-cash/new"
@@ -440,17 +449,19 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
         </div>
       </div>
 
-      {/* Panel de informe */}
-      {showReport && (
-        <div className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600 space-y-4">
+      {/* Panel de filtros + resultados (solo managers) */}
+      {isManager && (
+        <div className="bg-white rounded-card shadow-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display font-bold text-base text-ink-900 flex items-center gap-2">
-              <FileText size={16} className="text-brand-600" />
-              Informe de gastos
-            </h2>
-            <button onClick={() => setShowReport(false)} className="text-ink-400 hover:text-ink-700 transition-colors">
-              <X size={16} />
-            </button>
+            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide">Filtros</p>
+            {(reportDateFrom || reportDateTo || selectedCatIds.length > 0 || selectedEmpIds.length > 0 || itemStatusFilter !== 'all') && (
+              <button
+                onClick={() => { setReportDateFrom(''); setReportDateTo(''); setSelectedCatIds([]); setSelectedEmpIds([]); setItemStatusFilter('all'); setReportData(null); setReportError(null) }}
+                className="text-xs text-ink-400 hover:text-ink-600 underline"
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -579,35 +590,11 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           {/* Resultados inline */}
           {reportData && !loadingSearch && (
             <div className="border-t border-ink-100 pt-4 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <p className="text-sm font-semibold text-ink-700">
-                  {reportData.items.length === 0
-                    ? 'Sin resultados para los filtros aplicados'
-                    : `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} · Total: ${formatCLP(reportData.totalCLP)}`}
-                </p>
-                {reportData.items.length > 0 && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleExport('excel')}
-                      disabled={generating}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97]"
-                      style={{ background: 'linear-gradient(130deg, #12152E 0%, #059669 100%)' }}
-                    >
-                      <Download size={12} />
-                      {generating ? '…' : 'Excel'}
-                    </button>
-                    <button
-                      onClick={() => handleExport('pdf')}
-                      disabled={generating}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97]"
-                      style={{ background: 'linear-gradient(130deg, #12152E 0%, #e11d48 100%)' }}
-                    >
-                      <Download size={12} />
-                      {generating ? '…' : 'PDF'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <p className="text-sm font-semibold text-ink-700">
+                {reportData.items.length === 0
+                  ? 'Sin resultados para los filtros aplicados'
+                  : `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} · Total: ${formatCLP(reportData.totalCLP)}`}
+              </p>
               {reportData.items.length > 0 && (
                 <div className="overflow-x-auto rounded-item border border-ink-100">
                   <table className="w-full text-xs">
