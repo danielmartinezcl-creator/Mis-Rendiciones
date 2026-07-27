@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Download, FileSpreadsheet } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Search, Download, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { getUnifiedReportItems } from '@/actions/reports'
 import { buildPeriodRange, computeUnifiedKpis, SOURCE_LABELS, SOURCE_COLORS } from '@/lib/report-helpers'
 import { formatCLP, formatDate } from '@/lib/utils'
@@ -53,9 +53,11 @@ export function InformesClient({ filterOptions }: Props) {
   const [periodPreset,    setPeriodPreset]     = useState<PeriodPreset>({ type: 'custom' })
   const [dateFrom,        setDateFrom]        = useState('')
   const [dateTo,          setDateTo]          = useState('')
-  const [department,      setDepartment]      = useState('')
-  const [empSearch,       setEmpSearch]       = useState('')
-  const [selectedEmps,    setSelectedEmps]    = useState<string[]>([])
+  const [departments,      setDepartments]     = useState<string[]>([])
+  const [selectedEmps,     setSelectedEmps]    = useState<string[]>([])
+  const [empDropdownOpen,  setEmpDropdownOpen] = useState(false)
+  const [deptDropdownOpen, setDeptDropdownOpen] = useState(false)
+  const [empSearchInner,   setEmpSearchInner]  = useState('')
   const [selectedCats,    setSelectedCats]    = useState<string[]>([])
   const [selectedRends,   setSelectedRends]   = useState<string[]>([])
   const [selectedFondos,  setSelectedFondos]  = useState<string[]>([])
@@ -91,7 +93,7 @@ export function InformesClient({ filterOptions }: Props) {
         dataAge,
         dateFrom:       dateFrom || undefined,
         dateTo:         dateTo   || undefined,
-        department:     department || undefined,
+        departments:    departments.length ? departments : undefined,
         employeeIds:    selectedEmps.length   ? selectedEmps   : undefined,
         categoryIds:    selectedCats.length   ? selectedCats   : undefined,
         reportIds:      selectedRends.length  ? selectedRends  : undefined,
@@ -131,8 +133,20 @@ export function InformesClient({ filterOptions }: Props) {
 
   // ── Filtrado local de empleados (búsqueda en dropdown) ────────────────────
   const empOptions = filterOptions.employees.filter(e =>
-    !empSearch || e.name.toLowerCase().includes(empSearch.toLowerCase())
+    !empSearchInner || e.name.toLowerCase().includes(empSearchInner.toLowerCase())
   )
+
+  const empDropRef  = useRef<HTMLDivElement>(null)
+  const deptDropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (empDropRef.current  && !empDropRef.current.contains(e.target as Node))  setEmpDropdownOpen(false)
+      if (deptDropRef.current && !deptDropRef.current.contains(e.target as Node)) setDeptDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   const hasResults = items !== null
 
@@ -189,101 +203,163 @@ export function InformesClient({ filterOptions }: Props) {
         {/* Fila 2: Período */}
         <div>
           <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Período</p>
-          <div className="flex flex-wrap gap-2 items-center">
-            <button
-              onClick={() => applyPreset({ type: 'custom' })}
-              className={`px-3 py-1.5 rounded-item text-sm font-semibold transition-colors ${
-                periodPreset.type === 'custom' ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
-              }`}
-            >
-              Personalizado
-            </button>
-            {YEARS.map(y => (
-              <button
-                key={y}
-                onClick={() => applyPreset({ type: 'year', year: y })}
-                className={`px-3 py-1.5 rounded-item text-sm font-semibold transition-colors ${
-                  periodPreset.type === 'year' && periodPreset.year === y ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
-                }`}
-              >
-                {y}
-              </button>
-            ))}
-            {YEARS.flatMap(y => [1, 2].map(h => (
-              <button
-                key={`${y}-h${h}`}
-                onClick={() => applyPreset({ type: 'semester', year: y, half: h as 1|2 })}
-                className={`px-3 py-1.5 rounded-item text-sm font-semibold transition-colors ${
-                  periodPreset.type === 'semester' && periodPreset.year === y && periodPreset.half === h ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
-                }`}
-              >
-                S{h} {y}
-              </button>
-            )))}
-          </div>
-          <div className="flex gap-3 mt-3">
+          <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="text-xs text-ink-500 mb-1 block">Desde</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); setPeriodPreset({ type: 'custom' }) }}
+              <label className="text-xs text-ink-500 mb-1 block">Seleccionar período</label>
+              <select
+                value={
+                  periodPreset.type === 'custom'   ? 'custom'
+                  : periodPreset.type === 'year'   ? `year-${periodPreset.year}`
+                  : `s${periodPreset.half}-${periodPreset.year}`
+                }
+                onChange={e => {
+                  const v = e.target.value
+                  if (v === 'custom') { applyPreset({ type: 'custom' }); return }
+                  if (v.startsWith('year-')) { applyPreset({ type: 'year', year: parseInt(v.slice(5)) }); return }
+                  const parts = v.split('-')
+                  applyPreset({ type: 'semester', year: parseInt(parts[1]), half: parseInt(parts[0].slice(1)) as 1|2 })
+                }}
                 className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
+              >
+                <option value="custom">Personalizado</option>
+                <optgroup label="Año completo">
+                  {YEARS.map(y => <option key={y} value={`year-${y}`}>{y}</option>)}
+                </optgroup>
+                <optgroup label="Semestre">
+                  {YEARS.flatMap(y => [1, 2].map(h => (
+                    <option key={`s${h}-${y}`} value={`s${h}-${y}`}>S{h} {y}</option>
+                  )))}
+                </optgroup>
+              </select>
             </div>
-            <div>
-              <label className="text-xs text-ink-500 mb-1 block">Hasta</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => { setDateTo(e.target.value); setPeriodPreset({ type: 'custom' }) }}
-                className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
+            {periodPreset.type === 'custom' && (
+              <>
+                <div>
+                  <label className="text-xs text-ink-500 mb-1 block">Desde</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={e => { setDateFrom(e.target.value); setPeriodPreset({ type: 'custom' }) }}
+                    className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-ink-500 mb-1 block">Hasta</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={e => { setDateTo(e.target.value); setPeriodPreset({ type: 'custom' }) }}
+                    className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </>
+            )}
+            {periodPreset.type !== 'custom' && dateFrom && dateTo && (
+              <p className="text-xs text-ink-400 pb-2">{dateFrom} → {dateTo}</p>
+            )}
           </div>
         </div>
 
         {/* Fila 3: Departamento + Empleados */}
         <div className="flex flex-wrap gap-4">
-          <div className="min-w-[180px]">
-            <label className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2 block">Departamento</label>
-            <select
-              value={department}
-              onChange={e => setDepartment(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            >
-              <option value="">Todos</option>
-              {filterOptions.departments.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
 
-          <div className="min-w-[220px]">
+          {/* Departamento — multi-select dropdown */}
+          {filterOptions.departments.length > 0 && (
+            <div className="min-w-[180px]" ref={deptDropRef}>
+              <label className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2 block">Departamento</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setDeptDropdownOpen(o => !o); setEmpDropdownOpen(false) }}
+                  className="w-full flex items-center justify-between border border-ink-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                >
+                  <span className={departments.length ? 'text-ink-800' : 'text-ink-400'}>
+                    {departments.length === 0 ? 'Todos' : `${departments.length} seleccionado${departments.length !== 1 ? 's' : ''}`}
+                  </span>
+                  <ChevronDown size={13} className={`text-ink-400 transition-transform ${deptDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {deptDropdownOpen && (
+                  <div className="absolute z-50 top-full mt-1 w-full min-w-[200px] bg-white border border-ink-200 rounded-item shadow-lg">
+                    <div className="max-h-52 overflow-y-auto p-1">
+                      {filterOptions.departments.map(d => (
+                        <label key={d} className="flex items-center gap-2.5 px-3 py-2 hover:bg-ink-50 cursor-pointer rounded-item">
+                          <input
+                            type="checkbox"
+                            checked={departments.includes(d)}
+                            onChange={() => setDepartments(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}
+                            className="accent-brand-600 w-3.5 h-3.5 shrink-0"
+                          />
+                          <span className="text-sm text-ink-700">{d}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {departments.length > 0 && (
+                      <div className="border-t border-ink-100 px-3 py-2">
+                        <button type="button" onClick={() => setDepartments([])} className="text-xs text-ink-400 hover:text-ink-600">
+                          Limpiar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Empleados — multi-select dropdown con búsqueda */}
+          <div className="min-w-[220px]" ref={empDropRef}>
             <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Empleados</p>
             <div className="relative">
-              <input
-                type="text"
-                placeholder="Buscar empleado..."
-                value={empSearch}
-                onChange={e => setEmpSearch(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
+              <button
+                type="button"
+                onClick={() => { setEmpDropdownOpen(o => !o); setDeptDropdownOpen(false) }}
+                className="w-full flex items-center justify-between border border-ink-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+              >
+                <span className={selectedEmps.length ? 'text-ink-800' : 'text-ink-400'}>
+                  {selectedEmps.length === 0 ? 'Todos los empleados' : `${selectedEmps.length} seleccionado${selectedEmps.length !== 1 ? 's' : ''}`}
+                </span>
+                <ChevronDown size={13} className={`text-ink-400 transition-transform ${empDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {empDropdownOpen && (
+                <div className="absolute z-50 top-full mt-1 w-full min-w-[240px] bg-white border border-ink-200 rounded-item shadow-lg">
+                  <div className="p-2 border-b border-ink-100">
+                    <input
+                      type="text"
+                      placeholder="Buscar empleado..."
+                      value={empSearchInner}
+                      onChange={e => setEmpSearchInner(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto p-1">
+                    {empOptions.map(e => (
+                      <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-ink-50 cursor-pointer rounded-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedEmps.includes(e.id)}
+                          onChange={() => setSelectedEmps(ids => toggle(ids, e.id))}
+                          className="accent-brand-600 w-3.5 h-3.5 shrink-0"
+                        />
+                        <span className="text-sm text-ink-700">{e.name}</span>
+                      </label>
+                    ))}
+                    {empOptions.length === 0 && (
+                      <p className="text-xs text-ink-400 text-center py-3">Sin resultados</p>
+                    )}
+                  </div>
+                  {selectedEmps.length > 0 && (
+                    <div className="border-t border-ink-100 px-3 py-2">
+                      <button type="button" onClick={() => setSelectedEmps([])} className="text-xs text-ink-400 hover:text-ink-600">
+                        Limpiar selección
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            {empOptions.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1 max-h-28 overflow-y-auto">
-                {empOptions.map(e => (
-                  <button
-                    key={e.id}
-                    onClick={() => setSelectedEmps(ids => toggle(ids, e.id))}
-                    className={`px-2 py-1 rounded-item text-xs font-medium transition-colors ${
-                      selectedEmps.includes(e.id) ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                    }`}
-                  >
-                    {e.name}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
+
         </div>
 
         {/* Fila 4: Categorías */}

@@ -94,7 +94,7 @@ async function fetchRendicionItems(
   )
 
   const filteredReports = reports.filter(r => {
-    if (filters.department && userMap[r.submitter_id]?.department !== filters.department) return false
+    if (filters.departments?.length && !filters.departments.includes(userMap[r.submitter_id]?.department ?? '')) return false
     return true
   })
   if (!filteredReports.length) return []
@@ -179,7 +179,7 @@ async function fetchCajaChicaNewItems(
   )
 
   const filteredFunds = funds.filter(f => {
-    if (filters.department && userMap[f.employee_id]?.department !== filters.department) return false
+    if (filters.departments?.length && !filters.departments.includes(userMap[f.employee_id]?.department ?? '')) return false
     return true
   })
   if (!filteredFunds.length) return []
@@ -266,7 +266,7 @@ async function fetchCajaChicaHistItems(
   )
 
   const filteredReports = reports.filter(r => {
-    if (filters.department && userMap[r.submitter_id]?.department !== filters.department) return false
+    if (filters.departments?.length && !filters.departments.includes(userMap[r.submitter_id]?.department ?? '')) return false
     return true
   })
   if (!filteredReports.length) return []

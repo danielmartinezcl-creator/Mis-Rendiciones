@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal, FileSpreadsheet } from 'lucide-react'
+import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal, FileSpreadsheet, Search } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
@@ -315,14 +315,17 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   const [periodPreset_list,   setPeriodPreset_list]   = useState<PeriodPreset>({ type: 'custom' })
 
   // ── Panel de informe ─────────────────────────────────────────────────────
+  type ReportResult = Awaited<ReturnType<typeof getPettyCashItemsForReport>>
   const [showReport,       setShowReport]       = useState(false)
   const [reportDateFrom,   setReportDateFrom]   = useState('')
   const [reportDateTo,     setReportDateTo]     = useState('')
   const [selectedCatIds,   setSelectedCatIds]   = useState<string[]>([])
   const [selectedEmpIds,   setSelectedEmpIds]   = useState<string[]>([])
   const [itemStatusFilter, setItemStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
-  const [generating, setGenerating] = useState(false)
-  const [reportError, setReportError] = useState<string | null>(null)
+  const [generating,   setGenerating]   = useState(false)
+  const [loadingSearch, setLoadingSearch] = useState(false)
+  const [reportData,   setReportData]   = useState<ReportResult | null>(null)
+  const [reportError,  setReportError]  = useState<string | null>(null)
 
   // Empleados únicos: fondos reales + submitters de carga histórica
   const employees = useMemo(() => {
@@ -359,34 +362,41 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
     return arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]
   }
 
-  async function handleExport(format: 'excel' | 'pdf') {
-    setGenerating(true)
+  async function fetchReportItems() {
+    setLoadingSearch(true)
     setReportError(null)
+    setReportData(null)
     try {
-      const { items, totalCLP } = await getPettyCashItemsForReport({
+      const result = await getPettyCashItemsForReport({
         dateFrom:    reportDateFrom || undefined,
         dateTo:      reportDateTo   || undefined,
         itemStatus:  itemStatusFilter,
-        employeeIds: selectedEmpIds.length  ? selectedEmpIds  : undefined,
-        categoryIds: selectedCatIds.length  ? selectedCatIds  : undefined,
+        employeeIds: selectedEmpIds.length ? selectedEmpIds : undefined,
+        categoryIds: selectedCatIds.length ? selectedCatIds : undefined,
       })
+      setReportData(result)
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : 'Error al obtener los datos')
+    } finally {
+      setLoadingSearch(false)
+    }
+  }
 
-      if (!items.length) {
-        setReportError('No hay ítems que coincidan con los filtros seleccionados.')
-        return
-      }
-
+  async function handleExport(format: 'excel' | 'pdf') {
+    if (!reportData?.items.length) return
+    setGenerating(true)
+    setReportError(null)
+    try {
       const title = `Caja Chica${reportDateFrom ? ` ${reportDateFrom}` : ''}${reportDateTo ? ` al ${reportDateTo}` : ''}`
-
       if (format === 'excel') {
         const { exportPettyCashToExcel } = await import('@/lib/export/excel')
-        exportPettyCashToExcel(items, 'caja-chica-informe')
+        exportPettyCashToExcel(reportData.items, 'caja-chica-informe')
       } else {
         const { exportPettyCashToPDF } = await import('@/lib/export/pdf')
-        exportPettyCashToPDF(items, title)
+        exportPettyCashToPDF(reportData.items, title)
       }
     } catch (err) {
-      setReportError(err instanceof Error ? err.message : 'Error al generar el informe')
+      setReportError(err instanceof Error ? err.message : 'Error al exportar')
     } finally {
       setGenerating(false)
     }
@@ -553,26 +563,91 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
             </div>
           )}
 
-          <div className="flex gap-2 pt-1">
+          {/* Botón buscar */}
+          <div className="flex justify-end pt-1">
             <button
-              onClick={() => handleExport('excel')}
-              disabled={generating}
+              onClick={fetchReportItems}
+              disabled={loadingSearch}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97] shadow-sm"
-              style={{ background: 'linear-gradient(130deg, #12152E 0%, #059669 100%)' }}
+              style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
             >
-              <Download size={14} />
-              {generating ? 'Generando…' : 'Excel'}
-            </button>
-            <button
-              onClick={() => handleExport('pdf')}
-              disabled={generating}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97] shadow-sm"
-              style={{ background: 'linear-gradient(130deg, #12152E 0%, #e11d48 100%)' }}
-            >
-              <Download size={14} />
-              {generating ? 'Generando…' : 'PDF'}
+              <Search size={14} />
+              {loadingSearch ? 'Buscando…' : 'Buscar'}
             </button>
           </div>
+
+          {/* Resultados inline */}
+          {reportData && !loadingSearch && (
+            <div className="border-t border-ink-100 pt-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-sm font-semibold text-ink-700">
+                  {reportData.items.length === 0
+                    ? 'Sin resultados para los filtros aplicados'
+                    : `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} · Total: ${formatCLP(reportData.totalCLP)}`}
+                </p>
+                {reportData.items.length > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleExport('excel')}
+                      disabled={generating}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97]"
+                      style={{ background: 'linear-gradient(130deg, #12152E 0%, #059669 100%)' }}
+                    >
+                      <Download size={12} />
+                      {generating ? '…' : 'Excel'}
+                    </button>
+                    <button
+                      onClick={() => handleExport('pdf')}
+                      disabled={generating}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97]"
+                      style={{ background: 'linear-gradient(130deg, #12152E 0%, #e11d48 100%)' }}
+                    >
+                      <Download size={12} />
+                      {generating ? '…' : 'PDF'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {reportData.items.length > 0 && (
+                <div className="overflow-x-auto rounded-item border border-ink-100">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-ink-50 text-ink-500 font-semibold uppercase tracking-wide">
+                        <th className="text-left px-3 py-2">Empleado</th>
+                        <th className="text-left px-3 py-2">Fondo</th>
+                        <th className="text-left px-3 py-2">Descripción</th>
+                        <th className="text-left px-3 py-2">Categoría</th>
+                        <th className="text-left px-3 py-2">Fecha</th>
+                        <th className="text-right px-3 py-2">CLP</th>
+                        <th className="text-left px-3 py-2">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.items.map((item, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/50'}>
+                          <td className="px-3 py-2 text-ink-800 font-medium">{item.employee_name}</td>
+                          <td className="px-3 py-2 text-ink-500 max-w-[120px] truncate" title={item.fund_name}>{item.fund_name}</td>
+                          <td className="px-3 py-2 text-ink-700 max-w-[160px] truncate" title={item.description}>{item.description}</td>
+                          <td className="px-3 py-2 text-ink-500">{item.category_name ?? '—'}</td>
+                          <td className="px-3 py-2 text-ink-500 whitespace-nowrap">{formatDate(item.date)}</td>
+                          <td className="px-3 py-2 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-2 py-0.5 rounded-item font-medium ${
+                              item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                              item.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              {item.status === 'approved' ? 'Aprobado' : item.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
