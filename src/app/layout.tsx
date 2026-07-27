@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, Hanken_Grotesk } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
+import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import './globals.css'
 
 /**
@@ -52,10 +53,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${bricolage.variable} ${hanken.variable} ${GeistMono.variable}`}
     >
       <body className="font-hanken bg-ink-50 text-ink-800 antialiased">
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )
