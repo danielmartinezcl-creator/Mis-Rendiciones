@@ -6,6 +6,8 @@ import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
+import { buildPeriodRange } from '@/lib/report-helpers'
+import type { PeriodPreset } from '@/lib/report-helpers'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle, getHistoricalFundDefontanaData, markExpenseItemsDefontanaExported } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
@@ -50,6 +52,8 @@ type TransferSource = {
   defaultAmount: number
   payerEmpId:    string
 }
+
+const CURRENT_YEAR = new Date().getFullYear()
 
 interface Props {
   initialFunds:      FundListItem[]
@@ -303,10 +307,12 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   }
 
   // ── Filtros de lista (cliente) ────────────────────────────────────────────
-  const [statusFilter,   setStatusFilter]   = useState('all')
-  const [dateFrom,       setDateFrom]       = useState('')
-  const [dateTo,         setDateTo]         = useState('')
-  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [statusFilter,        setStatusFilter]        = useState('all')
+  const [dateFrom,            setDateFrom]            = useState('')
+  const [dateTo,              setDateTo]              = useState('')
+  const [selectedEmpIds_list, setSelectedEmpIds_list] = useState<string[]>([])
+  const [empSearch_list,      setEmpSearch_list]      = useState('')
+  const [periodPreset_list,   setPeriodPreset_list]   = useState<PeriodPreset>({ type: 'custom' })
 
   // ── Panel de informe ─────────────────────────────────────────────────────
   const [showReport,       setShowReport]       = useState(false)
@@ -336,18 +342,21 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
       if (statusFilter !== 'all' && f.status !== statusFilter) return false
       if (dateFrom && f.period_end   < dateFrom) return false
       if (dateTo   && f.period_start > dateTo)   return false
-      if (employeeSearch && !f.employee_name.toLowerCase().includes(employeeSearch.toLowerCase())) return false
+      if (selectedEmpIds_list.length && !selectedEmpIds_list.includes(f.employee_id)) return false
       return true
     })
-  }, [funds, statusFilter, dateFrom, dateTo, employeeSearch])
+  }, [funds, statusFilter, dateFrom, dateTo, selectedEmpIds_list])
 
-  const activeFilters = statusFilter !== 'all' || dateFrom || dateTo || employeeSearch
+  const activeFilters = statusFilter !== 'all' || dateFrom || dateTo || selectedEmpIds_list.length > 0
 
   function toggleCat(id: string) {
     setSelectedCatIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
   function toggleEmp(id: string) {
     setSelectedEmpIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+  function toggle_ids(arr: string[], val: string): string[] {
+    return arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]
   }
 
   async function handleExport(format: 'excel' | 'pdf') {
@@ -615,7 +624,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
             <span className="text-xs font-semibold text-ink-600">Filtrar lista</span>
             {activeFilters && (
               <button
-                onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setEmployeeSearch('') }}
+                onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setSelectedEmpIds_list([]); setPeriodPreset_list({ type: 'custom' }) }}
                 className="ml-auto text-xs text-brand-600 hover:text-brand-700 underline"
               >
                 Limpiar
@@ -641,13 +650,13 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
             ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-ink-500 mb-1">Período desde</label>
               <input
                 type="date"
                 value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
+                onChange={e => { setDateFrom(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
                 className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
@@ -656,20 +665,96 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
               <input
                 type="date"
                 value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
+                onChange={e => { setDateTo(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
                 className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-ink-500 mb-1">Buscar empleado</label>
-              <input
-                type="text"
-                value={employeeSearch}
-                onChange={e => setEmployeeSearch(e.target.value)}
-                placeholder="Nombre del empleado..."
-                className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
+          </div>
+
+          {/* Período shortcuts */}
+          <div className="flex flex-wrap gap-1.5">
+            {[CURRENT_YEAR, CURRENT_YEAR - 1].map(y => (
+              <button
+                key={y}
+                onClick={() => {
+                  const range = buildPeriodRange({ type: 'year', year: y })
+                  if (range) { setDateFrom(range.dateFrom); setDateTo(range.dateTo); setPeriodPreset_list({ type: 'year', year: y }) }
+                }}
+                className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
+                  periodPreset_list.type === 'year' && (periodPreset_list as { type: 'year'; year: number }).year === y
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
+                }`}
+              >
+                {y}
+              </button>
+            ))}
+            {[1, 2].map(h => (
+              <button
+                key={h}
+                onClick={() => {
+                  const range = buildPeriodRange({ type: 'semester', year: CURRENT_YEAR, half: h as 1 | 2 })
+                  if (range) { setDateFrom(range.dateFrom); setDateTo(range.dateTo); setPeriodPreset_list({ type: 'semester', year: CURRENT_YEAR, half: h as 1 | 2 }) }
+                }}
+                className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
+                  periodPreset_list.type === 'semester' && (periodPreset_list as { type: 'semester'; year: number; half: 1 | 2 }).half === h
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
+                }`}
+              >
+                S{h} {CURRENT_YEAR}
+              </button>
+            ))}
+            {(dateFrom || dateTo || selectedEmpIds_list.length > 0) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); setSelectedEmpIds_list([]); setPeriodPreset_list({ type: 'custom' }) }}
+                className="px-2.5 py-1 rounded-item text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+
+          {/* Buscar empleado con chips */}
+          <div>
+            <input
+              type="text"
+              placeholder="Buscar empleado..."
+              value={empSearch_list}
+              onChange={e => setEmpSearch_list(e.target.value)}
+              className="border border-ink-200 rounded-item px-3 py-1.5 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-48"
+            />
+            {empSearch_list && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {employees
+                  .filter(e => e.name.toLowerCase().includes(empSearch_list.toLowerCase()))
+                  .slice(0, 8)
+                  .map(e => (
+                    <button
+                      key={e.id}
+                      onClick={() => { setSelectedEmpIds_list(ids => toggle_ids(ids, e.id)); setEmpSearch_list('') }}
+                      className={`px-2 py-0.5 rounded-item text-xs font-medium transition-colors ${
+                        selectedEmpIds_list.includes(e.id) ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                      }`}
+                    >
+                      {e.name}
+                    </button>
+                  ))}
+              </div>
+            )}
+            {selectedEmpIds_list.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {selectedEmpIds_list.map(id => {
+                  const emp = employees.find(e => e.id === id)
+                  return emp ? (
+                    <span key={id} className="flex items-center gap-1 px-2 py-0.5 bg-brand-100 text-brand-700 rounded-item text-xs font-medium">
+                      {emp.name}
+                      <button onClick={() => setSelectedEmpIds_list(ids => ids.filter(x => x !== id))} className="hover:text-brand-900">×</button>
+                    </span>
+                  ) : null
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -694,7 +779,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
             <Filter size={32} className="mx-auto mb-3 opacity-25" />
             <p className="text-sm font-medium">Sin resultados con los filtros actuales</p>
             <button
-              onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setEmployeeSearch('') }}
+              onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setSelectedEmpIds_list([]); setPeriodPreset_list({ type: 'custom' }) }}
               className="mt-2 text-brand-600 text-sm hover:underline"
             >
               Limpiar filtros
