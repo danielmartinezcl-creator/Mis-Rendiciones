@@ -224,3 +224,98 @@ export function exportPettyCashToExcel(items: PettyCashItemRow[], filename = 'ca
 
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
+
+// ─── Export Informes Unificados ───────────────────────────────────────────────
+
+import type { UnifiedReportItem, UnifiedKpis } from '@/lib/report-helpers'
+
+const UNIFIED_SOURCE_ES: Record<string, string> = {
+  rendicion_new:   'Rendición',
+  rendicion_hist:  'Rendición hist.',
+  caja_chica_new:  'Caja Chica',
+  caja_chica_hist: 'Caja Chica hist.',
+}
+
+const UNIFIED_ITEM_STATUS_ES: Record<string, string> = {
+  pending:  'Pendiente',
+  approved: 'Aprobado',
+  rejected: 'Rechazado',
+}
+
+export function exportUnifiedToExcel(
+  items:    UnifiedReportItem[],
+  kpis:     UnifiedKpis,
+  filename = 'informe-gastos'
+) {
+  const wb = XLSX.utils.book_new()
+
+  // ── Hoja 1: Detalle ──────────────────────────────────────────
+  const detailRows = items.map(i => ({
+    Fuente:          UNIFIED_SOURCE_ES[i.source] ?? i.source,
+    Empleado:        i.employee_name,
+    Departamento:    i.department ?? '',
+    'Fondo/Rendición': i.parent_title,
+    'Estado Fondo':  i.parent_status,
+    Categoría:       i.category_name ?? '',
+    Descripción:     i.description,
+    Proveedor:       i.merchant ?? '',
+    Fecha:           formatDate(i.date),
+    Monto:           i.amount,
+    Moneda:          i.currency,
+    'Monto CLP':     i.amount_clp,
+    'Tipo doc':      i.doc_type ?? '',
+    'N° doc':        i.doc_number ?? '',
+    'Estado ítem':   UNIFIED_ITEM_STATUS_ES[i.item_status] ?? i.item_status,
+    'Motivo rechazo': i.rejection_reason ?? '',
+    Notas:           i.notes ?? '',
+  }))
+
+  const ws1 = XLSX.utils.json_to_sheet(detailRows)
+  ws1['!cols'] = [
+    { wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 28 }, { wch: 16 },
+    { wch: 18 }, { wch: 30 }, { wch: 20 }, { wch: 12 }, { wch: 12 },
+    { wch: 8  }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+    { wch: 30 }, { wch: 30 },
+  ]
+  XLSX.utils.book_append_sheet(wb, ws1, 'Detalle')
+
+  // ── Hoja 2: Por empleado ─────────────────────────────────────
+  const byEmp: Record<string, { name: string; dept: string | null; count: number; totalCLP: number; approvedCLP: number }> = {}
+  for (const i of items) {
+    if (!byEmp[i.employee_id]) {
+      byEmp[i.employee_id] = { name: i.employee_name, dept: i.department, count: 0, totalCLP: 0, approvedCLP: 0 }
+    }
+    byEmp[i.employee_id].count++
+    byEmp[i.employee_id].totalCLP += i.amount_clp
+    if (i.item_status === 'approved') byEmp[i.employee_id].approvedCLP += i.amount_clp
+  }
+  const empRows = Object.values(byEmp)
+    .sort((a, b) => b.totalCLP - a.totalCLP)
+    .map(e => ({
+      Empleado:         e.name,
+      Departamento:     e.dept ?? '',
+      'N° ítems':       e.count,
+      'Total CLP':      e.totalCLP,
+      'Aprobado CLP':   e.approvedCLP,
+    }))
+  const ws2 = XLSX.utils.json_to_sheet(empRows)
+  ws2['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
+  XLSX.utils.book_append_sheet(wb, ws2, 'Por Empleado')
+
+  // ── Hoja 3: Por categoría ────────────────────────────────────
+  const byCat: Record<string, { count: number; totalCLP: number }> = {}
+  for (const i of items) {
+    const key = i.category_name ?? 'Sin categoría'
+    if (!byCat[key]) byCat[key] = { count: 0, totalCLP: 0 }
+    byCat[key].count++
+    byCat[key].totalCLP += i.amount_clp
+  }
+  const catRows = Object.entries(byCat)
+    .sort((a, b) => b[1].totalCLP - a[1].totalCLP)
+    .map(([cat, d]) => ({ Categoría: cat, 'N° ítems': d.count, 'Total CLP': d.totalCLP }))
+  const ws3 = XLSX.utils.json_to_sheet(catRows)
+  ws3['!cols'] = [{ wch: 25 }, { wch: 10 }, { wch: 14 }]
+  XLSX.utils.book_append_sheet(wb, ws3, 'Por Categoría')
+
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}

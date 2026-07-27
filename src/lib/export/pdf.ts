@@ -238,3 +238,79 @@ export function exportPettyCashToPDF(items: PettyCashItemRow[], title = 'Informe
 
   doc.save(`${title.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }
+
+// ─── Export Informes Unificados ───────────────────────────────────────────────
+
+import type { UnifiedReportItem, UnifiedKpis } from '@/lib/report-helpers'
+
+const UNIFIED_SOURCE_ES_PDF: Record<string, string> = {
+  rendicion_new:   'Rendición',
+  rendicion_hist:  'Rendic. hist.',
+  caja_chica_new:  'Caja Chica',
+  caja_chica_hist: 'CC hist.',
+}
+
+const UNIFIED_ITEM_STATUS_ES_PDF: Record<string, string> = {
+  pending:  'Pendiente',
+  approved: 'Aprobado',
+  rejected: 'Rechazado',
+}
+
+export function exportUnifiedToPDF(
+  items:    UnifiedReportItem[],
+  kpis:     UnifiedKpis,
+  filename?: string,
+  title     = 'Informe de Gastos'
+) {
+  const doc = new jsPDF({ orientation: 'landscape' })
+
+  // Encabezado
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text(title, 14, 16)
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100)
+  doc.text(
+    `${kpis.totalItems} ítems  ·  Total: ${formatCLP(kpis.totalCLP)}  ·  Aprobado: ${formatCLP(kpis.approvedCLP)}  ·  Exportado ${new Date().toLocaleDateString('es-CL')}`,
+    14, 24
+  )
+
+  // KPIs por fuente
+  const sourceLines = Object.entries(kpis.bySource)
+    .filter(([, d]) => d.count > 0)
+    .map(([src, d]) => `${UNIFIED_SOURCE_ES_PDF[src as keyof typeof UNIFIED_SOURCE_ES_PDF] ?? src}: ${d.count} ítems / ${formatCLP(d.totalCLP)}`)
+    .join('   ·   ')
+  if (sourceLines) doc.text(sourceLines, 14, 30)
+  doc.setTextColor(0)
+
+  // Tabla principal
+  autoTable(doc, {
+    startY: 36,
+    head: [['Fuente', 'Empleado', 'Depto', 'Fondo/Rendición', 'Categoría', 'Descripción', 'Proveedor', 'Fecha', 'Monto CLP', 'Estado ítem']],
+    body: items.map(i => [
+      UNIFIED_SOURCE_ES_PDF[i.source as keyof typeof UNIFIED_SOURCE_ES_PDF] ?? i.source,
+      i.employee_name,
+      i.department ?? '',
+      i.parent_title,
+      i.category_name ?? '',
+      i.description,
+      i.merchant ?? '',
+      formatDate(i.date),
+      formatCLP(i.amount_clp),
+      UNIFIED_ITEM_STATUS_ES_PDF[i.item_status] ?? i.item_status,
+    ]),
+    styles:             { fontSize: 7 },
+    headStyles:         { fillColor: [13, 148, 136] },
+    alternateRowStyles: { fillColor: [240, 253, 250] },
+    columnStyles: {
+      0: { cellWidth: 22 }, 1: { cellWidth: 28 }, 2: { cellWidth: 18 },
+      3: { cellWidth: 38 }, 4: { cellWidth: 22 }, 5: { cellWidth: 45 },
+      6: { cellWidth: 22 }, 7: { cellWidth: 18 }, 8: { cellWidth: 20 },
+      9: { cellWidth: 18 },
+    },
+  })
+
+  doc.save(`${filename || title.toLowerCase().replace(/\s+/g, '-') || 'informe-gastos'}.pdf`)
+}
