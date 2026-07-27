@@ -11,9 +11,6 @@ import type {
   ReportFilterOptions,
 } from '@/lib/report-helpers'
 
-// Re-exportar tipos para uso en el client sin romper la regla de Server Actions
-export type { UnifiedReportItem, UnifiedReportFilters, UnifiedKpis, ReportFilterOptions }
-
 // ─── Auth helper ─────────────────────────────────────────────────────────────
 
 async function requireAdminOrApprover() {

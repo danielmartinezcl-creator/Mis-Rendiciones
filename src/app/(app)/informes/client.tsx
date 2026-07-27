@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Download, FileSpreadsheet, X, ChevronDown } from 'lucide-react'
+import { Search, Download, FileSpreadsheet } from 'lucide-react'
 import { getUnifiedReportItems } from '@/actions/reports'
 import { buildPeriodRange, computeUnifiedKpis, SOURCE_LABELS, SOURCE_COLORS } from '@/lib/report-helpers'
 import { formatCLP, formatDate } from '@/lib/utils'
@@ -209,7 +209,7 @@ export function InformesClient({ filterOptions }: Props) {
                 {y}
               </button>
             ))}
-            {YEARS.map(y => [1, 2].map(h => (
+            {YEARS.flatMap(y => [1, 2].map(h => (
               <button
                 key={`${y}-h${h}`}
                 onClick={() => applyPreset({ type: 'semester', year: y, half: h as 1|2 })}
