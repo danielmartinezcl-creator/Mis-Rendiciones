@@ -257,10 +257,9 @@ const UNIFIED_ITEM_STATUS_ES_PDF: Record<string, string> = {
 }
 
 export function exportUnifiedToPDF(
-  items:    UnifiedReportItem[],
-  kpis:     UnifiedKpis,
-  filename?: string,
-  title     = 'Informe de Gastos'
+  items: UnifiedReportItem[],
+  kpis:  UnifiedKpis,
+  title = 'Informe de Gastos'
 ) {
   const doc = new jsPDF({ orientation: 'landscape' })
 
@@ -312,5 +311,5 @@ export function exportUnifiedToPDF(
     },
   })
 
-  doc.save(`${filename || title.toLowerCase().replace(/\s+/g, '-') || 'informe-gastos'}.pdf`)
+  doc.save(`${title}.pdf`)
 }
