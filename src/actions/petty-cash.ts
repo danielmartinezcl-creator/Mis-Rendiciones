@@ -579,7 +579,7 @@ export async function getPettyCashItemsForReport(filters: {
     throw new Error('Sin permiso para generar informes de caja chica')
   }
 
-  // Obtener fondos del tenant (con filtro de empleado si aplica)
+  // ── Fondos reales (petty_cash_funds → petty_cash_items) ─────────────────
   let fundsQuery = supabase
     .from('petty_cash_funds')
     .select('id, name, employee_id')
@@ -590,55 +590,127 @@ export async function getPettyCashItemsForReport(filters: {
   }
 
   const { data: funds } = await fundsQuery
-  if (!funds?.length) return { items: [], totalCLP: 0 }
+  const fundIds = (funds ?? []).map(f => f.id)
+  const fundMap = Object.fromEntries((funds ?? []).map(f => [f.id, f]))
 
-  const fundIds   = funds.map(f => f.id)
-  const fundMap   = Object.fromEntries(funds.map(f => [f.id, f]))
+  // ── Carga histórica (expense_reports → expense_items, historical_type='caja_chica') ──
+  let histReportsQuery = supabase
+    .from('expense_reports')
+    .select('id, title, submitter_id')
+    .eq('org_id', profile.org_id)
+    .eq('is_historical_import', true)
+    .eq('historical_type', 'caja_chica')
+    .is('deleted_at', null)
 
-  // Obtener ítems filtrados
-  let itemsQuery = supabase
-    .from('petty_cash_items')
-    .select('id, fund_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
-    .in('fund_id', fundIds)
-    .order('date', { ascending: true })
-
-  if (filters.dateFrom) itemsQuery = itemsQuery.gte('date', filters.dateFrom)
-  if (filters.dateTo)   itemsQuery = itemsQuery.lte('date', filters.dateTo)
-  if (filters.itemStatus && filters.itemStatus !== 'all') {
-    itemsQuery = itemsQuery.eq('status', filters.itemStatus as 'pending' | 'approved' | 'rejected')
-  }
-  if (filters.categoryIds?.length) {
-    itemsQuery = itemsQuery.in('category_id', filters.categoryIds)
+  if (filters.employeeIds?.length) {
+    histReportsQuery = histReportsQuery.in('submitter_id', filters.employeeIds)
   }
 
-  const { data: items } = await itemsQuery
-  if (!items?.length) return { items: [], totalCLP: 0 }
+  const { data: histReports } = await histReportsQuery
+  const histReportIds = (histReports ?? []).map(r => r.id)
+  const histReportMap = Object.fromEntries((histReports ?? []).map(r => [r.id, r]))
 
-  // Enriquecer con categorías y empleados
-  const catIds = [...new Set(items.map(i => i.category_id).filter(Boolean))] as string[]
-  const empIds = [...new Set(funds.map(f => f.employee_id))]
+  // Consultas de ítems en paralelo
+  function applyItemFilters<T extends ReturnType<typeof supabase.from>>(q: T) {
+    let r = q as any
+    if (filters.dateFrom) r = r.gte('date', filters.dateFrom)
+    if (filters.dateTo)   r = r.lte('date', filters.dateTo)
+    if (filters.itemStatus && filters.itemStatus !== 'all')
+      r = r.eq('status', filters.itemStatus)
+    if (filters.categoryIds?.length) r = r.in('category_id', filters.categoryIds)
+    return r
+  }
+
+  const realItemsP = fundIds.length
+    ? applyItemFilters(
+        supabase
+          .from('petty_cash_items')
+          .select('id, fund_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
+          .in('fund_id', fundIds)
+          .order('date', { ascending: true })
+      )
+    : Promise.resolve({ data: [] })
+
+  const histItemsP = histReportIds.length
+    ? applyItemFilters(
+        supabase
+          .from('expense_items')
+          .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
+          .in('report_id', histReportIds)
+          .order('date', { ascending: true })
+      )
+    : Promise.resolve({ data: [] })
+
+  const [{ data: realItems }, { data: histItems }] = await Promise.all([realItemsP, histItemsP])
+
+  if (!realItems?.length && !histItems?.length) return { items: [], totalCLP: 0 }
+
+  // ── Enriquecer con categorías y empleados ─────────────────────────────────
+  const allCatIds = [...new Set([
+    ...(realItems ?? []).map((i: any) => i.category_id),
+    ...(histItems ?? []).map((i: any) => i.category_id),
+  ].filter(Boolean))] as string[]
+
+  const allEmpIds = [...new Set([
+    ...(funds ?? []).map(f => f.employee_id),
+    ...(histReports ?? []).map(r => r.submitter_id),
+  ].filter(Boolean))]
 
   const [catsRes, usersRes] = await Promise.all([
-    catIds.length
-      ? supabase.from('expense_categories').select('id, name, color').in('id', catIds)
+    allCatIds.length
+      ? supabase.from('expense_categories').select('id, name, color').in('id', allCatIds)
       : Promise.resolve({ data: [] as { id: string; name: string; color: string | null }[] }),
-    supabase.from('users').select('id, full_name').in('id', empIds),
+    allEmpIds.length
+      ? supabase.from('users').select('id, full_name').in('id', allEmpIds)
+      : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
   ])
 
   const catMap  = Object.fromEntries((catsRes.data ?? []).map(c => [c.id, c]))
   const userMap = Object.fromEntries((usersRes.data ?? []).map(u => [u.id, u.full_name]))
 
-  const enriched = items.map(i => ({
-    ...i,
-    fund_name:      fundMap[i.fund_id]?.name ?? 'Desconocido',
-    employee_name:  fundMap[i.fund_id] ? (userMap[fundMap[i.fund_id].employee_id] ?? 'Desconocido') : 'Desconocido',
-    category_name:  i.category_id ? (catMap[i.category_id]?.name ?? null) : null,
-    category_color: i.category_id ? (catMap[i.category_id]?.color ?? null) : null,
+  const normalizedReal = (realItems ?? []).map((i: any) => ({
+    fund_name:        fundMap[i.fund_id]?.name ?? 'Desconocido',
+    employee_name:    fundMap[i.fund_id] ? (userMap[fundMap[i.fund_id].employee_id] ?? 'Desconocido') : 'Desconocido',
+    description:      i.description,
+    merchant:         i.merchant,
+    date:             i.date,
+    category_name:    i.category_id ? (catMap[i.category_id]?.name ?? null) : null,
+    category_color:   i.category_id ? (catMap[i.category_id]?.color ?? null) : null,
+    amount:           i.amount,
+    currency:         i.currency,
+    amount_clp:       i.amount_clp,
+    doc_type:         i.doc_type,
+    doc_number:       i.doc_number,
+    status:           i.status,
+    rejection_reason: i.rejection_reason,
+    notes:            i.notes,
   }))
 
-  const totalCLP = enriched.reduce((s, i) => s + i.amount_clp, 0)
+  const normalizedHist = (histItems ?? []).map((i: any) => {
+    const report = histReportMap[i.report_id]
+    return {
+      fund_name:        report?.title ?? 'Carga Histórica',
+      employee_name:    report ? (userMap[report.submitter_id] ?? 'Desconocido') : 'Desconocido',
+      description:      i.description,
+      merchant:         i.merchant,
+      date:             i.date,
+      category_name:    i.category_id ? (catMap[i.category_id]?.name ?? null) : null,
+      category_color:   i.category_id ? (catMap[i.category_id]?.color ?? null) : null,
+      amount:           i.amount,
+      currency:         i.currency,
+      amount_clp:       i.amount_clp,
+      doc_type:         i.doc_type,
+      doc_number:       i.doc_number,
+      status:           i.status,
+      rejection_reason: i.rejection_reason,
+      notes:            i.notes,
+    }
+  })
 
-  return { items: enriched, totalCLP }
+  const all = [...normalizedReal, ...normalizedHist].sort((a, b) => a.date.localeCompare(b.date))
+  const totalCLP = all.reduce((s, i) => s + i.amount_clp, 0)
+
+  return { items: all, totalCLP }
 }
 
 // ── Export Defontana ──────────────────────────────────────────────────────────

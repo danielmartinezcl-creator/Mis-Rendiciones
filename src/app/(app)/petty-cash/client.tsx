@@ -318,14 +318,17 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   const [generating, setGenerating] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
 
-  // Empleados únicos en los fondos cargados
+  // Empleados únicos: fondos reales + submitters de carga histórica
   const employees = useMemo(() => {
     const map = new Map<string, string>()
     for (const f of funds) {
       if (!map.has(f.employee_id)) map.set(f.employee_id, f.employee_name)
     }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
-  }, [funds])
+    for (const h of historicalImports) {
+      if (!map.has(h.submitter_id)) map.set(h.submitter_id, h.submitter_name)
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [funds, historicalImports])
 
   // Filtrado cliente de la lista de fondos
   const filtered = useMemo(() => {
