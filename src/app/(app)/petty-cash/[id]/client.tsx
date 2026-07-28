@@ -458,10 +458,13 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                               <Pencil size={13} />
                             </button>
                           )}
-                          {canDelete && (
+                          {canDelete && !item.transfer_id && (
                             <button
                               disabled={pending}
-                              onClick={() => act(() => removeFundItem(item.id))}
+                              onClick={() => {
+                                if (window.confirm(`¿Eliminar "${item.description}"? Esta acción no se puede deshacer.`))
+                                  act(() => removeFundItem(item.id))
+                              }}
                               className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors"
                               title="Eliminar ítem"
                             >

@@ -326,7 +326,7 @@ export async function removeFundItem(itemId: string) {
   if (fund.employee_id !== userId && profile.role !== 'admin') {
     throw new Error('Sin permiso')
   }
-  if (fund.status !== 'funds_sent') {
+  if (fund.status !== 'funds_sent' && profile.role !== 'admin') {
     throw new Error('No se pueden eliminar ítems en este estado')
   }
 
