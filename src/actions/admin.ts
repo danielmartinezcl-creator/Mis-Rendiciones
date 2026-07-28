@@ -193,6 +193,7 @@ export async function getPendingToRenderList() {
       .select('id, name, amount_approved, amount_requested, employee_id, period_start, period_end')
       .eq('org_id', orgId)
       .eq('status', 'funds_sent')
+      .or('is_historical_import.is.null,is_historical_import.eq.false')
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     supabase
