@@ -422,6 +422,96 @@ export async function getOrgFundTransfers(): Promise<FundTransferRow[]> {
   }))
 }
 
+// ── Eliminar traspaso sin vincular ─────────────────────────────────────────────
+
+export async function deleteFundTransfer(transferId: string): Promise<void> {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: transfer } = await supabase
+    .from('fund_transfers')
+    .select('*')
+    .eq('id', transferId)
+    .eq('org_id', orgId)
+    .single()
+  if (!transfer) throw new Error('Traspaso no encontrado')
+  if (transfer.matched) throw new Error('No se puede eliminar un traspaso ya vinculado')
+
+  const adminClient = createAdminClient()
+
+  // Eliminar ítem del lado pagador
+  if (transfer.payer_fund_id) {
+    await adminClient.from('petty_cash_items').delete().eq('transfer_id', transferId)
+  } else if (transfer.payer_report_id) {
+    await adminClient.from('expense_items').delete().eq('transfer_id', transferId)
+  }
+
+  // Eliminar el traspaso
+  const { error } = await adminClient.from('fund_transfers').delete().eq('id', transferId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+}
+
+// ── Actualizar traspaso sin vincular ───────────────────────────────────────────
+
+export async function updateFundTransfer(
+  transferId: string,
+  updates: {
+    amount?:               number
+    date?:                 string
+    description?:          string | null
+    receiver_employee_id?: string
+  },
+): Promise<void> {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: transfer } = await supabase
+    .from('fund_transfers')
+    .select('*')
+    .eq('id', transferId)
+    .eq('org_id', orgId)
+    .single()
+  if (!transfer) throw new Error('Traspaso no encontrado')
+  if (transfer.matched) throw new Error('No se puede modificar un traspaso ya vinculado')
+
+  const adminClient = createAdminClient()
+
+  // Resolver nombre del receptor (para actualizar descripción del ítem)
+  const newReceiverId = updates.receiver_employee_id ?? transfer.receiver_employee_id
+  const { data: recUser } = await supabase.from('users').select('full_name').eq('id', newReceiverId).single()
+  const receiverName = recUser?.full_name ?? 'empleado'
+
+  // Actualizar fund_transfers
+  const ftPatch = {
+    ...(updates.amount               !== undefined ? { amount: updates.amount }                               : {}),
+    ...(updates.date                 !== undefined ? { date: updates.date }                                   : {}),
+    ...(updates.description          !== undefined ? { description: updates.description?.trim() || null }     : {}),
+    ...(updates.receiver_employee_id !== undefined ? { receiver_employee_id: updates.receiver_employee_id }  : {}),
+  }
+  if (Object.keys(ftPatch).length) {
+    const { error } = await adminClient.from('fund_transfers').update(ftPatch).eq('id', transferId)
+    if (error) throw new Error(error.message)
+  }
+
+  // Actualizar ítem del lado pagador
+  const newDesc = `↗ Traspaso → ${receiverName}`
+  const itemPatch = {
+    description: newDesc,
+    ...(updates.amount      !== undefined ? { amount: updates.amount, amount_clp: updates.amount }         : {}),
+    ...(updates.date        !== undefined ? { date: updates.date }                                         : {}),
+    ...(updates.description !== undefined ? { notes: updates.description?.trim() || null }                 : {}),
+  }
+  if (transfer.payer_fund_id) {
+    await adminClient.from('petty_cash_items').update(itemPatch).eq('transfer_id', transferId)
+  } else if (transfer.payer_report_id) {
+    await adminClient.from('expense_items').update(itemPatch).eq('transfer_id', transferId)
+  }
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+}
+
 // ── Lista simple de empleados activos de la org (para selector de receptor) ───
 
 export async function getOrgEmployeesSimple(): Promise<{ id: string; full_name: string }[]> {

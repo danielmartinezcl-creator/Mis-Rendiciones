@@ -596,6 +596,16 @@ export interface Database {
           defontana_exported_at?: string | null
         }
         Update: {
+          description?: string
+          amount?: number
+          amount_clp?: number
+          date?: string
+          notes?: string | null
+          category_id?: string | null
+          merchant?: string | null
+          doc_type?: 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro' | null
+          doc_number?: string | null
+          supplier_rut?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           rejection_reason?: string | null
           transfer_id?: string | null
@@ -854,6 +864,10 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          amount?: number
+          date?: string
+          description?: string | null
+          receiver_employee_id?: string
           receiver_fund_id?: string | null
           receiver_report_id?: string | null
           matched?: boolean

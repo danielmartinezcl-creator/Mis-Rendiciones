@@ -11,7 +11,7 @@ import type { PeriodPreset } from '@/lib/report-helpers'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle, getHistoricalFundDefontanaData, markExpenseItemsDefontanaExported } from '@/actions/admin'
 import { deleteExpenseReport } from '@/actions/expenses'
-import { createFundTransfer, linkFundTransfer, getEmployeeTargets } from '@/actions/fund-transfers'
+import { createFundTransfer, linkFundTransfer, getEmployeeTargets, deleteFundTransfer, updateFundTransfer } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
 import type { FundTransferRow, EmployeeTarget } from '@/actions/fund-transfers'
@@ -95,6 +95,16 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   const [loadingTargets,  setLoadingTargets]  = useState(false)
   const [linkSaving,      setLinkSaving]      = useState(false)
   const [linkError,       setLinkError]       = useState<string | null>(null)
+
+  // Modal editar traspaso sin vincular
+  const [editingTransfer,  setEditingTransfer]  = useState<FundTransferRow | null>(null)
+  const [editAmount,       setEditAmount]       = useState('')
+  const [editDate,         setEditDate]         = useState('')
+  const [editDesc,         setEditDesc]         = useState('')
+  const [editReceiverId,   setEditReceiverId]   = useState('')
+  const [editSaving,       setEditSaving]       = useState(false)
+  const [editError,        setEditError]        = useState<string | null>(null)
+  const [deletingTransferId, setDeletingTransferId] = useState<string | null>(null)
 
   // Actualiza items Y recalcula totales del grupo sin recargar página
   function handleItemSaved(reportId: string, itemId: string, patch: ItemSavedPatch) {
@@ -303,6 +313,59 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
       alert(err instanceof Error ? err.message : 'Error al mover')
     } finally {
       setMovingHistId(null)
+    }
+  }
+
+  // ── Handlers editar/eliminar traspasos sin vincular ─────────────────────────
+
+  function openEditTransferModal(t: FundTransferRow) {
+    setEditingTransfer(t)
+    setEditAmount(String(Math.round(t.amount)))
+    setEditDate(t.date)
+    setEditDesc(t.description ?? '')
+    setEditReceiverId(t.receiver_employee_id)
+    setEditError(null)
+  }
+
+  async function handleSaveEditTransfer() {
+    if (!editingTransfer) return
+    const amount = parseFloat(editAmount)
+    if (isNaN(amount) || amount <= 0) { setEditError('Ingresa un monto válido'); return }
+    if (!editDate) { setEditError('Selecciona una fecha'); return }
+    if (!editReceiverId) { setEditError('Selecciona un receptor'); return }
+    setEditSaving(true)
+    setEditError(null)
+    try {
+      await updateFundTransfer(editingTransfer.id, {
+        amount,
+        date: editDate,
+        description: editDesc.trim() || null,
+        receiver_employee_id: editReceiverId !== editingTransfer.receiver_employee_id ? editReceiverId : undefined,
+      })
+      const newRecName = orgEmployees.find(e => e.id === editReceiverId)?.full_name ?? editingTransfer.receiver_employee_name
+      setPendingTransfers(prev => prev.map(t =>
+        t.id === editingTransfer.id
+          ? { ...t, amount, date: editDate, description: editDesc.trim() || null, receiver_employee_id: editReceiverId, receiver_employee_name: newRecName }
+          : t
+      ))
+      setEditingTransfer(null)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function handleDeleteTransfer(t: FundTransferRow) {
+    if (!confirm(`¿Eliminar el traspaso de ${fmtCLP(t.amount)} hacia ${t.receiver_employee_name}?\n\nSe eliminará también el ítem correspondiente en el fondo origen.`)) return
+    setDeletingTransferId(t.id)
+    try {
+      await deleteFundTransfer(t.id)
+      setPendingTransfers(prev => prev.filter(x => x.id !== t.id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar el traspaso')
+    } finally {
+      setDeletingTransferId(null)
     }
   }
 
@@ -651,7 +714,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           </div>
           <div className="space-y-1.5">
             {pendingTransfers.map(t => (
-              <div key={t.id} className="flex items-center gap-3 bg-white rounded-item border border-amber-100 px-3 py-2">
+              <div key={t.id} className="flex items-center gap-2 bg-white rounded-item border border-amber-100 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-ink-800">
                     <span className="text-amber-600 mr-1">↙</span>
@@ -665,13 +728,30 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
                     {t.description && ` — ${t.description}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => openLinkModal(t)}
-                  className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 border border-amber-300 rounded-item hover:bg-amber-100 transition-colors"
-                >
-                  <Link2 size={11} />
-                  Vincular
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => openLinkModal(t)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 border border-amber-300 rounded-item hover:bg-amber-100 transition-colors"
+                  >
+                    <Link2 size={11} />
+                    Vincular
+                  </button>
+                  <button
+                    onClick={() => openEditTransferModal(t)}
+                    title="Editar traspaso"
+                    className="p-1.5 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-item transition-colors"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTransfer(t)}
+                    disabled={deletingTransferId === t.id}
+                    title="Eliminar traspaso"
+                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                  >
+                    {deletingTransferId === t.id ? <span className="text-xs">…</span> : <Trash2 size={13} />}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1007,6 +1087,90 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
               </button>
               <button
                 onClick={() => setTransferSource(null)}
+                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal editar traspaso sin vincular ──────────────────────────────── */}
+      {editingTransfer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
+                <Pencil size={18} className="text-ink-600" />
+                Editar traspaso
+              </h2>
+              <button onClick={() => setEditingTransfer(null)} className="text-ink-400 hover:text-ink-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Empleado receptor</label>
+                <select
+                  value={editReceiverId}
+                  onChange={e => setEditReceiverId(e.target.value)}
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                >
+                  <option value="">— Seleccionar empleado —</option>
+                  {orgEmployees
+                    .filter(e => e.id !== editingTransfer.payer_employee_id)
+                    .map(e => (
+                      <option key={e.id} value={e.id}>{e.full_name}</option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Monto (CLP)</label>
+                  <input
+                    type="number"
+                    value={editAmount}
+                    onChange={e => setEditAmount(e.target.value)}
+                    min="1"
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={e => setEditDate(e.target.value)}
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Descripción (opcional)</label>
+                <input
+                  type="text"
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  placeholder="Motivo del traspaso…"
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+            </div>
+            {editError && (
+              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{editError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleSaveEditTransfer}
+                disabled={editSaving}
+                className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
+                style={{ background: 'linear-gradient(130deg, #12152E 0%, #0D9488 100%)' }}
+              >
+                {editSaving ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+              <button
+                onClick={() => setEditingTransfer(null)}
                 className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
               >
                 Cancelar
