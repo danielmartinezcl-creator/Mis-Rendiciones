@@ -1,3 +1,6 @@
+// Datos en tiempo real — no cachear en el Router Cache de Next.js
+export const dynamic = 'force-dynamic'
+
 import {
   getAdminKpis,
   getPendingToRenderList,
