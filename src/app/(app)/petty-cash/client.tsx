@@ -12,7 +12,7 @@ import { buildPeriodRange } from '@/lib/report-helpers'
 import type { PeriodPreset } from '@/lib/report-helpers'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle, getHistoricalFundDefontanaData, markExpenseItemsDefontanaExported } from '@/actions/admin'
-import { deleteExpenseReport } from '@/actions/expenses'
+import { deleteExpenseReport, deleteExpenseItem } from '@/actions/expenses'
 import { createFundTransfer, linkFundTransfer, getEmployeeTargets, deleteFundTransfer, updateFundTransfer } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
@@ -113,6 +113,17 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
     setHistoricalImports(prev => prev.map(h => {
       if (h.id !== reportId) return h
       const updatedItems = h.items.map(i => i.id === itemId ? { ...i, ...patch } : i)
+      const advance_total = updatedItems.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
+      const expense_total = updatedItems.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
+      const return_total  = updatedItems.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
+      return { ...h, items: updatedItems, advance_total, expense_total, return_total }
+    }))
+  }
+
+  function handleItemDeleted(reportId: string, itemId: string) {
+    setHistoricalImports(prev => prev.map(h => {
+      if (h.id !== reportId) return h
+      const updatedItems = h.items.filter(i => i.id !== itemId)
       const advance_total = updatedItems.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
       const expense_total = updatedItems.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
       const return_total  = updatedItems.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
@@ -1007,6 +1018,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
           onExportDefontana={handleExportDefontanaFund}
           onConfirmContabilizado={handleConfirmContabilizado}
           onItemSaved={handleItemSaved}
+          onItemDeleted={handleItemDeleted}
           onTitleUpdated={handleTitleUpdated}
           onTransfer={(reportId, submitterId, defaultAmount) => openTransferModal({
             reportId,
@@ -1276,6 +1288,7 @@ interface HistoricalSectionProps {
   onExportDefontana:        (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
   onConfirmContabilizado:   (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], comprobante: string) => Promise<void>
   onItemSaved:              (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+  onItemDeleted?:           (reportId: string, itemId: string) => void
   onTitleUpdated:           (reportId: string, title: string) => void
   onTransfer:               (reportId: string, submitterId: string, defaultAmount: number) => void
 }
@@ -1295,10 +1308,11 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
 
 // ── Tabla de ítems de carga histórica con edición inline ────────────────────
 
-function HistoricalItemsTable({ reportId, items, onItemSaved }: {
-  reportId:    string
-  items:       HistItem[]
-  onItemSaved: (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted }: {
+  reportId:       string
+  items:          HistItem[]
+  onItemSaved:    (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+  onItemDeleted?: (reportId: string, itemId: string) => void
 }) {
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [editType,     setEditType]     = useState<'expense' | 'advance' | 'return'>('expense')
@@ -1307,6 +1321,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
   const [editDate,     setEditDate]     = useState('')
   const [editMerchant, setEditMerchant] = useState('')
   const [saving,       setSaving]       = useState(false)
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
   const [saveError,    setSaveError]    = useState<string | null>(null)
 
   function startEdit(item: HistItem) {
@@ -1341,6 +1356,19 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
       setSaveError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function deleteItem(item: HistItem) {
+    if (!confirm(`¿Eliminar "${item.description || 'este ítem'}"?\n\nEsta acción no se puede deshacer.`)) return
+    setDeletingItemId(item.id)
+    try {
+      await deleteExpenseItem(item.id, reportId)
+      onItemDeleted?.(reportId, item.id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar')
+    } finally {
+      setDeletingItemId(null)
     }
   }
 
@@ -1451,10 +1479,22 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
                 ) : (
                   <td className="py-1.5 pl-1 align-top">
                     {item.item_type !== 'transfer' && (
-                      <button onClick={() => startEdit(item)} title="Editar ítem"
-                        className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
-                        <Pencil size={12} />
-                      </button>
+                      <div className="flex gap-0.5">
+                        <button onClick={() => startEdit(item)} title="Editar ítem"
+                          className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={() => deleteItem(item)}
+                          disabled={deletingItemId === item.id}
+                          title="Eliminar ítem"
+                          className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors disabled:opacity-40"
+                        >
+                          {deletingItemId === item.id
+                            ? <span className="text-[10px]">…</span>
+                            : <Trash2 size={12} />}
+                        </button>
+                      </div>
                     )}
                   </td>
                 )}
@@ -1470,7 +1510,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved }: {
   )
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onItemSaved, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
 
@@ -1945,7 +1985,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
 
                     {/* Detalle expandido */}
                     {isExpanded && h.items.length > 0 && (
-                      <HistoricalItemsTable reportId={h.id} items={h.items} onItemSaved={onItemSaved} />
+                      <HistoricalItemsTable reportId={h.id} items={h.items} onItemSaved={onItemSaved} onItemDeleted={onItemDeleted} />
                     )}
                     {isExpanded && h.items.length === 0 && (
                       <div className="bg-ink-50 border-t border-ink-100 px-6 py-3 text-xs text-ink-400 text-center">
