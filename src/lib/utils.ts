@@ -34,6 +34,8 @@ export function getStatusLabel(status: ReportStatus): string {
     approved:            'Aprobada',
     partially_approved:  'Aprobada parcial',
     rejected:            'Rechazada',
+    pending_bank_load:   'Carga bancaria pendiente',
+    pending_bank_auth:   'Autorización bancaria pendiente',
     reimbursed:          'Reembolsada',
   }
   return labels[status] ?? status

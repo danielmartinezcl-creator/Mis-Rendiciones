@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
@@ -440,6 +441,116 @@ export async function markReimbursed(reportId: string, paymentReference: string)
     .in('status', ['approved', 'partially_approved'])
 
   if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/')
+}
+
+// ── Workflow bancario para Rendiciones ────────────────────────────────────────
+
+async function requireAdminOrBankPerm(perm: 'can_load_bank_transfer' | 'can_authorize_bank_transfer') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data: profile } = await supabase
+    .from('users')
+    .select(`role, ${perm}`)
+    .eq('id', user.id)
+    .single()
+  if (!profile) throw new Error('Perfil no encontrado')
+  if (profile.role !== 'admin' && !(profile as Record<string, unknown>)[perm]) {
+    throw new Error('Sin permiso para esta acción bancaria')
+  }
+  return { userId: user.id, profile }
+}
+
+/** Paso 1: Admin envía la rendición aprobada al proceso bancario */
+export async function requestReportBankLoad(reportId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data: profile } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+  if (!profile || profile.role !== 'admin') {
+    throw new Error('Solo los administradores pueden iniciar el proceso bancario')
+  }
+
+  const admin = createAdminClient()
+  const { error } = await (await admin)
+    .from('expense_reports')
+    .update({ status: 'pending_bank_load' })
+    .eq('id', reportId)
+    .in('status', ['approved', 'partially_approved'])
+
+  if (error) throw new Error(error.message)
+
+  await supabase.from('expense_report_approvals').insert({
+    report_id:   reportId,
+    approver_id: user.id,
+    level:       1,
+    action:      'bank_load_requested',
+    notes:       'Iniciado proceso bancario de reembolso',
+  })
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/')
+}
+
+/** Paso 2: Encargado de carga confirma que cargó la transferencia en el banco */
+export async function confirmReportBankLoad(reportId: string, data: {
+  paymentReference: string
+  transferredAt:    string
+}) {
+  const { userId } = await requireAdminOrBankPerm('can_load_bank_transfer')
+  const supabase = await createClient()
+
+  const admin = createAdminClient()
+  const { error } = await (await admin)
+    .from('expense_reports')
+    .update({ status: 'pending_bank_auth' })
+    .eq('id', reportId)
+    .eq('status', 'pending_bank_load')
+
+  if (error) throw new Error(error.message)
+
+  await supabase.from('expense_report_approvals').insert({
+    report_id:   reportId,
+    approver_id: userId,
+    level:       1,
+    action:      'bank_load_confirmed',
+    notes:       `Ref: ${data.paymentReference || 'Sin referencia'} · ${data.transferredAt}`,
+  })
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/')
+}
+
+/** Paso 3: Autorizador bancario confirma → reembolso completado */
+export async function authorizeReportBank(reportId: string, paymentReference: string) {
+  const { userId } = await requireAdminOrBankPerm('can_authorize_bank_transfer')
+  const supabase = await createClient()
+
+  const admin = createAdminClient()
+  const { error } = await (await admin)
+    .from('expense_reports')
+    .update({
+      status:            'reimbursed',
+      reimbursed_at:     new Date().toISOString(),
+      reimbursed_by:     userId,
+      payment_reference: paymentReference.trim() || null,
+    })
+    .eq('id', reportId)
+    .eq('status', 'pending_bank_auth')
+
+  if (error) throw new Error(error.message)
+
+  await supabase.from('expense_report_approvals').insert({
+    report_id:   reportId,
+    approver_id: userId,
+    level:       1,
+    action:      'bank_authorized',
+    notes:       paymentReference.trim() || null,
+  })
 
   revalidatePath('/admin/reports')
   revalidatePath('/')

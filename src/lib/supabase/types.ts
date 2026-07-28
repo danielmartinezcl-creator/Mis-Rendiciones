@@ -66,6 +66,8 @@ export interface Database {
           can_submit: boolean
           can_approve: boolean
           can_manage_petty_cash: boolean
+          can_load_bank_transfer: boolean
+          can_authorize_bank_transfer: boolean
           department: string | null
           rut: string | null
           bank_account: string | null
@@ -87,6 +89,8 @@ export interface Database {
           can_submit?: boolean
           can_approve?: boolean
           can_manage_petty_cash?: boolean
+          can_load_bank_transfer?: boolean
+          can_authorize_bank_transfer?: boolean
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -108,6 +112,8 @@ export interface Database {
           can_submit?: boolean
           can_approve?: boolean
           can_manage_petty_cash?: boolean
+          can_load_bank_transfer?: boolean
+          can_authorize_bank_transfer?: boolean
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -204,7 +210,7 @@ export interface Database {
           submitter_id: string
           title: string
           description: string | null
-          status: 'draft' | 'submitted' | 'pending_l2' | 'approved' | 'partially_approved' | 'rejected' | 'reimbursed'
+          status: 'draft' | 'submitted' | 'pending_l2' | 'approved' | 'partially_approved' | 'rejected' | 'pending_bank_load' | 'pending_bank_auth' | 'reimbursed'
           current_level: number
           total_amount: number
           approved_amount: number
@@ -231,7 +237,7 @@ export interface Database {
           submitter_id: string
           title: string
           description?: string | null
-          status?: 'draft' | 'submitted' | 'pending_l2' | 'approved' | 'partially_approved' | 'rejected' | 'reimbursed'
+          status?: 'draft' | 'submitted' | 'pending_l2' | 'approved' | 'partially_approved' | 'rejected' | 'pending_bank_load' | 'pending_bank_auth' | 'reimbursed'
           current_level?: number
           total_amount?: number
           approved_amount?: number
@@ -258,7 +264,7 @@ export interface Database {
           submitter_id?: string
           title?: string
           description?: string | null
-          status?: 'draft' | 'submitted' | 'pending_l2' | 'approved' | 'partially_approved' | 'rejected' | 'reimbursed'
+          status?: 'draft' | 'submitted' | 'pending_l2' | 'approved' | 'partially_approved' | 'rejected' | 'pending_bank_load' | 'pending_bank_auth' | 'reimbursed'
           current_level?: number
           total_amount?: number
           approved_amount?: number
@@ -441,7 +447,7 @@ export interface Database {
           report_id: string
           approver_id: string
           level: number
-          action: 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft'
+          action: 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized'
           items_approved: string[] | null
           items_rejected: string[] | null
           notes: string | null
@@ -452,7 +458,7 @@ export interface Database {
           report_id: string
           approver_id: string
           level: number
-          action: 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft'
+          action: 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized'
           items_approved?: string[] | null
           items_rejected?: string[] | null
           notes?: string | null
@@ -506,7 +512,7 @@ export interface Database {
           period_start: string
           period_end: string
           description: string | null
-          status: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          status: 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
           settled_at: string | null
           created_at: string
           updated_at: string
@@ -527,7 +533,7 @@ export interface Database {
           period_start: string
           period_end: string
           description?: string | null
-          status?: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          status?: 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
           settled_at?: string | null
           created_at?: string
           updated_at?: string
@@ -540,7 +546,7 @@ export interface Database {
           id?: string
           name?: string
           amount_approved?: number | null
-          status?: 'draft' | 'pending_approval' | 'approved' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          status?: 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
           settled_at?: string | null
           updated_at?: string
           deleted_at?: string | null
@@ -618,7 +624,7 @@ export interface Database {
           id: string
           fund_id: string
           actor_id: string
-          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
+          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
           notes: string | null
           amount: number | null
           created_at: string
@@ -627,7 +633,7 @@ export interface Database {
           id?: string
           fund_id: string
           actor_id: string
-          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
+          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
           notes?: string | null
           amount?: number | null
           created_at?: string

@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal, FileSpreadsheet, Search } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
+import { CompactStepper } from '@/components/ui/CompactStepper'
+import { FUND_STEPS } from '@/lib/constants'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { buildPeriodRange } from '@/lib/report-helpers'
@@ -948,6 +950,11 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
                       EFF: <span className="font-medium text-ink-700">{f.manager_name}</span>
                     </p>
                     <p className="text-xs text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
+                    {f.status !== 'rejected' && (
+                      <div className="mt-2 max-w-[220px]">
+                        <CompactStepper steps={FUND_STEPS} currentStatus={f.status} />
+                      </div>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(f.amount_approved ?? f.amount_requested)}</p>

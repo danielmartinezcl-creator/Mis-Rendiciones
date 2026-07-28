@@ -6,7 +6,9 @@ import {
   submitFundForApproval,
   approveFund,
   rejectFund,
-  recordFundDisbursement,
+  requestBankLoad,
+  confirmBankLoad,
+  authorizeBank,
   submitLiquidation,
   elevateLiquidation,
   approveLiquidation,
@@ -20,8 +22,10 @@ import { FundStatusBadge }   from '@/components/petty-cash/FundStatusBadge'
 import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
+import { VerticalTimeline }  from '@/components/ui/VerticalTimeline'
 import { calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation } from '@/lib/petty-cash-helpers'
-import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, FileSpreadsheet } from 'lucide-react'
+import { FUND_STEPS } from '@/lib/constants'
+import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, FileSpreadsheet, Building2, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 
 function fmtCLP(n: number) {
@@ -47,7 +51,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   // paneles de acción
   const [approvingFund, setApprovingFund] = useState(false)
   const [rejectingFund, setRejectingFund] = useState(false)
-  const [disbursing, setDisbursing]       = useState(false)
+  const [bankLoadConfirming, setBankLoadConfirming] = useState(false)
   const [settling, setSettling]           = useState(false)
   const [decidingItems, setDecidingItems] = useState<Record<string, 'approved' | 'rejected'>>({})
   const [rejectionReasons, setRejReasons] = useState<Record<string, string>>({})
@@ -58,6 +62,9 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   )
   const [approveNotes, setApproveNotes]   = useState('')
   const [rejectNotes, setRejectNotes]     = useState('')
+  const [disbAmount, setDisbAmount]       = useState(
+    initialDetail?.fund.amount_approved ? String(initialDetail.fund.amount_approved) : ''
+  )
   const [disbRef, setDisbRef]             = useState('')
   const [disbDate, setDisbDate]           = useState(today())
   const [settleType, setSettleType]       = useState<'refund_to_employee' | 'reimbursement_from_employee'>('refund_to_employee')
@@ -177,6 +184,14 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         ))}
       </div>
 
+      {/* Progreso del fondo */}
+      {fund.status !== 'rejected' && (
+        <div className="bg-white rounded-card shadow-card px-5 py-4">
+          <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-4">Progreso</p>
+          <VerticalTimeline steps={FUND_STEPS} currentStatus={fund.status} />
+        </div>
+      )}
+
       {fund.description && (
         <div className="bg-ink-50 rounded-card px-4 py-3 text-sm text-ink-600 border border-ink-100">
           {fund.description}
@@ -251,16 +266,50 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         </div>
       )}
 
-      {/* EFF: registrar transferencia de fondos */}
+      {/* EFF: enviar al banco para carga */}
       {fund.status === 'approved' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-violet-400 space-y-3">
-          <p className="text-sm font-semibold text-ink-800">Paso 2 — Registrar transferencia al empleado</p>
-          {!disbursing ? (
-            <button onClick={() => setDisbursing(true)} className="w-full py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-item transition-colors">
-              Registrar transferencia de fondos
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-blue-400 space-y-2">
+          <div className="flex items-center gap-2">
+            <Building2 size={15} className="text-blue-600" />
+            <p className="text-sm font-semibold text-ink-800">Paso 2 — Enviar al banco</p>
+          </div>
+          <p className="text-xs text-ink-500">
+            Solicita la carga al banco. El fondo pasará a estado "Carga bancaria pendiente".
+          </p>
+          <button
+            disabled={pending}
+            onClick={() => act(() => requestBankLoad(fund.id))}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+          >
+            {pending ? 'Enviando...' : 'Enviar al banco'}
+          </button>
+        </div>
+      )}
+
+      {/* Banco: confirmar carga bancaria */}
+      {fund.status === 'pending_bank_load' && (currentUser.role === 'admin' || currentUser.can_load_bank_transfer) && (
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-blue-500 space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 size={15} className="text-blue-600" />
+            <p className="text-sm font-semibold text-ink-800">Confirmar carga bancaria</p>
+          </div>
+          <p className="text-xs text-ink-500">Ingresa los datos de la transferencia realizada en el banco.</p>
+          {!bankLoadConfirming ? (
+            <button onClick={() => setBankLoadConfirming(true)} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-item transition-colors">
+              Ingresar datos de transferencia
             </button>
           ) : (
             <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Monto transferido (CLP)</label>
+                <input
+                  type="number"
+                  value={disbAmount}
+                  onChange={e => setDisbAmount(e.target.value)}
+                  min="1"
+                  className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-ink-600 mb-1">Referencia bancaria</label>
@@ -274,14 +323,41 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button disabled={pending} onClick={() => act(() => recordFundDisbursement(fund.id, { amount: fund.amount_approved ?? fund.amount_requested, reference: disbRef, transferred_at: disbDate }))}
-                  className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
-                  {pending ? 'Registrando...' : 'Confirmar transferencia'}
+                <button
+                  disabled={pending}
+                  onClick={() => act(() => confirmBankLoad(fund.id, {
+                    amount:         parseFloat(disbAmount) || (fund.amount_approved ?? fund.amount_requested),
+                    reference:      disbRef || undefined,
+                    transferred_at: disbDate,
+                  }))}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+                >
+                  {pending ? 'Confirmando...' : 'Confirmar carga bancaria'}
                 </button>
-                <button onClick={() => setDisbursing(false)} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>
+                <button onClick={() => setBankLoadConfirming(false)} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Autorizador: autorizar transferencia */}
+      {fund.status === 'pending_bank_auth' && (currentUser.role === 'admin' || currentUser.can_authorize_bank_transfer) && (
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-indigo-500 space-y-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={15} className="text-indigo-600" />
+            <p className="text-sm font-semibold text-ink-800">Autorizar transferencia</p>
+          </div>
+          <p className="text-xs text-ink-500">
+            La carga está lista. Al autorizar, los fondos quedarán disponibles para el empleado.
+          </p>
+          <button
+            disabled={pending}
+            onClick={() => act(() => authorizeBank(fund.id))}
+            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+          >
+            {pending ? 'Autorizando...' : 'Autorizar transferencia'}
+          </button>
         </div>
       )}
 

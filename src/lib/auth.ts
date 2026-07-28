@@ -17,7 +17,7 @@ export const getAuthProfile = cache(async () => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('users')
-    .select('id, full_name, role, can_submit, can_approve, can_manage_petty_cash, department, org_id, is_active, approver_l1_id, approver_l2_id, cost_center_id, rut, bank_account, bank_name, bank_account_type, invited_at, created_at, deleted_at')
+    .select('id, full_name, role, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, department, org_id, is_active, approver_l1_id, approver_l2_id, cost_center_id, rut, bank_account, bank_name, bank_account_type, invited_at, created_at, deleted_at')
     .eq('id', user.id)
     .single()
   return data

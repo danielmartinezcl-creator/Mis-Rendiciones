@@ -123,14 +123,29 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
       setTitle(`${prefix} N°${result.fundNumber} — ${result.officeName}`)
       setApprovedDate(result.rendicionDate)
 
-      // Intentar hacer match por nombre (ignorando mayúsculas y acentos)
+      // Match por nombre con algoritmo de token-intersection.
+      // Los Excel exportan nombres en mayúsculas sin acentos y con orden distinto
+      // ("RODRIGO BASCUÑAN") mientras el sistema tiene "Bascuñán Moreno Rodrigo".
+      // La intersección de tokens (ignorando caso y acentos) resuelve ambos casos.
       function normalize(s: string) {
         return s.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '')
       }
+      function tokenize(s: string): string[] {
+        return normalize(s).split(/\s+/).filter(t => t.length > 1)
+      }
       function findEmployee(name: string) {
         if (!name) return null
+        // Intentar match exacto primero (más rápido)
         const n = normalize(name)
-        return employees.find(e => normalize(e.full_name) === n) ?? null
+        const exact = employees.find(e => normalize(e.full_name) === n)
+        if (exact) return exact
+        // Token-intersection: todos los tokens del Excel deben aparecer en el nombre del sistema
+        const excelTokens = tokenize(name)
+        if (!excelTokens.length) return null
+        return employees.find(e => {
+          const sysTokens = new Set(tokenize(e.full_name))
+          return excelTokens.every(t => sysTokens.has(t))
+        }) ?? null
       }
 
       const newRows: GridRow[] = result.items.map(item => {
@@ -144,7 +159,7 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
           date:         item.date,
           amountCLP:    item.amountCLP,
           categoryId:   null,
-          costCenterId: DEFAULT_COST_CENTER,
+          costCenterId: matched?.cost_center_id ?? DEFAULT_COST_CENTER,
           docType:      'boleta' as const,
           docNumber:    null,
           supplierRut:  null,

@@ -13,7 +13,7 @@ async function getProfile() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('id, org_id, role, can_approve, can_manage_petty_cash, full_name')
+    .select('id, org_id, role, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, full_name')
     .eq('id', user.id)
     .single()
 
@@ -545,11 +545,102 @@ export async function getFundDetail(fundId: string) {
     categories: categoriesRes.data ?? [],
     employee_name: userMap[fund.employee_id] ?? 'Desconocido',
     manager_name:  userMap[fund.manager_id]  ?? 'Desconocido',
-    currentUser: { id: userId, role: profile.role, can_approve: profile.can_approve, can_manage_petty_cash: profile.can_manage_petty_cash },
+    currentUser: {
+      id:                          userId,
+      role:                        profile.role,
+      can_approve:                 profile.can_approve,
+      can_manage_petty_cash:       profile.can_manage_petty_cash,
+      can_load_bank_transfer:      profile.can_load_bank_transfer,
+      can_authorize_bank_transfer: profile.can_authorize_bank_transfer,
+    },
   }
 }
 
 export type FundDetail = NonNullable<Awaited<ReturnType<typeof getFundDetail>>>
+
+// ── Workflow bancario ─────────────────────────────────────────────────────────
+
+/** Paso 1: Admin/manager envía el fondo aprobado al proceso bancario */
+export async function requestBankLoad(fundId: string) {
+  const { supabase, userId, profile } = await getProfile()
+
+  if (!profile.can_manage_petty_cash && profile.role !== 'admin') {
+    throw new Error('Sin permiso para iniciar el proceso bancario')
+  }
+
+  const admin = createAdminClient()
+  const { error } = await (await admin)
+    .from('petty_cash_funds')
+    .update({ status: 'pending_bank_load' as FundStatus })
+    .eq('id', fundId)
+    .eq('status', 'approved')
+
+  if (error) throw new Error(error.message)
+
+  await audit(supabase, fundId, userId, 'bank_load_requested')
+  revalidatePath(`/petty-cash/${fundId}`)
+  revalidatePath('/petty-cash')
+}
+
+/** Paso 2: Encargado de carga bancaria confirma que cargó la transferencia */
+export async function confirmBankLoad(fundId: string, data: {
+  amount:         number
+  reference?:     string
+  transferred_at: string
+  notes?:         string
+}) {
+  const { supabase, userId, profile } = await getProfile()
+
+  if (!profile.can_load_bank_transfer && profile.role !== 'admin') {
+    throw new Error('Sin permiso para confirmar carga bancaria')
+  }
+
+  const admin = createAdminClient()
+  const { error: fundError } = await (await admin)
+    .from('petty_cash_funds')
+    .update({ status: 'pending_bank_auth' as FundStatus })
+    .eq('id', fundId)
+    .eq('status', 'pending_bank_load')
+
+  if (fundError) throw new Error(fundError.message)
+
+  await supabase.from('petty_cash_transfers').insert({
+    fund_id:        fundId,
+    type:           'disbursement',
+    amount:         data.amount,
+    reference:      data.reference ?? null,
+    transferred_at: data.transferred_at,
+    registered_by:  userId,
+    notes:          data.notes ?? null,
+  })
+
+  await audit(supabase, fundId, userId, 'bank_load_confirmed', data.reference ?? null, data.amount)
+  revalidatePath(`/petty-cash/${fundId}`)
+  revalidatePath('/petty-cash')
+}
+
+/** Paso 3: Autorizador bancario aprueba la transferencia → fondos enviados */
+export async function authorizeBank(fundId: string) {
+  const { supabase, userId, profile } = await getProfile()
+
+  if (!profile.can_authorize_bank_transfer && profile.role !== 'admin') {
+    throw new Error('Sin permiso para autorizar transferencias bancarias')
+  }
+
+  const admin = createAdminClient()
+  const { error } = await (await admin)
+    .from('petty_cash_funds')
+    .update({ status: 'funds_sent' as FundStatus })
+    .eq('id', fundId)
+    .eq('status', 'pending_bank_auth')
+
+  if (error) throw new Error(error.message)
+
+  await audit(supabase, fundId, userId, 'bank_authorized')
+  await audit(supabase, fundId, userId, 'funds_sent')
+  revalidatePath(`/petty-cash/${fundId}`)
+  revalidatePath('/petty-cash')
+}
 
 // ── Categorías activas (para filtros) ────────────────────────────────────────
 

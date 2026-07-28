@@ -507,6 +507,18 @@ export default function AdminEmployeesPage() {
                       className="rounded text-brand-600" />
                     EFF (Caja Chica)
                   </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede confirmar la carga bancaria de los fondos">
+                    <input type="checkbox" checked={emp.can_load_bank_transfer} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_load_bank_transfer: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Carga banco
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede autorizar la transferencia bancaria final">
+                    <input type="checkbox" checked={emp.can_authorize_bank_transfer} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_authorize_bank_transfer: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Autorizador banco
+                  </label>
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
                     <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}

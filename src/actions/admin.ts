@@ -511,16 +511,18 @@ export async function deleteEmployees(userIds: string[]): Promise<{ id: string; 
 export async function updateEmployee(
   userId: string,
   updates: {
-    role?:                  'admin' | 'approver' | 'employee'
-    can_submit?:            boolean
-    can_approve?:           boolean
-    can_manage_petty_cash?: boolean
-    is_active?:             boolean
-    full_name?:             string
-    rut?:                   string | null
-    department?:            string | null
-    bank_account?:          string | null
-    cost_center_id?:        string | null
+    role?:                       'admin' | 'approver' | 'employee'
+    can_submit?:                 boolean
+    can_approve?:                boolean
+    can_manage_petty_cash?:      boolean
+    can_load_bank_transfer?:     boolean
+    can_authorize_bank_transfer?: boolean
+    is_active?:                  boolean
+    full_name?:                  string
+    rut?:                        string | null
+    department?:                 string | null
+    bank_account?:               string | null
+    cost_center_id?:             string | null
   }
 ) {
   const { supabase } = await requireAdmin()
