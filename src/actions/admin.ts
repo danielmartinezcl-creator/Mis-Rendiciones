@@ -230,60 +230,67 @@ export async function getPendingToRenderList() {
       .filter(f => f.netBalance > 0)
   }
 
-  // ── Históricas: filtrar las que tienen adelanto sin rendir (advance > expense) ──
-  let historicalPending: typeof historical = []
-  const advanceTotals: Record<string, number> = {}
+  // ── Históricas: agrupar por fund_number PRIMERO, luego filtrar por neto > 0 ──
+  // Un mismo fondo puede tener advance, expense y return en expense_reports separados
+  // con el mismo fund_number. Filtrar por report individual causaría falsos positivos.
+  const fundGroups = new Map<string, {
+    id: string; title: string; submitterId: string; approvedAt: string | null; amount: number
+  }>()
   if (historical.length > 0) {
     const { data: items } = await supabase
       .from('expense_items')
       .select('report_id, item_type, amount_clp')
       .in('report_id', historical.map(r => r.id))
 
-    const byReport = new Map<string, { advance: number; expense: number }>()
+    // Mapa reportId → fundKey para lookup rápido
+    const reportToFundKey = new Map<string, string>()
+    for (const r of historical) {
+      reportToFundKey.set(r.id, r.fund_number ?? r.id)
+    }
+
+    // Acumular advance y expense por fundKey (no por reportId)
+    const byFundKey = new Map<string, { advance: number; expense: number }>()
+    for (const r of historical) {
+      const key = r.fund_number ?? r.id
+      if (!byFundKey.has(key)) byFundKey.set(key, { advance: 0, expense: 0 })
+    }
     for (const item of (items ?? [])) {
-      if (!byReport.has(item.report_id)) byReport.set(item.report_id, { advance: 0, expense: 0 })
-      const e = byReport.get(item.report_id)!
+      const fundKey = reportToFundKey.get(item.report_id)
+      if (!fundKey) continue
+      const e = byFundKey.get(fundKey)!
       if (item.item_type === 'advance') e.advance += item.amount_clp
       if (item.item_type === 'expense' || item.item_type === 'return') e.expense += item.amount_clp
     }
 
-    historicalPending = historical.filter(r => {
-      const t = byReport.get(r.id)
-      return t && t.advance > t.expense
-    })
-    for (const r of historicalPending) {
-      const t = byReport.get(r.id)!
-      advanceTotals[r.id] = t.advance - t.expense
-    }
-  }
-
-  // ── Nombres de empleados ──
-  const empIds = [...new Set([
-    ...activeFundsWithBalance.map(f => f.employee_id),
-    ...historicalPending.map(r => r.submitter_id),
-  ])]
-  const { data: users } = empIds.length
-    ? await supabase.from('users').select('id, full_name').in('id', empIds)
-    : { data: [] }
-  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
-
-  // ── Agrupar históricas por fund_number ──
-  const fundGroups = new Map<string, {
-    id: string; title: string; submitterId: string; approvedAt: string | null; amount: number
-  }>()
-  for (const r of historicalPending) {
-    const key = r.fund_number ?? r.id
-    if (!fundGroups.has(key)) {
+    // Construir fundGroups solo para fondos con neto > 0
+    const seenKeys = new Set<string>()
+    for (const r of historical) {
+      const key = r.fund_number ?? r.id
+      if (seenKeys.has(key)) continue
+      seenKeys.add(key)
+      const t = byFundKey.get(key)!
+      const net = t.advance - t.expense
+      if (net <= 0) continue
       fundGroups.set(key, {
         id:          r.id,
         title:       r.fund_number ? `Fondo Nº ${r.fund_number}` : r.title,
         submitterId: r.submitter_id,
         approvedAt:  r.approved_at,
-        amount:      0,
+        amount:      net,
       })
     }
-    fundGroups.get(key)!.amount += advanceTotals[r.id] ?? 0
   }
+
+  // ── Nombres de empleados ──
+  const pendingSubmitterIds = Array.from(fundGroups.values()).map(g => g.submitterId)
+  const empIds = [...new Set([
+    ...activeFundsWithBalance.map(f => f.employee_id),
+    ...pendingSubmitterIds,
+  ])]
+  const { data: users } = empIds.length
+    ? await supabase.from('users').select('id, full_name').in('id', empIds)
+    : { data: [] }
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
   return {
     pettyCashFunds: activeFundsWithBalance.map(f => ({
