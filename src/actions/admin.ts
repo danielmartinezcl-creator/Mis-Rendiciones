@@ -203,10 +203,33 @@ export async function getPendingToRenderList() {
       .is('deleted_at', null),
   ])
 
-  const funds     = fundsRes.data     ?? []
+  const funds      = fundsRes.data     ?? []
   const historical = historicalRes.data ?? []
 
-  // Para importaciones históricas: obtener ítems y filtrar las que son solo adelantos
+  // ── Cajas chicas activas: calcular saldo neto (desembolso − gastos registrados) ──
+  // Solo aparecen si el saldo neto > 0 (hay dinero sin justificar).
+  // Si cuadran (neto ≤ 0) se excluyen aunque el estado sea funds_sent.
+  let activeFundsWithBalance: (typeof funds[number] & { netBalance: number })[] = []
+  if (funds.length > 0) {
+    const { data: activeItems } = await supabase
+      .from('petty_cash_items')
+      .select('fund_id, amount_clp')
+      .in('fund_id', funds.map(f => f.id))
+
+    const spentByFund = new Map<string, number>()
+    for (const item of (activeItems ?? [])) {
+      spentByFund.set(item.fund_id, (spentByFund.get(item.fund_id) ?? 0) + item.amount_clp)
+    }
+
+    activeFundsWithBalance = funds
+      .map(f => ({
+        ...f,
+        netBalance: (f.amount_approved ?? f.amount_requested ?? 0) - (spentByFund.get(f.id) ?? 0),
+      }))
+      .filter(f => f.netBalance > 0)
+  }
+
+  // ── Históricas: filtrar las que tienen adelanto sin rendir (advance > expense) ──
   let historicalPending: typeof historical = []
   const advanceTotals: Record<string, number> = {}
   if (historical.length > 0) {
@@ -220,29 +243,30 @@ export async function getPendingToRenderList() {
       if (!byReport.has(item.report_id)) byReport.set(item.report_id, { advance: 0, expense: 0 })
       const e = byReport.get(item.report_id)!
       if (item.item_type === 'advance') e.advance += item.amount_clp
-      // expense Y return reducen el saldo pendiente (devoluciones = dinero devuelto)
       if (item.item_type === 'expense' || item.item_type === 'return') e.expense += item.amount_clp
     }
 
-    // Solo fondos donde el neto es positivo: advance > expense (excluye "cuadradas")
     historicalPending = historical.filter(r => {
       const t = byReport.get(r.id)
       return t && t.advance > t.expense
     })
     for (const r of historicalPending) {
       const t = byReport.get(r.id)!
-      advanceTotals[r.id] = t.advance - t.expense  // monto neto aún no rendido
+      advanceTotals[r.id] = t.advance - t.expense
     }
   }
 
-  // Nombres de empleados
-  const empIds = [...new Set([...funds.map(f => f.employee_id), ...historicalPending.map(r => r.submitter_id)])]
+  // ── Nombres de empleados ──
+  const empIds = [...new Set([
+    ...activeFundsWithBalance.map(f => f.employee_id),
+    ...historicalPending.map(r => r.submitter_id),
+  ])]
   const { data: users } = empIds.length
     ? await supabase.from('users').select('id, full_name').in('id', empIds)
     : { data: [] }
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
-  // Agrupar importaciones históricas por fund_number → cada caja chica = 1 entrada en el panel
+  // ── Agrupar históricas por fund_number ──
   const fundGroups = new Map<string, {
     id: string; title: string; submitterId: string; approvedAt: string | null; amount: number
   }>()
@@ -261,11 +285,11 @@ export async function getPendingToRenderList() {
   }
 
   return {
-    pettyCashFunds: funds.map(f => ({
+    pettyCashFunds: activeFundsWithBalance.map(f => ({
       id:           f.id,
       name:         f.name,
       employeeName: userMap[f.employee_id] ?? 'Desconocido',
-      amount:       f.amount_approved ?? f.amount_requested,
+      amount:       f.netBalance,   // saldo neto, no el desembolso total
       period_start: f.period_start,
       period_end:   f.period_end,
     })),
