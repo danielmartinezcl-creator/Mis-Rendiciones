@@ -12,7 +12,7 @@ import { buildPeriodRange } from '@/lib/report-helpers'
 import type { PeriodPreset } from '@/lib/report-helpers'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle, getHistoricalFundDefontanaData, markExpenseItemsDefontanaExported } from '@/actions/admin'
-import { deleteExpenseReport, deleteExpenseItem } from '@/actions/expenses'
+import { adminDeleteExpenseReport, deleteExpenseItem } from '@/actions/expenses'
 import { createFundTransfer, linkFundTransfer, getEmployeeTargets, deleteFundTransfer, updateFundTransfer } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
@@ -214,7 +214,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
     if (!confirm(`¿Eliminar la carga histórica "${title}"?\n\nEsta acción la moverá a la papelera.`)) return
     setDeletingHistId(id)
     try {
-      await deleteExpenseReport(id)
+      await adminDeleteExpenseReport(id)
       setHistoricalImports(prev => prev.filter(h => h.id !== id))
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al eliminar')
