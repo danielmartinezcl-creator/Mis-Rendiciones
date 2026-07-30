@@ -142,3 +142,12 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
   revalidatePath('/admin/employees')
   return results
 }
+
+// ── Establecer contraseña de empleado sin enviar email ───────────────────────
+
+export async function setEmployeePassword(userId: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres')
+  const { adminClient } = await getAdminContext()
+  const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword })
+  if (error) throw new Error(error.message)
+}

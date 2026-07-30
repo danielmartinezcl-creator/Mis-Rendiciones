@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, getCostCenters } from '@/actions/admin'
-import { sendInvitations } from '@/actions/employees'
+import { sendInvitations, setEmployeePassword } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 
@@ -54,6 +54,14 @@ export default function AdminEmployeesPage() {
   const [editForm, setEditForm]         = useState<{ full_name: string; rut: string; department: string; cost_center_id: string }>({ full_name: '', rut: '', department: '', cost_center_id: '' })
   const [editSaving, setEditSaving]     = useState(false)
   const [costCenters, setCostCenters]   = useState<CostCenter[]>([])
+
+  const [pwPanel,    setPwPanel]    = useState<string | null>(null)
+  const [pwValue,    setPwValue]    = useState('')
+  const [pwConfirm,  setPwConfirm]  = useState('')
+  const [pwShow,     setPwShow]     = useState(false)
+  const [pwSaving,   setPwSaving]   = useState(false)
+  const [pwError,    setPwError]    = useState<string | null>(null)
+  const [pwSuccess,  setPwSuccess]  = useState(false)
 
   async function load() {
     const data = await getOrgEmployees()
@@ -170,6 +178,26 @@ export default function AdminEmployeesPage() {
       await load()
     } finally {
       setEditSaving(false)
+    }
+  }
+
+  function openPwPanel(empId: string) {
+    setPwPanel(empId); setPwValue(''); setPwConfirm(''); setPwError(null); setPwSuccess(false); setPwShow(false)
+    setExpandedEdit(null); setExpandedApprover(null)
+  }
+
+  async function handleSetPassword(userId: string) {
+    if (pwValue.length < 8) { setPwError('Mínimo 8 caracteres'); return }
+    if (pwValue !== pwConfirm) { setPwError('Las contraseñas no coinciden'); return }
+    setPwSaving(true); setPwError(null)
+    try {
+      await setEmployeePassword(userId, pwValue)
+      setPwSuccess(true)
+      setTimeout(() => { setPwPanel(null); setPwSuccess(false) }, 1500)
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : 'Error al cambiar contraseña')
+    } finally {
+      setPwSaving(false)
     }
   }
 
@@ -526,8 +554,15 @@ export default function AdminEmployeesPage() {
                     Activo
                   </label>
 
-                  {/* Acciones: inactivar / eliminar */}
+                  {/* Acciones: contraseña / inactivar / eliminar */}
                   <div className="ml-auto flex items-center gap-1">
+                    <button
+                      onClick={() => pwPanel === emp.id ? setPwPanel(null) : openPwPanel(emp.id)}
+                      title="Establecer contraseña"
+                      className={`p-1.5 rounded-item transition-colors ${pwPanel === emp.id ? 'text-brand-600 bg-brand-50' : 'text-ink-400 hover:text-brand-600 hover:bg-brand-50'}`}
+                    >
+                      <KeyRound size={14} />
+                    </button>
                     {emp.is_active && (
                       <button
                         onClick={() => handleDeactivate(emp.id, emp.full_name)}
@@ -646,6 +681,64 @@ export default function AdminEmployeesPage() {
                       Cancelar
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Panel establecer contraseña */}
+              {pwPanel === emp.id && (
+                <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
+                  <p className="text-xs font-semibold text-ink-600 mb-3 uppercase tracking-wide">Establecer contraseña</p>
+                  {pwSuccess ? (
+                    <p className="text-sm text-emerald-600 font-medium flex items-center gap-2">
+                      <Check size={15} /> Contraseña actualizada correctamente
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <input
+                          type={pwShow ? 'text' : 'password'}
+                          value={pwValue}
+                          onChange={e => { setPwValue(e.target.value); setPwError(null) }}
+                          placeholder="Nueva contraseña (mínimo 8 caracteres)"
+                          autoComplete="new-password"
+                          className="w-full px-3 py-2 pr-9 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPwShow(s => !s)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+                          tabIndex={-1}
+                        >
+                          {pwShow ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                      <input
+                        type={pwShow ? 'text' : 'password'}
+                        value={pwConfirm}
+                        onChange={e => { setPwConfirm(e.target.value); setPwError(null) }}
+                        placeholder="Confirmar contraseña"
+                        autoComplete="new-password"
+                        onKeyDown={e => { if (e.key === 'Enter') handleSetPassword(emp.id) }}
+                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      {pwError && <p className="text-xs text-rose-600">{pwError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSetPassword(emp.id)}
+                          disabled={pwSaving}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors"
+                        >
+                          {pwSaving ? <><Loader2 size={12} className="animate-spin" />Guardando…</> : <><KeyRound size={12} />Establecer contraseña</>}
+                        </button>
+                        <button
+                          onClick={() => setPwPanel(null)}
+                          className="px-4 py-2 text-xs text-ink-500 hover:text-ink-700 border border-ink-200 rounded-item hover:bg-white transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
