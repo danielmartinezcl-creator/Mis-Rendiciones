@@ -9,7 +9,7 @@ import {
   checkPeriodLimit,
 } from '@/lib/policy-helpers'
 import type { PolicyViolation } from '@/lib/policy-helpers'
-import type { ExpensePolicy } from '@/lib/supabase/types'
+import type { ExpensePolicy, TravelPolicy } from '@/lib/supabase/types'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -185,5 +185,100 @@ export async function checkPolicyViolations(params: {
     violations,
     hasBlock:                 violations.some(v => v.enforcement === 'block'),
     hasJustificationRequired: violations.some(v => v.enforcement === 'require_justification'),
+  }
+}
+
+// ─── Políticas de viáticos ────────────────────────────────────────────────────
+
+export async function getTravelPolicies(): Promise<TravelPolicy[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data: profile } = await supabase
+    .from('users').select('org_id').eq('id', user.id).single()
+  if (!profile) return []
+  const { data } = await supabase
+    .from('travel_policies')
+    .select('*')
+    .eq('org_id', profile.org_id)
+    .order('created_at', { ascending: true })
+  return (data ?? []) as TravelPolicy[]
+}
+
+export interface TravelPolicyInput {
+  name:             string
+  destination_type: 'local' | 'regional' | 'exterior' | null
+  category_id:      string | null
+  max_amount:       number
+  currency:         string
+  activo:           boolean
+}
+
+export async function createTravelPolicy(data: TravelPolicyInput): Promise<void> {
+  const { supabase, org_id } = await requireAdmin()
+  const { error } = await supabase.from('travel_policies').insert({ org_id, ...data })
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
+export async function updateTravelPolicy(id: string, data: Partial<TravelPolicyInput>): Promise<void> {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase.from('travel_policies').update(data).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
+export async function deleteTravelPolicy(id: string): Promise<void> {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase.from('travel_policies').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
+}
+
+export interface TravelPolicyCheckResult {
+  policy:         TravelPolicy | null  // la política que aplica (o null si no hay)
+  exceeds:        boolean              // true = monto supera el límite
+  limitAmount:    number | null        // monto máximo de la política
+  limitCurrency:  string | null
+}
+
+export async function checkTravelPolicies(params: {
+  categoryId: string | null
+  amount:     number
+}): Promise<TravelPolicyCheckResult> {
+  const { categoryId, amount } = params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { policy: null, exceeds: false, limitAmount: null, limitCurrency: null }
+
+  const { data: profile } = await supabase
+    .from('users').select('org_id').eq('id', user.id).single()
+  if (!profile) return { policy: null, exceeds: false, limitAmount: null, limitCurrency: null }
+
+  const { data: policiesData } = await supabase
+    .from('travel_policies')
+    .select('*')
+    .eq('org_id', profile.org_id)
+    .eq('activo', true)
+
+  const policies = (policiesData ?? []) as TravelPolicy[]
+  if (!policies.length) return { policy: null, exceeds: false, limitAmount: null, limitCurrency: null }
+
+  // Prioridad: política específica de la categoría > política sin categoría (aplica a todas)
+  let match = categoryId
+    ? policies.find(p => p.category_id === categoryId)
+    : null
+  if (!match) match = policies.find(p => p.category_id === null) ?? null
+
+  if (!match) return { policy: null, exceeds: false, limitAmount: null, limitCurrency: null }
+
+  const limitCLP = match.currency === 'CLP' ? match.max_amount : null
+  const exceeds  = limitCLP !== null ? amount > limitCLP : false
+
+  return {
+    policy:        match,
+    exceeds,
+    limitAmount:   match.max_amount,
+    limitCurrency: match.currency,
   }
 }

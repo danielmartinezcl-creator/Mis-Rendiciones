@@ -862,6 +862,47 @@ export interface Database {
         }
         Relationships: []
       }
+      travel_policies: {
+        Row: {
+          id:               string
+          org_id:           string
+          name:             string
+          destination_type: 'local' | 'regional' | 'exterior' | null
+          category_id:      string | null
+          max_amount:       number
+          currency:         string
+          activo:           boolean
+          created_at:       string
+        }
+        Insert: {
+          id?:               string
+          org_id:            string
+          name:              string
+          destination_type?: 'local' | 'regional' | 'exterior' | null
+          category_id?:      string | null
+          max_amount:        number
+          currency?:         string
+          activo?:           boolean
+          created_at?:       string
+        }
+        Update: {
+          name?:             string
+          destination_type?: 'local' | 'regional' | 'exterior' | null
+          category_id?:      string | null
+          max_amount?:       number
+          currency?:         string
+          activo?:           boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'travel_policies_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       fund_transfers: {
         Row: {
           id: string
@@ -944,3 +985,4 @@ export type CostCenter         = Database['public']['Tables']['cost_centers']['R
 export type DefontanaSupplier  = Database['public']['Tables']['defontana_suppliers']['Row']
 export type FundTransfer       = Database['public']['Tables']['fund_transfers']['Row']
 export type ExpensePolicy      = Database['public']['Tables']['expense_policies']['Row']
+export type TravelPolicy       = Database['public']['Tables']['travel_policies']['Row']

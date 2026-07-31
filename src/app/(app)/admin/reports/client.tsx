@@ -2,13 +2,14 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
+import type { CostCenter } from '@/lib/supabase/types'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
 type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
@@ -58,6 +59,34 @@ export function AdminReportsClient({ initialReports }: Props) {
 
   // ZIP comprobantes
   const [zippingId, setZippingId] = useState<string | null>(null)
+
+  // Reasignar CC masivo
+  const [bulkCCReportId, setBulkCCReportId]   = useState<string | null>(null)
+  const [bulkCCSelected, setBulkCCSelected]   = useState<string>('')
+  const [bulkCCSaving,   setBulkCCSaving]     = useState(false)
+  const [costCenters,    setCostCenters]       = useState<CostCenter[]>([])
+  const [ccLoaded,       setCCLoaded]         = useState(false)
+
+  async function openBulkCC(reportId: string) {
+    if (!ccLoaded) {
+      const ccs = await getCostCenters()
+      setCostCenters(ccs.filter(c => c.imputable))
+      setCCLoaded(true)
+    }
+    setBulkCCSelected('')
+    setBulkCCReportId(reportId)
+  }
+
+  async function handleBulkCC() {
+    if (!bulkCCReportId) return
+    setBulkCCSaving(true)
+    try {
+      await bulkUpdateExpenseItemsCostCenter(bulkCCReportId, bulkCCSelected || null)
+      setBulkCCReportId(null)
+    } finally {
+      setBulkCCSaving(false)
+    }
+  }
 
   async function handleExportZip(reportId: string, title: string) {
     setZippingId(reportId)
@@ -642,7 +671,15 @@ export function AdminReportsClient({ initialReports }: Props) {
 
                       {/* Ítems */}
                       <div>
-                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Ítems ({detail.items.length})</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Ítems ({detail.items.length})</p>
+                          <button
+                            onClick={() => openBulkCC(r.id)}
+                            className="text-xs text-brand-600 border border-brand-200 hover:bg-brand-50 px-2.5 py-1 rounded-item font-semibold transition-colors"
+                          >
+                            Reasignar CC
+                          </button>
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs border-collapse">
                             <thead>
@@ -725,6 +762,47 @@ export function AdminReportsClient({ initialReports }: Props) {
           )
         })}
       </div>
+
+      {/* ── Modal Reasignar Centro de Costo ── */}
+      {bulkCCReportId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-card shadow-xl p-6 w-full max-w-sm space-y-4 mx-4">
+            <h3 className="font-semibold text-slate-800">Reasignar Centro de Costo</h3>
+            <p className="text-sm text-slate-500">
+              Aplicará el centro de costo seleccionado a <strong>todos los ítems</strong> de esta rendición.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Centro de costo</label>
+              <select
+                value={bulkCCSelected}
+                onChange={e => setBulkCCSelected(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+              >
+                <option value="">Sin centro asignado (quitar override)</option>
+                {costCenters.map(cc => (
+                  <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setBulkCCReportId(null)}
+                disabled={bulkCCSaving}
+                className="flex-1 py-2 border border-slate-200 rounded-item text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleBulkCC}
+                disabled={bulkCCSaving}
+                className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
+              >
+                {bulkCCSaving ? 'Guardando...' : 'Aplicar a todos los ítems'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,12 +5,12 @@ import { AlertTriangle } from 'lucide-react'
 import { PhotoUpload } from './PhotoUpload'
 import { getHistoricalRate } from '@/actions/exchange-rate'
 import { checkItemDuplicate } from '@/actions/expenses'
-import { checkPolicyViolations } from '@/actions/policies'
+import { checkPolicyViolations, checkTravelPolicies } from '@/actions/policies'
 import { formatViolationMessage } from '@/lib/policy-helpers'
 import { formatCLP, formatExchangeRate, formatDate } from '@/lib/utils'
 import { CURRENCIES, DOC_TYPES, type Currency } from '@/lib/constants'
 import type { OcrResult } from '@/lib/ocr-helpers'
-import type { PolicyCheckResult } from '@/actions/policies'
+import type { PolicyCheckResult, TravelPolicyCheckResult } from '@/actions/policies'
 import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { ExpenseCategory, CostCenter, Json } from '@/lib/supabase/types'
 
@@ -94,6 +94,10 @@ export function ExpenseItemForm({
   const [policyJustification, setPolicyJustification] = useState('')
   const pendingCheck = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // ─── Estado de política de viáticos ──────────────────────────────────────
+  const [travelResult, setTravelResult] = useState<TravelPolicyCheckResult | null>(null)
+  const pendingTravel = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function set(field: keyof ItemFormData, value: unknown) {
     setForm(prev => ({ ...prev, [field]: value }))
   }
@@ -127,10 +131,12 @@ export function ExpenseItemForm({
   // ─── Validación de políticas (debounce 600ms; inmediato para selects) ───────
   function triggerPolicyCheck(amount: string, catId: string | null, immediate = false) {
     if (pendingCheck.current) clearTimeout(pendingCheck.current)
+    if (pendingTravel.current) clearTimeout(pendingTravel.current)
 
     const numericAmount = parseInt(amount.replace(/\D/g, ''), 10)
     if (!numericAmount || numericAmount <= 0) {
       setPolicyResult(null)
+      setTravelResult(null)
       return
     }
 
@@ -149,6 +155,15 @@ export function ExpenseItemForm({
         setPolicyResult(null)
       } finally {
         setPolicyLoading(false)
+      }
+    }, delay)
+
+    pendingTravel.current = setTimeout(async () => {
+      try {
+        const result = await checkTravelPolicies({ categoryId: catId || null, amount: numericAmount })
+        setTravelResult(result)
+      } catch {
+        setTravelResult(null)
       }
     }, delay)
   }
@@ -636,6 +651,23 @@ export function ExpenseItemForm({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── Banner política de viáticos ─────────────────────────────────────── */}
+      {travelResult?.policy && (
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-item text-xs font-semibold border ${
+          travelResult.exceeds
+            ? 'bg-amber-50 border-amber-200 text-amber-700'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+        }`}>
+          <span>{travelResult.exceeds ? '⚠' : '✓'}</span>
+          <span>
+            {travelResult.exceeds
+              ? `Excede política de viáticos "${travelResult.policy.name}" — máximo ${travelResult.limitAmount?.toLocaleString('es-CL')} ${travelResult.limitCurrency}`
+              : `Dentro de política de viáticos "${travelResult.policy.name}" — máx. ${travelResult.limitAmount?.toLocaleString('es-CL')} ${travelResult.limitCurrency}`
+            }
+          </span>
         </div>
       )}
 

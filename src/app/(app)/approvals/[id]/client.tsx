@@ -13,7 +13,7 @@ import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDate } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
-import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment } from '@/lib/supabase/types'
+import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment, TravelPolicy } from '@/lib/supabase/types'
 
 type ItemWithRelations = ExpenseItem & {
   expense_categories: Pick<ExpenseCategory, 'name' | 'icon' | 'color'> | null
@@ -42,6 +42,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
   const [notes,      setNotes]     = useState('')
   const [bulkApproving, setBulkApproving] = useState(false)
   const [bulkDone, setBulkDone] = useState(false)
+  const [travelPolicies, setTravelPolicies] = useState<TravelPolicy[]>([])
 
   // Initialize decisions from initialReport using lazy initializer
   const [decisions, setDecisions] = useState<Record<string, Decision>>(() => {
@@ -52,6 +53,35 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     }
     return initial
   })
+
+  // Load travel policies once (read-only, any authenticated user can read)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('users').select('org_id').eq('id', user.id).single()
+        .then(({ data: profile }) => {
+          if (!profile) return
+          supabase.from('travel_policies').select('*')
+            .eq('org_id', profile.org_id).eq('activo', true)
+            .then(({ data }) => setTravelPolicies((data ?? []) as TravelPolicy[]))
+        })
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Check if an item exceeds its travel policy
+  function checkItemTravelPolicy(item: ItemWithRelations): { policy: TravelPolicy; exceeds: boolean } | null {
+    if (!travelPolicies.length) return null
+    let match = item.category_id
+      ? travelPolicies.find(p => p.category_id === item.category_id)
+      : null
+    if (!match) match = travelPolicies.find(p => p.category_id === null) ?? null
+    if (!match) return null
+    const limitCLP = match.currency === 'CLP' ? match.max_amount : null
+    if (limitCLP === null) return null
+    return { policy: match, exceeds: item.amount_clp > limitCLP }
+  }
 
   // Generate signed URLs client-side from the initial report data
   useEffect(() => {
@@ -318,6 +348,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
           const d        = decisions[item.id] ?? { action: null, reason: '' }
           const docLabel = DOC_TYPES.find(dt => dt.value === item.doc_type)?.label
           const itemAttachments = (item.attachments ?? []) as Pick<Attachment, 'id' | 'storage_path' | 'file_type'>[]
+          const travelCheck = checkItemTravelPolicy(item)
 
           return (
             <div
@@ -353,6 +384,23 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                 {docLabel && <span>{docLabel}</span>}
                 {item.doc_number && <span>N° {item.doc_number}</span>}
               </div>
+
+              {/* Badge política de viáticos */}
+              {travelCheck && (
+                <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item border ${
+                  travelCheck.exceeds
+                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                }`}>
+                  <span>{travelCheck.exceeds ? '⚠' : '✓'}</span>
+                  <span>
+                    {travelCheck.exceeds
+                      ? `Excede política "${travelCheck.policy.name}" — máx. ${travelCheck.policy.max_amount.toLocaleString('es-CL')} ${travelCheck.policy.currency}`
+                      : `Dentro de política "${travelCheck.policy.name}" — máx. ${travelCheck.policy.max_amount.toLocaleString('es-CL')} ${travelCheck.policy.currency}`
+                    }
+                  </span>
+                </div>
+              )}
 
               {item.notes && (
                 <p className="text-xs text-slate-400 italic bg-slate-50 rounded p-2">{item.notes}</p>

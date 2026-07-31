@@ -20,10 +20,11 @@ import {
   getDefontanaSuppliers, addDefontanaSupplier, deleteDefontanaSupplier,
 } from '@/actions/admin'
 import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier, ExpensePolicy } from '@/lib/supabase/types'
-import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deletePolicy } from '@/actions/policies'
-import type { PolicyInput } from '@/actions/policies'
+import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deletePolicy, getTravelPolicies, createTravelPolicy, updateTravelPolicy, deleteTravelPolicy } from '@/actions/policies'
+import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
+import type { TravelPolicy } from '@/lib/supabase/types'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -123,6 +124,7 @@ export default function AdminSettingsPage() {
           { id: 'limits',     label: 'Límites' },
           { id: 'defontana',  label: 'Defontana' },
           { id: 'policies',   label: 'Políticas' },
+          { id: 'viaticos',   label: 'Viáticos' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -145,6 +147,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'limits'     && <LimitsTab />}
       {activeTab === 'defontana'  && <DefontanaTab />}
       {activeTab === 'policies'   && <PoliciesTab />}
+      {activeTab === 'viaticos'   && <ViaticosTab />}
     </div>
   )
 }
@@ -1362,6 +1365,246 @@ function PoliciesTab() {
                   >
                     {p.is_active ? 'Activa' : 'Inactiva'}
                   </button>
+                  <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/* ── Tab: Viáticos ─────────────────────────────────────────────────────── */
+const DEST_TYPE_OPTS: Array<{ value: 'local' | 'regional' | 'exterior'; label: string }> = [
+  { value: 'local',    label: 'Local (ciudad)' },
+  { value: 'regional', label: 'Regional (otra ciudad)' },
+  { value: 'exterior', label: 'Exterior' },
+]
+
+function ViaticosTab() {
+  const [policies,    setPolicies]    = useState<TravelPolicy[]>([])
+  const [categories,  setCategories]  = useState<ExpenseCategory[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [editingId,   setEditingId]   = useState<string | null>(null)
+  const [showForm,    setShowForm]    = useState(false)
+
+  const emptyForm = (): TravelPolicyInput => ({
+    name:             '',
+    destination_type: null,
+    category_id:      null,
+    max_amount:       0,
+    currency:         'CLP',
+    activo:           true,
+  })
+
+  const [form, setForm] = useState<TravelPolicyInput>(emptyForm())
+
+  function setF<K extends keyof TravelPolicyInput>(k: K, v: TravelPolicyInput[K]) {
+    setForm(prev => ({ ...prev, [k]: v }))
+  }
+
+  async function load() {
+    const [pol, cats] = await Promise.all([getTravelPolicies(), getOrgCategories()])
+    setPolicies(pol)
+    setCategories(cats)
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  function startEdit(p: TravelPolicy) {
+    setEditingId(p.id)
+    setForm({
+      name:             p.name,
+      destination_type: p.destination_type,
+      category_id:      p.category_id,
+      max_amount:       p.max_amount,
+      currency:         p.currency,
+      activo:           p.activo,
+    })
+    setShowForm(true)
+  }
+
+  function cancelForm() {
+    setEditingId(null)
+    setForm(emptyForm())
+    setShowForm(false)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name.trim() || form.max_amount <= 0) return
+    setSaving(true)
+    try {
+      if (editingId) {
+        await updateTravelPolicy(editingId, form)
+      } else {
+        await createTravelPolicy(form)
+      }
+      cancelForm()
+      await load()
+    } finally { setSaving(false) }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('¿Eliminar esta política de viáticos?')) return
+    await deleteTravelPolicy(id)
+    await load()
+  }
+
+  const inputCls   = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const selectCls  = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600'
+
+  if (loading) return <Spinner />
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-ink-400">
+          Las políticas de viáticos definen montos máximos por categoría y tipo de destino.
+          El empleado ve un indicador en tiempo real al ingresar un gasto que supere el límite.
+        </p>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-item transition-all active:scale-[.97]"
+          >
+            + Nueva política
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-card p-4 space-y-3 border border-ink-100">
+          <h3 className="font-semibold text-ink-800 text-sm">
+            {editingId ? 'Editar política' : 'Nueva política de viáticos'}
+          </h3>
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">Nombre *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setF('name', e.target.value)}
+              placeholder="Ej: Viaje en comisión local"
+              className={inputCls}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo de destino</label>
+              <select
+                value={form.destination_type ?? ''}
+                onChange={e => setF('destination_type', (e.target.value || null) as TravelPolicyInput['destination_type'])}
+                className={selectCls}
+              >
+                <option value="">Todos los destinos</option>
+                {DEST_TYPE_OPTS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Categoría</label>
+              <select
+                value={form.category_id ?? ''}
+                onChange={e => setF('category_id', e.target.value || null)}
+                className={selectCls}
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Monto máximo *</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={form.max_amount || ''}
+                onChange={e => setF('max_amount', parseFloat(e.target.value) || 0)}
+                placeholder="50000"
+                className={`${inputCls} font-mono`}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Moneda</label>
+              <select
+                value={form.currency}
+                onChange={e => setF('currency', e.target.value)}
+                className={selectCls}
+              >
+                {['CLP', 'USD', 'EUR'].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-ink-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.activo}
+              onChange={e => setF('activo', e.target.checked)}
+              className="rounded border-ink-300"
+            />
+            Política activa
+          </label>
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={cancelForm}
+              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving || !form.name.trim() || form.max_amount <= 0}
+              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors">
+              {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear política'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {policies.length === 0 ? (
+        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+          Sin políticas de viáticos. Crea una para que los empleados vean indicadores de límite al registrar gastos.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {policies.map(p => {
+            const catName  = categories.find(c => c.id === p.category_id)?.name
+            const destLabel = DEST_TYPE_OPTS.find(o => o.value === p.destination_type)?.label ?? 'Todos los destinos'
+            return (
+              <div key={p.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!p.activo ? 'opacity-50' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-ink-900">{p.name}</span>
+                    {catName && <span className="text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded-full">{catName}</span>}
+                    <span className="text-xs text-ink-400">{destLabel}</span>
+                  </div>
+                  <p className="text-xs text-ink-500 mt-1">
+                    Máximo: <span className="font-mono font-semibold">{p.max_amount.toLocaleString('es-CL')} {p.currency}</span>
+                  </p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'}`}>
+                    {p.activo ? 'Activa' : 'Inactiva'}
+                  </span>
                   <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
                     <Pencil size={14} />
                   </button>
