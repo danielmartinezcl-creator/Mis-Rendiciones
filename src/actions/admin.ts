@@ -1157,6 +1157,70 @@ export async function changeHistoricalImportType(
   revalidatePath('/petty-cash')
 }
 
+// ─── Dashboard de saldos de caja chica activos (R16) ────────────────────────
+
+export type ActiveFundSummary = {
+  id: string
+  name: string
+  employeeName: string
+  department: string | null
+  status: string
+  advance: number
+  expense: number
+  balance: number
+  balancePct: number
+  daysSinceActivity: number
+  period_end: string
+}
+
+export async function getActiveFundsSummary(): Promise<ActiveFundSummary[]> {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: funds, error } = await supabase
+    .from('petty_cash_funds')
+    .select(`
+      id, name, employee_id, amount_approved, currency, status, updated_at, period_end,
+      users:employee_id (full_name, department),
+      petty_cash_items (amount_clp, item_type)
+    `)
+    .eq('org_id', orgId)
+    .in('status', ['funds_sent', 'submitted', 'pending_liquidation_approval'])
+    .not('is_historical_import', 'eq', true)
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  type RawFund = {
+    id: string; name: string; status: string; updated_at: string; period_end: string
+    users: { full_name: string; department: string | null } | null
+    petty_cash_items: { amount_clp: number; item_type: string }[]
+  }
+
+  return ((funds ?? []) as unknown as RawFund[]).map(f => {
+    const items   = f.petty_cash_items ?? []
+    const advance = items.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
+    const expense = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
+    const ret     = items.filter(i => i.item_type === 'return').reduce((s, i) => s + i.amount_clp, 0)
+    const balance = advance - expense + ret
+    const days    = Math.floor((Date.now() - new Date(f.updated_at).getTime()) / 86_400_000)
+
+    return {
+      id: f.id,
+      name: f.name,
+      employeeName:      f.users?.full_name ?? 'Desconocido',
+      department:        f.users?.department ?? null,
+      status:            f.status,
+      advance,
+      expense,
+      balance,
+      balancePct:         advance > 0 ? Math.round((balance / advance) * 100) : 0,
+      daysSinceActivity:  days,
+      period_end:         f.period_end,
+    }
+  })
+}
+
 // ─── Análisis por centro de costo (R19) ─────────────────────────────────────
 
 export type CenterExpenseRow = {

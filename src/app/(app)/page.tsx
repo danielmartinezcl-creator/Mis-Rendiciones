@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { getMyReports } from '@/actions/expenses'
-import { ScanLine, ReceiptText } from 'lucide-react'
+import { ScanLine, ReceiptText, AlertCircle } from 'lucide-react'
 import type { ReportStatus } from '@/lib/constants'
 
 export default async function DashboardPage() {
@@ -21,7 +21,8 @@ export default async function DashboardPage() {
   const approved = reports.filter(r => ['approved', 'partially_approved'].includes(r.status))
     .reduce((s, r) => s + r.approved_amount, 0)
 
-  const recent = reports.slice(0, 5)
+  const rejected = reports.filter(r => r.status === 'rejected')
+  const recent   = reports.slice(0, 5)
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -43,6 +44,24 @@ export default async function DashboardPage() {
           </div>
         </div>
       </Card>
+
+      {/* Banner de rendición rechazada */}
+      {rejected.length > 0 && (
+        <Link
+          href={`/expenses/${rejected[0].id}`}
+          className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-card p-3 hover:bg-red-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-red-500 shrink-0" />
+            <p className="text-sm font-medium text-red-700">
+              {rejected.length === 1
+                ? 'Una rendición fue rechazada — revisá los motivos'
+                : `${rejected.length} rendiciones fueron rechazadas`}
+            </p>
+          </div>
+          <span className="text-xs text-red-600 font-semibold shrink-0">Ver →</span>
+        </Link>
+      )}
 
       {/* CTA principal */}
       <Link href="/expenses/new">

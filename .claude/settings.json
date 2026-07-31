@@ -26,7 +26,37 @@
       "mcp__claude_ai_Vercel__get_runtime_logs",
       "Bash(git commit -m 'fix: parsear Excel en el browser en vez de Server Action *)",
       "Bash(git commit *)",
-      "Bash(git commit -m 'fix: rename '\\\\''Empleado'\\\\'' label to '\\\\''Destinatario / receptor'\\\\'' for clarity *)"
+      "Bash(git commit -m 'fix: rename '\\\\''Empleado'\\\\'' label to '\\\\''Destinatario / receptor'\\\\'' for clarity *)",
+      "Bash(git rm *)",
+      "Edit(/.claude/skills/rindegastos-context/**)",
+      "Bash(git diff *)",
+      "Bash(node -e ' *)",
+      "Bash(npx next *)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); Object.keys\\(p.dependencies\\).forEach\\(k => console.log\\(k\\)\\)\")",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"docs/superpowers/plans/2026-07-27-informes-unificados.md\" 1)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" 252b7d4 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\danie\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.1.1\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" 1d108ba HEAD)",
+      "Bash(where vercel *)",
+      "Bash(vercel ls *)",
+      "Bash(vercel --prod --yes)",
+      "Bash(vercel inspect *)",
+      "PowerShell(cd \"c:\\\\Users\\\\danie\\\\AUTOMATIZACIONES DANIEL\\\\PENTA\\\\App PENTA\\\\App Rindegastos\"; git add src/app/\\(app\\)/expenses/`[id`]/page.tsx src/app/\\(app\\)/petty-cash/`[id`]/client.tsx src/app/\\(app\\)/petty-cash/client.tsx src/components/ui/ItemAttachmentZone.tsx src/actions/expenses.ts src/lib/supabase/types.ts; git status --short)",
+      "Bash(npx vercel *)",
+      "Bash(python3)",
+      "Bash(grep -v \"^[0-9]*:\\\\s*$\")",
+      "Bash(python3 -c ' *)",
+      "Bash(awk 'NR==13073' \"C:/Users/danie/.claude/projects/c--Users-danie-AUTOMATIZACIONES-DANIEL-PENTA-App-PENTA-App-Rindegastos/54eb66d4-0585-4ba9-a61c-6c91e5451429.jsonl\")",
+      "Read(//tmp/**)",
+      "Bash(cat /tmp/line10433.json | sed 's/\\\\\\\\n/\\\\n/g; s/\\\\\\\\t/  /g; s/\\\\\\\\\\\\\"/\"/g' | grep -o '\"text\":\"[^\"]*\"' | head -1 | cut -c8-5000)",
+      "Bash(awk 'NR==10433' \"C:/Users/danie/.claude/projects/c--Users-danie-AUTOMATIZACIONES-DANIEL-PENTA-App-PENTA-App-Rindegastos/54eb66d4-0585-4ba9-a61c-6c91e5451429.jsonl\")",
+      "Bash(awk 'NR==14296' \"C:/Users/danie/.claude/projects/c--Users-danie-AUTOMATIZACIONES-DANIEL-PENTA-App-PENTA-App-Rindegastos/54eb66d4-0585-4ba9-a61c-6c91e5451429.jsonl\")",
+      "Bash(awk 'NR==14863' \"C:/Users/danie/.claude/projects/c--Users-danie-AUTOMATIZACIONES-DANIEL-PENTA-App-PENTA-App-Rindegastos/54eb66d4-0585-4ba9-a61c-6c91e5451429.jsonl\")",
+      "Bash(awk 'NR>=14490 && NR<=14535' \"C:/Users/danie/.claude/projects/c--Users-danie-AUTOMATIZACIONES-DANIEL-PENTA-App-PENTA-App-Rindegastos/54eb66d4-0585-4ba9-a61c-6c91e5451429.jsonl\")",
+      "Bash(git commit -m 'feat: análisis pivot de gastos por centro de costo \\(/admin/analisis\\) *)",
+      "Bash(git commit -m 'feat: R2/R9/R16 — dashboard, aprobación rápida, saldos caja chica *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\danie\\Desktop"
     ]
   }
 }

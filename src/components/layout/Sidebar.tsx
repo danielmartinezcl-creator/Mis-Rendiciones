@@ -24,6 +24,7 @@ import {
   Trash2,
   Clock,
   PieChart,
+  WalletCards,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { href: '/suggestions',     label: 'Sugerencias',     Icon: Lightbulb,        roles: ['admin','approver','employee'] as const },
   { href: '/admin',           label: 'Dashboard',       Icon: BarChart3,        roles: ['admin'] as const },
   { href: '/informes',        label: 'Informes',         Icon: BarChart2,        roles: ['admin', 'approver'] as const },
+  { href: '/admin/fondos',    label: 'Saldos CC',       Icon: WalletCards,      roles: ['admin'] as const },
   { href: '/admin/analisis',  label: 'Análisis CC',     Icon: PieChart,         roles: ['admin'] as const },
   { href: '/admin/reports',   label: 'Rendiciones',     Icon: ReceiptText,      roles: ['admin'] as const },
   { href: '/admin/employees', label: 'Empleados',       Icon: Users,            roles: ['admin'] as const },

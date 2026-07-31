@@ -124,6 +124,22 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     }
   }
 
+  async function handleApproveAll() {
+    if (!confirm(`¿Aprobar TODOS los ${items.length} ítems de esta rendición? Esta acción no se puede deshacer.`)) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const payload = items.map(item => ({ itemId: item.id, action: 'approve' as const, reason: undefined }))
+      await submitApprovalDecision(id, payload, notes)
+      await notifySubmitterOfDecision(id, 'approved').catch(() => {})
+      router.push('/approvals')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al aprobar')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleBulkApprove() {
     if (!analysis?.routine_item_ids?.length) return
     setBulkApproving(true)
@@ -449,6 +465,19 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             </div>
           )}
 
+          <button
+            onClick={handleApproveAll}
+            disabled={submitting}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors text-sm flex items-center justify-center gap-2"
+          >
+            <CheckCheck size={16} />
+            {submitting ? 'Aprobando...' : `Aprobar todos — ${items.length} ítem${items.length !== 1 ? 's' : ''}`}
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-xs text-slate-400">o decide ítem por ítem</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
           <button
             onClick={handleSubmit}
             disabled={submitting || !allDecided()}
