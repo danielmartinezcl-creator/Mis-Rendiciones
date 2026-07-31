@@ -432,6 +432,113 @@ export async function uploadAttachment(
   return path
 }
 
+// ── Resumen mensual del empleado (R6) ────────────────────────────────────────
+
+export type MonthlyCategoryRow = {
+  month:         string   // YYYY-MM
+  category_id:   string | null
+  category_name: string | null
+  total_clp:     number
+}
+
+export async function getMyMonthlySummary(): Promise<{
+  rows:   MonthlyCategoryRow[]
+  months: string[]
+}> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { rows: [], months: [] }
+
+  const dateFrom = new Date()
+  dateFrom.setMonth(dateFrom.getMonth() - 11)
+  dateFrom.setDate(1)
+  const dateFromStr = dateFrom.toISOString().split('T')[0]
+
+  const { data: items } = await supabase
+    .from('expense_items')
+    .select(`
+      amount_clp, date,
+      category_id,
+      expense_categories (name),
+      expense_reports!inner (submitter_id, deleted_at)
+    `)
+    .eq('status', 'approved')
+    .eq('expense_reports.submitter_id', user.id)
+    .is('expense_reports.deleted_at', null)
+    .gte('date', dateFromStr)
+
+  if (!items) return { rows: [], months: [] }
+
+  // Build last 12 months list
+  const months: string[] = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date()
+    d.setMonth(d.getMonth() - i)
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  type RawItem = { amount_clp: number; date: string; category_id: string|null; expense_categories: { name: string }|null }
+
+  // Aggregate by (month, category)
+  const agg = new Map<string, MonthlyCategoryRow>()
+  for (const raw of items) {
+    const item  = raw as unknown as RawItem
+    const month = item.date.slice(0, 7)
+    if (!months.includes(month)) continue
+    const key   = `${month}|${item.category_id ?? '__none__'}`
+    if (!agg.has(key)) {
+      agg.set(key, {
+        month,
+        category_id:   item.category_id,
+        category_name: item.expense_categories?.name ?? null,
+        total_clp:     0,
+      })
+    }
+    agg.get(key)!.total_clp += item.amount_clp
+  }
+
+  return { rows: Array.from(agg.values()), months }
+}
+
+// ── Historial de aprobaciones de una rendición (R17) ─────────────────────────
+
+export type ReportApproval = {
+  approver_name: string
+  action:        string
+  created_at:    string
+  notes:         string | null
+}
+
+export async function getReportApprovals(reportId: string): Promise<ReportApproval[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: approvals } = await supabase
+    .from('expense_report_approvals')
+    .select('approver_id, action, created_at, notes')
+    .eq('report_id', reportId)
+    .in('action', ['approved', 'partially_approved'])
+    .order('created_at', { ascending: true })
+
+  if (!approvals?.length) return []
+
+  const approverIds = [...new Set(approvals.map(a => a.approver_id))]
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .in('id', approverIds)
+
+  const nameMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return approvals.map(a => ({
+    approver_name: nameMap[a.approver_id] ?? 'Aprobador',
+    action:        a.action,
+    created_at:    a.created_at,
+    notes:         a.notes ?? null,
+  }))
+}
+
 // Adjunto para expense_item sin necesitar pasar orgId (lo deriva de la sesión)
 export async function addExpenseItemAttachment(itemId: string, file: File): Promise<string> {
   const supabase = await createClient()

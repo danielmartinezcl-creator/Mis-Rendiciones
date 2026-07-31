@@ -16,12 +16,18 @@ import {
   submitExpenseReport,
   uploadAttachment,
   getReportWithItems,
+  getReportApprovals,
 } from '@/actions/expenses'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
+type ReportApproval = Awaited<ReturnType<typeof getReportApprovals>>[number]
+type ItemWithRelations = ExpenseItem & {
+  expense_categories: Pick<ExpenseCategory, 'name' | 'icon' | 'color'> | null
+  attachments: Pick<Attachment, 'id' | 'storage_path' | 'file_type'>[]
+}
 
 export default function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -38,6 +44,8 @@ export default function ExpenseDetailPage() {
   const [error, setError]                         = useState<string | null>(null)
   const [loading, setLoading]                     = useState(true)
   const [approvalAtts, setApprovalAtts]           = useState<ApprovalAtt[]>([])
+  const [reportApprovals, setReportApprovals]     = useState<ReportApproval[]>([])
+  const [exportingPdf, setExportingPdf]           = useState(false)
 
   async function load() {
     const data = await getReportWithItems(id)
@@ -48,6 +56,35 @@ export default function ExpenseDetailPage() {
   async function loadApprovalAtts() {
     const atts = await getApprovalAttachments({ reportId: id })
     setApprovalAtts(atts)
+  }
+
+  async function handleDownloadPdf() {
+    if (!report) return
+    setExportingPdf(true)
+    try {
+      const approvals = reportApprovals.length > 0 ? reportApprovals : await getReportApprovals(id)
+      setReportApprovals(approvals)
+      const { exportReportToPDF } = await import('@/lib/export/pdf')
+      const items = ((report.expense_items ?? []) as ItemWithRelations[])
+      await exportReportToPDF({
+        title:           report.title,
+        total_amount:    report.total_amount,
+        approved_amount: report.approved_amount,
+        status:          report.status,
+        submitted_at:    report.submitted_at ?? null,
+        items:           items.map(i => ({
+          description:        i.description,
+          merchant:           i.merchant ?? null,
+          amount_clp:         i.amount_clp,
+          date:               i.date,
+          status:             i.status,
+          expense_categories: i.expense_categories ?? null,
+        })),
+        approvals,
+      })
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   useEffect(() => {
@@ -167,11 +204,6 @@ export default function ExpenseDetailPage() {
     )
   }
 
-  type ItemWithRelations = ExpenseItem & {
-    expense_categories: Pick<ExpenseCategory, 'name' | 'icon' | 'color'> | null
-    attachments: Pick<Attachment, 'id' | 'storage_path' | 'file_type'>[]
-  }
-
   const isDraft    = report.status === 'draft'
   const isMyDraft  = isDraft && report.submitter_id === currentUserId
   const items      = (report.expense_items ?? []) as ItemWithRelations[]
@@ -192,7 +224,22 @@ export default function ExpenseDetailPage() {
             <p className="text-sm text-slate-500 mt-1">{report.description}</p>
           )}
         </div>
-        <ReportStatusBadge status={report.status as any} />
+        <div className="flex items-center gap-2">
+          <ReportStatusBadge status={report.status as any} />
+          {report.status !== 'draft' && (
+            <button
+              onClick={handleDownloadPdf}
+              disabled={exportingPdf}
+              className="text-xs px-2.5 py-1.5 border border-ink-200 rounded-item text-ink-500 hover:bg-ink-50 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+              title="Descargar PDF"
+            >
+              {exportingPdf ? (
+                <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+              ) : '📄'}
+              PDF
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Total */}

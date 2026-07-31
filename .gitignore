@@ -39,10 +39,10 @@ yarn-error.log*
 # archivos de prueba y referencia locales
 nomina-ejemplo.xlsx
 importador-comprobantes.xlsx
-"Centros de Costos.xlsx"
-"Plan de Cuentas.xls"
-"Rendiciones ejemplos/"
-"Mi rendición — Design System/"
+Centros de Costos.xlsx
+Plan de Cuentas.xls
+Rendiciones ejemplos/
+Mi rendición — Design System/
 
 # typescript
 *.tsbuildinfo

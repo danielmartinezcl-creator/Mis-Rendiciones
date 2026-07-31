@@ -11,6 +11,13 @@ interface ReportItem {
   expense_categories?: { name: string } | null
 }
 
+interface ReportApprovalForPDF {
+  approver_name: string
+  action:        string
+  created_at:    string
+  notes:         string | null
+}
+
 interface ReportForPDF {
   title:          string
   total_amount:   number
@@ -18,6 +25,7 @@ interface ReportForPDF {
   status:         string
   submitted_at:   string | null
   items:          ReportItem[]
+  approvals?:     ReportApprovalForPDF[]
 }
 
 const STATUS_ES: Record<string, string> = {
@@ -31,7 +39,7 @@ const STATUS_ES: Record<string, string> = {
   reimbursed:         'Reembolsada',
 }
 
-export function exportReportToPDF(report: ReportForPDF) {
+export async function exportReportToPDF(report: ReportForPDF) {
   const doc = new jsPDF()
 
   // Encabezado
@@ -45,7 +53,7 @@ export function exportReportToPDF(report: ReportForPDF) {
   if (report.submitted_at) {
     doc.text(`Enviada: ${formatDate(report.submitted_at.split('T')[0])}`, 14, 28)
   }
-  doc.text(`Estado: ${report.status}`, 14, 34)
+  doc.text(`Estado: ${STATUS_ES[report.status] ?? report.status}`, 14, 34)
   doc.text(`Total: ${formatCLP(report.total_amount)}`, 14, 40)
   if (report.approved_amount > 0) {
     doc.text(`Aprobado: ${formatCLP(report.approved_amount)}`, 14, 46)
@@ -66,9 +74,46 @@ export function exportReportToPDF(report: ReportForPDF) {
       STATUS_ES[item.status] ?? item.status,
     ]),
     styles: { fontSize: 9 },
-    headStyles: { fillColor: [99, 102, 241] },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { fillColor: [13, 148, 136] },
+    alternateRowStyles: { fillColor: [240, 253, 250] },
   })
+
+  // Firma digital de aprobación (R17)
+  const approvalsToSign = (report.approvals ?? []).filter(a =>
+    a.action === 'approved' || a.action === 'partially_approved'
+  )
+  if (approvalsToSign.length > 0) {
+    // Hash SHA-256 de los ítems aprobados como trazabilidad
+    const payload  = JSON.stringify(report.items.map(i => ({ description: i.description, amount: i.amount_clp, date: i.date })))
+    const msgBuf   = new TextEncoder().encode(payload)
+    const hashBuf  = await crypto.subtle.digest('SHA-256', msgBuf)
+    const hashHex  = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+    const hashShort = hashHex.slice(0, 16).toUpperCase()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finalY = (doc as any).lastAutoTable?.finalY ?? 120
+    const sigY   = finalY + 12
+
+    doc.setDrawColor(13, 148, 136)
+    doc.setLineWidth(0.3)
+    doc.line(14, sigY, 196, sigY)
+
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(13, 148, 136)
+    doc.text('DOCUMENTO CON FIRMA DIGITAL DE APROBACIÓN', 14, sigY + 5)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80)
+    let lineY = sigY + 10
+    for (const approval of approvalsToSign) {
+      const dateStr = formatDate(approval.created_at.split('T')[0])
+      doc.text(`• Aprobado por ${approval.approver_name} el ${dateStr}`, 14, lineY)
+      lineY += 5
+    }
+    doc.text(`SHA-256: ${hashShort}...`, 14, lineY)
+    doc.setTextColor(0)
+  }
 
   doc.save(`${report.title}.pdf`)
 }

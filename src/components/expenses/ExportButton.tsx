@@ -22,7 +22,7 @@ export function ExportButton({ type, getData, filename = 'export', label, classN
         exportReportToExcel(data as any)
       } else {
         const { exportReportToPDF } = await import('@/lib/export/pdf')
-        exportReportToPDF(data as any)
+        await exportReportToPDF(data as any)
       }
     } finally {
       setLoading(false)
