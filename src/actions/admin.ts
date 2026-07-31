@@ -1502,7 +1502,7 @@ export async function getHistoricalCajaChicaImports() {
     .select(`
       id, title, total_amount, approved_at, fund_number, submitter_id, created_at,
       defontana_exported_at, defontana_export_ref,
-      expense_items(id, item_type, amount_clp, description, date, doc_type, doc_number, merchant, category_id, supplier_rut, defontana_exported_at)
+      expense_items(id, item_type, amount_clp, description, date, doc_type, doc_number, merchant, category_id, supplier_rut, defontana_exported_at, transfer_id)
     `)
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
@@ -1512,24 +1512,37 @@ export async function getHistoricalCajaChicaImports() {
 
   if (!data?.length) return []
 
+  const reportIds   = data.map(r => r.id)
   const submitterIds = [...new Set(data.map(r => r.submitter_id))]
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, full_name')
-    .in('id', submitterIds)
+
+  // Consultas paralelas: usuarios + fund_transfers (payer y receiver)
+  const [{ data: users }, { data: ftPayer }, { data: ftReceiver }] = await Promise.all([
+    supabase.from('users').select('id, full_name').in('id', submitterIds),
+    supabase.from('fund_transfers').select('id, amount, payer_report_id').in('payer_report_id', reportIds),
+    supabase.from('fund_transfers').select('id, amount, receiver_report_id').in('receiver_report_id', reportIds),
+  ])
 
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  // Totales de traspasos por report
+  const transferOutMap: Record<string, number> = {}
+  const transferInMap:  Record<string, number> = {}
+  for (const ft of ftPayer  ?? []) { const rid = ft.payer_report_id;    if (rid) transferOutMap[rid] = (transferOutMap[rid] ?? 0) + ft.amount }
+  for (const ft of ftReceiver ?? []) { const rid = ft.receiver_report_id; if (rid) transferInMap[rid]  = (transferInMap[rid]  ?? 0) + ft.amount }
 
   return data.map(r => {
     type RawItem = {
       id: string; item_type: string; amount_clp: number; description: string; date: string
       doc_type: string | null; doc_number: string | null; merchant: string | null
-      category_id: string | null; supplier_rut: string | null; defontana_exported_at: string | null
+      category_id: string | null; supplier_rut: string | null
+      defontana_exported_at: string | null; transfer_id: string | null
     }
     const items = (r.expense_items ?? []) as unknown as RawItem[]
-    const advance_total = items.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
-    const expense_total = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
-    const return_total  = items.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
+    const advance_total      = items.filter(i => i.item_type === 'advance' ).reduce((s, i) => s + i.amount_clp, 0)
+    const expense_total      = items.filter(i => i.item_type === 'expense' ).reduce((s, i) => s + i.amount_clp, 0)
+    const return_total       = items.filter(i => i.item_type === 'return'  ).reduce((s, i) => s + i.amount_clp, 0)
+    const transfer_out_total = transferOutMap[r.id] ?? 0
+    const transfer_in_total  = transferInMap[r.id]  ?? 0
     return {
       id:                     r.id,
       title:                  r.title,
@@ -1545,6 +1558,8 @@ export async function getHistoricalCajaChicaImports() {
       advance_total,
       expense_total,
       return_total,
+      transfer_out_total,
+      transfer_in_total,
     }
   })
 }

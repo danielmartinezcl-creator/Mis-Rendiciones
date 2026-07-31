@@ -512,6 +512,90 @@ export async function updateFundTransfer(
   revalidatePath('/admin/carga-historica')
 }
 
+// ── Eliminar traspaso YA vinculado (borra ambos ítems + el registro) ────────────
+
+export async function deleteLinkedFundTransfer(transferId: string): Promise<void> {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: transfer } = await supabase
+    .from('fund_transfers')
+    .select('*')
+    .eq('id', transferId)
+    .eq('org_id', orgId)
+    .single()
+  if (!transfer) throw new Error('Traspaso no encontrado')
+
+  const adminClient = createAdminClient()
+
+  // Eliminar ítems en ambos lados (payer + receiver)
+  if (transfer.payer_fund_id) {
+    await adminClient.from('petty_cash_items').delete().eq('transfer_id', transferId)
+  } else if (transfer.payer_report_id) {
+    await adminClient.from('expense_items').delete().eq('transfer_id', transferId)
+  }
+  // El receiver puede ser fondo o reporte; borramos en ambas tablas para seguridad
+  if (transfer.receiver_fund_id) {
+    await adminClient.from('petty_cash_items').delete().eq('transfer_id', transferId)
+  }
+  if (transfer.receiver_report_id) {
+    await adminClient.from('expense_items').delete().eq('transfer_id', transferId)
+  }
+
+  const { error } = await adminClient.from('fund_transfers').delete().eq('id', transferId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+}
+
+// ── Editar traspaso YA vinculado (actualiza monto/fecha/desc en ambos ítems) ───
+
+export async function updateLinkedFundTransfer(
+  transferId: string,
+  updates: { amount?: number; date?: string; description?: string | null },
+): Promise<void> {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: transfer } = await supabase
+    .from('fund_transfers')
+    .select('*')
+    .eq('id', transferId)
+    .eq('org_id', orgId)
+    .single()
+  if (!transfer) throw new Error('Traspaso no encontrado')
+
+  const adminClient = createAdminClient()
+
+  // Actualizar fund_transfers
+  const ftPatch = {
+    ...(updates.amount      !== undefined ? { amount: updates.amount }                           : {}),
+    ...(updates.date        !== undefined ? { date: updates.date }                               : {}),
+    ...(updates.description !== undefined ? { description: updates.description?.trim() || null } : {}),
+  }
+  if (Object.keys(ftPatch).length) {
+    const { error } = await adminClient.from('fund_transfers').update(ftPatch).eq('id', transferId)
+    if (error) throw new Error(error.message)
+  }
+
+  // Actualizar ítems: solo monto/fecha/notas (la descripción del item tiene el nombre del otro lado)
+  const itemPatch = {
+    ...(updates.amount      !== undefined ? { amount: updates.amount, amount_clp: updates.amount } : {}),
+    ...(updates.date        !== undefined ? { date: updates.date }                                  : {}),
+    ...(updates.description !== undefined ? { notes: updates.description?.trim() || null }          : {}),
+  }
+  if (Object.keys(itemPatch).length) {
+    // Payer side
+    if (transfer.payer_fund_id)   await adminClient.from('petty_cash_items').update(itemPatch).eq('transfer_id', transferId)
+    if (transfer.payer_report_id) await adminClient.from('expense_items').update(itemPatch).eq('transfer_id', transferId)
+    // Receiver side
+    if (transfer.receiver_fund_id)   await adminClient.from('petty_cash_items').update(itemPatch).eq('transfer_id', transferId)
+    if (transfer.receiver_report_id) await adminClient.from('expense_items').update(itemPatch).eq('transfer_id', transferId)
+  }
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+}
+
 // ── Lista simple de empleados activos de la org (para selector de receptor) ───
 
 export async function getOrgEmployeesSimple(): Promise<{ id: string; full_name: string }[]> {

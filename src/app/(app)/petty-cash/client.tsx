@@ -14,7 +14,7 @@ import type { PeriodPreset } from '@/lib/report-helpers'
 import { getPettyCashItemsForReport, deletePettyCashFund } from '@/actions/petty-cash'
 import { changeHistoricalImportType, markHistoricalImportDefontana, updateHistoricalExpenseItem, updateHistoricalImportTitle, getHistoricalFundDefontanaData, markExpenseItemsDefontanaExported } from '@/actions/admin'
 import { adminDeleteExpenseReport, deleteExpenseItem } from '@/actions/expenses'
-import { createFundTransfer, linkFundTransfer, getEmployeeTargets, deleteFundTransfer, updateFundTransfer } from '@/actions/fund-transfers'
+import { createFundTransfer, linkFundTransfer, getEmployeeTargets, deleteFundTransfer, updateFundTransfer, deleteLinkedFundTransfer, updateLinkedFundTransfer } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
 import type { FundTransferRow, EmployeeTarget } from '@/actions/fund-transfers'
@@ -117,6 +117,7 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
       const advance_total = updatedItems.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
       const expense_total = updatedItems.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
       const return_total  = updatedItems.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
+      // transfer_out_total y transfer_in_total NO cambian al editar ítems (vienen de fund_transfers)
       return { ...h, items: updatedItems, advance_total, expense_total, return_total }
     }))
   }
@@ -130,6 +131,57 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
       const return_total  = updatedItems.filter(i => i.item_type === 'return' ).reduce((s, i) => s + i.amount_clp, 0)
       return { ...h, items: updatedItems, advance_total, expense_total, return_total }
     }))
+  }
+
+  // ── Handlers editar/eliminar traspasos VINCULADOS (en ítems de carga histórica) ─
+
+  async function handleDeleteLinkedTransfer(transferId: string) {
+    if (!confirm('¿Eliminar este traspaso?\n\nSe eliminarán los ítems de traspaso en ambos fondos y el registro quedará deshecho.')) return
+    try {
+      await deleteLinkedFundTransfer(transferId)
+      // Recargar para reflejar los cambios en transfer_in/out totals
+      window.location.reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar traspaso')
+    }
+  }
+
+  // Estado para editar traspasos vinculados
+  const [editingLinkedTransfer, setEditingLinkedTransfer] = useState<{ id: string; amount: number; date: string; description: string | null } | null>(null)
+  const [editLinkedAmount,  setEditLinkedAmount]  = useState('')
+  const [editLinkedDate,    setEditLinkedDate]    = useState('')
+  const [editLinkedDesc,    setEditLinkedDesc]    = useState('')
+  const [editLinkedSaving,  setEditLinkedSaving]  = useState(false)
+  const [editLinkedError,   setEditLinkedError]   = useState<string | null>(null)
+
+  function openEditLinkedTransfer(transferId: string, amount: number, date: string, description: string | null) {
+    setEditingLinkedTransfer({ id: transferId, amount, date, description })
+    setEditLinkedAmount(String(Math.round(amount)))
+    setEditLinkedDate(date)
+    setEditLinkedDesc(description ?? '')
+    setEditLinkedError(null)
+  }
+
+  async function handleSaveEditLinked() {
+    if (!editingLinkedTransfer) return
+    const amount = parseFloat(editLinkedAmount)
+    if (isNaN(amount) || amount <= 0) { setEditLinkedError('Monto inválido'); return }
+    if (!editLinkedDate) { setEditLinkedError('Fecha requerida'); return }
+    setEditLinkedSaving(true)
+    setEditLinkedError(null)
+    try {
+      await updateLinkedFundTransfer(editingLinkedTransfer.id, {
+        amount,
+        date: editLinkedDate,
+        description: editLinkedDesc.trim() || null,
+      })
+      setEditingLinkedTransfer(null)
+      window.location.reload()
+    } catch (err) {
+      setEditLinkedError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setEditLinkedSaving(false)
+    }
   }
 
   function handleTitleUpdated(reportId: string, title: string) {
@@ -388,7 +440,6 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
   const [dateFrom,            setDateFrom]            = useState('')
   const [dateTo,              setDateTo]              = useState('')
   const [selectedEmpIds_list, setSelectedEmpIds_list] = useState<string[]>([])
-  const [empSearch_list,      setEmpSearch_list]      = useState('')
   const [periodPreset_list,   setPeriodPreset_list]   = useState<PeriodPreset>({ type: 'custom' })
 
   // ── Panel de informe ─────────────────────────────────────────────────────
@@ -526,194 +577,310 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
         </div>
       </div>
 
-      {/* Panel de filtros + resultados (solo managers) */}
-      {isManager && (
-        <div className="bg-white rounded-card shadow-card p-5 space-y-4">
+      {/* ── Panel unificado de filtros ──────────────────────────────────────────── */}
+      <div className="bg-white rounded-card shadow-card overflow-hidden">
+        {/* ── Sección 1: Filtros de lista (siempre visible) ── */}
+        <div className="p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide">Filtros</p>
-            {(reportDateFrom || reportDateTo || selectedCatIds.length > 0 || selectedEmpIds.length > 0 || itemStatusFilter !== 'all') && (
+            <div className="flex items-center gap-2">
+              <Filter size={13} className="text-ink-400" />
+              <span className="text-xs font-bold text-ink-700 uppercase tracking-wide">Filtros de lista</span>
+            </div>
+            {activeFilters && (
               <button
-                onClick={() => { setReportDateFrom(''); setReportDateTo(''); setSelectedCatIds([]); setSelectedEmpIds([]); setItemStatusFilter('all'); setReportData(null); setReportError(null) }}
-                className="text-xs text-ink-400 hover:text-ink-600 underline"
+                onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setSelectedEmpIds_list([]); setPeriodPreset_list({ type: 'custom' }) }}
+                className="text-xs text-brand-600 hover:text-brand-700 underline"
               >
-                Limpiar filtros
+                Limpiar
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* Chips de estado */}
+          <div className="flex gap-1.5 flex-wrap">
+            {FUND_STATUSES.map(s => (
+              <button
+                key={s.value}
+                onClick={() => setStatusFilter(s.value)}
+                className={[
+                  'px-3 py-1 rounded-item text-xs font-semibold transition-colors border',
+                  statusFilter === s.value
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300',
+                ].join(' ')}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Período */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha desde</label>
+              <label className="block text-xs font-medium text-ink-500 mb-1">Período desde</label>
               <input
                 type="date"
-                value={reportDateFrom}
-                onChange={e => setReportDateFrom(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                value={dateFrom}
+                onChange={e => { setDateFrom(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
+                className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha hasta</label>
+              <label className="block text-xs font-medium text-ink-500 mb-1">Período hasta</label>
               <input
                 type="date"
-                value={reportDateTo}
-                onChange={e => setReportDateTo(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                value={dateTo}
+                onChange={e => { setDateTo(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
+                className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Estado del ítem</label>
-              <div className="flex gap-2 flex-wrap">
-                {(['all', 'approved', 'pending', 'rejected'] as const).map(s => (
+          </div>
+
+          {/* Período shortcuts */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs text-ink-400 mr-1">Acceso rápido:</span>
+            {[CURRENT_YEAR, CURRENT_YEAR - 1].map(y => (
+              <button
+                key={y}
+                onClick={() => {
+                  const range = buildPeriodRange({ type: 'year', year: y })
+                  if (range) { setDateFrom(range.dateFrom); setDateTo(range.dateTo); setPeriodPreset_list({ type: 'year', year: y }) }
+                }}
+                className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
+                  periodPreset_list.type === 'year' && (periodPreset_list as { type: 'year'; year: number }).year === y
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
+                }`}
+              >
+                {y}
+              </button>
+            ))}
+            {[1, 2].map(h => (
+              <button
+                key={h}
+                onClick={() => {
+                  const range = buildPeriodRange({ type: 'semester', year: CURRENT_YEAR, half: h as 1 | 2 })
+                  if (range) { setDateFrom(range.dateFrom); setDateTo(range.dateTo); setPeriodPreset_list({ type: 'semester', year: CURRENT_YEAR, half: h as 1 | 2 }) }
+                }}
+                className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
+                  periodPreset_list.type === 'semester' && (periodPreset_list as { type: 'semester'; year: number; half: 1 | 2 }).half === h
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
+                }`}
+              >
+                S{h} {CURRENT_YEAR}
+              </button>
+            ))}
+          </div>
+
+          {/* Empleado (chips directos desde orgEmployees) */}
+          {employees.length > 1 && (
+            <div>
+              <label className="block text-xs font-medium text-ink-500 mb-2">
+                Empleado
+                {selectedEmpIds_list.length > 0 && <span className="ml-1 text-brand-600">({selectedEmpIds_list.length} seleccionados)</span>}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {employees.map(emp => (
                   <button
-                    key={s}
-                    onClick={() => setItemStatusFilter(s)}
-                    className={[
-                      'px-3 py-1.5 rounded-item text-xs font-semibold transition-colors border',
-                      itemStatusFilter === s
-                        ? 'bg-brand-600 text-white border-brand-600'
-                        : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300',
-                    ].join(' ')}
+                    key={emp.id}
+                    onClick={() => setSelectedEmpIds_list(ids => toggle_ids(ids, emp.id))}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                      selectedEmpIds_list.includes(emp.id)
+                        ? 'border-brand-400 bg-brand-50 text-brand-700'
+                        : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
+                    }`}
                   >
-                    {s === 'all' ? 'Todos' : s === 'approved' ? 'Aprobados' : s === 'pending' ? 'Pendientes' : 'Rechazados'}
+                    {emp.name}
                   </button>
                 ))}
               </div>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Filtro por categoría */}
-          <div>
-            <label className="block text-xs font-semibold text-ink-600 mb-2">
-              Categorías
-              {selectedCatIds.length > 0 && <span className="ml-1 text-brand-600">({selectedCatIds.length} seleccionadas)</span>}
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {initialCategories.map(cat => {
-                const sel = selectedCatIds.includes(cat.id)
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => toggleCat(cat.id)}
-                    className={[
-                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
-                      sel
-                        ? 'border-brand-400 bg-brand-50 text-brand-700'
-                        : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300',
-                    ].join(' ')}
-                  >
-                    {cat.color && (
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
-                    )}
-                    {cat.name}
-                  </button>
-                )
-              })}
+        {/* ── Sección 2: Búsqueda de ítems (solo managers, separada con borde) ── */}
+        {isManager && (
+          <div className="border-t border-ink-100 p-5 space-y-4 bg-ink-50/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BarChart2 size={13} className="text-ink-400" />
+                <span className="text-xs font-bold text-ink-700 uppercase tracking-wide">Búsqueda de ítems</span>
+                <span className="text-xs text-ink-400">— busca gastos dentro de los fondos</span>
+              </div>
+              {(reportDateFrom || reportDateTo || selectedCatIds.length > 0 || selectedEmpIds.length > 0 || itemStatusFilter !== 'all') && (
+                <button
+                  onClick={() => { setReportDateFrom(''); setReportDateTo(''); setSelectedCatIds([]); setSelectedEmpIds([]); setItemStatusFilter('all'); setReportData(null); setReportError(null) }}
+                  className="text-xs text-ink-400 hover:text-ink-600 underline"
+                >
+                  Limpiar
+                </button>
+              )}
             </div>
-            {selectedCatIds.length > 0 && (
-              <button onClick={() => setSelectedCatIds([])} className="mt-1.5 text-xs text-ink-400 hover:text-ink-600 underline">
-                Limpiar selección
-              </button>
-            )}
-          </div>
 
-          {/* Filtro por empleado */}
-          {employees.length > 1 && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha desde</label>
+                <input
+                  type="date"
+                  value={reportDateFrom}
+                  onChange={e => setReportDateFrom(e.target.value)}
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha hasta</label>
+                <input
+                  type="date"
+                  value={reportDateTo}
+                  onChange={e => setReportDateTo(e.target.value)}
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Estado del ítem</label>
+                <div className="flex gap-2 flex-wrap">
+                  {(['all', 'approved', 'pending', 'rejected'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setItemStatusFilter(s)}
+                      className={[
+                        'px-3 py-1.5 rounded-item text-xs font-semibold transition-colors border',
+                        itemStatusFilter === s
+                          ? 'bg-brand-600 text-white border-brand-600'
+                          : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300',
+                      ].join(' ')}
+                    >
+                      {s === 'all' ? 'Todos' : s === 'approved' ? 'Aprobados' : s === 'pending' ? 'Pendientes' : 'Rechazados'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Categorías */}
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-2">
-                Empleados
-                {selectedEmpIds.length > 0 && <span className="ml-1 text-brand-600">({selectedEmpIds.length} seleccionados)</span>}
+                Categorías
+                {selectedCatIds.length > 0 && <span className="ml-1 text-brand-600">({selectedCatIds.length})</span>}
               </label>
-              <div className="flex flex-wrap gap-2">
-                {employees.map(emp => {
-                  const sel = selectedEmpIds.includes(emp.id)
+              <div className="flex flex-wrap gap-1.5">
+                {initialCategories.map(cat => {
+                  const sel = selectedCatIds.includes(cat.id)
                   return (
+                    <button
+                      key={cat.id}
+                      onClick={() => toggleCat(cat.id)}
+                      className={[
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
+                        sel
+                          ? 'border-brand-400 bg-brand-50 text-brand-700'
+                          : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300',
+                      ].join(' ')}
+                    >
+                      {cat.color && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />}
+                      {cat.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Empleados para búsqueda de ítems */}
+            {employees.length > 1 && (
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-2">
+                  Empleados
+                  {selectedEmpIds.length > 0 && <span className="ml-1 text-brand-600">({selectedEmpIds.length})</span>}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {employees.map(emp => (
                     <button
                       key={emp.id}
                       onClick={() => toggleEmp(emp.id)}
                       className={[
                         'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
-                        sel
+                        selectedEmpIds.includes(emp.id)
                           ? 'border-brand-400 bg-brand-50 text-brand-700'
                           : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300',
                       ].join(' ')}
                     >
                       {emp.name}
                     </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {reportError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
-              {reportError}
-            </div>
-          )}
-
-          {/* Botón buscar */}
-          <div className="flex justify-end pt-1">
-            <button
-              onClick={fetchReportItems}
-              disabled={loadingSearch}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97] shadow-sm"
-              style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
-            >
-              <Search size={14} />
-              {loadingSearch ? 'Buscando…' : 'Buscar'}
-            </button>
-          </div>
-
-          {/* Resultados inline */}
-          {reportData && !loadingSearch && (
-            <div className="border-t border-ink-100 pt-4 space-y-3">
-              <p className="text-sm font-semibold text-ink-700">
-                {reportData.items.length === 0
-                  ? 'Sin resultados para los filtros aplicados'
-                  : `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} · Total: ${formatCLP(reportData.totalCLP)}`}
-              </p>
-              {reportData.items.length > 0 && (
-                <div className="overflow-x-auto rounded-item border border-ink-100">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-ink-50 text-ink-500 font-semibold uppercase tracking-wide">
-                        <th className="text-left px-3 py-2">Empleado</th>
-                        <th className="text-left px-3 py-2">Fondo</th>
-                        <th className="text-left px-3 py-2">Descripción</th>
-                        <th className="text-left px-3 py-2">Categoría</th>
-                        <th className="text-left px-3 py-2">Fecha</th>
-                        <th className="text-right px-3 py-2">CLP</th>
-                        <th className="text-left px-3 py-2">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportData.items.map((item, idx) => (
-                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/50'}>
-                          <td className="px-3 py-2 text-ink-800 font-medium">{item.employee_name}</td>
-                          <td className="px-3 py-2 text-ink-500 max-w-[120px] truncate" title={item.fund_name}>{item.fund_name}</td>
-                          <td className="px-3 py-2 text-ink-700 max-w-[160px] truncate" title={item.description}>{item.description}</td>
-                          <td className="px-3 py-2 text-ink-500">{item.category_name ?? '—'}</td>
-                          <td className="px-3 py-2 text-ink-500 whitespace-nowrap">{formatDate(item.date)}</td>
-                          <td className="px-3 py-2 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
-                          <td className="px-3 py-2">
-                            <span className={`px-2 py-0.5 rounded-item font-medium ${
-                              item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                              item.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                              'bg-amber-100 text-amber-700'
-                            }`}>
-                              {item.status === 'approved' ? 'Aprobado' : item.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
+
+            {reportError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
+                {reportError}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={fetchReportItems}
+                disabled={loadingSearch}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97] shadow-sm"
+                style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
+              >
+                <Search size={14} />
+                {loadingSearch ? 'Buscando…' : 'Buscar'}
+              </button>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Resultados */}
+            {reportData && !loadingSearch && (
+              <div className="border-t border-ink-100 pt-4 space-y-3">
+                <p className="text-sm font-semibold text-ink-700">
+                  {reportData.items.length === 0
+                    ? 'Sin resultados para los filtros aplicados'
+                    : `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} · Total: ${formatCLP(reportData.totalCLP)}`}
+                </p>
+                {reportData.items.length > 0 && (
+                  <div className="overflow-x-auto rounded-item border border-ink-100">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-ink-50 text-ink-500 font-semibold uppercase tracking-wide">
+                          <th className="text-left px-3 py-2">Empleado</th>
+                          <th className="text-left px-3 py-2">Fondo</th>
+                          <th className="text-left px-3 py-2">Descripción</th>
+                          <th className="text-left px-3 py-2">Categoría</th>
+                          <th className="text-left px-3 py-2">Fecha</th>
+                          <th className="text-right px-3 py-2">CLP</th>
+                          <th className="text-left px-3 py-2">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportData.items.map((item, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/50'}>
+                            <td className="px-3 py-2 text-ink-800 font-medium">{item.employee_name}</td>
+                            <td className="px-3 py-2 text-ink-500 max-w-[120px] truncate" title={item.fund_name}>{item.fund_name}</td>
+                            <td className="px-3 py-2 text-ink-700 max-w-[160px] truncate" title={item.description}>{item.description}</td>
+                            <td className="px-3 py-2 text-ink-500">{item.category_name ?? '—'}</td>
+                            <td className="px-3 py-2 text-ink-500 whitespace-nowrap">{formatDate(item.date)}</td>
+                            <td className="px-3 py-2 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
+                            <td className="px-3 py-2">
+                              <span className={`px-2 py-0.5 rounded-item font-medium ${
+                                item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                item.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.status === 'approved' ? 'Aprobado' : item.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ── Traspasos sin vincular ──────────────────────────────────────────── */}
       {isManager && pendingTransfers.length > 0 && (
@@ -768,149 +935,6 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Filtros de la lista */}
-      {initialFunds.length > 0 && (
-        <div className="bg-white rounded-card shadow-card p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="text-ink-400" />
-            <span className="text-xs font-semibold text-ink-600">Filtrar lista</span>
-            {activeFilters && (
-              <button
-                onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setSelectedEmpIds_list([]); setPeriodPreset_list({ type: 'custom' }) }}
-                className="ml-auto text-xs text-brand-600 hover:text-brand-700 underline"
-              >
-                Limpiar
-              </button>
-            )}
-          </div>
-
-          {/* Chips de estado */}
-          <div className="flex gap-2 flex-wrap">
-            {FUND_STATUSES.map(s => (
-              <button
-                key={s.value}
-                onClick={() => setStatusFilter(s.value)}
-                className={[
-                  'px-3 py-1 rounded-item text-xs font-semibold transition-colors border',
-                  statusFilter === s.value
-                    ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300',
-                ].join(' ')}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-ink-500 mb-1">Período desde</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
-                className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-ink-500 mb-1">Período hasta</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => { setDateTo(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
-                className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
-          </div>
-
-          {/* Período shortcuts */}
-          <div className="flex flex-wrap gap-1.5">
-            {[CURRENT_YEAR, CURRENT_YEAR - 1].map(y => (
-              <button
-                key={y}
-                onClick={() => {
-                  const range = buildPeriodRange({ type: 'year', year: y })
-                  if (range) { setDateFrom(range.dateFrom); setDateTo(range.dateTo); setPeriodPreset_list({ type: 'year', year: y }) }
-                }}
-                className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
-                  periodPreset_list.type === 'year' && (periodPreset_list as { type: 'year'; year: number }).year === y
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
-                }`}
-              >
-                {y}
-              </button>
-            ))}
-            {[1, 2].map(h => (
-              <button
-                key={h}
-                onClick={() => {
-                  const range = buildPeriodRange({ type: 'semester', year: CURRENT_YEAR, half: h as 1 | 2 })
-                  if (range) { setDateFrom(range.dateFrom); setDateTo(range.dateTo); setPeriodPreset_list({ type: 'semester', year: CURRENT_YEAR, half: h as 1 | 2 }) }
-                }}
-                className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
-                  periodPreset_list.type === 'semester' && (periodPreset_list as { type: 'semester'; year: number; half: 1 | 2 }).half === h
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
-                }`}
-              >
-                S{h} {CURRENT_YEAR}
-              </button>
-            ))}
-            {(dateFrom || dateTo || selectedEmpIds_list.length > 0) && (
-              <button
-                onClick={() => { setDateFrom(''); setDateTo(''); setSelectedEmpIds_list([]); setPeriodPreset_list({ type: 'custom' }) }}
-                className="px-2.5 py-1 rounded-item text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
-              >
-                Limpiar
-              </button>
-            )}
-          </div>
-
-          {/* Buscar empleado con chips */}
-          <div>
-            <input
-              type="text"
-              placeholder="Buscar empleado..."
-              value={empSearch_list}
-              onChange={e => setEmpSearch_list(e.target.value)}
-              className="border border-ink-200 rounded-item px-3 py-1.5 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-48"
-            />
-            {empSearch_list && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {employees
-                  .filter(e => e.name.toLowerCase().includes(empSearch_list.toLowerCase()))
-                  .slice(0, 8)
-                  .map(e => (
-                    <button
-                      key={e.id}
-                      onClick={() => { setSelectedEmpIds_list(ids => toggle_ids(ids, e.id)); setEmpSearch_list('') }}
-                      className={`px-2 py-0.5 rounded-item text-xs font-medium transition-colors ${
-                        selectedEmpIds_list.includes(e.id) ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                      }`}
-                    >
-                      {e.name}
-                    </button>
-                  ))}
-              </div>
-            )}
-            {selectedEmpIds_list.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {selectedEmpIds_list.map(id => {
-                  const emp = employees.find(e => e.id === id)
-                  return emp ? (
-                    <span key={id} className="flex items-center gap-1 px-2 py-0.5 bg-brand-100 text-brand-700 rounded-item text-xs font-medium">
-                      {emp.name}
-                      <button onClick={() => setSelectedEmpIds_list(ids => ids.filter(x => x !== id))} className="hover:text-brand-900">×</button>
-                    </span>
-                  ) : null
-                })}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1026,6 +1050,8 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
             defaultAmount,
             payerEmpId: submitterId,
           })}
+          onEditLinkedTransfer={openEditLinkedTransfer}
+          onDeleteLinkedTransfer={handleDeleteLinkedTransfer}
         />
       )}
 
@@ -1200,6 +1226,78 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
         </div>
       )}
 
+      {/* ── Modal editar traspaso VINCULADO ─────────────────────────────────── */}
+      {editingLinkedTransfer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
+                <ArrowRightLeft size={18} className="text-violet-600" />
+                Editar traspaso vinculado
+              </h2>
+              <button onClick={() => setEditingLinkedTransfer(null)} className="text-ink-400 hover:text-ink-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="bg-violet-50 border border-violet-100 rounded-item px-3 py-2 text-xs text-violet-800">
+              Los cambios se aplicarán en ambos lados del traspaso (fondo pagador y fondo receptor).
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Monto (CLP)</label>
+                  <input
+                    type="number"
+                    value={editLinkedAmount}
+                    onChange={e => setEditLinkedAmount(e.target.value)}
+                    min="1"
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    value={editLinkedDate}
+                    onChange={e => setEditLinkedDate(e.target.value)}
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Descripción (opcional)</label>
+                <input
+                  type="text"
+                  value={editLinkedDesc}
+                  onChange={e => setEditLinkedDesc(e.target.value)}
+                  placeholder="Motivo del traspaso…"
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+            {editLinkedError && (
+              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{editLinkedError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleSaveEditLinked}
+                disabled={editLinkedSaving}
+                className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
+                style={{ background: 'linear-gradient(130deg, #12152E 0%, #7C3AED 100%)' }}
+              >
+                {editLinkedSaving ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+              <button
+                onClick={() => setEditingLinkedTransfer(null)}
+                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal vincular traspaso ──────────────────────────────────────────── */}
       {linkingTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1280,18 +1378,20 @@ export function PettyCashClient({ initialFunds, initialCategories, isManager, hi
 // ── Sección histórica agrupada por fondo ──────────────────────────────────────
 
 interface HistoricalSectionProps {
-  imports:                  HistoricalImport[]
-  isManager:                boolean
-  movingHistId:             string | null
-  deletingHistId:           string | null
-  onMove:                   (id: string, title: string) => void
-  onDelete:                 (id: string, title: string) => void
-  onExportDefontana:        (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
-  onConfirmContabilizado:   (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], comprobante: string) => Promise<void>
-  onItemSaved:              (reportId: string, itemId: string, patch: ItemSavedPatch) => void
-  onItemDeleted?:           (reportId: string, itemId: string) => void
-  onTitleUpdated:           (reportId: string, title: string) => void
-  onTransfer:               (reportId: string, submitterId: string, defaultAmount: number) => void
+  imports:                    HistoricalImport[]
+  isManager:                  boolean
+  movingHistId:               string | null
+  deletingHistId:             string | null
+  onMove:                     (id: string, title: string) => void
+  onDelete:                   (id: string, title: string) => void
+  onExportDefontana:          (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
+  onConfirmContabilizado:     (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], comprobante: string) => Promise<void>
+  onItemSaved:                (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+  onItemDeleted?:             (reportId: string, itemId: string) => void
+  onTitleUpdated:             (reportId: string, title: string) => void
+  onTransfer:                 (reportId: string, submitterId: string, defaultAmount: number) => void
+  onEditLinkedTransfer?:      (transferId: string, amount: number, date: string, description: string | null) => void
+  onDeleteLinkedTransfer?:    (transferId: string) => void
 }
 
 const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
@@ -1309,11 +1409,13 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
 
 // ── Tabla de ítems de carga histórica con edición inline ────────────────────
 
-function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted }: {
-  reportId:       string
-  items:          HistItem[]
-  onItemSaved:    (reportId: string, itemId: string, patch: ItemSavedPatch) => void
-  onItemDeleted?: (reportId: string, itemId: string) => void
+function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onEditLinkedTransfer, onDeleteLinkedTransfer }: {
+  reportId:                  string
+  items:                     HistItem[]
+  onItemSaved:               (reportId: string, itemId: string, patch: ItemSavedPatch) => void
+  onItemDeleted?:            (reportId: string, itemId: string) => void
+  onEditLinkedTransfer?:     (transferId: string, amount: number, date: string, description: string | null) => void
+  onDeleteLinkedTransfer?:   (transferId: string) => void
 }) {
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [editType,     setEditType]     = useState<'expense' | 'advance' | 'return'>('expense')
@@ -1480,7 +1582,40 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted }: {
                   </td>
                 ) : (
                   <td className="py-1.5 pl-1 align-top">
-                    {item.item_type !== 'transfer' && (
+                    {item.item_type === 'transfer' ? (
+                      // Ítems de traspaso: editar/eliminar el traspaso vinculado
+                      (item as { transfer_id?: string | null }).transfer_id
+                        ? (
+                          <div className="flex gap-0.5">
+                            {onEditLinkedTransfer && (
+                              <button
+                                onClick={() => onEditLinkedTransfer(
+                                  (item as { transfer_id: string }).transfer_id,
+                                  item.amount_clp,
+                                  item.date || '',
+                                  item.description || null,
+                                )}
+                                title="Editar traspaso"
+                                className="p-1 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded transition-colors"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                            {onDeleteLinkedTransfer && (
+                              <button
+                                onClick={() => onDeleteLinkedTransfer(
+                                  (item as { transfer_id: string }).transfer_id,
+                                )}
+                                title="Eliminar traspaso"
+                                className="p-1 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-colors"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        )
+                        : null
+                    ) : (
                       <div className="flex gap-0.5">
                         <button onClick={() => startEdit(item)} title="Editar ítem"
                           className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors">
@@ -1524,7 +1659,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted }: {
   )
 }
 
-function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer }: HistoricalSectionProps) {
+function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
 
@@ -1657,15 +1792,18 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
         const fundLabel     = hasFund ? `Fondo N°${groupKey}` : null
         const isCollapsed   = collapsedGroups.has(groupKey)
 
-        // Balance consolidado del grupo
-        const groupAdvance = group.reduce((s, h) => s + h.advance_total, 0)
-        const groupExpense = group.reduce((s, h) => s + h.expense_total, 0)
-        const groupReturn  = group.reduce((s, h) => s + h.return_total,  0)
-        const groupDiff    = groupAdvance - groupExpense - groupReturn
-        const isBalanced   = Math.abs(groupDiff) < 1
-        const isPending    = groupAdvance > 0 && groupExpense === 0 && groupReturn === 0
-        const isOweEmp     = groupDiff < -1
-        const isOweComp    = !isPending && groupDiff > 1
+        // Balance consolidado del grupo (incluyendo traspasos entre cajas)
+        const groupAdvance     = group.reduce((s, h) => s + h.advance_total, 0)
+        const groupExpense     = group.reduce((s, h) => s + h.expense_total, 0)
+        const groupReturn      = group.reduce((s, h) => s + h.return_total,  0)
+        const groupTransferOut = group.reduce((s, h) => s + ((h as { transfer_out_total?: number }).transfer_out_total ?? 0), 0)
+        const groupTransferIn  = group.reduce((s, h) => s + ((h as { transfer_in_total?:  number }).transfer_in_total  ?? 0), 0)
+        const groupDiff        = groupAdvance + groupTransferIn - groupExpense - groupReturn - groupTransferOut
+        const isBalanced       = Math.abs(groupDiff) < 1
+        const hasActivity      = groupExpense > 0 || groupReturn > 0 || groupTransferOut > 0 || groupTransferIn > 0
+        const isPending        = groupAdvance > 0 && !hasActivity
+        const isOweEmp         = groupDiff < -1
+        const isOweComp        = !isPending && groupDiff > 1
 
         return (
           <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund ? 'border border-blue-100' : ''}`}>
@@ -1686,6 +1824,12 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                       {formatCLP(groupAdvance)}
                     </span>
                   )}
+                  {groupTransferIn > 0 && (
+                    <span className="text-violet-600 font-mono-amount">
+                      <ArrowRightLeft size={10} className="inline mr-0.5" />
+                      +{formatCLP(groupTransferIn)}
+                    </span>
+                  )}
                   {groupExpense > 0 && (
                     <span className="text-ink-600 font-mono-amount">
                       <Receipt size={10} className="inline mr-0.5" />
@@ -1696,6 +1840,12 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
                     <span className="text-emerald-600 font-mono-amount">
                       <ArrowUpFromLine size={10} className="inline mr-0.5" />
                       ({formatCLP(groupReturn)})
+                    </span>
+                  )}
+                  {groupTransferOut > 0 && (
+                    <span className="text-orange-500 font-mono-amount">
+                      <ArrowRightLeft size={10} className="inline mr-0.5" />
+                      ({formatCLP(groupTransferOut)})
                     </span>
                   )}
                   {isBalanced && (
@@ -1999,7 +2149,7 @@ function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, o
 
                     {/* Detalle expandido */}
                     {isExpanded && h.items.length > 0 && (
-                      <HistoricalItemsTable reportId={h.id} items={h.items} onItemSaved={onItemSaved} onItemDeleted={onItemDeleted} />
+                      <HistoricalItemsTable reportId={h.id} items={h.items} onItemSaved={onItemSaved} onItemDeleted={onItemDeleted} onEditLinkedTransfer={onEditLinkedTransfer} onDeleteLinkedTransfer={onDeleteLinkedTransfer} />
                     )}
                     {isExpanded && h.items.length === 0 && (
                       <div className="bg-ink-50 border-t border-ink-100 px-6 py-3 text-xs text-ink-400 text-center">
