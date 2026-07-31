@@ -215,9 +215,13 @@ export default function ExpenseDetailPage() {
     )
   }
 
-  const isDraft    = report.status === 'draft'
-  const isMyDraft  = isDraft && report.submitter_id === currentUserId
-  const items      = (report.expense_items ?? []) as ItemWithRelations[]
+  const isDraft              = report.status === 'draft'
+  const isMyDraft            = isDraft && report.submitter_id === currentUserId
+  const items                = (report.expense_items ?? []) as ItemWithRelations[]
+  const rejectedItems        = items.filter(i => i.status === 'rejected')
+  const isRejected           = report.status === 'rejected'
+  const isPartiallyApproved  = report.status === 'partially_approved'
+  const showRejectionBanner  = isRejected || isPartiallyApproved
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -342,8 +346,22 @@ export default function ExpenseDetailPage() {
         </div>
       )}
 
-      {/* Estado informativo (no borrador) */}
-      {!isDraft && (
+      {/* Banner de rechazo (para empleado) */}
+      {showRejectionBanner && (
+        <div className={`rounded-card p-4 border ${isRejected ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+          <p className={`font-semibold text-sm ${isRejected ? 'text-red-800' : 'text-amber-800'}`}>
+            {isRejected ? 'Tu rendición fue rechazada' : 'Tu rendición fue parcialmente aprobada'}
+          </p>
+          {rejectedItems.length > 0 && (
+            <p className={`text-sm mt-1 ${isRejected ? 'text-red-700' : 'text-amber-700'}`}>
+              {rejectedItems.length} ítem{rejectedItems.length !== 1 ? 's' : ''} rechazado{rejectedItems.length !== 1 ? 's' : ''} — revisa los motivos debajo de cada ítem.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Estado informativo (no borrador, sin rechazo) */}
+      {!isDraft && !showRejectionBanner && (
         <div className="bg-slate-50 rounded-card p-4 text-center text-sm text-slate-500">
           Esta rendición está en estado <strong>{report.status}</strong> y no puede editarse.
         </div>

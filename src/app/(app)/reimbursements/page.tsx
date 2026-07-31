@@ -50,6 +50,11 @@ export default async function ReimbursementsPage() {
                 {report.reimbursed_at && ` · ${new Date(report.reimbursed_at).toLocaleDateString('es-CL')}`}
               </p>
             )}
+            {(report.status === 'rejected' || report.status === 'partially_approved') && (
+              <p className="text-xs text-red-500 ml-2 mt-1 font-medium">
+                ⚠ Requiere corrección — revisa los motivos en el detalle
+              </p>
+            )}
           </div>
         ))}
       </div>
