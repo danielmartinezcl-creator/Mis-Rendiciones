@@ -1157,6 +1157,83 @@ export async function changeHistoricalImportType(
   revalidatePath('/petty-cash')
 }
 
+// ─── Análisis por centro de costo (R19) ─────────────────────────────────────
+
+export type CenterExpenseRow = {
+  cost_center_id: string | null
+  cost_center_name: string | null
+  month: string           // YYYY-MM
+  category_id:   string | null
+  category_name: string | null
+  total_clp: number
+}
+
+export async function getExpensesByCenter(monthsBack = 6): Promise<{
+  rows:   CenterExpenseRow[]
+  months: string[]
+}> {
+  const { supabase, orgId } = await requireAdmin()
+
+  // Rango: primer día del mes (monthsBack - 1) meses atrás
+  const now      = new Date()
+  const fromDate = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1), 1)
+  const dateFrom = fromDate.toISOString().split('T')[0]
+
+  // Array de meses YYYY-MM (más antiguo primero)
+  const months: string[] = []
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  // expense_items aprobados de rendiciones aprobadas/reembolsadas
+  const { data: rawItems, error } = await supabase
+    .from('expense_items')
+    .select(`
+      amount_clp, date, cost_center_id, category_id,
+      expense_categories (name),
+      cost_centers:cost_center_id (descripcion),
+      expense_reports!inner (org_id, status, deleted_at)
+    `)
+    .eq('expense_reports.org_id', orgId)
+    .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
+    .eq('status', 'approved')
+    .gte('date', dateFrom)
+    .is('expense_reports.deleted_at', null)
+
+  if (error) throw new Error(error.message)
+
+  type Raw = {
+    amount_clp: number
+    date: string
+    cost_center_id: string | null
+    category_id: string | null
+    expense_categories: { name: string } | null
+    cost_centers: { descripcion: string } | null
+  }
+
+  const aggMap = new Map<string, CenterExpenseRow>()
+
+  for (const item of (rawItems ?? []) as unknown as Raw[]) {
+    const month = item.date.slice(0, 7)
+    if (!months.includes(month)) continue
+    const key = `${item.cost_center_id}|${month}|${item.category_id}`
+    if (!aggMap.has(key)) {
+      aggMap.set(key, {
+        cost_center_id:   item.cost_center_id,
+        cost_center_name: (item.cost_centers as unknown as { descripcion: string } | null)?.descripcion ?? null,
+        month,
+        category_id:   item.category_id,
+        category_name: item.expense_categories?.name ?? null,
+        total_clp:     0,
+      })
+    }
+    aggMap.get(key)!.total_clp += item.amount_clp
+  }
+
+  return { rows: Array.from(aggMap.values()), months }
+}
+
 /** Retorna las importaciones históricas de Caja Chica (expense_reports con historical_type='caja_chica').
  *  Se usa en el módulo /petty-cash para mostrar históricas separadas de los fondos activos. */
 export async function getHistoricalCajaChicaImports() {
