@@ -42,17 +42,17 @@ interface GridRow extends HistoricalGridRow {
   _key: string
 }
 
-function emptyRow(): GridRow {
+function emptyRow(emp?: { id: string; full_name: string; cost_center_id?: string | null } | null): GridRow {
   return {
     _key:         crypto.randomUUID(),
     itemType:     'expense',
-    employeeId:   null,
-    employeeName: '',
+    employeeId:   emp?.id ?? null,
+    employeeName: emp?.full_name ?? '',
     description:  '',
     date:         new Date().toISOString().split('T')[0],
     amountCLP:    0,
     categoryId:   null,
-    costCenterId: DEFAULT_COST_CENTER,
+    costCenterId: emp?.cost_center_id ?? DEFAULT_COST_CENTER,
     docType:      'boleta',
     docNumber:    null,
     supplierRut:  null,
@@ -66,7 +66,7 @@ function fmtCLP(n: number) {
 export function HistoricalImportClient({ categories, employees, costCenters }: Props) {
   const [tab, setTab] = useState<'excel' | 'manual'>('excel')
   const [parsed, setParsed] = useState<ParsedHistoricalImport | null>(null)
-  const [rows, setRows] = useState<GridRow[]>([emptyRow()])
+  const [rows, setRows] = useState<GridRow[]>([emptyRow(employees[0])])
   const [docType, setDocType] = useState<'rendicion' | 'caja_chica'>('rendicion')
   const [fundNumber, setFundNumber] = useState('')
   const [title, setTitle] = useState('')
@@ -91,13 +91,11 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
   }
 
   function addRow(type: ItemType = 'expense') {
-    const base = { ...emptyRow(), itemType: type }
+    const emp = employees.find(e => e.id === responsibleId)
+    const base = { ...emptyRow(emp), itemType: type }
     if (type === 'advance') {
-      const emp = employees.find(e => e.id === responsibleId)
-      base.employeeId   = responsibleId || null
-      base.employeeName = emp?.full_name ?? ''
-      base.date         = approvedDate || base.date
-      base.description  = 'Adelanto Caja Chica'
+      base.date        = approvedDate || base.date
+      base.description = 'Adelanto Caja Chica'
     }
     setRows(prev => [...prev, base])
   }
@@ -148,18 +146,20 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
         }) ?? null
       }
 
+      const responsible = employees.find(e => e.id === responsibleId) ?? null
       const newRows: GridRow[] = result.items.map(item => {
         const matched = findEmployee(item.employeeName)
+        const eff = matched ?? responsible
         return {
           _key:         crypto.randomUUID(),
           itemType:     'expense' as const,
-          employeeId:   matched?.id ?? null,
-          employeeName: matched?.full_name ?? item.employeeName,
+          employeeId:   eff?.id ?? null,
+          employeeName: eff?.full_name ?? item.employeeName,
           description:  item.description,
           date:         item.date,
           amountCLP:    item.amountCLP,
           categoryId:   null,
-          costCenterId: matched?.cost_center_id ?? DEFAULT_COST_CENTER,
+          costCenterId: eff?.cost_center_id ?? DEFAULT_COST_CENTER,
           docType:      'boleta' as const,
           docNumber:    null,
           supplierRut:  null,

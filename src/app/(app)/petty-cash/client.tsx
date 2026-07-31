@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
+import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import Link from 'next/link'
 import { Wallet, Plus, FileText, Filter, X, Download, BarChart2, Trash2, History, ArrowRightLeft, ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, Pencil, Check, Link2, SendHorizontal, FileSpreadsheet, Search } from 'lucide-react'
 import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
@@ -1390,7 +1391,8 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted }: {
           {items.map(item => {
             const isEdit = editingId === item.id
             return (
-              <tr key={item.id} className={`text-ink-700 ${isEdit ? 'bg-white' : ''}`}>
+              <React.Fragment key={item.id}>
+              <tr className={`text-ink-700 ${isEdit ? 'bg-white' : ''}`}>
                 {/* Columna Tipo */}
                 <td className="py-1.5 pr-2 whitespace-nowrap align-top">
                   {isEdit ? (
@@ -1499,6 +1501,18 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted }: {
                   </td>
                 )}
               </tr>
+              {!isEdit && item.item_type !== 'transfer' && (
+                <tr>
+                  <td colSpan={5} className="pb-2 px-0">
+                    <ItemAttachmentZone
+                      itemId={item.id}
+                      itemType="expense_item"
+                      canUpload
+                    />
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             )
           })}
         </tbody>

@@ -431,3 +431,50 @@ export async function uploadAttachment(
 
   return path
 }
+
+// Adjunto para expense_item sin necesitar pasar orgId (lo deriva de la sesión)
+export async function addExpenseItemAttachment(itemId: string, file: File): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  const { data: p } = await supabase.from('users').select('org_id').eq('id', user.id).single()
+  if (!p) throw new Error('Perfil no encontrado')
+  return uploadAttachment(itemId, p.org_id, file)
+}
+
+// Adjunto para petty_cash_item (usa petty_cash_item_id como FK)
+export async function addPettyCashItemAttachment(itemId: string, file: File): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  const { data: p } = await supabase.from('users').select('org_id').eq('id', user.id).single()
+  if (!p) throw new Error('Perfil no encontrado')
+
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${p.org_id}/${itemId}/${Date.now()}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('expense-attachments')
+    .upload(path, file, { contentType: file.type })
+  if (uploadError) throw new Error(uploadError.message)
+
+  await supabase.from('attachments').insert({
+    petty_cash_item_id: itemId,
+    org_id:             p.org_id,
+    storage_path:       path,
+    file_type:          (file.type.startsWith('image/') ? 'image' : 'pdf') as 'image' | 'pdf',
+    file_size:          file.size,
+  })
+
+  return path
+}
+
+// Elimina un adjunto (de cualquier tipo) del bucket y de la tabla
+export async function deleteItemAttachment(attachmentId: string, storagePath: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  await supabase.storage.from('expense-attachments').remove([storagePath])
+  await supabase.from('attachments').delete().eq('id', attachmentId)
+}

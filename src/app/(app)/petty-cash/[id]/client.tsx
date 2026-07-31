@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import {
   getFundDetail,
   submitFundForApproval,
@@ -23,10 +23,15 @@ import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
 import { VerticalTimeline }  from '@/components/ui/VerticalTimeline'
+import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
+import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
+import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation } from '@/lib/petty-cash-helpers'
 import { FUND_STEPS } from '@/lib/constants'
 import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, FileSpreadsheet, Building2, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
+
+type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
 
 function fmtCLP(n: number) {
   return '$ ' + Math.round(n).toLocaleString('es-CL')
@@ -73,6 +78,17 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const [settleDate, setSettleDate]       = useState(today())
   const [exportingDef, setExportingDef]   = useState(false)
   const [defWarnings, setDefWarnings]     = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
+  const [approvalAtts, setApprovalAtts]   = useState<ApprovalAtt[]>([])
+
+  useEffect(() => {
+    loadApprovalAtts()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  async function loadApprovalAtts() {
+    const atts = await getApprovalAttachments({ fundId: id })
+    setApprovalAtts(atts)
+  }
 
   async function handleExportDefontana() {
     setExportingDef(true)
@@ -197,6 +213,13 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           {fund.description}
         </div>
       )}
+
+      {/* Adjuntos del fondo (correos de aprobación, respaldos) */}
+      <ApprovalAttachments
+        attachments={approvalAtts}
+        target={{ fundId: id }}
+        onRefresh={loadApprovalAtts}
+      />
 
       {error && (
         <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item border border-rose-100">{error}</p>
@@ -445,6 +468,13 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                                 />
                               )}
                             </div>
+                          )}
+                          {!item.transfer_id && (
+                            <ItemAttachmentZone
+                              itemId={item.id}
+                              itemType="petty_cash_item"
+                              canUpload={canEdit || isApprover}
+                            />
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">

@@ -403,7 +403,8 @@ export interface Database {
       attachments: {
         Row: {
           id: string
-          item_id: string
+          item_id: string | null
+          petty_cash_item_id: string | null
           org_id: string
           storage_path: string
           file_type: 'image' | 'pdf'
@@ -413,7 +414,8 @@ export interface Database {
         }
         Insert: {
           id?: string
-          item_id: string
+          item_id?: string | null
+          petty_cash_item_id?: string | null
           org_id: string
           storage_path: string
           file_type: 'image' | 'pdf'
@@ -423,7 +425,8 @@ export interface Database {
         }
         Update: {
           id?: string
-          item_id?: string
+          item_id?: string | null
+          petty_cash_item_id?: string | null
           org_id?: string
           storage_path?: string
           file_type?: 'image' | 'pdf'
@@ -437,6 +440,13 @@ export interface Database {
             columns: ['item_id']
             isOneToOne: false
             referencedRelation: 'expense_items'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'attachments_petty_cash_item_id_fkey'
+            columns: ['petty_cash_item_id']
+            isOneToOne: false
+            referencedRelation: 'petty_cash_items'
             referencedColumns: ['id']
           }
         ]

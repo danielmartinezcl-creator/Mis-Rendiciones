@@ -7,6 +7,8 @@ import { ExpenseItemForm, type ItemFormData } from '@/components/expenses/Expens
 import { ExpenseItemCard } from '@/components/expenses/ExpenseItemCard'
 import { ReportStatusBadge } from '@/components/ui/Badge'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
+import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
+import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import {
   addExpenseItem,
   deleteExpenseItem,
@@ -15,9 +17,11 @@ import {
   uploadAttachment,
   getReportWithItems,
 } from '@/actions/expenses'
+import { getApprovalAttachments } from '@/actions/approval-attachments'
 import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
+type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
 
 export default function ExpenseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -33,6 +37,7 @@ export default function ExpenseDetailPage() {
   const [deleting, setDeleting]                   = useState(false)
   const [error, setError]                         = useState<string | null>(null)
   const [loading, setLoading]                     = useState(true)
+  const [approvalAtts, setApprovalAtts]           = useState<ApprovalAtt[]>([])
 
   async function load() {
     const data = await getReportWithItems(id)
@@ -40,8 +45,14 @@ export default function ExpenseDetailPage() {
     setLoading(false)
   }
 
+  async function loadApprovalAtts() {
+    const atts = await getApprovalAttachments({ reportId: id })
+    setApprovalAtts(atts)
+  }
+
   useEffect(() => {
     load()
+    loadApprovalAtts()
 
     const supabase = createClient()
     // Categorías
@@ -197,15 +208,31 @@ export default function ExpenseDetailPage() {
         </div>
       )}
 
+      {/* Adjuntos del informe (aprobadores/admin) */}
+      <ApprovalAttachments
+        attachments={approvalAtts}
+        target={{ reportId: id }}
+        onRefresh={loadApprovalAtts}
+      />
+
       {/* Lista de ítems */}
       <div className="space-y-2">
         {items.map(item => (
-          <ExpenseItemCard
-            key={item.id}
-            item={item}
-            canDelete={isDraft}
-            onDelete={handleDeleteItem}
-          />
+          <div key={item.id}>
+            <ExpenseItemCard
+              item={item}
+              canDelete={isDraft}
+              onDelete={handleDeleteItem}
+            />
+            <div className="px-3 pb-2">
+              <ItemAttachmentZone
+                itemId={item.id}
+                itemType="expense_item"
+                initialAttachments={item.attachments}
+                canUpload={isDraft}
+              />
+            </div>
+          </div>
         ))}
       </div>
 
