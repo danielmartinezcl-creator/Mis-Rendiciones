@@ -34,7 +34,10 @@ export async function getPendingApprovals() {
     .from('expense_reports')
     .select(`
       id, title, status, total_amount, submitted_at, currency,
-      submitter:users!submitter_id (approver_l1_id, approver_l2_id, full_name)
+      submitter:users!submitter_id (
+        approver_l1_id, approver_l2_id, full_name,
+        approver_l1_backup_id, backup_active_from, backup_active_until
+      )
     `)
     .eq('org_id', profile.org_id)
     .in('status', ['submitted', 'pending_l2'])
@@ -42,21 +45,37 @@ export async function getPendingApprovals() {
     .order('submitted_at', { ascending: true })
 
   const reports = data ?? []
+  const today   = new Date().toISOString().split('T')[0]
+
+  type SubType = {
+    approver_l1_id:        string | null
+    approver_l2_id:        string | null
+    approver_l1_backup_id: string | null
+    backup_active_from:    string | null
+    backup_active_until:   string | null
+    full_name:             string
+  }
 
   // Filtrar: solo los reportes donde el usuario actual es el aprobador designado para ese nivel
   return reports.filter(r => {
-    const sub = r.submitter as { approver_l1_id: string | null; approver_l2_id: string | null; full_name: string } | null
+    const sub = r.submitter as SubType | null
 
     if (!sub) {
       // Sin aprobador configurado → visible a todos los can_approve (fallback)
       return profile.can_approve || profile.role === 'admin'
     }
 
-    if (r.status === 'submitted')   return sub.approver_l1_id === user.id
+    if (r.status === 'submitted') {
+      const isL1 = sub.approver_l1_id === user.id
+      const isBackup = sub.approver_l1_backup_id === user.id &&
+        !!sub.backup_active_from && !!sub.backup_active_until &&
+        sub.backup_active_from <= today && sub.backup_active_until >= today
+      return isL1 || isBackup
+    }
     if (r.status === 'pending_l2')  return sub.approver_l2_id === user.id
     return false
   }).map(r => {
-    const sub = r.submitter as { approver_l1_id: string | null; approver_l2_id: string | null; full_name: string } | null
+    const sub = r.submitter as SubType | null
     return {
       id: r.id,
       title: r.title,

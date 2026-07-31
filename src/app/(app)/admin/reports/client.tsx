@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
@@ -55,6 +55,40 @@ export function AdminReportsClient({ initialReports }: Props) {
 
   // Mover módulo (rendicion ↔ caja_chica)
   const [movingId, setMovingId] = useState<string | null>(null)
+
+  // ZIP comprobantes
+  const [zippingId, setZippingId] = useState<string | null>(null)
+
+  async function handleExportZip(reportId: string, title: string) {
+    setZippingId(reportId)
+    try {
+      const urls = await getReportAttachmentUrls(reportId)
+      if (!urls.length) {
+        alert('Esta rendición no tiene comprobantes adjuntos.')
+        return
+      }
+      const JSZip = (await import('jszip')).default
+      const zip   = new JSZip()
+      const downloads = await Promise.allSettled(
+        urls.map(async ({ filename, url }) => {
+          const resp = await fetch(url)
+          const blob = await resp.blob()
+          return { filename, blob }
+        })
+      )
+      for (const d of downloads) {
+        if (d.status === 'fulfilled') zip.file(d.value.filename, d.value.blob)
+      }
+      const content = await zip.generateAsync({ type: 'blob' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(content)
+      link.download = `comprobantes_${title.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)}.zip`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } finally {
+      setZippingId(null)
+    }
+  }
 
   // Reclasificación de ítems
   type Category = Awaited<ReturnType<typeof getOrgCategories>>[number]
@@ -667,6 +701,21 @@ export function AdminReportsClient({ initialReports }: Props) {
                             </tbody>
                           </table>
                         </div>
+                      </div>
+
+                      {/* ZIP comprobantes */}
+                      <div className="flex justify-end pt-1">
+                        <button
+                          onClick={() => handleExportZip(r.id, r.title)}
+                          disabled={zippingId === r.id}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-item transition-colors disabled:opacity-40"
+                        >
+                          {zippingId === r.id
+                            ? <span className="w-3 h-3 border border-brand-400 border-t-transparent rounded-full animate-spin" />
+                            : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          }
+                          {zippingId === r.id ? 'Preparando ZIP…' : 'Comprobantes ZIP'}
+                        </button>
                       </div>
                     </>
                   )}

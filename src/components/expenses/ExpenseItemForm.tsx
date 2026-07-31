@@ -36,6 +36,9 @@ export interface ItemFormData {
   file:                 File | null
   policy_justification: string | null
   policy_violations:    PolicyViolation[] | null
+  // Kilometraje
+  mileage_km:   string   // '' cuando no aplica
+  mileage_rate: number | null
 }
 
 const emptyForm = (): ItemFormData => ({
@@ -58,12 +61,15 @@ const emptyForm = (): ItemFormData => ({
   file:                 null,
   policy_justification: null,
   policy_violations:    null,
+  mileage_km:           '',
+  mileage_rate:         null,
 })
 
 interface ExpenseItemFormProps {
   categories:           ExpenseCategory[]
   costCenters:          CostCenter[]
   employeeCostCenterId: string | null
+  mileageRate:          number   // tarifa CLP/km configurada por la org
   onSave:               (data: ItemFormData) => Promise<void>
   onCancel:             () => void
 }
@@ -72,6 +78,7 @@ export function ExpenseItemForm({
   categories,
   costCenters,
   employeeCostCenterId,
+  mileageRate,
   onSave,
   onCancel,
 }: ExpenseItemFormProps) {
@@ -197,7 +204,12 @@ export function ExpenseItemForm({
 
     const localErrors: string[] = []
     if (!form.description.trim()) localErrors.push('La descripción es obligatoria')
-    if (!form.amount || parseFloat(form.amount) <= 0) localErrors.push('El monto debe ser mayor a 0')
+    if (isMileage) {
+      const km = parseFloat(form.mileage_km)
+      if (isNaN(km) || km <= 0) localErrors.push('Ingresá los kilómetros recorridos')
+    } else {
+      if (!form.amount || parseFloat(form.amount) <= 0) localErrors.push('El monto debe ser mayor a 0')
+    }
     if (!form.date) localErrors.push('La fecha es obligatoria')
 
     if (localErrors.length > 0) {
@@ -219,9 +231,43 @@ export function ExpenseItemForm({
     await doSave()
   }
 
-  const isFactura = form.doc_type === 'factura' || form.doc_type === 'factura_exenta'
+  const isMileage   = !!form.mileage_km.trim()
+  const isFactura   = form.doc_type === 'factura' || form.doc_type === 'factura_exenta'
   const selectedCat = categories.find(c => c.id === form.category_id)
   const catMissingCode = !!form.category_id && selectedCat && !selectedCat.defontana_account_code
+
+  function handleMileageKmChange(raw: string) {
+    set('mileage_km', raw)
+    set('mileage_rate', mileageRate)
+    const km = parseFloat(raw)
+    if (!isNaN(km) && km > 0) {
+      const total = Math.round(km * mileageRate)
+      set('amount', String(total))
+      set('amount_clp', total)
+      set('exchange_rate', 1)
+      set('exchange_rate_source', 'api')
+    } else {
+      set('amount', '')
+      set('amount_clp', 0)
+    }
+  }
+
+  function toggleMileage() {
+    if (isMileage) {
+      // volver a modo normal
+      set('mileage_km',   '')
+      set('mileage_rate', null)
+      set('amount', '')
+      set('amount_clp', 0)
+    } else {
+      // entrar en modo kilometraje
+      set('doc_type',    '')
+      set('doc_number',  '')
+      set('currency',    'CLP')
+      set('mileage_km',  '')
+      set('mileage_rate', mileageRate)
+    }
+  }
 
   const defaultCCLabel = employeeCostCenterId
     ? `Mi centro por defecto (${employeeCostCenterId})`
@@ -237,9 +283,22 @@ export function ExpenseItemForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-4">
-      <h3 className="font-semibold text-slate-800">Agregar ítem</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-800">Agregar ítem</h3>
+        <button
+          type="button"
+          onClick={toggleMileage}
+          className={`text-xs font-semibold px-2.5 py-1 rounded-item border transition-colors ${
+            isMileage
+              ? 'bg-brand-600 text-white border-brand-600'
+              : 'text-brand-600 border-brand-200 hover:bg-brand-50'
+          }`}
+        >
+          {isMileage ? '🚗 Kilometraje' : '🚗 ¿Es km?'}
+        </button>
+      </div>
 
-      <PhotoUpload onOcrResult={handleOcrResult} disabled={saving} />
+      {!isMileage && <PhotoUpload onOcrResult={handleOcrResult} disabled={saving} />}
 
       {errors.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-item p-3">
@@ -288,6 +347,45 @@ export function ExpenseItemForm({
         </div>
       )}
 
+      {/* Modo kilometraje — km + tramo */}
+      {isMileage && (
+        <div className="bg-brand-50 border border-brand-200 rounded-item p-3 space-y-3">
+          <p className="text-xs text-brand-700 font-semibold">
+            Tarifa: {mileageRate.toLocaleString('es-CL')} CLP/km (configurada por la org)
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Kilómetros *</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={form.mileage_km}
+                onChange={e => handleMileageKmChange(e.target.value)}
+                placeholder="0"
+                className={`${inputCls} font-[Manrope] tabular-nums`}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Total CLP</label>
+              <p className="px-3 py-2.5 bg-white border border-slate-200 rounded-item text-sm font-[Manrope] tabular-nums text-slate-800">
+                {form.amount_clp > 0 ? form.amount_clp.toLocaleString('es-CL') : '—'}
+              </p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Tramo (origen → destino)</label>
+            <input
+              type="text"
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              placeholder="Ej: Oficina → Faena El Peñón"
+              className={inputCls}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Descripción */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Descripción *</label>
@@ -295,12 +393,13 @@ export function ExpenseItemForm({
           type="text"
           value={form.description}
           onChange={e => set('description', e.target.value)}
-          placeholder="Ej: Almuerzo con cliente"
+          placeholder={isMileage ? 'Ej: Viaje a faena' : 'Ej: Almuerzo con cliente'}
           className={inputCls}
         />
       </div>
 
-      {/* Monto + Moneda */}
+      {/* Monto + Moneda — oculto en modo kilometraje (se calcula automáticamente) */}
+      {!isMileage && (
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Monto *</label>
@@ -324,9 +423,10 @@ export function ExpenseItemForm({
           </select>
         </div>
       </div>
+      )}
 
       {/* Tipo de cambio (solo si moneda != CLP) */}
-      {form.currency !== 'CLP' && (
+      {!isMileage && form.currency !== 'CLP' && (
         <div className="bg-amber-50 border border-amber-200 rounded-item p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-amber-700">
@@ -413,79 +513,83 @@ export function ExpenseItemForm({
         </div>
       )}
 
-      {/* Proveedor + Tipo doc */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Proveedor</label>
-          <input
-            type="text"
-            value={form.merchant}
-            onChange={e => set('merchant', e.target.value)}
-            placeholder="Nombre del comercio"
-            className={inputCls}
-          />
+      {/* Proveedor + Tipo doc (solo en modo gasto normal) */}
+      {!isMileage && (
+      <>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Proveedor</label>
+            <input
+              type="text"
+              value={form.merchant}
+              onChange={e => set('merchant', e.target.value)}
+              placeholder="Nombre del comercio"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Tipo documento</label>
+            <select
+              value={form.doc_type}
+              onChange={e => set('doc_type', e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Seleccionar</option>
+              {DOC_TYPES.map(d => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Tipo documento</label>
-          <select
-            value={form.doc_type}
-            onChange={e => set('doc_type', e.target.value)}
-            className={inputCls}
-          >
-            <option value="">Seleccionar</option>
-            {DOC_TYPES.map(d => (
-              <option key={d.value} value={d.value}>{d.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      {/* RUT Proveedor — solo visible para facturas (crédito fiscal IVA) */}
-      {isFactura && (
+        {/* RUT Proveedor — solo visible para facturas (crédito fiscal IVA) */}
+        {isFactura && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              RUT Proveedor
+              <span className="ml-1.5 text-xs font-normal text-slate-400">(requerido para crédito fiscal IVA)</span>
+            </label>
+            <input
+              type="text"
+              value={form.supplier_rut}
+              onChange={e => set('supplier_rut', e.target.value)}
+              placeholder="12.345.678-9"
+              className={inputCls}
+            />
+            {!form.supplier_rut && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-item border border-amber-200">
+                <AlertTriangle size={12} className="shrink-0" />
+                Sin RUT el crédito fiscal IVA no puede acreditarse ante el SII
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* N° documento */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            RUT Proveedor
-            <span className="ml-1.5 text-xs font-normal text-slate-400">(requerido para crédito fiscal IVA)</span>
-          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">N° documento</label>
           <input
             type="text"
-            value={form.supplier_rut}
-            onChange={e => set('supplier_rut', e.target.value)}
-            placeholder="12.345.678-9"
+            value={form.doc_number}
+            onChange={e => set('doc_number', e.target.value)}
+            placeholder="000123"
             className={inputCls}
           />
-          {!form.supplier_rut && (
-            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-item border border-amber-200">
-              <AlertTriangle size={12} className="shrink-0" />
-              Sin RUT el crédito fiscal IVA no puede acreditarse ante el SII
-            </div>
-          )}
         </div>
+
+        {/* Notas */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Nota interna</label>
+          <textarea
+            value={form.notes}
+            onChange={e => set('notes', e.target.value)}
+            placeholder="Contexto adicional para el aprobador..."
+            rows={2}
+            className={`${inputCls} resize-none`}
+          />
+        </div>
+      </>
       )}
-
-      {/* N° documento */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">N° documento</label>
-        <input
-          type="text"
-          value={form.doc_number}
-          onChange={e => set('doc_number', e.target.value)}
-          placeholder="000123"
-          className={inputCls}
-        />
-      </div>
-
-      {/* Notas */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Nota interna</label>
-        <textarea
-          value={form.notes}
-          onChange={e => set('notes', e.target.value)}
-          placeholder="Contexto adicional para el aprobador..."
-          rows={2}
-          className={`${inputCls} resize-none`}
-        />
-      </div>
 
       {/* ─── Banner de validación de políticas ──────────────────────────────── */}
       {policyLoading && (

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
+import { notifyApproversOfSubmission } from '@/actions/notifications'
 import type { Json } from '@/lib/supabase/types'
 
 export async function createExpenseReport(formData: FormData) {
@@ -63,6 +64,8 @@ export async function addExpenseItem(
     ocr_confidence?: number | null
     policy_justification?: string | null
     policy_violations?:    Json | null
+    mileage_km?:   number | null
+    mileage_rate?: number | null
   }
 ) {
   const supabase = await createClient()
@@ -110,6 +113,8 @@ export async function addExpenseItem(
       ocr_confidence:       item.ocr_confidence ?? null,
       policy_justification: item.policy_justification ?? null,
       policy_violations:    item.policy_violations    ?? null,
+      mileage_km:           item.mileage_km   ?? null,
+      mileage_rate:         item.mileage_rate ?? null,
       status:               'pending',
     })
     .select('id')
@@ -194,6 +199,9 @@ export async function submitExpenseReport(reportId: string) {
     .eq('status', 'draft')
 
   if (error) throw new Error(error.message)
+
+  // Notificar a aprobadores (async, fallo silencioso)
+  notifyApproversOfSubmission(reportId).catch(() => {})
 
   revalidatePath(`/expenses/${reportId}`)
   revalidatePath('/')

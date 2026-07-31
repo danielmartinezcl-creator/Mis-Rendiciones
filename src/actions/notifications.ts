@@ -1,10 +1,12 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Resend } from 'resend'
 
 // Helper — solo envía si está configurado Resend
 async function trySendEmail(to: string[], subject: string, html: string) {
+  if (!to.length) return
   const apiKey = process.env.RESEND_API_KEY
   const from   = process.env.RESEND_FROM_EMAIL ?? 'noreply@rindegastos.app'
   if (!apiKey || apiKey === 'placeholder') return
@@ -12,6 +14,21 @@ async function trySendEmail(to: string[], subject: string, html: string) {
   await resend.emails.send({ from, to, subject, html }).catch(() => {
     // Email no crítico — fallo silencioso
   })
+}
+
+// Busca emails reales en auth.users usando el admin client (service role)
+async function lookupEmails(userIds: string[]): Promise<string[]> {
+  if (!userIds.length) return []
+  try {
+    const admin = createAdminClient()
+    // auth.admin.listUsers tiene paginación — para orgs pequeñas (< 1000) basta con una página
+    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const emailMap = new Map(data.users.map(u => [u.id, u.email ?? '']))
+    return userIds.map(id => emailMap.get(id) ?? '').filter(Boolean)
+  } catch {
+    // Si la service role key no está configurada, fallo silencioso (email no crítico)
+    return []
+  }
 }
 
 export async function notifyApproversOfSubmission(reportId: string) {
@@ -46,13 +63,14 @@ export async function notifyApproversOfSubmission(reportId: string) {
     }))
   )
 
-  // Email (opcional — requiere RESEND_API_KEY)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  // Email con direcciones reales desde auth.users
+  const emails  = await lookupEmails(approvers.map(a => a.id))
+  const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
-    approvers.map(a => a.id), // placeholder — requiere servicio de email lookup
+    emails,
     `Nueva rendición para revisar: ${report.title}`,
     `<p>Hay una nueva rendición esperando tu aprobación.</p>
-     <p><a href="${appUrl}/approvals/${report.id}">Ver rendición</a></p>`
+     <p><a href="${appUrl}/approvals/${report.id}">Ver rendición →</a></p>`
   )
 }
 
@@ -88,11 +106,12 @@ export async function notifySubmitterOfDecision(reportId: string, action: 'appro
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const emails = await lookupEmails([report.submitter_id])
   await trySendEmail(
-    [report.submitter_id], // placeholder — requiere lookup de email
+    emails,
     `${subjectMap[action]}: ${report.title}`,
     `<p>${subjectMap[action]}.</p>
-     <p><a href="${appUrl}/expenses/${report.id}">Ver detalle</a></p>`
+     <p><a href="${appUrl}/expenses/${report.id}">Ver detalle →</a></p>`
   )
 }
 

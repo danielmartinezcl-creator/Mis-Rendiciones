@@ -718,6 +718,33 @@ export async function setEmployeeApprovers(
   revalidatePath('/admin/employees')
 }
 
+export async function setEmployeeBackupApprover(
+  userId: string,
+  backupApproverL1Id: string | null,
+  backupActiveFrom: string | null,
+  backupActiveUntil: string | null
+) {
+  const { supabase, orgId } = await requireAdmin()
+
+  if (backupApproverL1Id) {
+    const { data: backup } = await supabase.from('users').select('org_id').eq('id', backupApproverL1Id).single()
+    if (!backup || backup.org_id !== orgId) throw new Error('Aprobador suplente no pertenece a esta organización')
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update({
+      approver_l1_backup_id: backupApproverL1Id,
+      backup_active_from:    backupActiveFrom,
+      backup_active_until:   backupActiveUntil,
+    })
+    .eq('id', userId)
+    .eq('org_id', orgId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/employees')
+}
+
 // ─── Defontana: configuración y datos de export ──────────────────────────────
 
 export async function getDefontanaSettings() {
@@ -1126,6 +1153,45 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   }
 
   revalidatePath('/admin/trash')
+}
+
+/** Genera URLs firmadas (5 min) para los adjuntos de una rendición — para ZIP cliente. */
+export async function getReportAttachmentUrls(reportId: string): Promise<
+  { filename: string; url: string }[]
+> {
+  const { supabase } = await requireAdmin()
+
+  const { data: rawItems } = await supabase
+    .from('expense_items')
+    .select(`id, description, merchant, date, attachments (id, storage_path, file_type)`)
+    .eq('report_id', reportId)
+    .order('created_at', { ascending: true })
+
+  if (!rawItems?.length) return []
+
+  const result: { filename: string; url: string }[] = []
+
+  for (const raw of rawItems) {
+    const item = raw as unknown as {
+      id: string; description: string; merchant: string | null; date: string | null
+      attachments: { id: string; storage_path: string; file_type: string }[]
+    }
+    for (const att of item.attachments ?? []) {
+      const { data: signed } = await supabase.storage
+        .from('expense-attachments')
+        .createSignedUrl(att.storage_path, 300)
+      if (!signed?.signedUrl) continue
+
+      const ext  = att.file_type === 'pdf' ? 'pdf' : 'jpg'
+      const safe = (item.merchant || item.description || 'item')
+        .replace(/[^a-zA-Z0-9À-ɏ -]/g, '_')
+        .slice(0, 30)
+        .trim()
+      result.push({ filename: `${item.date ?? 'sin-fecha'}_${safe}.${ext}`, url: signed.signedUrl })
+    }
+  }
+
+  return result
 }
 
 /** Cambia el módulo de una importación histórica entre 'rendicion' y 'caja_chica'.

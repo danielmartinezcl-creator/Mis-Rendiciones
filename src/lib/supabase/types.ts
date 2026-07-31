@@ -22,6 +22,7 @@ export interface Database {
           defontana_voucher_type:     string | null
           defontana_cost_center:      string | null
           defontana_provider_account: string | null
+          mileage_rate_per_km:        number | null
         }
         Insert: {
           id?: string
@@ -38,6 +39,7 @@ export interface Database {
           defontana_voucher_type?:     string | null
           defontana_cost_center?:      string | null
           defontana_provider_account?: string | null
+          mileage_rate_per_km?:        number | null
         }
         Update: {
           id?: string
@@ -54,6 +56,7 @@ export interface Database {
           defontana_voucher_type?:     string | null
           defontana_cost_center?:      string | null
           defontana_provider_account?: string | null
+          mileage_rate_per_km?:        number | null
         }
         Relationships: []
       }
@@ -75,6 +78,9 @@ export interface Database {
           bank_account_type: string | null
           approver_l1_id: string | null
           approver_l2_id: string | null
+          approver_l1_backup_id:  string | null
+          backup_active_from:     string | null
+          backup_active_until:    string | null
           cost_center_id: string | null
           invited_at: string | null
           is_active: boolean
@@ -98,6 +104,9 @@ export interface Database {
           bank_account_type?: string | null
           approver_l1_id?: string | null
           approver_l2_id?: string | null
+          approver_l1_backup_id?:  string | null
+          backup_active_from?:     string | null
+          backup_active_until?:    string | null
           cost_center_id?: string | null
           invited_at?: string | null
           is_active?: boolean
@@ -121,6 +130,9 @@ export interface Database {
           bank_account_type?: string | null
           approver_l1_id?: string | null
           approver_l2_id?: string | null
+          approver_l1_backup_id?:  string | null
+          backup_active_from?:     string | null
+          backup_active_until?:    string | null
           cost_center_id?: string | null
           invited_at?: string | null
           is_active?: boolean
@@ -330,6 +342,8 @@ export interface Database {
           policy_justification: string | null
           policy_violations:    Json | null
           defontana_exported_at: string | null
+          mileage_km:   number | null
+          mileage_rate: number | null
           created_at: string
         }
         Insert: {
@@ -359,6 +373,8 @@ export interface Database {
           policy_justification?: string | null
           policy_violations?:    Json | null
           defontana_exported_at?: string | null
+          mileage_km?:   number | null
+          mileage_rate?: number | null
           created_at?: string
         }
         Update: {
@@ -388,6 +404,8 @@ export interface Database {
           policy_justification?: string | null
           policy_violations?:    Json | null
           defontana_exported_at?: string | null
+          mileage_km?:   number | null
+          mileage_rate?: number | null
           created_at?: string
         }
         Relationships: [

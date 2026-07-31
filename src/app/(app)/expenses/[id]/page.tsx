@@ -37,6 +37,7 @@ export default function ExpenseDetailPage() {
   const [categories, setCategories]               = useState<ExpenseCategory[]>([])
   const [costCenters, setCostCenters]             = useState<CostCenter[]>([])
   const [employeeCostCenterId, setEmployeeCC]     = useState<string | null>(null)
+  const [mileageRate, setMileageRate]             = useState<number>(136)
   const [currentUserId, setCurrentUserId]         = useState<string | null>(null)
   const [showForm, setShowForm]                   = useState(false)
   const [submitting, setSubmitting]               = useState(false)
@@ -102,8 +103,16 @@ export default function ExpenseDetailPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setCurrentUserId(user.id)
-      supabase.from('users').select('cost_center_id').eq('id', user.id).single()
-        .then(({ data }) => setEmployeeCC(data?.cost_center_id ?? null))
+      supabase.from('users').select('cost_center_id, org_id').eq('id', user.id).single()
+        .then(({ data }) => {
+          setEmployeeCC(data?.cost_center_id ?? null)
+          if (data?.org_id) {
+            supabase.from('organizations').select('mileage_rate_per_km').eq('id', data.org_id).single()
+              .then(({ data: org }) => {
+                if (org?.mileage_rate_per_km) setMileageRate(org.mileage_rate_per_km)
+              })
+          }
+        })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
@@ -133,6 +142,8 @@ export default function ExpenseDetailPage() {
       ocr_confidence:       data.ocr_confidence,
       policy_justification: data.policy_justification ?? null,
       policy_violations:    data.policy_violations as unknown as Json | null ?? null,
+      mileage_km:           data.mileage_km ? parseFloat(data.mileage_km) : null,
+      mileage_rate:         data.mileage_rate,
     })
 
     // Subir foto si existe
@@ -289,6 +300,7 @@ export default function ExpenseDetailPage() {
           categories={categories}
           costCenters={costCenters}
           employeeCostCenterId={employeeCostCenterId}
+          mileageRate={mileageRate}
           onSave={handleSaveItem}
           onCancel={() => setShowForm(false)}
         />
