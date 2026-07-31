@@ -34,7 +34,7 @@ export interface UnifiedReportFilters {
   dataAge:         'new' | 'historical' | 'all'
   dateFrom?:       string
   dateTo?:         string
-  departments?:    string[]
+  department?:     string
   employeeIds?:    string[]
   categoryIds?:    string[]
   reportIds?:      string[]   // rendición IDs específicas
