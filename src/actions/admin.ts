@@ -1242,12 +1242,13 @@ export type ActiveFundSummary = {
 export async function getActiveFundsSummary(): Promise<ActiveFundSummary[]> {
   const { supabase, orgId } = await requireAdmin()
 
+  // petty_cash_items NO tiene item_type — el adelanto está en amount_approved del fondo
   const { data: funds, error } = await supabase
     .from('petty_cash_funds')
     .select(`
-      id, name, employee_id, amount_approved, currency, status, updated_at, period_end,
+      id, name, employee_id, amount_approved, status, updated_at, period_end,
       users:employee_id (full_name, department),
-      petty_cash_items (amount_clp, item_type)
+      petty_cash_items (amount_clp, status)
     `)
     .eq('org_id', orgId)
     .in('status', ['funds_sent', 'submitted', 'pending_liquidation_approval'])
@@ -1259,24 +1260,25 @@ export async function getActiveFundsSummary(): Promise<ActiveFundSummary[]> {
 
   type RawFund = {
     id: string; name: string; status: string; updated_at: string; period_end: string
+    amount_approved: number | null
     users: { full_name: string; department: string | null } | null
-    petty_cash_items: { amount_clp: number; item_type: string }[]
+    petty_cash_items: { amount_clp: number; status: string }[]
   }
 
   return ((funds ?? []) as unknown as RawFund[]).map(f => {
-    const items   = f.petty_cash_items ?? []
-    const advance = items.filter(i => i.item_type === 'advance').reduce((s, i) => s + i.amount_clp, 0)
-    const expense = items.filter(i => i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0)
-    const ret     = items.filter(i => i.item_type === 'return').reduce((s, i) => s + i.amount_clp, 0)
-    const balance = advance - expense + ret
-    const days    = Math.floor((Date.now() - new Date(f.updated_at).getTime()) / 86_400_000)
+    const advance  = f.amount_approved ?? 0
+    const expense  = (f.petty_cash_items ?? [])
+      .filter(i => i.status !== 'rejected')
+      .reduce((s, i) => s + i.amount_clp, 0)
+    const balance  = advance - expense
+    const days     = Math.floor((Date.now() - new Date(f.updated_at).getTime()) / 86_400_000)
 
     return {
-      id: f.id,
-      name: f.name,
-      employeeName:      f.users?.full_name ?? 'Desconocido',
-      department:        f.users?.department ?? null,
-      status:            f.status,
+      id:                 f.id,
+      name:               f.name,
+      employeeName:       f.users?.full_name ?? 'Desconocido',
+      department:         f.users?.department ?? null,
+      status:             f.status,
       advance,
       expense,
       balance,
@@ -1317,13 +1319,14 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
   }
 
   // expense_items aprobados de rendiciones aprobadas/reembolsadas
+  // Excluye adelantos/devoluciones/traspasos (no son gastos reales)
   const { data: rawItems, error } = await supabase
     .from('expense_items')
     .select(`
-      amount_clp, date, cost_center_id, category_id,
+      amount_clp, date, cost_center_id, category_id, item_type,
       expense_categories (name),
       cost_centers:cost_center_id (descripcion),
-      expense_reports!inner (org_id, status, deleted_at)
+      expense_reports!inner (org_id, status, deleted_at, submitter_id)
     `)
     .eq('expense_reports.org_id', orgId)
     .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
@@ -1333,25 +1336,59 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
 
   if (error) throw new Error(error.message)
 
+  type RawReport = { org_id: string; status: string; deleted_at: string | null; submitter_id: string }
   type Raw = {
     amount_clp: number
     date: string
     cost_center_id: string | null
     category_id: string | null
+    item_type: string | null
     expense_categories: { name: string } | null
     cost_centers: { descripcion: string } | null
+    expense_reports: RawReport
+  }
+
+  const items = (rawItems ?? []) as unknown as Raw[]
+
+  // Cargar CC de los submitters para cascada: ítem sin CC → CC del empleado
+  const submitterIds = [...new Set(items.map(i => i.expense_reports?.submitter_id).filter(Boolean))]
+  const userCcMap = new Map<string, { cc_id: string | null; cc_name: string | null }>()
+  if (submitterIds.length > 0) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, cost_center_id, cost_centers:cost_center_id (descripcion)')
+      .in('id', submitterIds)
+    type RawUser = { id: string; cost_center_id: string | null; cost_centers: { descripcion: string } | null }
+    for (const u of (users ?? []) as unknown as RawUser[]) {
+      userCcMap.set(u.id, {
+        cc_id:   u.cost_center_id ?? null,
+        cc_name: u.cost_centers?.descripcion ?? null,
+      })
+    }
   }
 
   const aggMap = new Map<string, CenterExpenseRow>()
 
-  for (const item of (rawItems ?? []) as unknown as Raw[]) {
+  for (const item of items) {
+    // Excluir adelantos, devoluciones y traspasos — no son gastos
+    if (item.item_type && item.item_type !== 'expense') continue
+
     const month = item.date.slice(0, 7)
     if (!months.includes(month)) continue
-    const key = `${item.cost_center_id}|${month}|${item.category_id}`
+
+    // Cascada: CC del ítem → CC del empleado → null
+    const submitterId = item.expense_reports?.submitter_id
+    const empCc       = submitterId ? userCcMap.get(submitterId) : null
+    const ccId   = item.cost_center_id ?? empCc?.cc_id ?? null
+    const ccName = item.cost_center_id
+      ? (item.cost_centers as unknown as { descripcion: string } | null)?.descripcion ?? null
+      : empCc?.cc_name ?? null
+
+    const key = `${ccId}|${month}|${item.category_id}`
     if (!aggMap.has(key)) {
       aggMap.set(key, {
-        cost_center_id:   item.cost_center_id,
-        cost_center_name: (item.cost_centers as unknown as { descripcion: string } | null)?.descripcion ?? null,
+        cost_center_id:   ccId,
+        cost_center_name: ccName,
         month,
         category_id:   item.category_id,
         category_name: item.expense_categories?.name ?? null,
@@ -1362,6 +1399,97 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
   }
 
   return { rows: Array.from(aggMap.values()), months }
+}
+
+// ─── Ítems de gasto sin centro de costo (para corrección manual) ─────────────
+
+export type ItemWithoutCC = {
+  id: string
+  description: string
+  merchant: string | null
+  date: string
+  amount_clp: number
+  category_name: string | null
+  report_id: string
+  report_title: string
+  employee_name: string
+  employee_cc_id: string | null
+}
+
+export async function getItemsWithoutCC(): Promise<ItemWithoutCC[]> {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data, error } = await supabase
+    .from('expense_items')
+    .select(`
+      id, description, merchant, date, amount_clp, category_id, item_type,
+      expense_categories (name),
+      expense_reports!inner (id, title, org_id, status, deleted_at, submitter_id)
+    `)
+    .eq('expense_reports.org_id', orgId)
+    .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
+    .eq('status', 'approved')
+    .is('cost_center_id', null)
+    .is('expense_reports.deleted_at', null)
+    .order('date', { ascending: false })
+
+  if (error) throw new Error(error.message)
+
+  type RawItem = {
+    id: string; description: string; merchant: string | null; date: string
+    amount_clp: number; category_id: string | null; item_type: string | null
+    expense_categories: { name: string } | null
+    expense_reports: { id: string; title: string; submitter_id: string }
+  }
+
+  const items = (data ?? []) as unknown as RawItem[]
+
+  // Excluir adelantos/devoluciones/traspasos
+  const realExpenses = items.filter(i => !i.item_type || i.item_type === 'expense')
+  if (realExpenses.length === 0) return []
+
+  // Cargar CC de los submitters
+  const submitterIds = [...new Set(realExpenses.map(i => i.expense_reports?.submitter_id).filter(Boolean))]
+  const userMap = new Map<string, { cc_id: string | null; full_name: string }>()
+  if (submitterIds.length > 0) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name, cost_center_id')
+      .in('id', submitterIds)
+    for (const u of users ?? []) userMap.set(u.id, { cc_id: u.cost_center_id ?? null, full_name: u.full_name })
+  }
+
+  return realExpenses
+    .filter(i => {
+      // Solo devolver ítems donde la cascada TAMBIÉN es null (ningún CC disponible)
+      const empCcId = userMap.get(i.expense_reports?.submitter_id)?.cc_id ?? null
+      return empCcId === null
+    })
+    .map(i => {
+      const emp = userMap.get(i.expense_reports?.submitter_id)
+      return {
+        id:            i.id,
+        description:   i.description,
+        merchant:      i.merchant,
+        date:          i.date,
+        amount_clp:    i.amount_clp,
+        category_name: i.expense_categories?.name ?? null,
+        report_id:     i.expense_reports?.id,
+        report_title:  i.expense_reports?.title,
+        employee_name: emp?.full_name ?? 'Desconocido',
+        employee_cc_id: null,
+      }
+    })
+}
+
+export async function updateExpenseItemCostCenter(itemId: string, costCenterId: string | null) {
+  const { supabase } = await requireAdmin()
+  const { error } = await supabase
+    .from('expense_items')
+    .update({ cost_center_id: costCenterId })
+    .eq('id', itemId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/analisis')
 }
 
 /** Retorna las importaciones históricas de Caja Chica (expense_reports con historical_type='caja_chica').

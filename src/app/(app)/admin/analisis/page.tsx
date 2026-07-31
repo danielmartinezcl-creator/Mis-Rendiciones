@@ -1,14 +1,14 @@
-import { getExpensesByCenter } from '@/actions/admin'
-import { getCostCenters } from '@/actions/admin'
+import { getExpensesByCenter, getItemsWithoutCC, getCostCenters } from '@/actions/admin'
 import { AnalisisClient } from './client'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AnalisisPage() {
-  const [result, costCenters] = await Promise.all([
+  const [result, itemsWithoutCC, costCenters] = await Promise.all([
     getExpensesByCenter(6),
+    getItemsWithoutCC(),
     getCostCenters(),
   ])
 
-  return <AnalisisClient result={result} costCenters={costCenters} />
+  return <AnalisisClient result={result} itemsWithoutCC={itemsWithoutCC} costCenters={costCenters} />
 }

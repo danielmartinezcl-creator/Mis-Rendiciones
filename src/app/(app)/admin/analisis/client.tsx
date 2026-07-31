@@ -1,16 +1,19 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Download, ChevronDown, ChevronUp } from 'lucide-react'
-import { formatCLP } from '@/lib/utils'
-import type { CenterExpenseRow } from '@/actions/admin'
+import { useState, useMemo, useTransition } from 'react'
+import { Download, ChevronDown, ChevronUp, AlertTriangle, Check, ExternalLink } from 'lucide-react'
+import { formatCLP, formatDate } from '@/lib/utils'
+import { updateExpenseItemCostCenter } from '@/actions/admin'
+import type { CenterExpenseRow, ItemWithoutCC } from '@/actions/admin'
 import type { CostCenter } from '@/lib/supabase/types'
+import Link from 'next/link'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface Props {
-  result: { rows: CenterExpenseRow[]; months: string[] }
-  costCenters: CostCenter[]
+  result:         { rows: CenterExpenseRow[]; months: string[] }
+  itemsWithoutCC: ItemWithoutCC[]
+  costCenters:    CostCenter[]
 }
 
 type DrillKey = { centerId: string | null; month: string } | null
@@ -25,20 +28,172 @@ function monthLabel(ym: string): string {
 
 function centerLabel(id: string | null, name: string | null): string {
   if (name) return name
-  if (id) return id
+  if (id)   return id
   return 'Sin centro de costo'
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+// ─── Sub-componente: panel de ítems sin CC ────────────────────────────────────
 
-export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
+function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; costCenters: CostCenter[] }) {
+  const [open,     setOpen]     = useState(false)
+  const [pending,  startTrans]  = useTransition()
+  const [saved,    setSaved]    = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Record<string, string>>({})
+  const [error,    setError]    = useState<string | null>(null)
+
+  const imputables = costCenters.filter(c => c.imputable && c.activo)
+
+  if (items.length === 0) {
+    return (
+      <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-item px-4 py-2.5">
+        <Check size={14} className="text-emerald-600 shrink-0" />
+        <p className="text-sm text-emerald-700 font-medium">
+          Todos los gastos tienen centro de costo asignado (directo o por herencia del empleado).
+        </p>
+      </div>
+    )
+  }
+
+  const totalSinCC = items.reduce((s, i) => s + i.amount_clp, 0)
+
+  function handleAssign(itemId: string, ccId: string) {
+    setError(null)
+    startTrans(async () => {
+      try {
+        await updateExpenseItemCostCenter(itemId, ccId || null)
+        setSaved(prev => new Set([...prev, itemId]))
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error al guardar')
+      }
+    })
+  }
+
+  return (
+    <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+      {/* Header colapsable */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-50/60 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              {items.length} gasto{items.length !== 1 ? 's' : ''} sin centro de costo — {formatCLP(totalSinCC)}
+            </p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Ítems aprobados donde ni el gasto ni el empleado tienen CC asignado. Asígnalos para que aparezcan en el análisis.
+            </p>
+          </div>
+        </div>
+        {open ? <ChevronUp size={15} className="text-amber-500 shrink-0" /> : <ChevronDown size={15} className="text-amber-500 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-amber-100">
+          {error && (
+            <div className="mx-4 mt-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-item px-3 py-2">
+              {error}
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-amber-100 bg-amber-50/40">
+                  <th className="text-left px-4 py-2 font-semibold text-slate-600">Fecha</th>
+                  <th className="text-left px-4 py-2 font-semibold text-slate-600">Descripción / Proveedor</th>
+                  <th className="text-left px-4 py-2 font-semibold text-slate-600">Empleado</th>
+                  <th className="text-left px-4 py-2 font-semibold text-slate-600">Rendición</th>
+                  <th className="text-left px-4 py-2 font-semibold text-slate-600">Categoría</th>
+                  <th className="text-right px-4 py-2 font-semibold text-slate-600">Monto</th>
+                  <th className="px-4 py-2 font-semibold text-slate-600 min-w-[180px]">Asignar CC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(item => {
+                  const isSaved = saved.has(item.id)
+                  return (
+                    <tr key={item.id} className={`border-b border-slate-50 ${isSaved ? 'bg-emerald-50/60' : 'hover:bg-amber-50/30'}`}>
+                      <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
+                        {formatDate(item.date)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <p className="font-medium text-slate-700 truncate max-w-[200px]" title={item.description}>
+                          {item.description}
+                        </p>
+                        {item.merchant && (
+                          <p className="text-slate-400 truncate max-w-[200px]">{item.merchant}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-slate-600 whitespace-nowrap">
+                        {item.employee_name}
+                      </td>
+                      <td className="px-4 py-2">
+                        <Link
+                          href={`/admin/reports`}
+                          className="text-brand-600 hover:underline flex items-center gap-1 whitespace-nowrap"
+                          title={item.report_title}
+                        >
+                          <span className="truncate max-w-[120px]">{item.report_title}</span>
+                          <ExternalLink size={10} className="shrink-0" />
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-slate-500">
+                        {item.category_name ?? <span className="text-slate-300">Sin cat.</span>}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono-amount font-semibold text-slate-800 whitespace-nowrap">
+                        {formatCLP(item.amount_clp)}
+                      </td>
+                      <td className="px-4 py-2">
+                        {isSaved ? (
+                          <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                            <Check size={12} />
+                            Guardado
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={selected[item.id] ?? ''}
+                              onChange={e => setSelected(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              className="flex-1 border border-slate-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
+                            >
+                              <option value="">Seleccionar…</option>
+                              {imputables.map(cc => (
+                                <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleAssign(item.id, selected[item.id] ?? '')}
+                              disabled={!selected[item.id] || pending}
+                              className="px-2 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white rounded text-xs font-semibold transition-colors whitespace-nowrap"
+                            >
+                              Asignar
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-3 bg-amber-50/30 text-xs text-amber-700 border-t border-amber-100">
+            Tip: También podés ir a <strong>Admin → Empleados</strong> y asignar un centro de costo por defecto al empleado — todos sus gastos futuros lo heredarán automáticamente.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
   const { rows, months } = result
 
-  // Celda seleccionada para drill-down
   const [drill, setDrill] = useState<DrillKey>(null)
 
-  // ── Pivot principal ────────────────────────────────────────────────────────
-  // pivotMap[centerId][month] = total_clp
   const pivotMap = useMemo(() => {
     const map: Record<string, Record<string, number>> = {}
     for (const r of rows) {
@@ -49,7 +204,6 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
     return map
   }, [rows])
 
-  // Centros ordenados por total desc
   const centers = useMemo(() => {
     const totals: Record<string, { id: string | null; name: string | null; total: number }> = {}
     for (const r of rows) {
@@ -60,7 +214,6 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
     return Object.values(totals).sort((a, b) => b.total - a.total)
   }, [rows])
 
-  // Total por mes
   const monthTotals = useMemo(() => {
     const t: Record<string, number> = {}
     for (const r of rows) t[r.month] = (t[r.month] ?? 0) + r.total_clp
@@ -69,7 +222,6 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
 
   const grandTotal = useMemo(() => rows.reduce((s, r) => s + r.total_clp, 0), [rows])
 
-  // ── Drill-down ─────────────────────────────────────────────────────────────
   const drillRows = useMemo(() => {
     if (!drill) return []
     const cid = drill.centerId
@@ -83,11 +235,9 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
     setDrill(same ? null : { centerId, month })
   }
 
-  // ── Export Excel ───────────────────────────────────────────────────────────
   async function handleExport() {
     const XLSX = (await import('xlsx')).default
 
-    // Hoja 1 — Pivot
     const pivotData: unknown[][] = [
       ['Centro de Costo', ...months.map(monthLabel), 'Total'],
       ...centers.map(c => {
@@ -101,7 +251,6 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
       ['TOTAL', ...months.map(m => monthTotals[m] ?? 0), grandTotal],
     ]
 
-    // Hoja 2 — Detalle por categoría
     const detailData: unknown[][] = [
       ['Centro de Costo', 'Mes', 'Categoría', 'Total CLP'],
       ...rows
@@ -114,27 +263,23 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
         ]),
     ]
 
+    const sinCCData: unknown[][] = [
+      ['Fecha', 'Descripción', 'Proveedor', 'Empleado', 'Rendición', 'Categoría', 'Monto CLP'],
+      ...itemsWithoutCC.map(i => [
+        i.date, i.description, i.merchant ?? '', i.employee_name, i.report_title, i.category_name ?? '', i.amount_clp,
+      ]),
+    ]
+
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pivotData),  'Pivot CC')
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), 'Detalle')
+    if (itemsWithoutCC.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sinCCData), 'Sin CC ⚠')
+    }
 
     const now = new Date()
     const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`
     XLSX.writeFile(wb, `analisis-cc-${stamp}.xlsx`)
-  }
-
-  // ─── Render ────────────────────────────────────────────────────────────────
-
-  if (rows.length === 0) {
-    return (
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-2xl font-display font-bold text-slate-800 mb-2">Análisis por Centro de Costo</h1>
-        <p className="text-slate-500 text-sm mb-8">Últimos 6 meses — ítems aprobados de rendiciones</p>
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center text-slate-400">
-          Sin datos para el período seleccionado.
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -146,123 +291,139 @@ export function AnalisisClient({ result, costCenters: _costCenters }: Props) {
             Análisis por Centro de Costo
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            Últimos 6 meses · {centers.length} centros · {rows.length} categorías
+            Últimos 6 meses · solo gastos reales (excluye adelantos y devoluciones) · con herencia de CC del empleado
           </p>
         </div>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-item transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-item transition-colors shrink-0"
         >
           <Download className="w-4 h-4" />
           Exportar Excel
         </button>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {months.map(m => (
-          <div key={m} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">{monthLabel(m)}</p>
-            <p className="text-lg font-mono-amount font-semibold text-slate-800">{formatCLP(monthTotals[m] ?? 0)}</p>
-          </div>
-        ))}
-      </div>
+      {/* Panel ítems sin CC */}
+      <ItemsWithoutCCPanel items={itemsWithoutCC} costCenters={costCenters} />
 
-      {/* Tabla pivot */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left px-4 py-3 font-semibold text-slate-600 min-w-[200px]">Centro de costo</th>
-                {months.map(m => (
-                  <th key={m} className="text-right px-3 py-3 font-semibold text-slate-600 whitespace-nowrap min-w-[110px]">
-                    {monthLabel(m)}
-                  </th>
-                ))}
-                <th className="text-right px-4 py-3 font-semibold text-slate-800 whitespace-nowrap min-w-[120px]">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {centers.map((c) => {
-                const cid = c.id ?? '__null__'
-                const rowTotal = c.total
-                return (
-                  <>
-                    <tr key={cid} className="border-b border-slate-50 hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 font-medium text-slate-700">
-                        <span className="text-xs text-slate-400 mr-1">{c.id ?? '—'}</span>
-                        {c.name ?? 'Sin centro de costo'}
-                      </td>
-                      {months.map(m => {
-                        const val = pivotMap[cid]?.[m] ?? 0
-                        const isDrillOpen = drill?.centerId === c.id && drill?.month === m
-                        return (
-                          <td key={m} className="px-3 py-2.5 text-right">
-                            {val > 0 ? (
-                              <button
-                                onClick={() => toggleDrill(c.id, m)}
-                                className={`font-mono-amount text-xs px-2 py-1 rounded transition-colors inline-flex items-center gap-1 ${
-                                  isDrillOpen
-                                    ? 'bg-teal-100 text-teal-700'
-                                    : 'hover:bg-teal-50 text-slate-700 hover:text-teal-700'
-                                }`}
-                              >
-                                {formatCLP(val)}
-                                {isDrillOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
+      {rows.length === 0 ? (
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center text-slate-400">
+          Sin datos de gastos para el período seleccionado.
+        </div>
+      ) : (
+        <>
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {months.map(m => (
+              <div key={m} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">{monthLabel(m)}</p>
+                <p className="text-lg font-mono-amount font-semibold text-slate-800">{formatCLP(monthTotals[m] ?? 0)}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabla pivot */}
+          <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left px-4 py-3 font-semibold text-slate-600 min-w-[200px]">Centro de costo</th>
+                    {months.map(m => (
+                      <th key={m} className="text-right px-3 py-3 font-semibold text-slate-600 whitespace-nowrap min-w-[110px]">
+                        {monthLabel(m)}
+                      </th>
+                    ))}
+                    <th className="text-right px-4 py-3 font-semibold text-slate-800 whitespace-nowrap min-w-[120px]">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {centers.map((c) => {
+                    const cid = c.id ?? '__null__'
+                    return (
+                      <>
+                        <tr key={cid} className="border-b border-slate-50 hover:bg-slate-50/60">
+                          <td className="px-4 py-2.5 font-medium text-slate-700">
+                            {c.id ? (
+                              <>
+                                <span className="text-xs text-slate-400 mr-1">{c.id}</span>
+                                {c.name ?? c.id}
+                              </>
                             ) : (
-                              <span className="text-slate-300 text-xs">—</span>
+                              <span className="text-slate-400 italic text-xs">Sin centro de costo</span>
                             )}
                           </td>
-                        )
-                      })}
-                      <td className="px-4 py-2.5 text-right font-mono-amount font-semibold text-slate-800 text-xs">
-                        {formatCLP(rowTotal)}
-                      </td>
-                    </tr>
-
-                    {/* Drill-down: categorías para este centro × mes */}
-                    {months.map(m => {
-                      if (drill?.centerId !== c.id || drill?.month !== m) return null
-                      return (
-                        <tr key={`drill-${cid}-${m}`} className="bg-teal-50/40 border-b border-teal-100">
-                          <td colSpan={months.length + 2} className="px-6 py-3">
-                            <p className="text-xs font-semibold text-teal-700 mb-2">
-                              Desglose por categoría — {centerLabel(c.id, c.name)} · {monthLabel(m)}
-                            </p>
-                            <div className="space-y-1">
-                              {drillRows.map((r, i) => (
-                                <div key={i} className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-600">{r.category_name ?? 'Sin categoría'}</span>
-                                  <span className="font-mono-amount font-medium text-slate-800">{formatCLP(r.total_clp)}</span>
-                                </div>
-                              ))}
-                            </div>
+                          {months.map(m => {
+                            const val = pivotMap[cid]?.[m] ?? 0
+                            const isDrillOpen = drill?.centerId === c.id && drill?.month === m
+                            return (
+                              <td key={m} className="px-3 py-2.5 text-right">
+                                {val > 0 ? (
+                                  <button
+                                    onClick={() => toggleDrill(c.id, m)}
+                                    className={`font-mono-amount text-xs px-2 py-1 rounded transition-colors inline-flex items-center gap-1 ${
+                                      isDrillOpen
+                                        ? 'bg-teal-100 text-teal-700'
+                                        : 'hover:bg-teal-50 text-slate-700 hover:text-teal-700'
+                                    }`}
+                                  >
+                                    {formatCLP(val)}
+                                    {isDrillOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-300 text-xs">—</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="px-4 py-2.5 text-right font-mono-amount font-semibold text-slate-800 text-xs">
+                            {formatCLP(c.total)}
                           </td>
                         </tr>
-                      )
-                    })}
-                  </>
-                )
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td className="px-4 py-3 font-bold text-slate-800">TOTAL</td>
-                {months.map(m => (
-                  <td key={m} className="px-3 py-3 text-right font-mono-amount font-bold text-slate-800 text-xs">
-                    {formatCLP(monthTotals[m] ?? 0)}
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-right font-mono-amount font-bold text-teal-700">
-                  {formatCLP(grandTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+
+                        {/* Drill-down */}
+                        {months.map(m => {
+                          if (drill?.centerId !== c.id || drill?.month !== m) return null
+                          return (
+                            <tr key={`drill-${cid}-${m}`} className="bg-teal-50/40 border-b border-teal-100">
+                              <td colSpan={months.length + 2} className="px-6 py-3">
+                                <p className="text-xs font-semibold text-teal-700 mb-2">
+                                  Desglose por categoría — {centerLabel(c.id, c.name)} · {monthLabel(m)}
+                                </p>
+                                <div className="space-y-1">
+                                  {drillRows.map((r, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs">
+                                      <span className="text-slate-600">{r.category_name ?? 'Sin categoría'}</span>
+                                      <span className="font-mono-amount font-medium text-slate-800">{formatCLP(r.total_clp)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200 bg-slate-50">
+                    <td className="px-4 py-3 font-bold text-slate-800">TOTAL</td>
+                    {months.map(m => (
+                      <td key={m} className="px-3 py-3 text-right font-mono-amount font-bold text-slate-800 text-xs">
+                        {formatCLP(monthTotals[m] ?? 0)}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3 text-right font-mono-amount font-bold text-teal-700">
+                      {formatCLP(grandTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
