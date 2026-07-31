@@ -34,7 +34,7 @@ description: >
 | Export PDF | jsPDF + jspdf-autotable | ^4 / ^5 |
 | Tests unitarios | Vitest + jsdom | ^4 |
 | Tests E2E | Playwright | ^1.60 |
-| Deploy | Vercel (pendiente) | — |
+| Deploy | Vercel · repo `danielmartinezcl-creator/Mis-Rendiciones` | ✅ activo |
 
 ---
 
@@ -81,16 +81,20 @@ description: >
 ```
 organizations            → Organization       (tenant raíz, 1 por empresa cliente)
 users                    → UserProfile        (roles: admin | approver | employee)
-approval_policies        → ApprovalPolicy     (levels: jsonb, soporta N niveles)
-employee_policies        →                    (join: qué política aplica a cada empleado)
+approval_policies        → ApprovalPolicy     (levels: jsonb, soporta N niveles — LEGACY, reemplazado por cadena L1/L2)
+employee_policies        →                    (join: qué política aplica a cada empleado — LEGACY)
 expense_categories       → ExpenseCategory    (org_id=null = global; con org_id = por org)
 expense_reports          → ExpenseReport      (cabecera de rendición O carga histórica)
 expense_items            → ExpenseItem        (ítems individuales; item_type: expense|advance|return|transfer)
-attachments              → Attachment         (fotos/PDFs en Supabase Storage)
+attachments              → Attachment         (fotos/PDFs en Supabase Storage, también por ítem)
 expense_report_approvals →                    (log auditoría — APPEND ONLY)
 notifications            → Notification       (in-app)
 suggestions              →                    (mejoras/bugs enviados por empleados)
 approval_attachments     →                    (correos/PDFs de respaldo de aprobaciones)
+expense_policies         → ExpensePolicy      (políticas de límite de gasto por categoría/depto/user — migración 011)
+cost_centers             → CostCenter         (46 centros de costo PENTA — migración 012; imputable=true recibe asientos)
+defontana_suppliers      → DefontanaSupplier  (mapeo merchant → cuenta Defontana — migración 012)
+travel_policies          → TravelPolicy       (límites de viáticos por destino/categoría — migración 015)
 -- Módulo Caja Chica (migración 004)
 petty_cash_funds         →                    (fondos de caja chica por empleado)
 petty_cash_items         →                    (gastos individuales del fondo)
@@ -108,6 +112,24 @@ ReportStatus = 'draft' | 'submitted' | 'pending_l2' | 'approved' |
 ItemStatus   = 'pending' | 'approved' | 'rejected'
 DocType      = 'boleta' | 'factura' | 'factura_exenta' | 'ticket' | 'otro'
 ItemType     = 'expense' | 'advance' | 'return' | 'transfer'   // en expense_items
+// petty_cash_funds.status (extendido migración 011):
+FundStatus   = 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' |
+               'pending_bank_auth' | 'funds_sent' | 'submitted' |
+               'pending_liquidation_approval' | 'settled' | 'rejected'
+```
+
+### Columnas relevantes agregadas post-Plan C
+```
+users:          cost_center_id, approver_l1_id, approver_l2_id, approver_l1_backup_id,
+                approver_l1_backup_from, approver_l1_backup_until,
+                can_load_bank_transfer, can_authorize_bank_transfer,
+                rut, bank_name, bank_account_type, can_manage_petty_cash
+organizations:  defontana_provider_account, mileage_rate_per_km
+expense_items:  cost_center_id, supplier_rut, policy_justification, policy_violations,
+                mileage_km, mileage_rate, transfer_id, attachment_url
+expense_reports: ai_analysis, ai_analysis_at, defontana_exported_at, defontana_export_ref,
+                 is_historical_import, historical_type, fund_number, deleted_at
+petty_cash_funds: defontana_exported_at, defontana_export_ref, is_historical_import
 ```
 
 ---
@@ -118,187 +140,211 @@ ItemType     = 'expense' | 'advance' | 'return' | 'transfer'   // en expense_ite
 src/
 ├── app/
 │   ├── (app)/              ← rutas autenticadas (layout carga perfil Supabase)
-│   │   ├── page.tsx                      ← Dashboard empleado
-│   │   ├── expenses/new + [id]/          ← Rendición empleado
+│   │   ├── page.tsx                      ← Dashboard empleado (KPIs + pendiente reembolso)
+│   │   ├── mis-gastos/                   ← Resumen mensual empleado (últimos 12 meses)
+│   │   ├── quick/                        ← Flujo rápido móvil 3 pasos (R20)
+│   │   ├── expenses/new + [id]/          ← Rendición empleado (OCR + viáticos + políticas)
 │   │   ├── reimbursements/               ← Historial reembolsos
-│   │   ├── approvals/ + [id]/            ← Bandeja aprobador
-│   │   ├── admin/                        ← KPIs + reports + employees + settings
+│   │   ├── approvals/ + [id]/            ← Bandeja aprobador (AI summary + travel badges)
+│   │   ├── informes/                     ← Informes unificados (4 fuentes, filtros completos)
+│   │   ├── admin/
+│   │   │   ├── page.tsx                  ← KPIs globales + alerta rendiciones +5 días
+│   │   │   ├── reports/                  ← Rendiciones (filtros, export Defontana, reasignar CC)
+│   │   │   ├── employees/                ← Gestión empleados + cadena aprobación
+│   │   │   ├── settings/                 ← Categorías + Políticas + Viáticos + Defontana
+│   │   │   ├── fondos/                   ← Dashboard saldos caja chica activos
+│   │   │   ├── analisis/                 ← Pivot gastos por centro de costo
 │   │   │   ├── carga-historica/          ← Importador histórico Excel
 │   │   │   └── trash/                    ← Papelera (soft delete, 90 días)
-│   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica
+│   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica (flujo bancario)
 │   │   ├── profile/                      ← Perfil + datos bancarios
 │   │   └── suggestions/                  ← Sugerencias y bugs
-│   ├── (auth)/login/       ← 'use client', Suspense para useSearchParams
-│   ├── api/auth/callback/  ← OAuth code exchange
-│   └── globals.css         ← Tailwind v4 @theme + clases fallback
-├── actions/                ← 13 server actions
-│   ├── admin.ts, approvals.ts, employees.ts, expenses.ts
-│   ├── fund-transfers.ts, historical-import.ts, notifications.ts
-│   ├── ocr.ts, petty-cash.ts, profile.ts, suggestions.ts
-│   ├── approval-attachments.ts, exchange-rate.ts
+│   ├── (auth)/login/                     ← 'use client', Suspense para useSearchParams
+│   ├── (auth)/set-password/              ← Establecer contraseña inicial (link de invitación)
+│   ├── api/auth/callback/                ← OAuth code exchange
+│   └── globals.css                       ← Tailwind v4 @theme + clases fallback
+├── actions/                ← 16 server actions
+│   ├── admin.ts            ← KPIs, reportes, empleados, Defontana, CC masivo, fondos
+│   ├── approvals.ts        ← aprobaciones L1/L2/backup, reembolso, análisis IA
+│   ├── cost-centers.ts     ← getCostCenters (sin requireAdmin — cualquier user)
+│   ├── employees.ts        ← importEmployees, setApprovers, setBackup
+│   ├── expenses.ts         ← CRUD rendiciones, addItem (con CC + supplier_rut + km)
+│   ├── exchange-rate.ts    ← TC histórico con cache 24h
+│   ├── fund-transfers.ts   ← traspasos entre cajas chicas
+│   ├── historical-import.ts ← importador Excel histórico
+│   ├── notifications.ts    ← in-app + Resend (requiere service role para email)
+│   ├── ocr.ts              ← Claude Sonnet 4.6, ~$0.008/foto
+│   ├── petty-cash.ts       ← CRUD fondos, flujo bancario, liquidación
+│   ├── policies.ts         ← expense_policies CRUD + checkPolicyViolations + travel_policies CRUD + checkTravelPolicies
+│   ├── profile.ts          ← getMyProfile, updateProfile, sendPasswordReset
+│   ├── reports.ts          ← getReportFilterOptions + getUnifiedReportItems (4 fuentes)
+│   ├── suggestions.ts      ← CRUD sugerencias
+│   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones
 ├── components/
-│   ├── layout/             ← Sidebar (drag&drop), MobileNav, LogoutButton
+│   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
 │   ├── ui/                 ← Button, Card, Badge, CurrencyAmount
-│   └── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig
+│   ├── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig
+│   └── expenses/           ← ExpenseItemForm (OCR, km, viáticos, políticas), PhotoUpload, ExportButton
 ├── lib/
 │   ├── constants.ts        ← CURRENCIES, DOC_TYPES, STATUS_COLORS, STATUS_DOT
 │   ├── utils.ts            ← formatCLP, formatAmount, formatDate, cn
+│   ├── auth.ts             ← helpers de autenticación
+│   ├── approval-helpers.ts    ← computeReportStatus, computeApprovedAmount
+│   ├── approval-analysis-helpers.ts ← buildApprovalAnalysisPrompt, parseAnalysisResponse
+│   ├── expense-helpers.ts     ← calculateReportTotal, validateExpenseItem
+│   ├── exchange-rate-helpers.ts ← buildExchangeRateUrl, parseExchangeRateResponse, convertToCLP
+│   ├── ocr-helpers.ts         ← buildOcrPrompt, parseOcrResponse
+│   ├── petty-cash-helpers.ts  ← computeFundBalance, computeFundStatus
+│   ├── policy-helpers.ts      ← resolveApplicablePolicy, checkItemLimit, checkPeriodLimit
+│   ├── report-helpers.ts      ← UnifiedReportItem, buildPeriodRange, computeUnifiedKpis
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
-│   └── export/             ← excel.ts, pdf.ts
+│   └── export/             ← excel.ts, pdf.ts, defontana.ts (34 columnas reales)
 ├── proxy.ts                ← protección de rutas (Next.js 16)
 └── tests/
 supabase/
 ├── migrations/
-│   ├── 001_initial_schema.sql     ← tablas base + RLS + triggers
-│   ├── 004_petty_cash.sql         ← caja chica (4 tablas)
+│   ├── 001_initial_schema.sql                        ← tablas base + RLS + triggers
+│   ├── 004_petty_cash.sql                            ← caja chica (4 tablas)
 │   ├── 005_suggestions_and_approval_attachments.sql
 │   ├── 007_historical_import_flag.sql
 │   ├── 008_historical_import_type_and_fund_number.sql
 │   ├── 009_expense_items_item_type.sql
-│   └── 010_fund_transfers.sql     ← traspasos entre cajas chicas
+│   ├── 010_fund_transfers.sql                        ← traspasos entre cajas chicas
+│   ├── 011_expense_policies_and_ai_analysis.sql      ← expense_policies + ai_analysis en reports/items
+│   ├── 011_bank_authorization_workflow.sql           ← permisos bancarios en users + status extendido
+│   ├── 012_defontana_cost_centers.sql                ← cost_centers (46 PENTA) + defontana_suppliers + CC en users/items
+│   ├── 013_petty_cash_defontana.sql                  ← defontana_exported_at/ref en petty_cash_funds
+│   └── 015_travel_policies.sql                       ← tabla travel_policies (viáticos por destino/categoría)
 └── seed.sql
 docs/superpowers/
-├── plans/
+├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
 └── specs/
+references/
+├── plans.md                ← estado actual de implementación + backlog
+└── schema.md               ← schema SQL de referencia (ver migraciones para detalle)
 ```
 
 ---
 
 ## Estado de implementación
 
-### ✅ Plan A — Completo
-- Proyecto scaffolded, design system (Tailwind v4, paleta indigo, fuentes)
-- Constantes + utils + 6 tests Vitest
-- Schema Supabase completo (10 tablas + RLS + triggers + índices)
-- Clientes Supabase + tipos TypeScript
-- `src/proxy.ts` (protección de rutas)
-- Login (Supabase Auth, email+password)
-- Layout autenticado (Sidebar dark, MobileNav, Header móvil)
-- Componentes UI: Button, Card, Badge, CurrencyAmount
-
-### ✅ Plan B — Completo
-- Dashboard rendidor (hero card, KPIs, CTA)
-- `src/actions/ocr.ts` — `runOcr` con Claude Sonnet 4.6 (~$0.008/foto)
-- `src/actions/exchange-rate.ts` — `getHistoricalRate` (TC histórico, cache 24h)
-- `src/actions/expenses.ts` — CRUD completo (create, addItem, delete, submit, upload)
-- `src/lib/ocr-helpers.ts` — `buildOcrPrompt`, `parseOcrResponse` (helpers puros)
-- `src/lib/exchange-rate-helpers.ts` — `buildExchangeRateUrl`, `parseExchangeRateResponse`, `convertToCLP`
-- `src/lib/expense-helpers.ts` — `calculateReportTotal`, `validateExpenseItem`
-- `PhotoUpload.tsx` — captura cámara móvil (`capture="environment"`) + OCR con fallback graceful
-- `ExpenseItemForm.tsx` — ítem con pre-llenado OCR + TC dinámico por fecha
-- `ExpenseItemCard.tsx`, `ExpenseReportCard.tsx`
-- Páginas: `/expenses/new`, `/expenses/[id]`, `/reimbursements`
-- 22 tests Vitest pasando · build TypeScript limpio
-
-### ✅ Plan C — Completo
-- `src/lib/approval-helpers.ts` — `computeReportStatus`, `computeApprovedAmount` (helpers puros)
-- `src/actions/approvals.ts` — `getPendingApprovals`, `getReportForApproval`, `submitApprovalDecision`, `markReimbursed`
-- `src/actions/notifications.ts` — notificaciones in-app + Resend opcional (en-app solo; email requiere lookup de auth.users)
-- `src/actions/admin.ts` — `getAdminKpis`, `getAllReports`, `getOrgEmployees`, `updateEmployee`, `getOrgCategories`, `addCategory`, `toggleCategoryActive`, `getOrgPolicies`, `addPolicy`, `setDefaultPolicy`
-- Páginas aprobador: `/approvals` (Server), `/approvals/[id]` (Client — foto + toggles approve/reject por ítem)
-- Páginas admin: `/admin` (KPIs), `/admin/reports` (filtros por status), `/admin/employees`, `/admin/settings` (tabs categorías + políticas)
-- `src/components/expenses/ReimbursedButton.tsx` — confirmar reembolso con referencia de pago
-- `src/lib/export/excel.ts` — SheetJS: `exportReportToExcel`, `exportReportsListToExcel`
-- `src/lib/export/pdf.ts` — jsPDF + autotable: `exportReportToPDF`
-- `src/components/expenses/ExportButton.tsx` — import dinámico de lib de export
-- `public/manifest.json` — PWA installable (manifest + metadata en layout.tsx)
-- 32 tests Vitest pasando · build TypeScript limpio · 13 rutas
-
-### ✅ Post Plan C — Módulos adicionales (2026-06-03/04)
-
-**Gestión de empleados:**
-- `src/lib/supabase/admin.ts` — `createAdminClient()` con `SUPABASE_SERVICE_ROLE_KEY` (bypasea RLS, indispensable para crear usuarios)
-- `src/actions/employees.ts` — `importEmployees(rows[])`: crea auth users + inserta en `public.users` + rollback si falla
-- `src/components/admin/EmployeeImport.tsx` — XLSX drag-drop → preview editable (nombre/email/rol/dept) → confirmar → invitación
-- `src/components/admin/AddEmployeeForm.tsx` — formulario inline para agregar uno a uno
-- `/admin/employees/page.tsx` — dos botones: "➕ Agregar empleado" y "📊 Importar nómina", mutuamente excluyentes
-- `nomina-ejemplo.xlsx` en raíz del proyecto — archivo de prueba generado con Node.js + SheetJS
-
-**Cadena de aprobación por empleado (reemplaza políticas abstractas):**
-- `approver_l1_id uuid` y `approver_l2_id uuid` agregados a `users` (migration `add_approval_chain_to_users`)
-- `src/actions/admin.ts` — `setEmployeeApprovers(userId, l1Id, l2Id|null)`
-- `src/components/admin/ApproverConfig.tsx` — dropdowns L1/L2, preview del flujo en texto ("Ana → Carlos → Aprobado")
-- Employee card muestra badge: ⚠ Sin aprobador (ámbar) | ⛓ nombre → nombre (verde)
-- **Lógica de cadena en `submitApprovalDecision`**: si es decisión L1 (status=`submitted`) y L2 existe y todos los ítems aprobados → ítems se resetean a `pending`, status → `pending_l2`. Cualquier rechazo de L1 = estado final.
-- `getPendingApprovals()` filtra por aprobador designado: status=`submitted` → muestra al L1 del rendidor; status=`pending_l2` → muestra al L2. Fallback: si no hay L1 configurado, visible a todos los `can_approve`.
-- "Políticas de aprobación" eliminado del UI de settings → banner informativo que apunta a Empleados
-
-**Perfil de usuario:**
-- DB migration `add_profile_banking_fields`: `rut`, `bank_name`, `bank_account_type` en `users`
-- `src/actions/profile.ts` — `getMyProfile()` retorna `{ ...profile, email: user.email }` (email de auth, no de public.users), `updateProfile()`, `sendPasswordReset()`
-- `src/app/(app)/profile/page.tsx` — dos secciones: Información personal (nombre, RUT, email readonly, depto) + Información bancaria (banco dropdown, tipo cuenta, nro cuenta)
-- Sidebar: avatar clickeable → `/profile`
-
-**Sidebar dinámico:**
-- Orden guardado en `localStorage` key `sidebar_order_${userId}` (por admin, no por org)
-- Botón "Personalizar menú" (solo admins) activa modo **drag & drop** — arrastrar ítems directamente, sin flechas
-- Feedback visual: ítem arrastrado → opacity 30% + scale; línea teal indica posición destino; `cursor-grab`/`cursor-grabbing`
-- Usa HTML5 Drag & Drop API nativa (`draggable`, `onDragStart/Over/Drop/End`) — sin librerías externas
-- Ghost nativo suprimido con un div invisible temporal (`setDragImage`)
-- "Inicio" renombrado a **"Estado"** (en Sidebar y MobileNav)
-
-**Admin Rendiciones — vista completa:**
-- `src/actions/admin.ts` — `getAdminReports()` con submitter_name + department; `getReportDetailForAdmin(reportId)` con historial de aprobaciones (L1/L2, acción, notas) + ítems con motivo de rechazo
-- `/admin/reports/page.tsx` — Client Component con filtros combinables: rango de fechas, estado (chips), empleado, departamento, reembolsado/pendiente
-- KPIs en tiempo real: Total rendido / Total aprobado / Pendiente de reembolso
-- Detalle expandible por rendición (carga lazy): historial de aprobaciones coloreado + tabla de ítems con motivos de rechazo
-- `exportAdminReportsToExcel()` — 2 hojas: Resumen (todos los campos) + Rechazos (solo ítems rechazados con motivo)
-- `exportAdminReportsToPDF()` — horizontal, tabla principal + página adicional de rechazos
+### ✅ Planes A / B / C — Base completa
+- Proyecto scaffolded: Next.js 16, Tailwind v4, Supabase Auth, Vitest
+- Schema Supabase completo (15+ migraciones aplicadas)
+- `src/proxy.ts` (protección de rutas), Login, Layout autenticado
+- Dashboard rendidor, OCR Claude (~$0.008/foto), TC histórico (cache 24h)
+- CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
+- Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
+- Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
+- 32+ tests Vitest pasando · build TypeScript limpio
 
 ### ✅ Reforma visual — "Mi rendición" (2026-06-04)
-- **Nombre del app**: "Rindegastos — PENTA" → **"Mi rendición"**
-- **Color brand**: indigo → teal `#0D9488` — usar siempre clases `brand-*`, nunca `indigo-*`
-- **Paleta neutral**: ink (escala `#080C16`…`#F6F8FB`, azul-negro frío); Sidebar bg `#0B1120`
-- **Radios**: `rounded-item` (14px) y `rounded-card` (18px) — no usar valores hardcodeados
-- **Íconos**: Lucide React (no emoji en UI)
-- **Fuentes**: `npm install geist lucide-react` ya instalado
-- **`tsconfig.json`**: `"Mi rendición — Design System"` en `exclude` (TS lo procesaba como código)
-- **`STATUS_DOT`**: export en `constants.ts` para el dot de color sólido
+- Nombre: **"Mi rendición"**; color brand: teal `#0D9488`; paleta: ink (`#080C16`…`#F6F8FB`)
+- `rounded-item` (14px) · `rounded-card` (18px) — usar siempre, no valores hardcodeados
+- Íconos: Lucide React (no emoji en UI); fuentes: Bricolage + Hanken + Geist Mono
+- `STATUS_DOT` export en `constants.ts`; `"Mi rendición — Design System"` en `tsconfig.json` `exclude`
 
-### ✅ Soft delete + Papelera (post-reforma)
-- `expense_reports.deleted_at timestamptz` — null=activo, valor=papelera
-- `/admin/trash` — restaurar o eliminar definitivamente
-- PWA icons apple-touch-icon
+### ✅ Gestión avanzada de empleados
+- `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
+- Cadena de aprobación L1/L2 por empleado: `approver_l1_id`, `approver_l2_id` en `users`
+- **Aprobador suplente (R8)**: `approver_l1_backup_id`, backup_from/until — el suplente ve las rendiciones en el período configurado
+- `ApproverConfig.tsx`: preview "Ana → Carlos → Aprobado"
+- Admin puede establecer contraseña de empleado directamente desde el panel
 
-### ✅ Módulo Caja Chica (migración 004)
+### ✅ Módulo Caja Chica completo + flujo bancario (migraciones 004 + 011-bank)
 - 4 tablas: `petty_cash_funds`, `petty_cash_items`, `petty_cash_approvals` (append-only), `petty_cash_transfers`
-- `users.can_manage_petty_cash boolean` — permiso de encargado de fondo
-- `src/actions/petty-cash.ts` — CRUD fondos, ítems, flujo de estados, liquidación
-- Páginas: `/petty-cash`, `/petty-cash/new`, `/petty-cash/[id]`
-- Flujo: `draft → pending_approval → approved → funds_sent → submitted → pending_liquidation_approval → settled`
-- Edición inline de ítems históricos con actualización optimista
+- Flujo extendido: `draft → pending_approval → approved → pending_bank_load → pending_bank_auth → funds_sent → submitted → pending_liquidation_approval → settled`
+- Permisos: `can_manage_petty_cash`, `can_load_bank_transfer`, `can_authorize_bank_transfer`
+- Stepper visual de autorización bancaria
+- Edición inline ítems históricos; adjuntos por ítem; filtros multi-select + período; export Excel/PDF
+- `/admin/fondos` — dashboard saldos caja chica activos con KPIs
 
 ### ✅ Importador histórico (migraciones 007/008)
 - `/admin/carga-historica` — importar Excel de rendiciones y cajas chicas de períodos anteriores
-- `src/actions/historical-import.ts`
-- Campos nuevos en `expense_reports`: `is_historical_import bool`, `historical_type text` ('rendicion'|'caja_chica'), `fund_number text`
-- Campos nuevos en `petty_cash_funds`: `is_historical_import bool`
-- Edición inline: categoría, item_type, merchant, fecha, monto
-
-### ✅ Sugerencias y adjuntos de aprobación (migración 005)
-- `suggestions`: empleados envían mejoras/bugs; admin gestiona estado
-- `approval_attachments`: correos/PDFs de respaldo vinculados a rendición O fondo
-- Bucket `approval-attachments` en Storage
-- `src/actions/suggestions.ts`, `src/actions/approval-attachments.ts`
-- Página `/suggestions`
+- `is_historical_import`, `historical_type` ('rendicion'|'caja_chica'), `fund_number` en `expense_reports`
+- Edición inline: categoría, item_type, merchant, fecha, monto; auto-asigna empleado por nombre
 
 ### ✅ Traspasos entre cajas chicas (migración 010)
-- Tabla `fund_transfers` — matching en 2 fases (payer siempre conocido; receiver nullable hasta vincular)
-- `expense_items.item_type = 'transfer'` + `transfer_id uuid`; `petty_cash_items.transfer_id uuid`
-- `src/actions/fund-transfers.ts`: `createFundTransfer`, `linkFundTransfer`, `getOrgFundTransfers`, `getEmployeeTargets`, `getOrgEmployeesSimple`
-- UI `/petty-cash`: sección "Traspasos sin vincular", botón SendHorizontal en fondos y cargas históricas, modales crear/vincular
-- Ítems con `item_type='transfer'` NO son editables inline
+- `fund_transfers` — matching en 2 fases (payer/receiver nullable hasta vincular)
+- `expense_items.item_type = 'transfer'` + `transfer_id` (NO editable inline)
+- UI: sección "Traspasos sin vincular", modales crear/vincular, eliminar/editar traspasos no vinculados
 
-### ✅ Deploy
-- Repo GitHub: `danielmartinezcl-creator/Mis-Rendiciones` (branch `main`)
-- Auto-deploy en Vercel en cada push a `main`
+### ✅ Adjuntos por ítem
+- `expense_items.attachment_url` — fotos/PDFs de boletas por ítem individual
+- `petty_cash_items.attachment_url` — mismo modelo para caja chica
+- Bucket `expense-attachments` en Storage; `approval-attachments` para respaldos de aprobadores
 
-### ⏳ Pendiente / Backlog
-- Export Defontana formato real 34 columnas (plan en `docs/superpowers/plans/`)
-- Centro de costo por empleado (`users.cost_center_id`) — migración pendiente
-- `expense_items.supplier_rut` para crédito fiscal IVA en facturas
-- Notificaciones email: requiere service role para lookup en `auth.users`
-- Service worker offline (`next-pwa` incompatible con Turbopack)
+### ✅ Defontana v2 — export contable real (migración 012)
+- `cost_centers`: 46 centros PENTA seeded; `imputable=true` → recibe asientos
+- `defontana_suppliers`: mapeo merchant → cuenta contable (prioridad sobre categoría)
+- `users.cost_center_id`, `expense_items.cost_center_id` (override por ítem), `expense_items.supplier_rut`
+- `organizations.defontana_provider_account` — cuenta Proveedor Nacional para facturas (previene doble contabilización)
+- `expense_reports.defontana_exported_at / defontana_export_ref` — lock anti-duplicados
+- `src/lib/export/defontana.ts` — 34 columnas reales (template `importador-comprobantes.xlsx`):
+  - `stripDots()`: "4.5.1030.10.13" → "45103010013"
+  - `toExcelSerial()`: YYYY-MM-DD → serial Excel (para que Defontana lo reconozca como fecha)
+  - Facturas → línea individual (preserva RUT proveedor, tipo doc, número); boletas → agrupadas por (cuenta, CC)
+  - `resolveAccount()`: supplier_account_code → providerAccount (facturas) → category code
+- Botón "Reasignar CC" masivo en admin/reports → `bulkUpdateExpenseItemsCostCenter(reportId, ccId)`
+- Badge "Exportado Defontana" + filtro "Sin exportar / Ya exportadas" en lista de reportes
+
+### ✅ Políticas de gasto en tiempo real (migración 011)
+- `expense_policies`: límites por categoría / departamento / usuario, períodos mensual/trimestral/anual
+- Enforcement: `warn` | `require_justification` | `block`
+- `checkPolicyViolations()`: revisa ítem actual + acumulados del período → devuelve violaciones con severidad
+- Badge inline en `ExpenseItemForm` (debounce 600ms); badge "Excede límite" en bandeja aprobador
+- Tab "Políticas" en `/admin/settings`
+
+### ✅ Política de viáticos PENTA (migración 015)
+- `travel_policies`: límites por destino (`local|regional|exterior`) y/o categoría
+- Prioridad: política específica de categoría > política global sin categoría
+- `checkTravelPolicies()`: devuelve `{ policy, exceeds, limitAmount, limitCurrency }`
+- Badge verde/ámbar inline en `ExpenseItemForm` mientras el empleado llena el monto
+- Badge por ítem en bandeja aprobador `/approvals/[id]`
+- Tab "Viáticos" en `/admin/settings` — CRUD completo con destino, categoría, monto, moneda
+
+### ✅ Análisis IA para aprobador (R14)
+- `generateApprovalAnalysis(reportId)` — Claude Sonnet 4.6: historial 6 meses + violaciones → `{ risk_level, headline, routine_item_ids[], attention_items[] }`
+- Cache en `expense_reports.ai_analysis / ai_analysis_at`; se invalida si el reporte vuelve a draft
+- Costo: ~$0.008/rendición
+
+### ✅ Kilometraje (R1)
+- `expense_items.mileage_km`, `mileage_rate`; `organizations.mileage_rate_per_km` (default $136/km SII)
+- Subtipo "kilometraje" en `ExpenseItemForm`: monto calculado automáticamente (km × tarifa), boleta no requerida
+
+### ✅ Recordatorios automáticos (R4)
+- `src/app/api/cron/reminders/route.ts` + cron en `vercel.json` (9AM diario)
+- 3 tipos: borradores >7 días → empleado; fondos saldo <20% → encargado; rendiciones submitted >3 días → aprobador L1
+
+### ✅ Informes Unificados (plan 2026-07-27)
+- `/informes` — 4 fuentes de datos combinadas (rendición nueva/histórica + caja chica nueva/histórica)
+- Filtros server-side: tipo fuente, período (año/semestre/personalizado), departamento, empleado multi-select, categoría chips, estado informe/ítem, reembolso, Defontana
+- KPIs: Total ítems, Total CLP, Monto aprobado, breakdown por fuente
+- `src/actions/reports.ts`: `getReportFilterOptions()` + `getUnifiedReportItems(filters)`
+- `src/lib/report-helpers.ts`: `UnifiedReportItem`, `buildPeriodRange`, `computeUnifiedKpis`
+- Export Excel (3 hojas: Detalle / Por Empleado / Por Categoría) + PDF landscape
+- Sidebar: entrada "Informes" con ícono BarChart3, visible para admin + approver
+
+### ✅ Flujo rápido móvil (R20)
+- `/quick` — 3 pasos optimizados para mobile: foto → OCR → confirmar monto/cat → seleccionar fondo → enviar
+- Shortcut en `manifest.json` para acceso directo desde el ícono de la PWA
+
+### ✅ Otros módulos completados
+- **Soft delete + Papelera** (`/admin/trash`): `expense_reports.deleted_at`; restaurar o eliminar definitivamente
+- **Análisis pivot CC** (`/admin/analisis`): tabla pivot filas=centros, columnas=meses (últimos 6), export Excel
+- **Resumen mensual empleado** (`/mis-gastos`): gráfico últimos 12 meses por categoría
+- **Firma digital PDF (R17)**: SHA-256 del payload de ítems al final del PDF exportado
+- **Borrador offline (R18)**: `localStorage` autosave cada 30s en nueva rendición; banner "¿Restaurar borrador?"
+- **Aprobación rápida (R9)**: botón "Aprobar todo" con confirm() en bandeja aprobador
+- **ZIP comprobantes (R7)**: `exportReportWithAttachments(reportId)` → descarga JSZip con adjuntos
+- **Dashboard saldos caja chica (R16)**: `/admin/fondos` con saldo disponible + días sin actividad
+- **Perfil** (`/profile`): nombre, RUT, email readonly, datos bancarios (banco, tipo cuenta, número)
+- **Sidebar dinámico**: drag & drop (admin), orden persistido en `localStorage`, entrada "Informes"
+- **Invitación empleados**: `set-password` flow — empleado recibe link, establece contraseña
+
+### ⏳ Pendiente / Backlog (solo 2 ítems reales)
+1. **Notificaciones email completas**: Resend instalado y funcional en algunos paths. El lookup de `auth.users.email` por UUID requiere `SUPABASE_SERVICE_ROLE_KEY` (ya disponible vía `createAdminClient()`). Asegurarse de que TODOS los `resend.emails.send()` usen el admin client para el lookup — algunos paths actuales pueden saltear el email por falta de email del destinatario.
+2. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
 
 ---
 
@@ -312,86 +358,88 @@ docs/superpowers/
 
 2. **`amount_clp` en `expense_items` es inmutable post-aprobación** — el TC histórico no se recalcula
 
-3. **Políticas de aprobadores** usan `jsonb @> jsonb_build_array(...)` para buscar dentro de `levels`
+3. **`expense_reports`** tiene trigger `set_updated_at()` en cada UPDATE
 
-4. **`expense_reports`** tiene trigger `set_updated_at()` en cada UPDATE
-
-5. **Storage bucket `expense-attachments`**: YA CREADO en el proyecto `jqtbtgduqzxkgubmzukg` vía SQL:
+4. **Storage bucket `expense-attachments`**: YA CREADO en el proyecto `jqtbtgduqzxkgubmzukg`:
    ```sql
    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
    values ('expense-attachments', 'expense-attachments', false, 10485760,
      array['image/jpeg','image/png','image/webp','application/pdf']);
    ```
-   Políticas de storage: insert/select/delete para `auth.uid() is not null`.
+   Políticas de storage: insert/select/delete para `auth.uid() is not null`. Bucket `approval-attachments` igual.
 
-6. **Orden correcto para aplicar migrations**: crear tablas → habilitar RLS → agregar políticas
+5. **Orden correcto para aplicar migrations**: crear tablas → habilitar RLS → agregar políticas
    (las políticas que hacen SELECT en otras tablas fallan si la tabla no existe aún)
 
-7. **RLS recursivo — problema crítico ya resuelto**: las políticas que usan
-   `org_id IN (SELECT org_id FROM users WHERE id = auth.uid())` producen recursión infinita
-   porque RLS se aplica también a la subquery. Síntoma: página se cuelga o redirect loop.
-   **Solución aplicada**: funciones `security definer` en el proyecto:
+6. **RLS recursivo — problema crítico ya resuelto**: las políticas que usan
+   `org_id IN (SELECT org_id FROM users WHERE id = auth.uid())` producen recursión infinita.
+   **Solución aplicada**: funciones `security definer` ya en `jqtbtgduqzxkgubmzukg`:
    ```sql
-   -- Ya existen en jqtbtgduqzxkgubmzukg:
    get_my_org_id()  -- retorna org_id del usuario actual sin pasar por RLS
    is_admin()       -- retorna true si role = 'admin', sin pasar por RLS
    ```
-   Todas las políticas de `users`, `organizations`, `approval_policies`, `expense_categories`,
-   `expense_reports`, `expense_items`, `attachments` ya fueron reescritas para usar estas funciones.
-   Policy extra añadida: `"users can read own row"` → `using (id = auth.uid())` (sin subquery).
+   Todas las políticas de tablas multi-tenant usan estas funciones.
 
-8. **Setup inicial de BD** (ya hecho en `jqtbtgduqzxkgubmzukg`):
+7. **Setup inicial de BD** (ya hecho):
    - Org PENTA: `id = '00000000-0000-0000-0000-000000000001'`
-   - Usuario admin: `danielmartinez.cl@gmail.com` (crear en Supabase Auth dashboard → luego insertar en `public.users`)
-   - Nuevos usuarios vía app: `importEmployees()` usa `SUPABASE_SERVICE_ROLE_KEY` para `auth.admin.createUser()` — sin esta key falla con 401
-   - Columnas agregadas post-Plan C: `rut`, `bank_name`, `bank_account_type`, `approver_l1_id`, `approver_l2_id` en `users`
+   - Usuario admin: `danielmartinez.cl@gmail.com`
+   - Nuevos usuarios vía app: `importEmployees()` usa `SUPABASE_SERVICE_ROLE_KEY` para `auth.admin.createUser()`
+   - `cost_centers` ya seeded con los 46 centros PENTA
 
-9. **`expense_report_approvals.approver_id` referencia `auth.users(id)`, NO `public.users(id)`**:
-   - No se puede hacer `.select('approver:users!approver_id(full_name)')` directamente
-   - Solución: query separada a `public.users` usando los mismo UUIDs:
+8. **`expense_report_approvals.approver_id` referencia `auth.users(id)`, NO `public.users(id)`**:
    ```typescript
    const approverIds = [...new Set(approvals.map(a => a.approver_id))]
    const { data: approvers } = await supabase.from('users').select('id, full_name').in('id', approverIds)
    const approverMap = Object.fromEntries(approvers.map(u => [u.id, u.full_name]))
    ```
 
-10. **`getMyProfile()` — email viene de auth, no de `public.users`**:
-    ```typescript
-    const { data: { user } } = await supabase.auth.getUser()
-    return data ? { ...data, email: user.email ?? '' } : null
-    ```
-    `public.users` no tiene columna `email` — solo `auth.users` la tiene.
+9. **`getMyProfile()` — email viene de auth, no de `public.users`**:
+   ```typescript
+   const { data: { user } } = await supabase.auth.getUser()
+   return data ? { ...data, email: user.email ?? '' } : null
+   ```
 
-11. **Traspasos — fund_transfers — matching en 2 fases**:
-    - Fase 1: `createFundTransfer` → `payer_*` set, `receiver_fund_id/report_id = null`, `matched = false`
-    - Fase 2: `linkFundTransfer(transferId, {fundId?, reportId?})` → set receiver, `matched = true`
-    - Saldo flotante visible en `/petty-cash` bajo "Traspasos sin vincular" (filtrado: `!t.matched`)
+10. **Traspasos — `fund_transfers` — matching 2 fases**:
+    - Fase 1: `createFundTransfer` → `payer_*` set, `receiver_*` = null, `matched = false`
+    - Fase 2: `linkFundTransfer` → set receiver, `matched = true`
     - Todas las escrituras usan `createAdminClient()` tras verificar org con cliente regular
 
-12. **Importador histórico — `expense_reports` como contenedor**:
-    - Las cargas históricas son `expense_reports` con `is_historical_import = true`
-    - `historical_type = 'rendicion' | 'caja_chica'` distingue el tipo dentro del mismo flujo
-    - `fund_number` vincula con `petty_cash_funds` para cajas chicas
+11. **Importador histórico — `expense_reports` como contenedor**:
+    - `historical_type = 'rendicion' | 'caja_chica'`; `fund_number` vincula con `petty_cash_funds`
     - Los ítems históricos tienen `item_type` editable inline (expense/advance/return/transfer)
 
-13. **`petty_cash_approvals` y `expense_report_approvals` son append-only a nivel PostgreSQL**:
-    - Mismo patrón: `create rule no_update_... as on update to ... do instead nothing`
+12. **`src/lib/supabase/types.ts` — reglas de tipado** (críticas para el build):
+    - Cada tabla DEBE tener `Relationships: []` — sin ello `Schema = never`
+    - Los tipos `Insert`/`Update` deben ser explícitos — NO usar `Omit<Row, ...>`
+    - `Update: Record<string, never>` en tablas append-only (no `Update: never`)
+    - Selects anidados tipan como `never[]` — tipar con cast explícito: `(data ?? []) as TipoExplícito[]`
 
-14. **`src/lib/supabase/types.ts` — reglas de tipado** (críticas para el build):
-   - Cada tabla DEBE tener `Relationships: []` (o con sus FK reales) — sin ello `Schema = never` y `.insert()` acepta `never[]`, rompiendo el tipo de todos los inserts
-   - Los tipos `Insert` y `Update` deben ser **explícitos** — NO usar `Omit<Database['public']['Tables'][x]['Row'], ...>` (auto-referencial → puede resolver a `never` en TS strict)
-   - `Update: never` en tablas append-only rompe el constraint — usar `Update: Record<string, never>`
-   - Selects anidados (`expense_items (*), expense_categories (...)`) tipan el resultado como `never[]` — tipar el array explícitamente: `(report.expense_items ?? []) as TipoExplícito[]`
+13. **`defontana.ts` — reglas del export**:
+    - Código de cuenta SIN puntos: `stripDots("4.5.1030.10.13")` → `"45103010013"`
+    - Fecha como serial Excel (número entero), no string — `toExcelSerial(dateStr)`
+    - Facturas: línea individual (preserva RUT/tipoDoc/nroDoc para IVA); boletas: agrupadas
+    - Prioridad de cuenta: supplier_account_code → providerAccount (si es factura) → category code
+    - Lock inmediato post-export: `markDefontanaExported(reportIds, exportRef)` antes de cerrar el dialog
+
+14. **Políticas de gasto — resolución**:
+    - `resolveApplicablePolicy(policies, userId, department, categoryId)` → prioridad: target_user_id > department > category_id > global
+    - Los acumulados de período se calculan sobre rendiciones en estado submitted/pending_l2/approved/partially_approved/reimbursed
+
+15. **Políticas de viáticos — prioridad**:
+    - Categoría específica > categoría null (aplica a todas)
+    - La comparación es en CLP; si la política es en USD, `exceeds = false` siempre (comparación imposible sin TC histórico)
 
 ---
 
 ## Flujo del usuario (resumen)
 
-**Empleado**: Login → Dashboard → Nueva rendición → Agregar ítems (foto → OCR → confirmar) → Enviar → Email confirmación
+**Empleado**: Login → Dashboard → Nueva rendición → Agregar ítems (foto → OCR → confirmar, con alertas de viáticos y políticas) → Enviar → Email confirmación
 
-**Aprobador**: Email aviso → `/approvals` → Revisar ítems con foto → Aprobar/rechazar ítem por ítem → Decisión inmutable → Email al rendidor
+**Flujo rápido** (`/quick`): 3 pasos mobile → foto → monto/cat → fondo activo → enviar (sin abrir rendición completa)
 
-**Admin**: KPIs globales → Rendiciones (filtros por fecha/estado/empleado/depto/reembolso + ciclo de vida expandible + export XLSX/PDF) → Marcar reembolsadas → Empleados (agregar uno / importar XLSX / cadena de aprobación por persona) → Configuración (solo categorías)
+**Aprobador**: Email → `/approvals` → resumen IA → revisar ítems con foto + badges de viáticos → Aprobar/rechazar → email al rendidor
+
+**Admin**: KPIs → Rendiciones (filtros, export Defontana 34 col, reasignar CC, badge exportado) → Informes unificados (4 fuentes) → Empleados (cadena aprobación, CC, backup) → Settings (categorías, políticas, viáticos, Defontana, CC por defecto)
 
 ---
 
@@ -399,7 +447,7 @@ docs/superpowers/
 
 | Error | Causa | Solución |
 |-------|-------|----------|
-| Usar `middleware.ts` | Convención de Next.js ≤15 | Usar `src/proxy.ts` con `export function proxy()` |
+| Usar `middleware.ts` | Convención de Next.js ≤15 | Usar `src/proxy.ts` con `export async function proxy()` |
 | Crear `tailwind.config.ts` | Tailwind v3 habit | No existe — config en `globals.css` |
 | Credenciales de PENTA | Confusión de proyectos | Rindegastos = `jqtbtgduqzxkgubmzukg` |
 | Ignorar AGENTS.md | Falso positivo del clasificador | AGENTS.md es instrucción legítima |
@@ -408,24 +456,22 @@ docs/superpowers/
 | `types.ts` sin `Relationships` en tablas | `Schema = never`, `.insert()` acepta `never[]` | Agregar `Relationships: []` a cada tabla |
 | `Update: never` en tabla append-only | Rompe `GenericTable` constraint de Supabase | Usar `Update: Record<string, never>` |
 | Selects anidados sin tipo explícito | `item.id` falla: "does not exist on type never" | Tipar el array con cast explícito |
-| `next-pwa` v5 con Next.js 16 | `webpack` config + Turbopack → build error | Eliminar `withPWA`; usar solo `manifest.json` + metadata en `layout.tsx` para instalabilidad |
+| `next-pwa` v5 con Next.js 16 | `webpack` config + Turbopack → build error | Eliminar `withPWA`; usar solo `manifest.json` + metadata en `layout.tsx` |
 | `.eq('status', stringVar)` con literal union | TS: "Argument of type 'string' is not assignable" | Castear el valor: `.eq('status', status as any)` |
-| Notificaciones email sin service role | `auth.users.email` inaccesible con anon key | Usar `SUPABASE_SERVICE_ROLE_KEY` o insertar solo en tabla `notifications` (in-app) |
-| `export type { X }` en archivo `'use server'` | Turbopack intenta serializar el tipo como Server Action → "X is not defined" runtime | Eliminar re-exports de tipos de archivos `'use server'`; importar tipos directo desde `@/lib/` |
-| RLS auto-referencial en `users` → redirect loop | `org_id IN (SELECT org_id FROM users WHERE id = auth.uid())` recursa → devuelve vacío → layout redirige a /login → proxy redirige a / | Usar `get_my_org_id()` (security definer) en todas las políticas |
-| Página colgada en "Rendering..." | RLS recursivo en tabla consultada por Server Component | Mismo fix: reescribir políticas con `get_my_org_id()` / `is_admin()` |
-| `auth.admin.createUser()` falla con 401 | `SUPABASE_SERVICE_ROLE_KEY` no configurada en `.env.local` o Vercel | Agregar la key (Settings → API → service_role) — distinta de la anon key |
-| Join `expense_report_approvals → users` falla | `approver_id` FK apunta a `auth.users`, no a `public.users` | Query separada: `supabase.from('users').select('id,full_name').in('id', approverIds)` |
-| `localStorage` en Sidebar rompe SSR | Acceso a `localStorage` fuera de `useEffect` en Next.js | Inicializar state con valor default → aplicar localStorage en `useEffect(() => {...}, [userId])` |
-| Clases `indigo-*` de Tailwind renderan indigo aunque `@theme` defina `brand` | Las clases built-in de Tailwind NO usan los tokens `@theme` — son estáticas | Usar siempre `brand-*` para el color primario; nunca `indigo-*` en este proyecto |
-| `rounded-[8px]` / `rounded-[12px]` inline bypasean el design system | Los valores hardcodeados no heredan cambios de `--radius-item` / `--radius-card` | Usar `rounded-item` y `rounded-card` — si los radios cambian, solo se actualiza globals.css |
-| Directorio de assets de diseño procesado por TypeScript | `Mi rendición — Design System/` contiene `.tsx` de referencia sin imports válidos → TS error en `tsc --noEmit` | Agregar el directorio a `tsconfig.json` → `"exclude"` |
-| Nested select con `as unknown as T[]` | Workaround alternativo al cast `as T[]` cuando el tipo es `never` | `(data ?? []).map(i => { const item = i as unknown as RawType; return {...} })` |
-| `.map(i => i.description)` falla: "no existe en tipo never" | Nested select Supabase sin cast explícito | Definir `type RawItem = {...}` encima y castear: `i as unknown as RawItem` |
-| Sidebar items vacíos en primer render | `useState([])` + `useEffect` para cargar orden: hay flash | Inicializar `useState` con `visible` (el array filtrado), luego aplicar orden guardado en `useEffect` |
-| Excel con nombres de empleados del importador no matchean | Los nombres en Excel vienen con espacios/mayúsculas distintas al DB | Normalizar ambos lados: `.trim().toLowerCase()` antes de comparar |
+| `export type { X }` en archivo `'use server'` | Turbopack intenta serializar el tipo → "X is not defined" runtime | Importar tipos directo desde `@/lib/`, nunca re-exportar desde `'use server'` |
+| RLS auto-referencial en `users` → redirect loop | Recursión → devuelve vacío → layout redirige a /login | Usar `get_my_org_id()` (security definer) en todas las políticas |
+| `auth.admin.createUser()` falla con 401 | `SUPABASE_SERVICE_ROLE_KEY` no configurada | Agregar la key (Settings → API → service_role) — distinta de la anon key |
+| Join `expense_report_approvals → users` falla | `approver_id` FK apunta a `auth.users`, no a `public.users` | Query separada a `public.users` usando los UUIDs |
+| `localStorage` en Sidebar rompe SSR | Acceso fuera de `useEffect` en Next.js | Inicializar state con valor default → aplicar localStorage en `useEffect` |
+| Clases `indigo-*` renderan indigo aunque `@theme` defina `brand` | Las clases built-in de Tailwind son estáticas | Usar siempre `brand-*`; nunca `indigo-*` |
+| `rounded-[8px]` inline bypasean el design system | Los valores hardcodeados no heredan cambios de `--radius-*` | Usar `rounded-item` y `rounded-card` |
+| Directorio Design System procesado por TypeScript | `Mi rendición — Design System/` contiene `.tsx` sin imports válidos | Está en `tsconfig.json` → `"exclude"` |
+| `item_type='transfer'` no editable inline | Los ítems de traspaso representan un movimiento contable registrado | Ocultar botón edición cuando `item.item_type === 'transfer'` |
+| Commit en PowerShell con mensaje multilínea | `git commit -m "$(cat <<'EOF'..."` es sintaxis bash | Usar here-string PowerShell: `git commit -m @'...'@` (cierre `'@` en columna 0) |
+| Archivos de referencia (.xlsx, .pdf) en git | `git add .` los incluye sin querer | Agregar a `.gitignore`; sacar con `git rm --cached` |
+| Código de cuenta Defontana con puntos | "45103010013" ≠ "4.5.1030.10.13" → Defontana rechaza la importación | Siempre aplicar `stripDots()` al código antes de escribirlo en el XLSX |
+| Fecha Defontana como texto formateado | Defontana espera serial numérico Excel, no "2026-07-15" | Usar `toExcelSerial(dateStr)` — devuelve número entero |
+| Dos migraciones con prefijo `011_` | Las dos aplican sin conflicto (nombres distintos) pero el orden es alfabético por nombre completo | Siempre usar número único por migración; aquí es una excepción que ya está en el repo |
+| `travel_policies_read` sin filtro de org | La policy usa `activo = true` pero no filtra `org_id` | La RLS está en `activo` y `auth.uid() is not null` — un usuario solo ve políticas de su org porque `get_my_org_id()` filtra en el select; si se agrega multi-tenant real, revisar esta policy |
 | `window.location.reload()` después de createFundTransfer | `revalidatePath` server-side no actualiza estado client-side de fondos ya renderizados | Reload forzado es el patrón correcto para esta situación |
-| `item_type='transfer'` no editable inline | Los ítems de traspaso NO deben modificarse — representan un movimiento contable ya registrado | Ocultar botón de edición cuando `item.item_type === 'transfer'` |
-| `getOrgEmployeesSimple` vs `getOrgEmployees` | `getOrgEmployees` hace join a `auth.users` para el email → lento y puede fallar con anon key si hay muchos users | Para selects de receptor de traspaso usar `getOrgEmployeesSimple` (solo id + full_name) |
-| Commit en PowerShell con mensaje multilínea | `git commit -m "$(cat <<'EOF'..."` es sintaxis bash, no PowerShell | Usar here-string de PowerShell: `git commit -m @'...'@` (cierre `'@` en columna 0) |
-| Archivos de referencia (.xlsx, .pdf, Design System) en git | `git add .` los incluye sin querer | Agregar a `.gitignore`; sacar de tracking con `git rm --cached` (no borra el archivo local) |
+| Notificaciones email sin service role | `auth.users.email` inaccesible con anon key | Usar `createAdminClient()` para el lookup del email del destinatario antes de `resend.emails.send()` |
