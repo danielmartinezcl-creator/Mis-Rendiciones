@@ -21,6 +21,15 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Gasto rápido",
+      "short_name": "Rápido",
+      "description": "Registrar un gasto de caja chica en 3 pasos",
+      "url": "/quick",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "categories": ["business", "finance"],
   "lang": "es-CL"
 }
