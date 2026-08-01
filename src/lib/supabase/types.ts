@@ -730,6 +730,7 @@ export interface Database {
       cost_centers: {
         Row: {
           id:          string
+          org_id:      string
           descripcion: string
           imputable:   boolean
           activo:      boolean
@@ -737,17 +738,21 @@ export interface Database {
         }
         Insert: {
           id:           string
+          org_id:       string
           descripcion:  string
           imputable?:   boolean
           activo?:      boolean
           created_at?:  string
         }
         Update: {
+          org_id?:      string
           descripcion?: string
           imputable?:   boolean
           activo?:      boolean
         }
-        Relationships: []
+        Relationships: [
+          { foreignKeyName: 'cost_centers_org_id_fkey'; columns: ['org_id']; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       defontana_suppliers: {
         Row: {
