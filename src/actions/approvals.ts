@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
+import { notifySubmitterOfDecision, notifyL2ApproverOfPromotion } from '@/actions/notifications'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
@@ -233,6 +234,16 @@ export async function submitApprovalDecision(
       notes:          notes?.trim() || null,
     })
 
+  // Notificaciones según resultado
+  if (newStatus === 'pending_l2') {
+    notifyL2ApproverOfPromotion(reportId).catch(() => {})
+  } else {
+    const notifAction =
+      logAction === 'approved'           ? 'approved'           :
+      logAction === 'rejected'           ? 'rejected'           : 'partially_approved'
+    notifySubmitterOfDecision(reportId, notifAction).catch(() => {})
+  }
+
   revalidatePath(`/approvals/${reportId}`)
   revalidatePath('/approvals')
   revalidatePath('/')
@@ -427,6 +438,17 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
     items_approved: itemIds,
     notes:          `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`,
   })
+
+  // Notificaciones
+  if (allApproved) {
+    const { data: submitterData } = await supabase
+      .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
+    if (isL1 && submitterData?.approver_l2_id) {
+      notifyL2ApproverOfPromotion(reportId).catch(() => {})
+    } else if (allApproved) {
+      notifySubmitterOfDecision(reportId, 'approved').catch(() => {})
+    }
+  }
 
   revalidatePath(`/approvals/${reportId}`)
   revalidatePath('/approvals')

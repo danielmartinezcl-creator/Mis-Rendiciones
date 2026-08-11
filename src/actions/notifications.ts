@@ -42,21 +42,47 @@ export async function notifyApproversOfSubmission(reportId: string) {
 
   if (!report) return
 
-  // Aprobadores de la misma org
-  const { data: approvers } = await supabase
+  // Obtener el aprobador L1 asignado al rendidor (y suplente si está activo)
+  const { data: submitter } = await supabase
     .from('users')
-    .select('id')
-    .eq('org_id', report.org_id)
-    .eq('can_approve', true)
-    .eq('is_active', true)
+    .select('approver_l1_id, approver_l1_backup_id, backup_active_from, backup_active_until')
+    .eq('id', report.submitter_id)
+    .single()
 
-  if (!approvers || approvers.length === 0) return
+  let approverIds: string[] = []
+
+  if (submitter?.approver_l1_id) {
+    approverIds.push(submitter.approver_l1_id)
+
+    // Agregar suplente si está activo hoy
+    if (submitter.approver_l1_backup_id) {
+      const today = new Date().toISOString().split('T')[0]
+      const from  = submitter.backup_active_from as string | null
+      const until = submitter.backup_active_until as string | null
+      if (from && until && from <= today && today <= until) {
+        approverIds.push(submitter.approver_l1_backup_id)
+      }
+    }
+  } else {
+    // Sin L1 configurado → fallback: todos los can_approve de la org
+    const { data: allApprovers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('org_id', report.org_id)
+      .eq('can_approve', true)
+      .eq('is_active', true)
+    approverIds = (allApprovers ?? []).map(a => a.id)
+  }
+
+  // Nunca notificar al propio rendidor
+  approverIds = approverIds.filter(id => id !== report.submitter_id)
+  if (approverIds.length === 0) return
 
   // In-app notifications
   await supabase.from('notifications').insert(
-    approvers.map(a => ({
+    approverIds.map(id => ({
       org_id:    report.org_id,
-      user_id:   a.id,
+      user_id:   id,
       type:      'submission' as const,
       report_id: report.id,
       read:      false,
@@ -64,12 +90,51 @@ export async function notifyApproversOfSubmission(reportId: string) {
   )
 
   // Email con direcciones reales desde auth.users
-  const emails  = await lookupEmails(approvers.map(a => a.id))
+  const emails  = await lookupEmails(approverIds)
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
     emails,
     `Nueva rendición para revisar: ${report.title}`,
     `<p>Hay una nueva rendición esperando tu aprobación.</p>
+     <p><a href="${appUrl}/approvals/${report.id}">Ver rendición →</a></p>`
+  )
+}
+
+export async function notifyL2ApproverOfPromotion(reportId: string) {
+  const supabase = await createClient()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, org_id, submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return
+
+  const { data: submitter } = await supabase
+    .from('users')
+    .select('approver_l2_id')
+    .eq('id', report.submitter_id)
+    .single()
+
+  if (!submitter?.approver_l2_id) return
+
+  const l2Id = submitter.approver_l2_id
+
+  await supabase.from('notifications').insert({
+    org_id:    report.org_id,
+    user_id:   l2Id,
+    type:      'submission' as const,
+    report_id: report.id,
+    read:      false,
+  })
+
+  const emails = await lookupEmails([l2Id])
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  await trySendEmail(
+    emails,
+    `Rendición lista para revisión N2: ${report.title}`,
+    `<p>Una rendición aprobada por el nivel 1 requiere tu revisión final.</p>
      <p><a href="${appUrl}/approvals/${report.id}">Ver rendición →</a></p>`
   )
 }
