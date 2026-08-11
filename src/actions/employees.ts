@@ -105,6 +105,11 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
   const { adminClient } = await getAdminContext()
   const results: InviteResult[] = []
 
+  const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const resendKey   = process.env.RESEND_API_KEY
+  const fromEmail   = process.env.RESEND_FROM_EMAIL ?? 'noreply@mi-rendicion.com'
+  const redirectTo  = `${appUrl}/api/auth/callback?next=/set-password`
+
   for (const userId of userIds) {
     try {
       // Obtener email desde auth.users via admin API
@@ -120,14 +125,38 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
       const { data: profile } = await adminClient.from('users').select('full_name').eq('id', userId).single()
       const full_name = profile?.full_name ?? email
 
-      // Enviar invitación
-      const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback?next=/set-password`,
+      // Los empleados importados ya tienen cuenta en auth (creada por importEmployees con createUser).
+      // inviteUserByEmail falla para usuarios existentes — usamos generateLink(recovery) en su lugar.
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+        type:    'recovery',
+        email,
+        options: { redirectTo },
       })
 
-      if (inviteError) {
-        results.push({ userId, email, full_name, success: false, error: inviteError.message })
+      if (linkError || !linkData?.properties?.action_link) {
+        results.push({ userId, email, full_name, success: false, error: linkError?.message ?? 'Error generando link de acceso' })
         continue
+      }
+
+      const actionLink = linkData.properties.action_link
+
+      // Enviar email via Resend si está configurado
+      if (resendKey && resendKey !== 'placeholder') {
+        const { Resend } = await import('resend')
+        const resend = new Resend(resendKey)
+        await resend.emails.send({
+          from:    `Mi Rendición <${fromEmail}>`,
+          to:      [email],
+          subject: 'Mi Rendición — Configura tu acceso',
+          html:    `<p>Hola ${full_name},</p>
+                    <p>Tienes acceso a <strong>Mi Rendición</strong>, el sistema de rendición de gastos de tu empresa. Haz clic en el botón para crear tu contraseña.</p>
+                    <p style="margin:24px 0">
+                      <a href="${actionLink}" style="background:#0D9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
+                        Crear contraseña →
+                      </a>
+                    </p>
+                    <p style="color:#888;font-size:12px">Este enlace expira en 24 horas. Si no solicitaste esto, podés ignorar este correo.</p>`,
+        }).catch(() => {})
       }
 
       // Marcar como invitado
