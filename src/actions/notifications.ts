@@ -7,10 +7,12 @@ import { Resend } from 'resend'
 // Helper — solo envía si está configurado Resend
 async function trySendEmail(to: string[], subject: string, html: string) {
   if (!to.length) return
-  const apiKey = process.env.RESEND_API_KEY
-  const from   = process.env.RESEND_FROM_EMAIL ?? 'noreply@rindegastos.app'
+  const apiKey     = process.env.RESEND_API_KEY
+  const fromEmail  = process.env.RESEND_FROM_EMAIL ?? 'noreply@mi-rendicion.com'
   if (!apiKey || apiKey === 'placeholder') return
   const resend = new Resend(apiKey)
+  // Nombre visible en el campo "De:" del correo
+  const from = `Mi Rendición <${fromEmail}>`
   await resend.emails.send({ from, to, subject, html }).catch(() => {
     // Email no crítico — fallo silencioso
   })
@@ -42,25 +44,26 @@ export async function notifyApproversOfSubmission(reportId: string) {
 
   if (!report) return
 
-  // Obtener el aprobador L1 asignado al rendidor (y suplente si está activo)
-  const { data: submitter } = await supabase
+  // Nombre del rendidor para el asunto del correo
+  const { data: submitterProfile } = await supabase
     .from('users')
-    .select('approver_l1_id, approver_l1_backup_id, backup_active_from, backup_active_until')
+    .select('full_name, approver_l1_id, approver_l1_backup_id, backup_active_from, backup_active_until')
     .eq('id', report.submitter_id)
     .single()
 
+  const submitterName = submitterProfile?.full_name ?? 'un empleado'
   let approverIds: string[] = []
 
-  if (submitter?.approver_l1_id) {
-    approverIds.push(submitter.approver_l1_id)
+  if (submitterProfile?.approver_l1_id) {
+    approverIds.push(submitterProfile.approver_l1_id)
 
     // Agregar suplente si está activo hoy
-    if (submitter.approver_l1_backup_id) {
+    if (submitterProfile.approver_l1_backup_id) {
       const today = new Date().toISOString().split('T')[0]
-      const from  = submitter.backup_active_from as string | null
-      const until = submitter.backup_active_until as string | null
+      const from  = submitterProfile.backup_active_from as string | null
+      const until = submitterProfile.backup_active_until as string | null
       if (from && until && from <= today && today <= until) {
-        approverIds.push(submitter.approver_l1_backup_id)
+        approverIds.push(submitterProfile.approver_l1_backup_id)
       }
     }
   } else {
@@ -88,13 +91,13 @@ export async function notifyApproversOfSubmission(reportId: string) {
     }))
   )
 
-  const emails  = await lookupEmails(approverIds)
-  const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const emails = await lookupEmails(approverIds)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
     emails,
-    `Nueva rendición para revisar: ${report.title}`,
-    `<p>Hay una nueva rendición esperando tu aprobación.</p>
-     <p><a href="${appUrl}/approvals/${report.id}">Ver rendición →</a></p>`
+    `Aprobar rendición de ${submitterName}: ${report.title}`,
+    `<p><strong>${submitterName}</strong> envió una rendición que requiere tu aprobación.</p>
+     <p><a href="${appUrl}/approvals/${report.id}">Revisar rendición →</a></p>`
   )
 }
 
@@ -111,15 +114,16 @@ export async function notifyL2ApproverOfPromotion(reportId: string) {
 
   if (!report) return
 
-  const { data: submitter } = await supabase
+  const { data: submitterProfile } = await supabase
     .from('users')
-    .select('approver_l2_id')
+    .select('full_name, approver_l2_id')
     .eq('id', report.submitter_id)
     .single()
 
-  if (!submitter?.approver_l2_id) return
+  if (!submitterProfile?.approver_l2_id) return
 
-  const l2Id = submitter.approver_l2_id
+  const submitterName = submitterProfile.full_name ?? 'un empleado'
+  const l2Id = submitterProfile.approver_l2_id
 
   await supabase.from('notifications').insert({
     org_id:    report.org_id,
@@ -133,9 +137,9 @@ export async function notifyL2ApproverOfPromotion(reportId: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
     emails,
-    `Rendición lista para revisión N2: ${report.title}`,
-    `<p>Una rendición aprobada por el nivel 1 requiere tu revisión final.</p>
-     <p><a href="${appUrl}/approvals/${report.id}">Ver rendición →</a></p>`
+    `Revisión N2 — rendición de ${submitterName}: ${report.title}`,
+    `<p>La rendición de <strong>${submitterName}</strong> fue aprobada en nivel 1 y requiere tu revisión final.</p>
+     <p><a href="${appUrl}/approvals/${report.id}">Revisar rendición →</a></p>`
   )
 }
 
@@ -165,34 +169,43 @@ export async function notifySubmitterOfDecision(reportId: string, action: 'appro
   })
 
   const subjectMap = {
-    approved:           'Tu rendición fue aprobada',
-    rejected:           'Tu rendición fue rechazada',
-    partially_approved: 'Tu rendición fue aprobada parcialmente',
+    approved:           `Rendición aprobada — ${report.title}`,
+    rejected:           `Rendición rechazada — ${report.title}`,
+    partially_approved: `Rendición aprobada parcialmente — ${report.title}`,
+  }
+
+  const bodyMap = {
+    approved:           'Tu rendición fue aprobada. En breve se procesará el reembolso.',
+    rejected:           'Tu rendición fue rechazada. Revisá los motivos y corrígela si corresponde.',
+    partially_approved: 'Tu rendición fue aprobada parcialmente. Algunos ítems fueron rechazados.',
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const emails = await lookupEmails([report.submitter_id])
   await trySendEmail(
     emails,
-    `${subjectMap[action]}: ${report.title}`,
-    `<p>${subjectMap[action]}.</p>
+    subjectMap[action],
+    `<p>${bodyMap[action]}</p>
      <p><a href="${appUrl}/expenses/${report.id}">Ver detalle →</a></p>`
   )
 }
 
 // ── Cadena bancaria ───────────────────────────────────────────────────────────
 
-// Avisa a quienes cargan transferencias bancarias que hay una rendición aprobada lista
 export async function notifyBankLoadersOfApproval(reportId: string) {
   const supabase = await createClient()
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('id, title, org_id')
+    .select('id, title, org_id, submitter_id')
     .eq('id', reportId)
     .single()
 
   if (!report) return
+
+  const { data: submitterProfile } = await supabase
+    .from('users').select('full_name').eq('id', report.submitter_id).single()
+  const submitterName = submitterProfile?.full_name ?? 'un empleado'
 
   const { data: loaders } = await supabase
     .from('users')
@@ -218,23 +231,26 @@ export async function notifyBankLoadersOfApproval(reportId: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
     emails,
-    `Rendición aprobada, lista para reembolso: ${report.title}`,
-    `<p>Una rendición fue aprobada y está lista para procesar el reembolso bancario.</p>
+    `Cargar reembolso — rendición aprobada de ${submitterName}: ${report.title}`,
+    `<p>La rendición de <strong>${submitterName}</strong> fue aprobada y está lista para procesar el reembolso bancario.</p>
      <p><a href="${appUrl}/admin/reports">Ver rendiciones →</a></p>`
   )
 }
 
-// Avisa a quienes autorizan transferencias bancarias que hay una carga pendiente
 export async function notifyBankAuthorizersOfLoad(reportId: string) {
   const supabase = await createClient()
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('id, title, org_id')
+    .select('id, title, org_id, submitter_id')
     .eq('id', reportId)
     .single()
 
   if (!report) return
+
+  const { data: submitterProfile } = await supabase
+    .from('users').select('full_name').eq('id', report.submitter_id).single()
+  const submitterName = submitterProfile?.full_name ?? 'un empleado'
 
   const { data: authorizers } = await supabase
     .from('users')
@@ -260,13 +276,12 @@ export async function notifyBankAuthorizersOfLoad(reportId: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
     emails,
-    `Transferencia cargada, pendiente de autorización: ${report.title}`,
-    `<p>La transferencia bancaria fue cargada y está pendiente de tu autorización.</p>
+    `Autorizar transferencia — rendición de ${submitterName}: ${report.title}`,
+    `<p>La transferencia bancaria para la rendición de <strong>${submitterName}</strong> fue cargada y está pendiente de tu autorización.</p>
      <p><a href="${appUrl}/admin/reports">Ver rendiciones →</a></p>`
   )
 }
 
-// Avisa al rendidor que su reembolso fue procesado y transferido
 export async function notifySubmitterOfReimbursement(reportId: string) {
   const supabase = await createClient()
 
@@ -290,8 +305,8 @@ export async function notifySubmitterOfReimbursement(reportId: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
     emails,
-    `Tu reembolso fue procesado: ${report.title}`,
-    `<p>Tu reembolso ha sido autorizado y procesado. El dinero debería aparecer en tu cuenta bancaria en breve.</p>
+    `Reembolso procesado — ${report.title}`,
+    `<p>Tu reembolso fue autorizado y procesado. El dinero debería aparecer en tu cuenta bancaria en breve.</p>
      <p><a href="${appUrl}/expenses/${report.id}">Ver rendición →</a></p>`
   )
 }
