@@ -21,15 +21,15 @@ async function lookupEmails(userIds: string[]): Promise<string[]> {
   if (!userIds.length) return []
   try {
     const admin = createAdminClient()
-    // auth.admin.listUsers tiene paginación — para orgs pequeñas (< 1000) basta con una página
     const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
     const emailMap = new Map(data.users.map(u => [u.id, u.email ?? '']))
     return userIds.map(id => emailMap.get(id) ?? '').filter(Boolean)
   } catch {
-    // Si la service role key no está configurada, fallo silencioso (email no crítico)
     return []
   }
 }
+
+// ── Envío de rendición ────────────────────────────────────────────────────────
 
 export async function notifyApproversOfSubmission(reportId: string) {
   const supabase = await createClient()
@@ -64,21 +64,20 @@ export async function notifyApproversOfSubmission(reportId: string) {
       }
     }
   } else {
-    // Sin L1 configurado → fallback: todos los can_approve de la org
-    const { data: allApprovers } = await supabase
+    // Sin L1 configurado → fallback: solo los admins de la org
+    const { data: admins } = await supabase
       .from('users')
       .select('id')
       .eq('org_id', report.org_id)
-      .eq('can_approve', true)
+      .eq('role', 'admin')
       .eq('is_active', true)
-    approverIds = (allApprovers ?? []).map(a => a.id)
+    approverIds = (admins ?? []).map(a => a.id)
   }
 
   // Nunca notificar al propio rendidor
   approverIds = approverIds.filter(id => id !== report.submitter_id)
   if (approverIds.length === 0) return
 
-  // In-app notifications
   await supabase.from('notifications').insert(
     approverIds.map(id => ({
       org_id:    report.org_id,
@@ -89,7 +88,6 @@ export async function notifyApproversOfSubmission(reportId: string) {
     }))
   )
 
-  // Email con direcciones reales desde auth.users
   const emails  = await lookupEmails(approverIds)
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
   await trySendEmail(
@@ -99,6 +97,8 @@ export async function notifyApproversOfSubmission(reportId: string) {
      <p><a href="${appUrl}/approvals/${report.id}">Ver rendición →</a></p>`
   )
 }
+
+// ── Cadena de aprobación ──────────────────────────────────────────────────────
 
 export async function notifyL2ApproverOfPromotion(reportId: string) {
   const supabase = await createClient()
@@ -179,6 +179,124 @@ export async function notifySubmitterOfDecision(reportId: string, action: 'appro
      <p><a href="${appUrl}/expenses/${report.id}">Ver detalle →</a></p>`
   )
 }
+
+// ── Cadena bancaria ───────────────────────────────────────────────────────────
+
+// Avisa a quienes cargan transferencias bancarias que hay una rendición aprobada lista
+export async function notifyBankLoadersOfApproval(reportId: string) {
+  const supabase = await createClient()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, org_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return
+
+  const { data: loaders } = await supabase
+    .from('users')
+    .select('id')
+    .eq('org_id', report.org_id)
+    .eq('can_load_bank_transfer', true)
+    .eq('is_active', true)
+
+  const loaderIds = (loaders ?? []).map(l => l.id)
+  if (loaderIds.length === 0) return
+
+  await supabase.from('notifications').insert(
+    loaderIds.map(id => ({
+      org_id:    report.org_id,
+      user_id:   id,
+      type:      'approval' as const,
+      report_id: report.id,
+      read:      false,
+    }))
+  )
+
+  const emails = await lookupEmails(loaderIds)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  await trySendEmail(
+    emails,
+    `Rendición aprobada, lista para reembolso: ${report.title}`,
+    `<p>Una rendición fue aprobada y está lista para procesar el reembolso bancario.</p>
+     <p><a href="${appUrl}/admin/reports">Ver rendiciones →</a></p>`
+  )
+}
+
+// Avisa a quienes autorizan transferencias bancarias que hay una carga pendiente
+export async function notifyBankAuthorizersOfLoad(reportId: string) {
+  const supabase = await createClient()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, org_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return
+
+  const { data: authorizers } = await supabase
+    .from('users')
+    .select('id')
+    .eq('org_id', report.org_id)
+    .eq('can_authorize_bank_transfer', true)
+    .eq('is_active', true)
+
+  const authIds = (authorizers ?? []).map(a => a.id)
+  if (authIds.length === 0) return
+
+  await supabase.from('notifications').insert(
+    authIds.map(id => ({
+      org_id:    report.org_id,
+      user_id:   id,
+      type:      'approval' as const,
+      report_id: report.id,
+      read:      false,
+    }))
+  )
+
+  const emails = await lookupEmails(authIds)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  await trySendEmail(
+    emails,
+    `Transferencia cargada, pendiente de autorización: ${report.title}`,
+    `<p>La transferencia bancaria fue cargada y está pendiente de tu autorización.</p>
+     <p><a href="${appUrl}/admin/reports">Ver rendiciones →</a></p>`
+  )
+}
+
+// Avisa al rendidor que su reembolso fue procesado y transferido
+export async function notifySubmitterOfReimbursement(reportId: string) {
+  const supabase = await createClient()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, org_id, submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return
+
+  await supabase.from('notifications').insert({
+    org_id:    report.org_id,
+    user_id:   report.submitter_id,
+    type:      'reimbursement' as const,
+    report_id: report.id,
+    read:      false,
+  })
+
+  const emails = await lookupEmails([report.submitter_id])
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  await trySendEmail(
+    emails,
+    `Tu reembolso fue procesado: ${report.title}`,
+    `<p>Tu reembolso ha sido autorizado y procesado. El dinero debería aparecer en tu cuenta bancaria en breve.</p>
+     <p><a href="${appUrl}/expenses/${report.id}">Ver rendición →</a></p>`
+  )
+}
+
+// ── In-app ───────────────────────────────────────────────────────────────────
 
 export async function getMyNotifications() {
   const supabase = await createClient()

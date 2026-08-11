@@ -5,7 +5,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
-import { notifySubmitterOfDecision, notifyL2ApproverOfPromotion } from '@/actions/notifications'
+import {
+  notifySubmitterOfDecision,
+  notifyL2ApproverOfPromotion,
+  notifyBankLoadersOfApproval,
+  notifyBankAuthorizersOfLoad,
+  notifySubmitterOfReimbursement,
+} from '@/actions/notifications'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
@@ -242,6 +248,9 @@ export async function submitApprovalDecision(
       logAction === 'approved'           ? 'approved'           :
       logAction === 'rejected'           ? 'rejected'           : 'partially_approved'
     notifySubmitterOfDecision(reportId, notifAction).catch(() => {})
+    if (notifAction === 'approved' || notifAction === 'partially_approved') {
+      notifyBankLoadersOfApproval(reportId).catch(() => {})
+    }
   }
 
   revalidatePath(`/approvals/${reportId}`)
@@ -445,8 +454,9 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
       .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
     if (isL1 && submitterData?.approver_l2_id) {
       notifyL2ApproverOfPromotion(reportId).catch(() => {})
-    } else if (allApproved) {
+    } else {
       notifySubmitterOfDecision(reportId, 'approved').catch(() => {})
+      notifyBankLoadersOfApproval(reportId).catch(() => {})
     }
   }
 
@@ -562,6 +572,8 @@ export async function confirmReportBankLoad(reportId: string, data: {
     notes:       `Ref: ${data.paymentReference || 'Sin referencia'} · ${data.transferredAt}`,
   })
 
+  notifyBankAuthorizersOfLoad(reportId).catch(() => {})
+
   revalidatePath('/admin/reports')
   revalidatePath('/')
 }
@@ -592,6 +604,8 @@ export async function authorizeReportBank(reportId: string, paymentReference: st
     action:      'bank_authorized',
     notes:       paymentReference.trim() || null,
   })
+
+  notifySubmitterOfReimbursement(reportId).catch(() => {})
 
   revalidatePath('/admin/reports')
   revalidatePath('/')
