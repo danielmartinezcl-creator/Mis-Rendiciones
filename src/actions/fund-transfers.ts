@@ -713,3 +713,31 @@ export async function getEmployeeTargets(employeeId: string): Promise<EmployeeTa
 
   return [...fundTargets, ...reportTargets]
 }
+
+// ── Todas las rendiciones de la org (para selector directo en modal traspaso) ─
+
+export type OrgReportSimple = {
+  id:             string
+  title:          string
+  submitter_id:   string
+  submitter_name: string
+  status:         string
+}
+
+export async function getOrgReportsForTransfer(): Promise<OrgReportSimple[]> {
+  const { supabase, orgId } = await requireAdmin()
+  const { data } = await supabase
+    .from('expense_reports')
+    .select('id, title, submitter_id, status, users!expense_reports_submitter_id_fkey(full_name)')
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .not('status', 'eq', 'draft')
+    .order('created_at', { ascending: false })
+  return (data ?? []).map(r => ({
+    id:             r.id,
+    title:          r.title,
+    submitter_id:   r.submitter_id,
+    submitter_name: (r.users as { full_name: string } | null)?.full_name ?? '—',
+    status:         r.status,
+  }))
+}

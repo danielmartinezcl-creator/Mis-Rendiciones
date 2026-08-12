@@ -14,13 +14,14 @@ import {
   createFundTransfer,
   linkFundTransfer,
   getEmployeeTargets,
+  getOrgReportsForTransfer,
   deleteFundTransfer,
   updateFundTransfer,
   deleteLinkedFundTransfer,
   updateLinkedFundTransfer,
 } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
-import type { FundTransferRow, EmployeeTarget } from '@/actions/fund-transfers'
+import type { FundTransferRow, EmployeeTarget, OrgReportSimple } from '@/actions/fund-transfers'
 import type { PeriodPreset } from '@/lib/report-helpers'
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -46,6 +47,8 @@ export type TransferSource = {
 
 export type ReportResult = Awaited<ReturnType<typeof getPettyCashItemsForReport>>
 export type EditingLinkedTransfer = { id: string; amount: number; date: string; description: string | null }
+
+export type { OrgReportSimple }
 
 // Re-export for convenience
 export type { FundListItem, FundTransferRow, EmployeeTarget }
@@ -103,6 +106,11 @@ export function usePettyCashState({
   const [trTargetId,       setTrTargetId]       = useState('')
   const [trTargetType,     setTrTargetType]     = useState<'fund' | 'report'>('fund')
   const [loadingTrTargets, setLoadingTrTargets] = useState(false)
+  // Modo "destino rendición" — busca en todas las rendiciones de la org
+  const [trDestMode,       setTrDestMode]       = useState<'fund' | 'report'>('fund')
+  const [orgReports,       setOrgReports]       = useState<OrgReportSimple[]>([])
+  const [loadingOrgReports,setLoadingOrgReports]= useState(false)
+  const [trReportId,       setTrReportId]       = useState('')
 
   // Modal vincular traspaso
   const [linkingTransfer, setLinkingTransfer] = useState<FundTransferRow | null>(null)
@@ -262,6 +270,14 @@ export function usePettyCashState({
     setTrTargets([])
     setTrTargetId('')
     setTrTargetType('fund')
+    setTrDestMode('fund')
+    setTrReportId('')
+    // Cargar todas las rendiciones de la org para el modo "rendición"
+    setLoadingOrgReports(true)
+    getOrgReportsForTransfer()
+      .then(setOrgReports)
+      .catch(() => setOrgReports([]))
+      .finally(() => setLoadingOrgReports(false))
   }
 
   async function handleTrReceiverChange(empId: string) {
@@ -282,10 +298,39 @@ export function usePettyCashState({
 
   async function handleCreateTransfer() {
     if (!transferSource) return
-    if (!trReceiverId) { setTrError('Selecciona un empleado receptor'); return }
     const amount = parseFloat(trAmount)
     if (isNaN(amount) || amount <= 0) { setTrError('Ingresa un monto válido'); return }
     if (!trDate) { setTrError('Selecciona una fecha'); return }
+
+    // Modo rendición: el receptor se deriva de la rendición seleccionada
+    if (trDestMode === 'report') {
+      if (!trReportId) { setTrError('Selecciona una rendición de destino'); return }
+      const report = orgReports.find(r => r.id === trReportId)
+      if (!report) { setTrError('Rendición no encontrada'); return }
+      setTrSaving(true)
+      setTrError(null)
+      try {
+        await createFundTransfer({
+          date:                 trDate,
+          amount,
+          description:          trDesc.trim() || undefined,
+          receiver_employee_id: report.submitter_id,
+          payer_fund_id:        transferSource.fundId,
+          payer_report_id:      transferSource.reportId,
+          receiver_report_id:   trReportId,
+        })
+        setTransferSource(null)
+        window.location.reload()
+      } catch (err) {
+        setTrError(err instanceof Error ? err.message : 'Error al registrar traspaso')
+      } finally {
+        setTrSaving(false)
+      }
+      return
+    }
+
+    // Modo fondo (comportamiento original)
+    if (!trReceiverId) { setTrError('Selecciona un empleado receptor'); return }
     setTrSaving(true)
     setTrError(null)
     try {
@@ -630,6 +675,9 @@ export function usePettyCashState({
     trTargetId,     setTrTargetId,
     trTargetType,   setTrTargetType,
     loadingTrTargets,
+    trDestMode,     setTrDestMode,
+    orgReports,     loadingOrgReports,
+    trReportId,     setTrReportId,
     // Link modal state + setters
     linkingTransfer, setLinkingTransfer,
     linkTargets,

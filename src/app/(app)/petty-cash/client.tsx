@@ -259,6 +259,12 @@ export function PettyCashClient({
         setTrDesc={state.setTrDesc}
         setTrTargetId={state.setTrTargetId}
         setTrTargetType={state.setTrTargetType}
+        trDestMode={state.trDestMode}
+        setTrDestMode={state.setTrDestMode}
+        orgReports={state.orgReports}
+        loadingOrgReports={state.loadingOrgReports}
+        trReportId={state.trReportId}
+        setTrReportId={state.setTrReportId}
         handleTrReceiverChange={state.handleTrReceiverChange}
         handleCreateTransfer={state.handleCreateTransfer}
         // Edit unlinked transfer modal

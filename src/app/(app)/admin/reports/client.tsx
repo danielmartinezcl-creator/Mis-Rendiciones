@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
 import { markReimbursed } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
 
@@ -40,8 +40,11 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [dateFrom,   setDateFrom]   = useState('')
   const [dateTo,     setDateTo]     = useState('')
   const [statusSel,  setStatusSel]  = useState<string[]>([])
-  const [empFilter,  setEmpFilter]  = useState('')
+  const [empFilter,       setEmpFilter]       = useState<string[]>([])
+  const [empDropdownOpen, setEmpDropdownOpen] = useState(false)
+  const [empSearch,       setEmpSearch]       = useState('')
   const [deptFilter, setDeptFilter] = useState('')
+  const empDropRef = useRef<HTMLDivElement>(null)
   const [reimb,      setReimb]      = useState<'all' | 'pending' | 'reimbursed'>('all')
   const [defFilter,  setDefFilter]  = useState<'all' | 'notExported' | 'exported'>('all')
 
@@ -49,6 +52,17 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [reimbOpen,  setReimbOpen]  = useState<string | null>(null)
   const [reimbRef,   setReimbRef]   = useState('')
   const [reimbSaving, setReimbSaving] = useState(false)
+
+  // Cerrar dropdown empleado al hacer click fuera
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (empDropRef.current && !empDropRef.current.contains(e.target as Node)) {
+        setEmpDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Eliminar
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
@@ -170,7 +184,7 @@ export function AdminReportsClient({ initialReports }: Props) {
     if (dateFrom && subDate && subDate < dateFrom) return false
     if (dateTo   && subDate && subDate > dateTo)   return false
     if (statusSel.length > 0 && !statusSel.includes(r.status)) return false
-    if (empFilter  && r.submitter_id !== empFilter)   return false
+    if (empFilter.length > 0 && !empFilter.includes(r.submitter_id)) return false
     if (deptFilter && r.department   !== deptFilter)   return false
     if (reimb === 'pending'    && r.status === 'reimbursed') return false
     if (reimb === 'reimbursed' && r.status !== 'reimbursed') return false
@@ -178,6 +192,11 @@ export function AdminReportsClient({ initialReports }: Props) {
     if (defFilter === 'exported'    && !r.defontana_exported_at) return false
     return true
   }), [reports, dateFrom, dateTo, statusSel, empFilter, deptFilter, reimb, defFilter])
+
+  const empOptions = useMemo(() => {
+    const list = employees.filter(e => !empSearch || e.name.toLowerCase().includes(empSearch.toLowerCase()))
+    return list
+  }, [employees, empSearch])
 
   // KPI: rendiciones en revisión con más de 5 días de espera
   const staleSubmitted = useMemo(() => {
@@ -226,7 +245,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       const activeFilters = {
         dateFrom:   dateFrom || undefined,
         dateTo:     dateTo   || undefined,
-        employee:   employees.find(e => e.id === empFilter)?.name,
+        employee:   empFilter.length === 1 ? employees.find(e => e.id === empFilter[0])?.name : empFilter.length > 1 ? `${empFilter.length} empleados` : undefined,
         department: deptFilter || undefined,
         status:     statusSel.length > 0 ? statusSel : undefined,
       }
@@ -334,7 +353,7 @@ export function AdminReportsClient({ initialReports }: Props) {
     setStatusSel(prev => prev.includes(v) ? prev.filter(s => s !== v) : [...prev, v])
   }
 
-  const hasFilters = dateFrom || dateTo || statusSel.length > 0 || empFilter || deptFilter || reimb !== 'all' || defFilter !== 'all'
+  const hasFilters = dateFrom || dateTo || statusSel.length > 0 || empFilter.length > 0 || deptFilter || reimb !== 'all' || defFilter !== 'all'
 
   return (
     <div className="space-y-4">
@@ -431,7 +450,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Filtros</p>
           {hasFilters && (
             <button
-              onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter(''); setDeptFilter(''); setReimb('all'); setDefFilter('all') }}
+              onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter([]); setDeptFilter(''); setReimb('all'); setDefFilter('all') }}
               className="text-xs text-brand-600 hover:underline"
             >
               Limpiar todo
@@ -474,13 +493,57 @@ export function AdminReportsClient({ initialReports }: Props) {
 
         {/* Empleado / Depto / Reembolso / Defontana */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          <div>
+          <div ref={empDropRef}>
             <label className="block text-xs text-slate-500 mb-1">Empleado</label>
-            <select value={empFilter} onChange={e => setEmpFilter(e.target.value)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
-              <option value="">Todos</option>
-              {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setEmpDropdownOpen(o => !o)}
+                className="w-full flex items-center justify-between border border-slate-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-colors"
+              >
+                <span className={empFilter.length ? 'text-slate-800' : 'text-slate-400'}>
+                  {empFilter.length === 0 ? 'Todos' : `${empFilter.length} seleccionado${empFilter.length !== 1 ? 's' : ''}`}
+                </span>
+                <ChevronDown size={13} className={`text-slate-400 transition-transform ${empDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {empDropdownOpen && (
+                <div className="absolute z-50 top-full mt-1 w-full min-w-[220px] bg-white border border-slate-200 rounded-item shadow-lg">
+                  <div className="p-2 border-b border-slate-100">
+                    <input
+                      type="text"
+                      placeholder="Buscar empleado…"
+                      value={empSearch}
+                      onChange={e => setEmpSearch(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto p-1">
+                    {empOptions.map(e => (
+                      <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer rounded-item">
+                        <input
+                          type="checkbox"
+                          checked={empFilter.includes(e.id)}
+                          onChange={() => setEmpFilter(ids => ids.includes(e.id) ? ids.filter(x => x !== e.id) : [...ids, e.id])}
+                          className="accent-brand-600 w-3.5 h-3.5 shrink-0"
+                        />
+                        <span className="text-sm text-slate-700">{e.name}</span>
+                      </label>
+                    ))}
+                    {empOptions.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-3">Sin resultados</p>
+                    )}
+                  </div>
+                  {empFilter.length > 0 && (
+                    <div className="border-t border-slate-100 px-3 py-2">
+                      <button type="button" onClick={() => setEmpFilter([])} className="text-xs text-slate-400 hover:text-slate-600">
+                        Limpiar selección
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Departamento</label>

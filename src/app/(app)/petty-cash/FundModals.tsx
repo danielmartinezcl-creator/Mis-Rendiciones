@@ -2,7 +2,7 @@
 
 import { SendHorizontal, X, Pencil, Link2, ArrowRightLeft } from 'lucide-react'
 import { fmtCLP } from './usePettyCashState'
-import type { TransferSource, FundTransferRow, EmployeeTarget, EditingLinkedTransfer } from './usePettyCashState'
+import type { TransferSource, FundTransferRow, EmployeeTarget, EditingLinkedTransfer, OrgReportSimple } from './usePettyCashState'
 
 export interface FundModalsProps {
   orgEmployees: { id: string; full_name: string }[]
@@ -18,12 +18,18 @@ export interface FundModalsProps {
   trTargetId:        string
   trTargetType:      'fund' | 'report'
   loadingTrTargets:  boolean
+  trDestMode:        'fund' | 'report'
+  orgReports:        OrgReportSimple[]
+  loadingOrgReports: boolean
+  trReportId:        string
   setTransferSource: (v: TransferSource | null) => void
   setTrAmount:       (v: string) => void
   setTrDate:         (v: string) => void
   setTrDesc:         (v: string) => void
   setTrTargetId:     (v: string) => void
   setTrTargetType:   (v: 'fund' | 'report') => void
+  setTrDestMode:     (v: 'fund' | 'report') => void
+  setTrReportId:     (v: string) => void
   handleTrReceiverChange: (empId: string) => Promise<void>
   handleCreateTransfer:   () => Promise<void>
   // ── Modal editar traspaso sin vincular ────────────────────────────────────
@@ -78,6 +84,9 @@ export function FundModals({
   trTargets, trTargetId, setTrTargetId,
   trTargetType, setTrTargetType,
   loadingTrTargets,
+  trDestMode, setTrDestMode,
+  orgReports, loadingOrgReports,
+  trReportId, setTrReportId,
   handleTrReceiverChange,
   handleCreateTransfer,
   // Edit unlinked transfer modal
@@ -121,47 +130,106 @@ export function FundModals({
               El saldo traspasado quedará como ítem en el fondo origen. El receptor lo verá como saldo flotante hasta vincularlo a su propio fondo.
             </p>
             <div className="space-y-3">
+              {/* Toggle Caja Chica / Rendición */}
               <div>
-                <label className="block text-xs font-semibold text-ink-600 mb-1">Empleado receptor</label>
-                <select
-                  value={trReceiverId}
-                  onChange={e => handleTrReceiverChange(e.target.value)}
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
-                >
-                  <option value="">— Seleccionar empleado —</option>
-                  {orgEmployees
-                    .filter(e => e.id !== transferSource.payerEmpId)
-                    .map(e => (
-                      <option key={e.id} value={e.id}>{e.full_name}</option>
-                    ))}
-                </select>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo de destino</label>
+                <div className="grid grid-cols-2 gap-1 bg-ink-100 rounded-item p-1">
+                  {(['fund', 'report'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setTrDestMode(mode)}
+                      className={[
+                        'py-1.5 rounded-[6px] text-xs font-semibold transition-colors',
+                        trDestMode === mode
+                          ? 'bg-white text-ink-900 shadow-sm'
+                          : 'text-ink-500 hover:text-ink-700',
+                      ].join(' ')}
+                    >
+                      {mode === 'fund' ? '🟣 Caja Chica' : '📋 Rendición'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {trReceiverId && (
-                <div>
-                  <label className="block text-xs font-semibold text-ink-600 mb-1">
-                    Destino específico <span className="text-ink-400 font-normal">(opcional)</span>
-                  </label>
-                  {loadingTrTargets ? (
-                    <p className="text-xs text-ink-400 py-1">Cargando fondos y rendiciones…</p>
-                  ) : trTargets.length === 0 ? (
-                    <p className="text-xs text-ink-400 italic py-1">Sin fondos ni rendiciones disponibles — quedará pendiente de vinculación.</p>
-                  ) : (
+
+              {/* Modo Caja Chica: seleccionar empleado → su fondo */}
+              {trDestMode === 'fund' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-ink-600 mb-1">Empleado receptor</label>
                     <select
-                      value={trTargetId}
-                      onChange={e => {
-                        setTrTargetId(e.target.value)
-                        const t = trTargets.find(x => x.id === e.target.value)
-                        if (t) setTrTargetType(t.type)
-                      }}
+                      value={trReceiverId}
+                      onChange={e => handleTrReceiverChange(e.target.value)}
                       className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
                     >
-                      <option value="">— Sin vincular (quedará pendiente) —</option>
-                      {trTargets.map(t => (
-                        <option key={t.id} value={t.id}>
-                          {t.type === 'fund' ? '🟣 ' : '📋 '}{t.label}
-                        </option>
-                      ))}
+                      <option value="">— Seleccionar empleado —</option>
+                      {orgEmployees
+                        .filter(e => e.id !== transferSource.payerEmpId)
+                        .map(e => (
+                          <option key={e.id} value={e.id}>{e.full_name}</option>
+                        ))}
                     </select>
+                  </div>
+                  {trReceiverId && (
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-600 mb-1">
+                        Fondo específico <span className="text-ink-400 font-normal">(opcional)</span>
+                      </label>
+                      {loadingTrTargets ? (
+                        <p className="text-xs text-ink-400 py-1">Cargando fondos…</p>
+                      ) : trTargets.filter(t => t.type === 'fund').length === 0 ? (
+                        <p className="text-xs text-ink-400 italic py-1">Sin fondos disponibles — el traspaso quedará pendiente de vinculación.</p>
+                      ) : (
+                        <select
+                          value={trTargetId}
+                          onChange={e => {
+                            setTrTargetId(e.target.value)
+                            setTrTargetType('fund')
+                          }}
+                          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        >
+                          <option value="">— Sin vincular (quedará pendiente) —</option>
+                          {trTargets.filter(t => t.type === 'fund').map(t => (
+                            <option key={t.id} value={t.id}>{t.label}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Modo Rendición: buscar directamente en todas las rendiciones de la org */}
+              {trDestMode === 'report' && (
+                <div>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Rendición de destino</label>
+                  {loadingOrgReports ? (
+                    <p className="text-xs text-ink-400 py-1">Cargando rendiciones…</p>
+                  ) : orgReports.length === 0 ? (
+                    <p className="text-xs text-ink-400 italic py-1">No hay rendiciones disponibles en la organización.</p>
+                  ) : (
+                    <>
+                      <select
+                        value={trReportId}
+                        onChange={e => setTrReportId(e.target.value)}
+                        className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      >
+                        <option value="">— Seleccionar rendición —</option>
+                        {orgReports.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.submitter_name} · {r.title}
+                          </option>
+                        ))}
+                      </select>
+                      {trReportId && (() => {
+                        const r = orgReports.find(x => x.id === trReportId)
+                        return r ? (
+                          <p className="text-xs text-ink-500 mt-1">
+                            Receptor: <span className="font-semibold text-ink-700">{r.submitter_name}</span>
+                          </p>
+                        ) : null
+                      })()}
+                    </>
                   )}
                 </div>
               )}
