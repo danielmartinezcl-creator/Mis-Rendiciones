@@ -578,7 +578,14 @@ export async function updateEmployee(
     cost_center_id?:             string | null
   }
 ) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('users')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, rut, bank_account')
+    .eq('id', userId)
+    .single()
 
   const { error } = await supabase
     .from('users')
@@ -586,6 +593,19 @@ export async function updateEmployee(
     .eq('id', userId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'user',
+    entityId:    userId,
+    entityLabel: before?.full_name ?? userId,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    updates as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/employees')
 }
 
