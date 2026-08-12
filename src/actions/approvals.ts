@@ -16,6 +16,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
 import type { Json } from '@/lib/supabase/types'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export interface ApprovalDecision {
   itemId: string
@@ -369,6 +370,15 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
         policy_violations: raw.policy_violations,
       }
     }),
+  }
+
+  // Rate limiting: máx 20 análisis IA por hora por usuario
+  const { allowed } = await checkRateLimit(user.id, 'ai_analysis', 20)
+  if (!allowed) {
+    // Retornar el análisis cacheado si existe, sin regenerar
+    const { data: existing } = await supabase
+      .from('expense_reports').select('ai_analysis').eq('id', reportId).single()
+    return existing?.ai_analysis as unknown as AiAnalysis ?? null
   }
 
   const prompt = buildAnalysisPrompt(reportForAnalysis, historyItems)
