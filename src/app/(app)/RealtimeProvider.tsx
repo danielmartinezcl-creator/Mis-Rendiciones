@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function RealtimeProvider({ userId, children }: Props) {
-  const handleNew = useCallback((n: { title: string; message: string; type: string }) => {
+  const handleNew = useCallback((n: { title: string; body: string; type: string }) => {
     // Dispatchar un CustomEvent para que otros componentes puedan reaccionar
     window.dispatchEvent(new CustomEvent('notification:new', { detail: n }))
 
@@ -31,9 +31,17 @@ export function RealtimeProvider({ userId, children }: Props) {
       'transition:opacity 0.3s',
     ].join(';')
 
-    container.innerHTML =
-      `<div style="font-weight:600;margin-bottom:2px">${n.title}</div>` +
-      `<div style="opacity:0.9;font-size:13px">${n.message}</div>`
+    // I-1: Usar textContent en lugar de innerHTML para evitar XSS
+    const titleEl = document.createElement('div')
+    titleEl.style.cssText = 'font-weight:600;margin-bottom:2px'
+    titleEl.textContent = n.title ?? ''
+
+    const messageEl = document.createElement('div')
+    messageEl.style.cssText = 'opacity:0.9;font-size:13px'
+    messageEl.textContent = n.body ?? ''
+
+    container.appendChild(titleEl)
+    container.appendChild(messageEl)
 
     container.onclick = () => container.remove()
     document.body.appendChild(container)

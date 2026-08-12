@@ -468,6 +468,7 @@ export async function adminDeleteExpenseReport(reportId: string) {
     .from('expense_reports')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', reportId)
+    .eq('org_id', profile.org_id)
 
   if (error) throw new Error(error.message)
 

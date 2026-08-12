@@ -5,7 +5,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 export function useRealtimeNotifications(
   userId: string | null,
-  onNew: (notification: { title: string; message: string; type: string }) => void
+  onNew: (notification: { title: string; body: string; type: string }) => void
 ) {
   const channelRef = useRef<RealtimeChannel | null>(null)
 
@@ -24,7 +24,7 @@ export function useRealtimeNotifications(
           filter: `user_id=eq.${userId}`,
         },
         payload => {
-          const n = payload.new as { title: string; message: string; type: string }
+          const n = payload.new as { title: string; body: string; type: string }
           onNew(n)
         }
       )

@@ -694,6 +694,7 @@ export async function updateCategory(id: string, data: { name: string; color?: s
       monthly_budget_clp: data.monthly_budget_clp ?? null,
     })
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
 
@@ -727,6 +728,7 @@ export async function deleteCategory(id: string) {
     .from('expense_categories')
     .delete()
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
 
@@ -969,12 +971,13 @@ export async function updateDefontanaSettings(settings: {
 }
 
 export async function updateCategoryDefontanaCode(categoryId: string, code: string) {
-  await requireAdmin()
+  const { orgId } = await requireAdmin()
   const admin = createAdminClient()
   const { error } = await admin
     .from('expense_categories')
     .update({ defontana_account_code: code || null })
     .eq('id', categoryId)
+    .eq('org_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/settings')
 }

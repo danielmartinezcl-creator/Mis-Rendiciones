@@ -466,6 +466,7 @@ export async function deletePettyCashFund(fundId: string) {
     .from('petty_cash_funds')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', fundId)
+    .eq('org_id', profile.org_id)
 
   if (error) throw new Error(error.message)
 
