@@ -172,10 +172,20 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
   return results
 }
 
+// ── Validación de complejidad de contraseña ──────────────────────────────────
+
+function validatePassword(pwd: string): string | null {
+  if (pwd.length < 8)       return 'Mínimo 8 caracteres'
+  if (!/[A-Z]/.test(pwd))  return 'Debe incluir al menos una mayúscula'
+  if (!/[0-9]/.test(pwd))  return 'Debe incluir al menos un número'
+  return null
+}
+
 // ── Establecer contraseña de empleado sin enviar email ───────────────────────
 
 export async function setEmployeePassword(userId: string, newPassword: string): Promise<void> {
-  if (newPassword.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres')
+  const pwdError = validatePassword(newPassword)
+  if (pwdError) throw new Error(pwdError)
   const { adminClient } = await getAdminContext()
   const { error } = await adminClient.auth.admin.updateUserById(userId, {
     password:      newPassword,

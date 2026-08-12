@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { FundStatus } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+import { validateStringLength, validateDateRange } from '@/lib/validators'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -54,6 +55,11 @@ export async function createPettyCashFund(data: {
 
   if (!profile.can_manage_petty_cash && profile.role !== 'admin') {
     throw new Error('Sin permiso para crear fondos')
+  }
+
+  if (!validateStringLength(data.name ?? '', 200)) throw new Error('Nombre requerido (máx 200 caracteres)')
+  if (data.period_start && data.period_end && !validateDateRange(data.period_start, data.period_end)) {
+    throw new Error('La fecha de fin debe ser posterior a la fecha de inicio')
   }
 
   // Verificar límite de monto por fondo

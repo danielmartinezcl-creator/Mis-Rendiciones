@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+import { validateStringLength, validateHexColor } from '@/lib/validators'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -630,6 +631,9 @@ export async function addCategory(data: {
 }) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
+  if (!validateStringLength(data.name, 100)) throw new Error('Nombre inválido (1-100 caracteres)')
+  if (data.color && !validateHexColor(data.color)) throw new Error('Color inválido — debe ser hex (#RRGGBB)')
+
   const { data: newCat, error } = await supabase
     .from('expense_categories')
     .insert({
@@ -671,6 +675,10 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
 
 export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string; monthly_budget_clp?: number | null }) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  if (!validateStringLength(data.name, 100)) throw new Error('Nombre inválido (1-100 caracteres)')
+  if (data.color && !validateHexColor(data.color)) throw new Error('Color inválido — debe ser hex (#RRGGBB)')
+
   const admin = createAdminClient()
 
   // Capture before state

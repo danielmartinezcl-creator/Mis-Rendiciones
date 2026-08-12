@@ -11,6 +11,7 @@ import {
 import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { ExpensePolicy, TravelPolicy } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+import { validateStringLength, validateAmount } from '@/lib/validators'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -67,6 +68,9 @@ export interface PolicyCheckResult {
 
 export async function createPolicy(data: PolicyInput): Promise<void> {
   const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  if (!validateStringLength(data.name, 200)) throw new Error('Nombre de política inválido (1-200 caracteres)')
+
   const { data: newPolicy, error } = await supabase
     .from('expense_policies')
     .insert({ org_id, ...data })
@@ -267,6 +271,10 @@ export interface TravelPolicyInput {
 
 export async function createTravelPolicy(data: TravelPolicyInput): Promise<void> {
   const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  if (!validateStringLength(data.name, 200)) throw new Error('Nombre de política de viáticos inválido (1-200 caracteres)')
+  if (!validateAmount(data.max_amount)) throw new Error('El monto máximo debe ser un número positivo')
+
   const { data: newPolicy, error } = await supabase
     .from('travel_policies')
     .insert({ org_id, ...data })
