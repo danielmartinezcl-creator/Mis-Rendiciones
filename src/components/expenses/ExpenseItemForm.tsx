@@ -8,6 +8,7 @@ import { checkItemDuplicate, checkDuplicateExpenseItem } from '@/actions/expense
 import { checkPolicyViolations, checkTravelPolicies } from '@/actions/policies'
 import { formatViolationMessage } from '@/lib/policy-helpers'
 import { formatCLP, formatExchangeRate, formatDate } from '@/lib/utils'
+import { validateAndFormatRut } from '@/lib/sii-validator'
 import { CURRENCIES, DOC_TYPES, type Currency } from '@/lib/constants'
 import type { OcrResult } from '@/lib/ocr-helpers'
 import type { PolicyCheckResult, TravelPolicyCheckResult } from '@/actions/policies'
@@ -602,6 +603,12 @@ export function ExpenseItemForm({
                 Sin RUT el crédito fiscal IVA no puede acreditarse ante el SII
               </div>
             )}
+            {form.supplier_rut && (() => {
+              const result = validateAndFormatRut(form.supplier_rut)
+              return result.valid
+                ? <p className="text-xs text-teal-600 mt-1">✓ RUT válido: {result.formatted}</p>
+                : <p className="text-xs text-red-600 mt-1">✗ {result.error}</p>
+            })()}
           </div>
         )}
 
