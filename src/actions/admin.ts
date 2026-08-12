@@ -2080,3 +2080,70 @@ export async function getAuditLog(filters: AuditLogFilters = {}) {
   const { data, count } = await q
   return { items: (data ?? []) as import('@/lib/supabase/types').AuditLog[], total: count ?? 0 }
 }
+
+// ─── Salud operacional ───────────────────────────────────────────────────────
+
+export async function getOrgHealthMetrics() {
+  const { supabase, orgId } = await requireAdmin()
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
+  const sixMonthsAgo  = new Date(now.getTime() - 182 * 86400000).toISOString()
+
+  // Rendiciones aprobadas vs rechazadas (últimos 30 días)
+  const [approved, rejected, pending] = await Promise.all([
+    supabase.from('expense_reports').select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId).eq('status', 'approved').gte('updated_at', thirtyDaysAgo).is('deleted_at', null),
+    supabase.from('expense_reports').select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId).eq('status', 'rejected').gte('updated_at', thirtyDaysAgo).is('deleted_at', null),
+    supabase.from('expense_reports').select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId).in('status', ['submitted', 'pending_l2']).is('deleted_at', null),
+  ])
+
+  // Empleados sin actividad en 30 días
+  const { data: activeUsers } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('org_id', orgId)
+    .gte('created_at', thirtyDaysAgo)
+    .is('deleted_at', null)
+  const activeUserIds = new Set((activeUsers ?? []).map(r => r.submitter_id))
+
+  const { data: allUsers } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .eq('org_id', orgId)
+    .eq('is_active', true)
+    .eq('role', 'employee')
+  const inactiveUsers = (allUsers ?? []).filter(u => !activeUserIds.has(u.id))
+
+  // Tiempo promedio de aprobación (días)
+  const { data: recentApproved } = await supabase
+    .from('expense_reports')
+    .select('created_at, updated_at')
+    .eq('org_id', orgId)
+    .eq('status', 'approved')
+    .gte('updated_at', sixMonthsAgo)
+    .is('deleted_at', null)
+    .limit(100)
+
+  const avgDays = recentApproved?.length
+    ? recentApproved.reduce((sum, r) => {
+        const ms = new Date(r.updated_at).getTime() - new Date(r.created_at).getTime()
+        return sum + ms / 86400000
+      }, 0) / recentApproved.length
+    : null
+
+  return {
+    last30Days: {
+      approved:     approved.count  ?? 0,
+      rejected:     rejected.count  ?? 0,
+      pending:      pending.count   ?? 0,
+      approvalRate: (approved.count != null && rejected.count != null && (approved.count + rejected.count) > 0)
+        ? Math.round((approved.count / (approved.count + rejected.count)) * 100)
+        : null,
+    },
+    avgApprovalDays:   avgDays ? Math.round(avgDays * 10) / 10 : null,
+    inactiveEmployees: inactiveUsers.slice(0, 5),
+    inactiveCount:     inactiveUsers.length,
+  }
+}
