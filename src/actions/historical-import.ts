@@ -52,6 +52,7 @@ export async function categorizeItems(
     .select('id, name')
     .or(`org_id.eq.${orgId},org_id.is.null`)
     .eq('is_active', true)
+    .is('deleted_at', null)
 
   if (!cats?.length) return []
 

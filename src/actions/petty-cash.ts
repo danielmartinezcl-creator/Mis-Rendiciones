@@ -528,7 +528,7 @@ export async function getFundDetail(fundId: string) {
     supabase.from('petty_cash_approvals').select('*').eq('fund_id', fundId).order('created_at', { ascending: true }),
     supabase.from('petty_cash_transfers').select('*').eq('fund_id', fundId).order('created_at', { ascending: true }),
     supabase.from('users').select('id, full_name').in('id', [fund.employee_id, fund.manager_id]),
-    supabase.from('expense_categories').select('id, name, color').eq('is_active', true),
+    supabase.from('expense_categories').select('id, name, color').eq('is_active', true).is('deleted_at', null),
   ])
 
   const userMap = Object.fromEntries((usersRes.data ?? []).map(u => [u.id, u.full_name]))
@@ -651,6 +651,7 @@ export async function getActivePettyCashCategories() {
     .select('id, name, color')
     .or(`org_id.eq.${profile.org_id},org_id.is.null`)
     .eq('is_active', true)
+    .is('deleted_at', null)
     .order('name', { ascending: true })
   return data ?? []
 }
@@ -728,6 +729,7 @@ export async function getPettyCashItemsForReport(filters: {
           .from('expense_items')
           .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
           .in('report_id', histReportIds)
+          .is('deleted_at', null)
           .order('date', { ascending: true })
       )
     : Promise.resolve({ data: [] })
@@ -749,7 +751,7 @@ export async function getPettyCashItemsForReport(filters: {
 
   const [catsRes, usersRes] = await Promise.all([
     allCatIds.length
-      ? supabase.from('expense_categories').select('id, name, color').in('id', allCatIds)
+      ? supabase.from('expense_categories').select('id, name, color').in('id', allCatIds).is('deleted_at', null)
       : Promise.resolve({ data: [] as { id: string; name: string; color: string | null }[] }),
     allEmpIds.length
       ? supabase.from('users').select('id, full_name').in('id', allEmpIds)

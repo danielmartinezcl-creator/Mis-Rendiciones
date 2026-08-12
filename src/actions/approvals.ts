@@ -132,6 +132,7 @@ export async function getReportForApproval(reportId: string) {
       attachments (id, storage_path, file_type)
     `)
     .eq('report_id', reportId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   return {
@@ -199,6 +200,7 @@ export async function submitApprovalDecision(
     .from('expense_items')
     .select('status, amount_clp')
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   const items       = allItems ?? []
   const itemStatus  = computeReportStatus(items)
@@ -303,6 +305,7 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
     .from('expense_items')
     .select(`id, description, amount_clp, merchant, doc_type, doc_number, policy_violations, expense_categories (name)`)
     .eq('report_id', reportId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   const { data: submitterData } = await supabase
@@ -327,6 +330,7 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
       .from('expense_items')
       .select(`description, amount_clp, merchant, status, rejection_reason, expense_categories (name)`)
       .in('report_id', histRids)
+      .is('deleted_at', null)
 
     historyItems = (histItemsRaw ?? []).map(h => {
       const raw = h as unknown as {
@@ -417,7 +421,7 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
 
   // Leer todos los ítems para calcular estado global
   const { data: allItems } = await supabase
-    .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId)
+    .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId).is('deleted_at', null)
   const items = (allItems ?? []) as { id: string; status: string; amount_clp: number }[]
 
   const isL1 = report.status === 'submitted'

@@ -63,6 +63,7 @@ export async function getReportDetailForAdmin(reportId: string) {
       .from('expense_items')
       .select('id, category_id, description, amount_clp, status, rejection_reason, expense_categories(name)')
       .eq('report_id', reportId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: true }),
     supabase
       .from('expense_report_approvals')
@@ -241,6 +242,7 @@ export async function getPendingToRenderList() {
       .from('expense_items')
       .select('report_id, item_type, amount_clp')
       .in('report_id', historical.map(r => r.id))
+      .is('deleted_at', null)
 
     // Mapa reportId → fundKey para lookup rápido
     const reportToFundKey = new Map<string, string>()
@@ -402,7 +404,7 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   const { supabase, orgId } = await requireAdmin()
 
   const { data: item } = await supabase
-    .from('expense_items').select('report_id').eq('id', itemId).single()
+    .from('expense_items').select('report_id').eq('id', itemId).is('deleted_at', null).single()
   if (!item) throw new Error('Ítem no encontrado')
 
   const { data: report } = await supabase
@@ -856,6 +858,7 @@ export async function getDefontanaExportData(filters: {
     .select('report_id, description, amount_clp, date, merchant, doc_type, doc_number, cost_center_id, supplier_rut, expense_categories(name, defontana_account_code)')
     .in('report_id', reports.map(r => r.id))
     .eq('status', 'approved')
+    .is('deleted_at', null)
 
   type RawItem = {
     report_id:       string
@@ -1165,6 +1168,7 @@ export async function getReportAttachmentUrls(reportId: string): Promise<
     .from('expense_items')
     .select(`id, description, merchant, date, attachments (id, storage_path, file_type)`)
     .eq('report_id', reportId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (!rawItems?.length) return []
@@ -1333,6 +1337,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     .eq('status', 'approved')
     .gte('date', dateFrom)
     .is('expense_reports.deleted_at', null)
+    .is('deleted_at', null)
 
   if (error) throw new Error(error.message)
 
@@ -1431,6 +1436,7 @@ export async function getItemsWithoutCC(): Promise<ItemWithoutCC[]> {
     .eq('status', 'approved')
     .is('cost_center_id', null)
     .is('expense_reports.deleted_at', null)
+    .is('deleted_at', null)
     .order('date', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -1628,6 +1634,7 @@ export async function getHistoricalFundDefontanaData(
     .eq('report_id', reportId)
     .in('item_type', itemTypes)
     .is('defontana_exported_at', null)
+    .is('deleted_at', null)
 
   type RawItem = {
     id: string
@@ -1726,6 +1733,7 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
     .in('report_id', ids)
     .eq('status', 'approved')
     .eq('item_type', 'expense')
+    .is('deleted_at', null)
 
   if (!items || items.length === 0) return []
 

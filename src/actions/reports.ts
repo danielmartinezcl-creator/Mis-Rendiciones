@@ -42,6 +42,7 @@ async function enrichCategories(
     .from('expense_categories')
     .select('id, name, color')
     .in('id', categoryIds)
+    .is('deleted_at', null)
   return Object.fromEntries((data ?? []).map(c => [c.id, { name: c.name, color: c.color ?? null }]))
 }
 
@@ -107,6 +108,7 @@ async function fetchRendicionItems(
     .from('expense_items')
     .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
     .in('report_id', reportIds)
+    .is('deleted_at', null)
     .order('date', { ascending: true })
 
   if (filters.dateFrom)              itemsQ = itemsQ.gte('date', filters.dateFrom)
@@ -278,6 +280,7 @@ async function fetchCajaChicaHistItems(
     .from('expense_items')
     .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
     .in('report_id', reportIds)
+    .is('deleted_at', null)
     .order('date', { ascending: true })
 
   if (filters.dateFrom)              itemsQ = itemsQ.gte('date', filters.dateFrom)
@@ -338,6 +341,7 @@ export async function getReportFilterOptions(): Promise<ReportFilterOptions> {
       .select('id, name, color')
       .or(`org_id.eq.${orgId},org_id.is.null`)
       .eq('is_active', true)
+      .is('deleted_at', null)
       .order('name'),
     supabase
       .from('expense_reports')

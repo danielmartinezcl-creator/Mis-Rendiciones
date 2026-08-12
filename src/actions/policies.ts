@@ -159,6 +159,7 @@ export async function checkPolicyViolations(params: {
       .neq('status', 'rejected')
       .gte('date', annualStart)
       .lte('date', annualEnd)
+      .is('deleted_at', null)
 
     if (categoryId) q = q.eq('category_id', categoryId)
 

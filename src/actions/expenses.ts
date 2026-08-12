@@ -126,6 +126,7 @@ export async function addExpenseItem(
     .from('expense_items')
     .select('amount_clp')
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   const total = calculateReportTotal(allItems ?? [])
 
@@ -169,7 +170,7 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
 
   const { error } = await supabase
     .from('expense_items')
-    .delete()
+    .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
     .eq('id', itemId)
 
   if (error) throw new Error(error.message)
@@ -178,6 +179,7 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     .from('expense_items')
     .select('amount_clp')
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   const total = calculateReportTotal(allItems ?? [])
   await supabase
@@ -203,6 +205,7 @@ export async function submitExpenseReport(reportId: string) {
     .from('expense_items')
     .select('*', { count: 'exact', head: true })
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   if (!count || count === 0) {
     throw new Error('La rendición debe tener al menos un ítem')
