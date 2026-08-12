@@ -48,10 +48,10 @@ const NAV_ITEMS = [
   { href: '/admin/analisis',  label: 'Análisis CC',     Icon: PieChart,         roles: ['admin'] as const },
   { href: '/admin/reports',   label: 'Rendiciones',     Icon: ReceiptText,      roles: ['admin'] as const },
   { href: '/admin/employees', label: 'Empleados',       Icon: Users,            roles: ['admin'] as const },
-  { href: '/admin/settings',  label: 'Configuración',   Icon: Settings2,        roles: ['admin'] as const },
-  { href: '/admin/trash',      label: 'Papelera',        Icon: Trash2,           roles: ['admin'] as const },
-  { href: '/admin/auditoria',  label: 'Auditoría',       Icon: Shield,           roles: ['admin'] as const },
-  { href: '/admin/carga-historica', label: 'Carga Histórica', Icon: Clock,      roles: ['admin'] as const },
+  { href: '/admin/settings',      label: 'Configuración',   Icon: Settings2, roles: ['admin'] as const },
+  { href: '/admin/auditoria',     label: 'Auditoría',       Icon: Shield,    roles: ['admin'] as const },
+  { href: '/admin/trash',         label: 'Papelera',        Icon: Trash2,    roles: ['admin'] as const },
+  { href: '/admin/carga-historica', label: 'Carga Histórica', Icon: Clock,   roles: ['admin'] as const },
 ]
 
 type NavItem = typeof NAV_ITEMS[number]
@@ -163,7 +163,7 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* ── Navegación ── */}
-      <nav className="flex-1 p-3 space-y-0.5">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {items.map((item, idx) => {
           const active    = pathname === item.href
           const isDragged = dragIdx === idx

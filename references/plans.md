@@ -69,17 +69,23 @@
 
 ---
 
-## Backlog real (2 ítems)
+## Backlog real (1 ítem)
 
-### 1. Notificaciones email completas
-**Estado:** Parcialmente implementado. Resend está instalado y algunos paths envían email.
-**Bloqueante:** Lookup de `auth.users.email` por UUID requiere `SUPABASE_SERVICE_ROLE_KEY`. La función `createAdminClient()` ya existe — hay que asegurar que todos los paths de `resend.emails.send()` la usen para el lookup del email del destinatario.
-**Impacto:** Bajo — las notificaciones in-app funcionan; el email es complementario.
-
-### 2. Service worker offline
+### 1. Service worker offline
 **Estado:** No implementado.
 **Bloqueante:** `next-pwa` v5 es incompatible con Turbopack (Next.js 16). La app es instalable como PWA (manifest.json + metadata en layout.tsx) pero sin cache offline.
 **Workaround:** Manual service worker sin `next-pwa`, pero complejidad alta para beneficio bajo. Backlog indefinido.
+
+---
+
+## Completado recientemente
+
+### Notificaciones email completas ✅ (verificado 2026-08-12)
+Todos los paths de email usan `createAdminClient()` para resolver `auth.users.email` vía `auth.admin.getUserById()`:
+- `notifications.ts` → `lookupEmails()` → llamadas en paralelo con admin client para cada destinatario
+- `employees.ts` → invitación individual → `auth.admin.getUserById(userId)` directo
+- `admin.ts` → reenvío de invitación → `auth.admin.getUserById(userId)` directo
+- `approvals.ts` y `expenses.ts` → todas las notificaciones pasan por helpers de `notifications.ts`
 
 ---
 
