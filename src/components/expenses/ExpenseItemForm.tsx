@@ -250,11 +250,9 @@ export function ExpenseItemForm({
     }
 
     // Verificar duplicado por merchant + monto + fecha (±7 días)
-    if (!isMileage && form.merchant.trim() && form.amount_clp > 0 && submitterId && orgId) {
+    if (!isMileage && form.merchant.trim() && form.amount_clp > 0) {
       setSaving(true)
       const merchantDup: DuplicateMatch | null = await checkDuplicateExpenseItem({
-        submitterId,
-        orgId,
         amountClp: form.amount_clp,
         merchant:  form.merchant,
         date:      form.date,

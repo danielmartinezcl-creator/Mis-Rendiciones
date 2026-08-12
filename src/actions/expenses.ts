@@ -9,6 +9,7 @@ import { notifyApproversOfSubmission } from '@/actions/notifications'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+import { validateRut } from '@/lib/validators'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -81,6 +82,15 @@ export async function addExpenseItem(
   const errors = validateExpenseItem(item)
   if (errors.length > 0) throw new Error(errors.join(', '))
 
+  // Validar RUT de proveedor server-side — si es inválido, limpiar (no bloquear)
+  let supplierRut = item.supplier_rut ?? null
+  if (supplierRut && (item.doc_type === 'factura' || item.doc_type === 'factura_exenta')) {
+    const normalized = supplierRut.trim().toUpperCase().replace(/\./g, '')
+    if (!validateRut(normalized)) {
+      supplierRut = null
+    }
+  }
+
   // Verificar límite de monto por ítem
   const { data: org } = await supabase
     .from('organizations')
@@ -110,7 +120,7 @@ export async function addExpenseItem(
       doc_number:           item.doc_number ?? null,
       notes:                item.notes ?? null,
       cost_center_id:       item.cost_center_id ?? null,
-      supplier_rut:         item.supplier_rut ?? null,
+      supplier_rut:         supplierRut,
       ocr_raw:              item.ocr_raw ?? null,
       ocr_confidence:       item.ocr_confidence ?? null,
       policy_justification: item.policy_justification ?? null,
@@ -181,6 +191,7 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     .from('expense_items')
     .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
     .eq('id', itemId)
+    .eq('report_id', reportId)
 
   if (error) throw new Error(error.message)
 
@@ -364,15 +375,20 @@ export async function checkItemDuplicate(params: {
 // ── Detección de ítems duplicados por merchant + monto + fecha (±7 días) ────
 
 export async function checkDuplicateExpenseItem(params: {
-  submitterId: string
-  orgId:       string
-  amountClp:   number
-  merchant:    string
-  date:        string
+  amountClp: number
+  merchant:  string
+  date:      string
 }): Promise<DuplicateMatch | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  // Derivar identidad del servidor — nunca del cliente
+  const { data: profile } = await supabase
+    .from('users').select('org_id').eq('id', user.id).single()
+  if (!profile) return null
+
+  const submitterId = user.id
 
   const rangeFrom = new Date(new Date(params.date).getTime() - 7 * 86400000).toISOString().split('T')[0]
   const rangeTo   = new Date(new Date(params.date).getTime() + 7 * 86400000).toISOString().split('T')[0]
@@ -391,7 +407,7 @@ export async function checkDuplicateExpenseItem(params: {
 
   for (const item of items) {
     const report = (item.expense_reports as unknown as { id: string; title: string; submitter_id: string } | null)
-    if (!report || report.submitter_id !== params.submitterId) continue
+    if (!report || report.submitter_id !== submitterId) continue
     if (normalizeMerchant(item.merchant ?? '') === normTarget) {
       return {
         reportId:    report.id,
@@ -494,8 +510,15 @@ export async function adminDeleteAllReports() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('users').select('role, org_id').eq('id', user.id).single()
+    .from('users').select('role, org_id, full_name').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  // Contar antes de borrar para el log
+  const { count } = await supabase
+    .from('expense_reports')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', profile.org_id)
+    .is('deleted_at', null)
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
@@ -505,6 +528,20 @@ export async function adminDeleteAllReports() {
     .is('deleted_at', null)
 
   if (error) throw new Error(error.message)
+
+  try {
+    await logAudit({
+      orgId:       profile.org_id,
+      actorId:     user.id,
+      actorName:   profile.full_name,
+      action:      'deleted',
+      entityType:  'expense_report',
+      entityId:    'bulk',
+      entityLabel: 'Borrado masivo de rendiciones',
+      notes:       `${count ?? 0} rendiciones eliminadas`,
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/reports')
   revalidatePath('/admin/trash')
 }

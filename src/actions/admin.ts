@@ -495,8 +495,20 @@ export async function resendInvitation(userId: string) {
 }
 
 export async function deactivateEmployee(userId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   await supabase.from('users').update({ is_active: false }).eq('id', userId)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'updated',
+      entityType:  'user',
+      entityId:    userId,
+      entityLabel: 'Empleado desactivado',
+      newValue:    { is_active: false },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/employees')
 }
 
@@ -539,7 +551,7 @@ export async function deleteEmployee(userId: string) {
 }
 
 export async function deleteEmployees(userIds: string[]): Promise<{ id: string; error?: string }[]> {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   const adminClient = createAdminClient()
 
   const deletedAt = new Date().toISOString()
@@ -555,6 +567,17 @@ export async function deleteEmployees(userIds: string[]): Promise<{ id: string; 
       return { id, error: error?.message }
     })
   )
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'deleted',
+      entityType:  'user',
+      entityId:    userIds.join(','),
+      entityLabel: `${userIds.length} empleados eliminados`,
+      oldValue:    { employeeIds: userIds },
+    })
+  } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
   revalidatePath('/admin/employees')
@@ -663,12 +686,23 @@ export async function addCategory(data: {
 }
 
 export async function toggleCategoryActive(id: string, isActive: boolean) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
   await supabase
     .from('expense_categories')
     .update({ is_active: isActive })
     .eq('id', id)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'updated',
+      entityType:  'category',
+      entityId:    id,
+      entityLabel: `Categoría ${isActive ? 'activada' : 'desactivada'}`,
+      newValue:    { is_active: isActive },
+    })
+  } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
 }
@@ -971,7 +1005,7 @@ export async function updateDefontanaSettings(settings: {
 }
 
 export async function updateCategoryDefontanaCode(categoryId: string, code: string) {
-  const { orgId } = await requireAdmin()
+  const { orgId, userId: actorId, actorName } = await requireAdmin()
   const admin = createAdminClient()
   const { error } = await admin
     .from('expense_categories')
@@ -979,6 +1013,18 @@ export async function updateCategoryDefontanaCode(categoryId: string, code: stri
     .eq('id', categoryId)
     .eq('org_id', orgId)
   if (error) throw new Error(error.message)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'updated',
+      entityType:  'category',
+      entityId:    categoryId,
+      entityLabel: `Código Defontana actualizado: ${code}`,
+      newValue:    { defontana_account_code: code || null },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/settings')
 }
 
@@ -1280,7 +1326,7 @@ export async function bulkUpdateExpenseItemsCostCenter(reportId: string, costCen
 }
 
 export async function setDefaultPolicy(policyId: string) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
   // Quitar default de todas
   await supabase
@@ -1293,6 +1339,17 @@ export async function setDefaultPolicy(policyId: string) {
     .from('approval_policies')
     .update({ is_default: true })
     .eq('id', policyId)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'config_changed',
+      entityType:  'policy',
+      entityId:    policyId,
+      entityLabel: 'Política por defecto cambiada',
+      newValue:    { default_policy_id: policyId },
+    })
+  } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
 }
@@ -2088,7 +2145,14 @@ export async function getAuditLog(filters: AuditLogFilters = {}) {
   if (filters.action)     q = q.eq('action', filters.action)
   if (filters.from)       q = q.gte('created_at', `${filters.from}T00:00:00Z`)
   if (filters.to)         q = q.lte('created_at', `${filters.to}T23:59:59Z`)
-  if (filters.search)     q = q.or(`entity_label.ilike.%${filters.search}%,notes.ilike.%${filters.search}%,actor_name.ilike.%${filters.search}%`)
+  if (filters.search) {
+    const safeSearch = filters.search
+      .replace(/\\/g, '\\\\')
+      .replace(/,/g,  '\\,')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+    q = q.or(`entity_label.ilike.%${safeSearch}%,notes.ilike.%${safeSearch}%,actor_name.ilike.%${safeSearch}%`)
+  }
 
   const { data, count } = await q
   return { items: (data ?? []) as import('@/lib/supabase/types').AuditLog[], total: count ?? 0 }
@@ -2176,6 +2240,36 @@ export async function listWebhooks() {
 
 export async function createWebhook(url: string, secret: string, events: string[]) {
   const { orgId, userId, actorName } = await requireAdmin()
+
+  // Validar URL: solo HTTPS, sin rangos privados/link-local
+  let parsed: URL
+  try { parsed = new URL(url) } catch { throw new Error('URL inválida') }
+  if (parsed.protocol !== 'https:') throw new Error('La URL debe usar HTTPS')
+  const host = parsed.hostname
+  const privateRanges = [
+    /^localhost$/i,
+    /^127\./,
+    /^10\./,
+    /^192\.168\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^169\.254\./,
+    /^::1$/,
+    /^fc00:/i,
+    /^fe80:/i,
+  ]
+  if (privateRanges.some(r => r.test(host))) throw new Error('La URL apunta a una dirección privada')
+
+  // Validar events: solo valores conocidos
+  const VALID_EVENTS: string[] = [
+    'report.approved', 'report.partially_approved', 'report.rejected',
+    'report.reimbursed', 'defontana.exported',
+  ]
+  const invalidEvents = events.filter(e => !VALID_EVENTS.includes(e))
+  if (invalidEvents.length) throw new Error(`Eventos inválidos: ${invalidEvents.join(', ')}`)
+
+  // Validar secret: mínimo 16 caracteres
+  if (!secret || secret.length < 16) throw new Error('El secret debe tener al menos 16 caracteres')
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('webhooks')

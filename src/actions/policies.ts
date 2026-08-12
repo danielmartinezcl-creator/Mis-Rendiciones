@@ -117,10 +117,24 @@ export async function updatePolicy(id: string, data: Partial<PolicyInput>): Prom
 }
 
 export async function togglePolicyActive(id: string, active: boolean): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
   const { error } = await supabase
     .from('expense_policies').update({ is_active: active }).eq('id', id)
   if (error) throw new Error(error.message)
+
+  try {
+    await logAudit({
+      orgId:       org_id,
+      actorId:     user.id,
+      actorName,
+      action:      'updated',
+      entityType:  'policy',
+      entityId:    id,
+      entityLabel: `Política ${active ? 'activada' : 'desactivada'}`,
+      newValue:    { is_active: active },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/settings')
 }
 

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { validateRut } from '@/lib/validators'
 
 export type ImportEmployeeRow = {
   full_name:       string
@@ -52,7 +53,17 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
   const { profile, adminClient } = await getAdminContext()
   const results: ImportResult[] = []
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    // Validar RUT del empleado si viene en la fila
+    if (row.rut) {
+      const normalized = row.rut.trim().toUpperCase().replace(/\./g, '')
+      if (!validateRut(normalized)) {
+        results.push({ email: row.email, full_name: row.full_name, success: false, error: `RUT inválido "${row.rut}"` })
+        continue
+      }
+    }
+
     try {
       // createUser crea la cuenta SIN enviar email de invitación
       const { data: created, error: createError } = await adminClient.auth.admin.createUser({
