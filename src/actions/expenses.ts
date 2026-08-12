@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
 import { notifyApproversOfSubmission } from '@/actions/notifications'
+import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 
@@ -357,6 +358,51 @@ export async function checkItemDuplicate(params: {
     }
   }
 
+  return null
+}
+
+// ── Detección de ítems duplicados por merchant + monto + fecha (±7 días) ────
+
+export async function checkDuplicateExpenseItem(params: {
+  submitterId: string
+  orgId:       string
+  amountClp:   number
+  merchant:    string
+  date:        string
+}): Promise<DuplicateMatch | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const rangeFrom = new Date(new Date(params.date).getTime() - 7 * 86400000).toISOString().split('T')[0]
+  const rangeTo   = new Date(new Date(params.date).getTime() + 7 * 86400000).toISOString().split('T')[0]
+
+  const { data: items } = await supabase
+    .from('expense_items')
+    .select('id, merchant, amount_clp, date, expense_reports!inner(id, title, submitter_id)')
+    .gte('date', rangeFrom)
+    .lte('date', rangeTo)
+    .eq('amount_clp', params.amountClp)
+    .is('deleted_at', null)
+
+  if (!items?.length) return null
+
+  const normTarget = normalizeMerchant(params.merchant)
+
+  for (const item of items) {
+    const report = (item.expense_reports as unknown as { id: string; title: string; submitter_id: string } | null)
+    if (!report || report.submitter_id !== params.submitterId) continue
+    if (normalizeMerchant(item.merchant ?? '') === normTarget) {
+      return {
+        reportId:    report.id,
+        reportTitle: report.title,
+        itemId:      item.id,
+        date:        item.date,
+        amount:      item.amount_clp,
+        merchant:    item.merchant ?? '',
+      }
+    }
+  }
   return null
 }
 

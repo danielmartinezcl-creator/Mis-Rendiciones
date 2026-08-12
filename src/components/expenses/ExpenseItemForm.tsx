@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { PhotoUpload } from './PhotoUpload'
 import { getHistoricalRate } from '@/actions/exchange-rate'
-import { checkItemDuplicate } from '@/actions/expenses'
+import { checkItemDuplicate, checkDuplicateExpenseItem } from '@/actions/expenses'
 import { checkPolicyViolations, checkTravelPolicies } from '@/actions/policies'
 import { formatViolationMessage } from '@/lib/policy-helpers'
 import { formatCLP, formatExchangeRate, formatDate } from '@/lib/utils'
@@ -12,6 +12,7 @@ import { CURRENCIES, DOC_TYPES, type Currency } from '@/lib/constants'
 import type { OcrResult } from '@/lib/ocr-helpers'
 import type { PolicyCheckResult, TravelPolicyCheckResult } from '@/actions/policies'
 import type { PolicyViolation } from '@/lib/policy-helpers'
+import type { DuplicateMatch } from '@/lib/duplicate-detection'
 import type { ExpenseCategory, CostCenter, Json } from '@/lib/supabase/types'
 
 type DuplicateResult = Awaited<ReturnType<typeof checkItemDuplicate>>
@@ -70,6 +71,8 @@ interface ExpenseItemFormProps {
   costCenters:          CostCenter[]
   employeeCostCenterId: string | null
   mileageRate:          number   // tarifa CLP/km configurada por la org
+  submitterId:          string | null   // ID del empleado logueado (para detección de duplicados)
+  orgId:                string | null   // org_id del empleado logueado
   onSave:               (data: ItemFormData) => Promise<void>
   onCancel:             () => void
 }
@@ -79,6 +82,8 @@ export function ExpenseItemForm({
   costCenters,
   employeeCostCenterId,
   mileageRate,
+  submitterId,
+  orgId,
   onSave,
   onCancel,
 }: ExpenseItemFormProps) {
@@ -240,6 +245,26 @@ export function ExpenseItemForm({
       if (dup) {
         setDuplicateWarning(dup)
         return
+      }
+    }
+
+    // Verificar duplicado por merchant + monto + fecha (±7 días)
+    if (!isMileage && form.merchant.trim() && form.amount_clp > 0 && submitterId && orgId) {
+      setSaving(true)
+      const merchantDup: DuplicateMatch | null = await checkDuplicateExpenseItem({
+        submitterId,
+        orgId,
+        amountClp: form.amount_clp,
+        merchant:  form.merchant,
+        date:      form.date,
+      })
+      setSaving(false)
+      if (merchantDup) {
+        const proceed = window.confirm(
+          `Posible duplicado detectado: ya existe un ítem de ${formatCLP(merchantDup.amount)} ` +
+          `en "${merchantDup.reportTitle}" del ${merchantDup.date}.\n\n¿Continuar de todas formas?`
+        )
+        if (!proceed) return
       }
     }
 
