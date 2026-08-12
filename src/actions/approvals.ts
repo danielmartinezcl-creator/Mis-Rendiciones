@@ -98,6 +98,17 @@ export async function getPendingApprovals() {
 
 export async function getReportForApproval(reportId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  // Solo approvers y admins pueden llamar esta función
+  if (!profile || (profile.role === 'employee' && !profile.can_approve)) return null
 
   const { data: report } = await supabase
     .from('expense_reports')
@@ -262,6 +273,14 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  const { data: profileForRole } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  if (!profileForRole || (profileForRole.role === 'employee' && !profileForRole.can_approve)) return null
 
   const { data: report } = await supabase
     .from('expense_reports')

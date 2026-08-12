@@ -330,8 +330,12 @@ export async function getMyNotifications() {
 
 export async function markNotificationRead(notificationId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
   await supabase
     .from('notifications')
     .update({ read: true })
     .eq('id', notificationId)
+    .eq('user_id', user.id)  // solo marcar las propias notificaciones
 }

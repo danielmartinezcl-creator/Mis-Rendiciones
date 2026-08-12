@@ -146,6 +146,26 @@ export async function addExpenseItem(
 
 export async function deleteExpenseItem(itemId: string, reportId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  // Verificar que el reporte pertenece al usuario (o es admin)
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) throw new Error('Rendición no encontrada')
+  if (profile?.role !== 'admin' && report.submitter_id !== user.id) {
+    throw new Error('Sin permiso para eliminar ítems de esta rendición')
+  }
 
   const { error } = await supabase
     .from('expense_items')
@@ -392,6 +412,8 @@ export async function adminDeleteAllReports() {
 
 export async function getReportWithItems(reportId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
 
   const { data: report } = await supabase
     .from('expense_reports')
@@ -508,6 +530,73 @@ export async function getMyMonthlySummary(): Promise<{
   return { rows: Array.from(agg.values()), months }
 }
 
+// ── Timeline completo de una rendición (R-04) ────────────────────────────────
+
+export type TimelineEvent = {
+  label:  string
+  date:   string
+  type:   'neutral' | 'success' | 'warning' | 'error'
+}
+
+export async function getReportTimeline(reportId: string): Promise<TimelineEvent[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  // Ownership check: employees can only see their own report's timeline
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return []
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return []
+  if (profile.role === 'employee' && !profile.can_approve && report.submitter_id !== user.id) return []
+
+  const { data: entries } = await supabase
+    .from('expense_report_approvals')
+    .select('approver_id, action, created_at, notes, level')
+    .eq('report_id', reportId)
+    .order('created_at', { ascending: true })
+
+  if (!entries?.length) return []
+
+  const approverIds = [...new Set(entries.map(e => e.approver_id))]
+  const { data: users } = await supabase.from('users').select('id, full_name').in('id', approverIds)
+  const nameMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return entries.map(e => {
+    const name = nameMap[e.approver_id] ?? 'Aprobador'
+    const lvl  = e.level ?? 1
+    switch (e.action) {
+      case 'approved':
+        return { label: lvl === 2 ? `Aprobada L2 por ${name}` : `Aprobada por ${name}`, date: e.created_at, type: 'success' as const }
+      case 'partially_approved':
+        return { label: `Aprobada parcialmente por ${name}`, date: e.created_at, type: 'warning' as const }
+      case 'rejected':
+        return { label: `Rechazada por ${name}`, date: e.created_at, type: 'error' as const }
+      case 'returned_to_draft':
+        return { label: `Devuelta a borrador por ${name}`, date: e.created_at, type: 'warning' as const }
+      case 'bank_load_requested':
+        return { label: 'Proceso de reembolso iniciado', date: e.created_at, type: 'neutral' as const }
+      case 'bank_load_confirmed':
+        return { label: 'Transferencia bancaria cargada', date: e.created_at, type: 'neutral' as const }
+      case 'bank_authorized':
+        return { label: `Transferencia autorizada${e.notes ? ` · Ref: ${e.notes}` : ''}`, date: e.created_at, type: 'success' as const }
+      default:
+        return { label: e.action, date: e.created_at, type: 'neutral' as const }
+    }
+  })
+}
+
 // ── Historial de aprobaciones de una rendición (R17) ─────────────────────────
 
 export type ReportApproval = {
@@ -521,6 +610,24 @@ export async function getReportApprovals(reportId: string): Promise<ReportApprov
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
+
+  // Ownership check: employees can only see approvals for their own reports
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return []
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return []
+  if (profile.role === 'employee' && !profile.can_approve && report.submitter_id !== user.id) return []
 
   const { data: approvals } = await supabase
     .from('expense_report_approvals')

@@ -3,8 +3,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { buildOcrPrompt, parseOcrResponse } from '@/lib/ocr-helpers'
 import type { OcrResult } from '@/lib/ocr-helpers'
+import { createClient } from '@/lib/supabase/server'
 
 export async function runOcr(imageBase64: string, mimeType: string): Promise<OcrResult | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY!,
   })
