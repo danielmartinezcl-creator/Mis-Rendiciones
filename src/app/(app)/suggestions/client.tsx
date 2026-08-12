@@ -23,15 +23,16 @@ const STATUS_LABELS = {
 }
 
 interface Props {
-  isAdmin: boolean
-  initialItems: SuggestionWithUser[]
+  isAdmin:        boolean
+  initialItems:   SuggestionWithUser[]
+  initialShowAll?: boolean
 }
 
-export function SuggestionsClient({ isAdmin, initialItems }: Props) {
+export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = false }: Props) {
   const [content,   setContent]   = useState('')
   const [category,  setCategory]  = useState<Suggestion['category']>('mejora')
   const [items,     setItems]     = useState<SuggestionWithUser[]>(initialItems)
-  const [showAll,   setShowAll]   = useState(false)
+  const [showAll,   setShowAll]   = useState(initialShowAll)
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [success,   setSuccess]   = useState(false)

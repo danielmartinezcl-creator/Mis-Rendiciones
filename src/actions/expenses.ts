@@ -6,7 +6,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
 import { notifyApproversOfSubmission } from '@/actions/notifications'
+import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
+import { validateRut } from '@/lib/validators'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -79,6 +82,15 @@ export async function addExpenseItem(
   const errors = validateExpenseItem(item)
   if (errors.length > 0) throw new Error(errors.join(', '))
 
+  // Validar RUT de proveedor server-side — si es inválido, limpiar (no bloquear)
+  let supplierRut = item.supplier_rut ?? null
+  if (supplierRut && (item.doc_type === 'factura' || item.doc_type === 'factura_exenta')) {
+    const normalized = supplierRut.trim().toUpperCase().replace(/\./g, '')
+    if (!validateRut(normalized)) {
+      supplierRut = null
+    }
+  }
+
   // Verificar límite de monto por ítem
   const { data: org } = await supabase
     .from('organizations')
@@ -108,7 +120,7 @@ export async function addExpenseItem(
       doc_number:           item.doc_number ?? null,
       notes:                item.notes ?? null,
       cost_center_id:       item.cost_center_id ?? null,
-      supplier_rut:         item.supplier_rut ?? null,
+      supplier_rut:         supplierRut,
       ocr_raw:              item.ocr_raw ?? null,
       ocr_confidence:       item.ocr_confidence ?? null,
       policy_justification: item.policy_justification ?? null,
@@ -126,6 +138,7 @@ export async function addExpenseItem(
     .from('expense_items')
     .select('amount_clp')
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   const total = calculateReportTotal(allItems ?? [])
 
@@ -146,11 +159,39 @@ export async function addExpenseItem(
 
 export async function deleteExpenseItem(itemId: string, reportId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  // Verificar que el reporte pertenece al usuario (o es admin)
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, org_id, full_name')
+    .eq('id', user.id)
+    .single()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) throw new Error('Rendición no encontrada')
+  if (profile?.role !== 'admin' && report.submitter_id !== user.id) {
+    throw new Error('Sin permiso para eliminar ítems de esta rendición')
+  }
+
+  // Capture item before soft delete
+  const { data: item } = await supabase
+    .from('expense_items')
+    .select('description, amount_clp')
+    .eq('id', itemId)
+    .single()
 
   const { error } = await supabase
     .from('expense_items')
-    .delete()
+    .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
     .eq('id', itemId)
+    .eq('report_id', reportId)
 
   if (error) throw new Error(error.message)
 
@@ -158,6 +199,7 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     .from('expense_items')
     .select('amount_clp')
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   const total = calculateReportTotal(allItems ?? [])
   await supabase
@@ -171,6 +213,17 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     .update({ ai_analysis: null, ai_analysis_at: null })
     .eq('id', reportId)
 
+  await logAudit({
+    orgId:       profile?.org_id ?? '',
+    actorId:     user.id,
+    actorName:   profile?.full_name ?? null,
+    action:      'deleted',
+    entityType:  'expense_item',
+    entityId:    itemId,
+    entityLabel: item?.description ?? itemId,
+    oldValue:    item as unknown as Record<string, unknown>,
+  })
+
   revalidatePath(`/expenses/${reportId}`)
 }
 
@@ -183,6 +236,7 @@ export async function submitExpenseReport(reportId: string) {
     .from('expense_items')
     .select('*', { count: 'exact', head: true })
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   if (!count || count === 0) {
     throw new Error('La rendición debe tener al menos un ítem')
@@ -318,6 +372,56 @@ export async function checkItemDuplicate(params: {
   return null
 }
 
+// ── Detección de ítems duplicados por merchant + monto + fecha (±7 días) ────
+
+export async function checkDuplicateExpenseItem(params: {
+  amountClp: number
+  merchant:  string
+  date:      string
+}): Promise<DuplicateMatch | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // Derivar identidad del servidor — nunca del cliente
+  const { data: profile } = await supabase
+    .from('users').select('org_id').eq('id', user.id).single()
+  if (!profile) return null
+
+  const submitterId = user.id
+
+  const rangeFrom = new Date(new Date(params.date).getTime() - 7 * 86400000).toISOString().split('T')[0]
+  const rangeTo   = new Date(new Date(params.date).getTime() + 7 * 86400000).toISOString().split('T')[0]
+
+  const { data: items } = await supabase
+    .from('expense_items')
+    .select('id, merchant, amount_clp, date, expense_reports!inner(id, title, submitter_id)')
+    .gte('date', rangeFrom)
+    .lte('date', rangeTo)
+    .eq('amount_clp', params.amountClp)
+    .is('deleted_at', null)
+
+  if (!items?.length) return null
+
+  const normTarget = normalizeMerchant(params.merchant)
+
+  for (const item of items) {
+    const report = (item.expense_reports as unknown as { id: string; title: string; submitter_id: string } | null)
+    if (!report || report.submitter_id !== submitterId) continue
+    if (normalizeMerchant(item.merchant ?? '') === normTarget) {
+      return {
+        reportId:    report.id,
+        reportTitle: report.title,
+        itemId:      item.id,
+        date:        item.date,
+        amount:      item.amount_clp,
+        merchant:    item.merchant ?? '',
+      }
+    }
+  }
+  return null
+}
+
 // ── Eliminar rendición (empleado — solo borradores propios) ──────────────────
 
 export async function deleteExpenseReport(reportId: string) {
@@ -327,13 +431,17 @@ export async function deleteExpenseReport(reportId: string) {
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('id, status, submitter_id')
+    .select('id, status, submitter_id, org_id, title')
     .eq('id', reportId)
     .single()
 
   if (!report) throw new Error('Rendición no encontrada')
   if (report.submitter_id !== user.id) throw new Error('Solo podés eliminar tus propias rendiciones')
   if (report.status !== 'draft') throw new Error('Solo se pueden eliminar rendiciones en borrador')
+
+  // Fetch actor name for audit
+  const { data: actorProfile } = await supabase
+    .from('users').select('full_name').eq('id', user.id).single()
 
   const { error } = await supabase
     .from('expense_reports')
@@ -342,6 +450,17 @@ export async function deleteExpenseReport(reportId: string) {
     .eq('submitter_id', user.id)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       report.org_id,
+    actorId:     user.id,
+    actorName:   actorProfile?.full_name ?? null,
+    action:      'deleted',
+    entityType:  'expense_report',
+    entityId:    reportId,
+    entityLabel: report.title,
+  })
+
   revalidatePath('/')
 }
 
@@ -353,16 +472,32 @@ export async function adminDeleteExpenseReport(reportId: string) {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('users').select('role').eq('id', user.id).single()
+    .from('users').select('role, org_id, full_name').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  // Capture before state
+  const { data: report } = await supabase
+    .from('expense_reports').select('title').eq('id', reportId).single()
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
     .from('expense_reports')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', reportId)
+    .eq('org_id', profile.org_id)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     user.id,
+    actorName:   profile.full_name,
+    action:      'deleted',
+    entityType:  'expense_report',
+    entityId:    reportId,
+    entityLabel: report?.title ?? reportId,
+  })
+
   revalidatePath('/admin/reports')
   revalidatePath('/admin/trash')
 }
@@ -375,8 +510,15 @@ export async function adminDeleteAllReports() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('users').select('role, org_id').eq('id', user.id).single()
+    .from('users').select('role, org_id, full_name').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  // Contar antes de borrar para el log
+  const { count } = await supabase
+    .from('expense_reports')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', profile.org_id)
+    .is('deleted_at', null)
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
@@ -386,12 +528,28 @@ export async function adminDeleteAllReports() {
     .is('deleted_at', null)
 
   if (error) throw new Error(error.message)
+
+  try {
+    await logAudit({
+      orgId:       profile.org_id,
+      actorId:     user.id,
+      actorName:   profile.full_name,
+      action:      'deleted',
+      entityType:  'expense_report',
+      entityId:    'bulk',
+      entityLabel: 'Borrado masivo de rendiciones',
+      notes:       `${count ?? 0} rendiciones eliminadas`,
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/reports')
   revalidatePath('/admin/trash')
 }
 
 export async function getReportWithItems(reportId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
 
   const { data: report } = await supabase
     .from('expense_reports')
@@ -508,6 +666,73 @@ export async function getMyMonthlySummary(): Promise<{
   return { rows: Array.from(agg.values()), months }
 }
 
+// ── Timeline completo de una rendición (R-04) ────────────────────────────────
+
+export type TimelineEvent = {
+  label:  string
+  date:   string
+  type:   'neutral' | 'success' | 'warning' | 'error'
+}
+
+export async function getReportTimeline(reportId: string): Promise<TimelineEvent[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  // Ownership check: employees can only see their own report's timeline
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return []
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return []
+  if (profile.role === 'employee' && !profile.can_approve && report.submitter_id !== user.id) return []
+
+  const { data: entries } = await supabase
+    .from('expense_report_approvals')
+    .select('approver_id, action, created_at, notes, level')
+    .eq('report_id', reportId)
+    .order('created_at', { ascending: true })
+
+  if (!entries?.length) return []
+
+  const approverIds = [...new Set(entries.map(e => e.approver_id))]
+  const { data: users } = await supabase.from('users').select('id, full_name').in('id', approverIds)
+  const nameMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return entries.map(e => {
+    const name = nameMap[e.approver_id] ?? 'Aprobador'
+    const lvl  = e.level ?? 1
+    switch (e.action) {
+      case 'approved':
+        return { label: lvl === 2 ? `Aprobada L2 por ${name}` : `Aprobada por ${name}`, date: e.created_at, type: 'success' as const }
+      case 'partially_approved':
+        return { label: `Aprobada parcialmente por ${name}`, date: e.created_at, type: 'warning' as const }
+      case 'rejected':
+        return { label: `Rechazada por ${name}`, date: e.created_at, type: 'error' as const }
+      case 'returned_to_draft':
+        return { label: `Devuelta a borrador por ${name}`, date: e.created_at, type: 'warning' as const }
+      case 'bank_load_requested':
+        return { label: 'Proceso de reembolso iniciado', date: e.created_at, type: 'neutral' as const }
+      case 'bank_load_confirmed':
+        return { label: 'Transferencia bancaria cargada', date: e.created_at, type: 'neutral' as const }
+      case 'bank_authorized':
+        return { label: `Transferencia autorizada${e.notes ? ` · Ref: ${e.notes}` : ''}`, date: e.created_at, type: 'success' as const }
+      default:
+        return { label: e.action, date: e.created_at, type: 'neutral' as const }
+    }
+  })
+}
+
 // ── Historial de aprobaciones de una rendición (R17) ─────────────────────────
 
 export type ReportApproval = {
@@ -521,6 +746,24 @@ export async function getReportApprovals(reportId: string): Promise<ReportApprov
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
+
+  // Ownership check: employees can only see approvals for their own reports
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('id', reportId)
+    .single()
+
+  if (!report) return []
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return []
+  if (profile.role === 'employee' && !profile.can_approve && report.submitter_id !== user.id) return []
 
   const { data: approvals } = await supabase
     .from('expense_report_approvals')

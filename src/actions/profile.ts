@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { validateRut, validateStringLength } from '@/lib/validators'
 
 export async function getMyProfile() {
   const supabase = await createClient()
@@ -29,6 +30,10 @@ export async function updateProfile(updates: {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+
+  if (updates.full_name && !validateStringLength(updates.full_name, 150)) throw new Error('Nombre demasiado largo')
+  if (updates.rut && !validateRut(updates.rut)) throw new Error('RUT inválido — revisa el dígito verificador')
+  if (updates.bank_account && !validateStringLength(updates.bank_account, 30)) throw new Error('Número de cuenta inválido')
 
   const clean: typeof updates = {}
   if (updates.full_name?.trim())       clean.full_name         = updates.full_name.trim()

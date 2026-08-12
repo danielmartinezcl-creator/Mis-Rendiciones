@@ -1,6 +1,6 @@
 # Mi rendición — Estado de implementación y backlog
 
-> Última actualización: 2026-07-31
+> Última actualización: 2026-08-11
 > Ver SKILL.md para contexto completo del proyecto.
 
 ---
@@ -38,6 +38,10 @@
 
 | Módulo | Estado | Detalle |
 |--------|--------|---------|
+| Fund transfers → rendiciones regulares | ✅ | `getEmployeeTargets` retorna todos los expense_reports; `createFundTransfer` acepta `receiver_report_id` para vinculación directa |
+| Advertencia re-invitación empleados | ✅ | `handleSendInvitations` muestra confirm() si algún seleccionado ya tiene `invited_at`; botón ámbar "Reenviar" para ya invitados |
+| Manual empleados HTML | ✅ | Artifact https://claude.ai/code/artifact/874284e5-4389-4b88-b857-0f7d058a0aa0 — guía ilustrada con mockups de pantallas |
+| Fix NEXT_PUBLIC_APP_URL | ✅ | Corregido a `https://www.mi-rendicion.com` en `.env.local` |
 | Defontana v2 (CC + suppliers + lock + formato 34 col) | ✅ | migración 012; `defontana.ts` |
 | Módulo Informes Unificados `/informes` | ✅ | plan 2026-07-27; `actions/reports.ts` + `lib/report-helpers.ts` |
 | Mejora filtros Caja Chica (multi-select + período) | ✅ | `petty-cash/client.tsx` |
@@ -61,6 +65,7 @@
 | Importador histórico | `docs/superpowers/plans/2026-07-22-importador-historico.md` | ✅ Completo (incluye R11, R12, Defontana v2) |
 | Políticas + IA | `docs/superpowers/plans/2026-07-24-politicas-gastos-aprobacion-ia.md` | ✅ Completo (R5, R14, R10) |
 | Informes Unificados | `docs/superpowers/plans/2026-07-27-informes-unificados.md` | ✅ Completo |
+| Auditoría + Seguridad + Robustez | `docs/superpowers/plans/2026-08-11-auditoria-seguridad-robustez.md` | ✅ Completo (rama `feat/auditoria-seguridad-robustez`, listo para merge) |
 
 ---
 
@@ -94,5 +99,9 @@
 | `012_defontana_cost_centers.sql` | cost_centers (46 PENTA seeded) + defontana_suppliers + CC en users/items + supplier_rut |
 | `013_petty_cash_defontana.sql` | defontana_exported_at/ref en petty_cash_funds |
 | `015_travel_policies.sql` | travel_policies (viáticos por destino/categoría) |
+| `016_audit_log.sql` | Tabla `audit_log` append-only + RLS + índices |
+| `017_soft_delete_extensions.sql` | soft-delete en expense_items/categories, `monthly_budget_clp`, `dedup_key` en notifications, `rate_limit_log` |
+| `018_webhooks.sql` | Tabla `webhooks` + RLS con `is_admin()` |
+| `019_security_fixes.sql` | RLS en `rate_limit_log`, drop policy insert abierta en `audit_log`, notifications en `supabase_realtime`, índice dedup sin cláusula WHERE |
 
 **Nota:** Dos archivos `011_*.sql` coexisten — el servidor los aplica por orden alfabético del nombre completo. No hay conflicto de datos porque afectan columnas/tablas distintas.

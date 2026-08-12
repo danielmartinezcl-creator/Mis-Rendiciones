@@ -16,6 +16,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
 import type { Json } from '@/lib/supabase/types'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { dispatchWebhooks, type WebhookEvent } from '@/lib/webhooks'
 
 export interface ApprovalDecision {
   itemId: string
@@ -98,6 +100,17 @@ export async function getPendingApprovals() {
 
 export async function getReportForApproval(reportId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  // Solo approvers y admins pueden llamar esta función
+  if (!profile || (profile.role === 'employee' && !profile.can_approve)) return null
 
   const { data: report } = await supabase
     .from('expense_reports')
@@ -121,6 +134,7 @@ export async function getReportForApproval(reportId: string) {
       attachments (id, storage_path, file_type)
     `)
     .eq('report_id', reportId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   return {
@@ -188,6 +202,7 @@ export async function submitApprovalDecision(
     .from('expense_items')
     .select('status, amount_clp')
     .eq('report_id', reportId)
+    .is('deleted_at', null)
 
   const items       = allItems ?? []
   const itemStatus  = computeReportStatus(items)
@@ -256,12 +271,31 @@ export async function submitApprovalDecision(
   revalidatePath(`/approvals/${reportId}`)
   revalidatePath('/approvals')
   revalidatePath('/')
+
+  // Webhook fire-and-forget — solo cuando hay decisión final (no pending_l2)
+  if (isDecided) {
+    const webhookEvent = `report.${newStatus}` as WebhookEvent
+    dispatchWebhooks(profile.org_id, webhookEvent, {
+      report_id:   reportId,
+      status:      newStatus,
+      approved_by: profile.full_name,
+      approved_at: new Date().toISOString(),
+    }).catch(console.error)
+  }
 }
 
 export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<AiAnalysis | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  const { data: profileForRole } = await supabase
+    .from('users')
+    .select('role, can_approve')
+    .eq('id', user.id)
+    .single()
+
+  if (!profileForRole || (profileForRole.role === 'employee' && !profileForRole.can_approve)) return null
 
   const { data: report } = await supabase
     .from('expense_reports')
@@ -284,6 +318,7 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
     .from('expense_items')
     .select(`id, description, amount_clp, merchant, doc_type, doc_number, policy_violations, expense_categories (name)`)
     .eq('report_id', reportId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   const { data: submitterData } = await supabase
@@ -308,6 +343,7 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
       .from('expense_items')
       .select(`description, amount_clp, merchant, status, rejection_reason, expense_categories (name)`)
       .in('report_id', histRids)
+      .is('deleted_at', null)
 
     historyItems = (histItemsRaw ?? []).map(h => {
       const raw = h as unknown as {
@@ -346,6 +382,15 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
         policy_violations: raw.policy_violations,
       }
     }),
+  }
+
+  // Rate limiting: máx 20 análisis IA por hora por usuario
+  const { allowed } = await checkRateLimit(user.id, 'ai_analysis', 20)
+  if (!allowed) {
+    // Retornar el análisis cacheado si existe, sin regenerar
+    const { data: existing } = await supabase
+      .from('expense_reports').select('ai_analysis').eq('id', reportId).single()
+    return existing?.ai_analysis as unknown as AiAnalysis ?? null
   }
 
   const prompt = buildAnalysisPrompt(reportForAnalysis, historyItems)
@@ -398,7 +443,7 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
 
   // Leer todos los ítems para calcular estado global
   const { data: allItems } = await supabase
-    .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId)
+    .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId).is('deleted_at', null)
   const items = (allItems ?? []) as { id: string; status: string; amount_clp: number }[]
 
   const isL1 = report.status === 'submitted'

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { formatDate, formatCLP } from '@/lib/utils'
+import type { ExpenseReport, ExpenseItem } from '@/lib/supabase/types'
 
 interface ReportItem {
   description:  string
@@ -357,4 +358,92 @@ export function exportUnifiedToPDF(
   })
 
   doc.save(`${title}.pdf`)
+}
+
+// ─── Comprobante de rendición para el empleado ───────────────────────────────
+
+export function exportEmployeeReportPdf(
+  report: ExpenseReport & { submitter_name?: string },
+  items:  (ExpenseItem & { category_name?: string })[],
+): void {
+  const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const teal: [number, number, number] = [13, 148, 136]
+
+  // Encabezado teal
+  doc.setFillColor(teal[0], teal[1], teal[2])
+  doc.rect(0, 0, 210, 36, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(18)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Mi Rendición', 14, 16)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Comprobante de rendición de gastos', 14, 24)
+
+  // Datos de la rendición
+  doc.setTextColor(30, 37, 64)
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text(report.title, 14, 48)
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(136, 145, 167)
+  doc.text(`Empleado: ${report.submitter_name ?? '—'}`, 14, 56)
+  doc.text(`Estado: ${STATUS_ES[report.status] ?? report.status}`, 14, 61)
+  doc.text(`Fecha: ${formatDate(report.created_at.split('T')[0])}`, 14, 66)
+
+  // Tabla de ítems (excluir soft-deleted; orden: aprobados → pendientes → rechazados)
+  const activeItems   = items.filter(i => !i.deleted_at)
+  const approvedItems = activeItems.filter(i => i.status === 'approved')
+  const rejectedItems = activeItems.filter(i => i.status === 'rejected')
+  const pendingItems  = activeItems.filter(i => i.status === 'pending')
+
+  const rows = [...approvedItems, ...pendingItems, ...rejectedItems].map(item => [
+    formatDate(item.date),
+    item.merchant ?? '—',
+    item.description,
+    item.category_name ?? '—',
+    formatCLP(item.amount_clp),
+    item.status === 'approved' ? 'Aprobado' :
+    item.status === 'rejected' ? 'Rechazado' : 'Pendiente',
+  ])
+
+  autoTable(doc, {
+    startY: 76,
+    head: [['Fecha', 'Proveedor', 'Descripción', 'Categoría', 'Monto', 'Estado']],
+    body: rows,
+    styles:             { fontSize: 8, cellPadding: 3 },
+    headStyles:         { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles:       { 4: { halign: 'right' } },
+    alternateRowStyles: { fillColor: [246, 248, 251] },
+  })
+
+  // Totales
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const finalY        = (doc as any).lastAutoTable.finalY + 8
+  const totalApproved = approvedItems.reduce((s, i) => s + i.amount_clp, 0)
+  const totalAll      = activeItems.reduce((s, i) => s + i.amount_clp, 0)
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 37, 64)
+  doc.text('Total aprobado:', 130, finalY)
+  doc.setTextColor(teal[0], teal[1], teal[2])
+  doc.text(formatCLP(totalApproved), 196, finalY, { align: 'right' })
+
+  doc.setTextColor(136, 145, 167)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text(`Total presentado: ${formatCLP(totalAll)}`, 130, finalY + 6)
+
+  // Pie de página
+  doc.setFontSize(7)
+  doc.setTextColor(136, 145, 167)
+  doc.text(
+    `Generado por Mi Rendición · ${new Date().toLocaleDateString('es-CL')}`,
+    105, 287, { align: 'center' },
+  )
+
+  doc.save(`rendicion-${report.id.slice(-8)}.pdf`)
 }

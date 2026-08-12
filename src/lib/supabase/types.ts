@@ -192,6 +192,9 @@ export interface Database {
           required_doc_types: string[] | null
           is_active: boolean
           defontana_account_code: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          monthly_budget_clp: number | null
         }
         Insert: {
           id?: string
@@ -202,6 +205,9 @@ export interface Database {
           required_doc_types?: string[] | null
           is_active?: boolean
           defontana_account_code?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          monthly_budget_clp?: number | null
         }
         Update: {
           id?: string
@@ -212,6 +218,9 @@ export interface Database {
           required_doc_types?: string[] | null
           is_active?: boolean
           defontana_account_code?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          monthly_budget_clp?: number | null
         }
         Relationships: []
       }
@@ -240,6 +249,8 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          deleted_by: string | null
+          modified_by: string | null
           ai_analysis:    Json | null
           ai_analysis_at: string | null
         }
@@ -267,6 +278,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
+          modified_by?: string | null
           ai_analysis?:    Json | null
           ai_analysis_at?: string | null
         }
@@ -294,6 +307,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
+          modified_by?: string | null
           ai_analysis?:    Json | null
           ai_analysis_at?: string | null
         }
@@ -345,6 +360,8 @@ export interface Database {
           mileage_km:   number | null
           mileage_rate: number | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
         }
         Insert: {
           id?: string
@@ -376,6 +393,8 @@ export interface Database {
           mileage_km?:   number | null
           mileage_rate?: number | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
         }
         Update: {
           id?: string
@@ -407,6 +426,8 @@ export interface Database {
           mileage_km?:   number | null
           mileage_rate?: number | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
         }
         Relationships: [
           {
@@ -512,6 +533,7 @@ export interface Database {
           report_id: string | null
           read: boolean
           created_at: string
+          dedup_key: string | null
         }
         Insert: {
           id?: string
@@ -521,9 +543,11 @@ export interface Database {
           report_id?: string | null
           read?: boolean
           created_at?: string
+          dedup_key?: string | null
         }
         Update: {
           read?: boolean
+          dedup_key?: string | null
         }
         Relationships: []
       }
@@ -545,6 +569,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          deleted_by: string | null
           is_historical_import: boolean
           defontana_exported_at: string | null
           defontana_export_ref: string | null
@@ -566,6 +591,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           is_historical_import?: boolean
           defontana_exported_at?: string | null
           defontana_export_ref?: string | null
@@ -578,6 +604,7 @@ export interface Database {
           settled_at?: string | null
           updated_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           is_historical_import?: boolean
           defontana_exported_at?: string | null
           defontana_export_ref?: string | null
@@ -955,6 +982,71 @@ export interface Database {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          id: string
+          org_id: string
+          actor_id: string | null
+          actor_name: string | null
+          action: string
+          entity_type: string
+          entity_id: string
+          entity_label: string | null
+          old_value: Record<string, unknown> | null
+          new_value: Record<string, unknown> | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          actor_id?: string | null
+          actor_name?: string | null
+          action: string
+          entity_type: string
+          entity_id: string
+          entity_label?: string | null
+          old_value?: Record<string, unknown> | null
+          new_value?: Record<string, unknown> | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: [{ foreignKeyName: 'audit_log_org_id_fkey'; columns: ['org_id']; referencedRelation: 'organizations'; referencedColumns: ['id'] }]
+      }
+      rate_limit_log: {
+        Row:    { id: number; user_id: string; action: string; created_at: string }
+        Insert: { id?: number; user_id: string; action: string; created_at?: string }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      webhooks: {
+        Row: {
+          id:         string
+          org_id:     string
+          url:        string
+          secret:     string
+          events:     string[]
+          activo:     boolean
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          org_id:      string
+          url:         string
+          secret:      string
+          events?:     string[]
+          activo?:     boolean
+          created_at?: string
+        }
+        Update: {
+          url?:    string
+          secret?: string
+          events?: string[]
+          activo?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -991,3 +1083,6 @@ export type DefontanaSupplier  = Database['public']['Tables']['defontana_supplie
 export type FundTransfer       = Database['public']['Tables']['fund_transfers']['Row']
 export type ExpensePolicy      = Database['public']['Tables']['expense_policies']['Row']
 export type TravelPolicy       = Database['public']['Tables']['travel_policies']['Row']
+export type AuditLog           = Database['public']['Tables']['audit_log']['Row']
+export type Webhook            = Database['public']['Tables']['webhooks']['Row']
+export type RateLimitLog       = Database['public']['Tables']['rate_limit_log']['Row']

@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
+import { validateStringLength, validateHexColor } from '@/lib/validators'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -13,14 +15,14 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('org_id, role')
+    .select('org_id, role, full_name')
     .eq('id', user.id)
     .single()
 
   if (!profile || profile.role !== 'admin') {
     throw new Error('Acceso restringido a administradores')
   }
-  return { supabase, userId: user.id, orgId: profile.org_id }
+  return { supabase, userId: user.id, orgId: profile.org_id, actorName: profile.full_name }
 }
 
 // ─── Reportes admin (vista completa) ────────────────────────────────────────
@@ -63,6 +65,7 @@ export async function getReportDetailForAdmin(reportId: string) {
       .from('expense_items')
       .select('id, category_id, description, amount_clp, status, rejection_reason, expense_categories(name)')
       .eq('report_id', reportId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: true }),
     supabase
       .from('expense_report_approvals')
@@ -241,6 +244,7 @@ export async function getPendingToRenderList() {
       .from('expense_items')
       .select('report_id, item_type, amount_clp')
       .in('report_id', historical.map(r => r.id))
+      .is('deleted_at', null)
 
     // Mapa reportId → fundKey para lookup rápido
     const reportToFundKey = new Map<string, string>()
@@ -402,7 +406,7 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   const { supabase, orgId } = await requireAdmin()
 
   const { data: item } = await supabase
-    .from('expense_items').select('report_id').eq('id', itemId).single()
+    .from('expense_items').select('report_id').eq('id', itemId).is('deleted_at', null).single()
   if (!item) throw new Error('Ítem no encontrado')
 
   const { data: report } = await supabase
@@ -491,13 +495,32 @@ export async function resendInvitation(userId: string) {
 }
 
 export async function deactivateEmployee(userId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   await supabase.from('users').update({ is_active: false }).eq('id', userId)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'updated',
+      entityType:  'user',
+      entityId:    userId,
+      entityLabel: 'Empleado desactivado',
+      newValue:    { is_active: false },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/employees')
 }
 
 export async function deleteEmployee(userId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: emp } = await supabase
+    .from('users')
+    .select('full_name, is_active, role')
+    .eq('id', userId)
+    .single()
 
   // Soft delete: marca deleted_at, el usuario pierde acceso pero los datos se conservan 90 días
   const { error } = await supabase
@@ -511,13 +534,24 @@ export async function deleteEmployee(userId: string) {
   const adminClient = createAdminClient()
   await adminClient.auth.admin.updateUserById(userId, { ban_duration: '876000h' })
 
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'deleted',
+    entityType:  'user',
+    entityId:    userId,
+    entityLabel: emp?.full_name ?? userId,
+    oldValue:    { is_active: emp?.is_active, role: emp?.role },
+  })
+
   revalidatePath('/admin/settings')
   revalidatePath('/admin/employees')
   revalidatePath('/admin/trash')
 }
 
 export async function deleteEmployees(userIds: string[]): Promise<{ id: string; error?: string }[]> {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   const adminClient = createAdminClient()
 
   const deletedAt = new Date().toISOString()
@@ -533,6 +567,17 @@ export async function deleteEmployees(userIds: string[]): Promise<{ id: string; 
       return { id, error: error?.message }
     })
   )
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'deleted',
+      entityType:  'user',
+      entityId:    userIds.join(','),
+      entityLabel: `${userIds.length} empleados eliminados`,
+      oldValue:    { employeeIds: userIds },
+    })
+  } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
   revalidatePath('/admin/employees')
@@ -557,7 +602,14 @@ export async function updateEmployee(
     cost_center_id?:             string | null
   }
 ) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('users')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, rut, bank_account')
+    .eq('id', userId)
+    .single()
 
   const { error } = await supabase
     .from('users')
@@ -565,6 +617,19 @@ export async function updateEmployee(
     .eq('id', userId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'user',
+    entityId:    userId,
+    entityLabel: before?.full_name ?? userId,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    updates as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/employees')
 }
 
@@ -587,9 +652,12 @@ export async function addCategory(data: {
   icon?: string
   color?: string
 }) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
-  const { error } = await supabase
+  if (!validateStringLength(data.name, 100)) throw new Error('Nombre inválido (1-100 caracteres)')
+  if (data.color && !validateHexColor(data.color)) throw new Error('Color inválido — debe ser hex (#RRGGBB)')
+
+  const { data: newCat, error } = await supabase
     .from('expense_categories')
     .insert({
       org_id:    orgId,
@@ -598,50 +666,126 @@ export async function addCategory(data: {
       color:     data.color ?? null,
       is_active: true,
     })
+    .select('id, name')
+    .single()
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'created',
+    entityType:  'category',
+    entityId:    (newCat as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: (newCat as unknown as { name: string } | null)?.name ?? data.name,
+    newValue:    { name: data.name, icon: data.icon ?? null, color: data.color ?? null },
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function toggleCategoryActive(id: string, isActive: boolean) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
   await supabase
     .from('expense_categories')
     .update({ is_active: isActive })
     .eq('id', id)
 
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'updated',
+      entityType:  'category',
+      entityId:    id,
+      entityLabel: `Categoría ${isActive ? 'activada' : 'desactivada'}`,
+      newValue:    { is_active: isActive },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/settings')
 }
 
-export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
-  await requireAdmin()
+export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string; monthly_budget_clp?: number | null }) {
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  if (!validateStringLength(data.name, 100)) throw new Error('Nombre inválido (1-100 caracteres)')
+  if (data.color && !validateHexColor(data.color)) throw new Error('Color inválido — debe ser hex (#RRGGBB)')
+
   const admin = createAdminClient()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('expense_categories').select('name, color, icon, monthly_budget_clp').eq('id', id).single()
 
   const { error } = await admin
     .from('expense_categories')
-    .update({ name: data.name.trim(), color: data.color ?? null, icon: data.icon ?? null })
+    .update({
+      name:               data.name.trim(),
+      color:              data.color ?? null,
+      icon:               data.icon ?? null,
+      monthly_budget_clp: data.monthly_budget_clp ?? null,
+    })
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'category',
+    entityId:    id,
+    entityLabel: before?.name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    { name: data.name, color: data.color ?? null, icon: data.icon ?? null, monthly_budget_clp: data.monthly_budget_clp ?? null },
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function deleteCategory(id: string) {
-  await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
   const admin = createAdminClient()
+
+  // Capture before state
+  const { data: category } = await supabase
+    .from('expense_categories')
+    .select('name, org_id')
+    .eq('id', id)
+    .single()
 
   const { error } = await admin
     .from('expense_categories')
     .delete()
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'deleted',
+    entityType:  'category',
+    entityId:    id,
+    entityLabel: category?.name ?? id,
+    oldValue:    category as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function reclassifyExpenseItem(itemId: string, categoryId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('expense_items').select('category_id, description').eq('id', itemId).single()
 
   const { error } = await supabase
     .from('expense_items')
@@ -649,6 +793,19 @@ export async function reclassifyExpenseItem(itemId: string, categoryId: string) 
     .eq('id', itemId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'expense_item',
+    entityId:    itemId,
+    entityLabel: before?.description ?? itemId,
+    oldValue:    { category_id: before?.category_id },
+    newValue:    { category_id: categoryId },
+  })
+
   revalidatePath('/admin/reports')
 }
 
@@ -693,7 +850,11 @@ export async function setEmployeeApprovers(
   approverL1Id: string | null,
   approverL2Id: string | null
 ) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: employee } = await supabase
+    .from('users').select('full_name, approver_l1_id, approver_l2_id').eq('id', userId).single()
 
   // Verificar que los aprobadores pertenezcan a la misma org
   if (approverL1Id) {
@@ -715,6 +876,19 @@ export async function setEmployeeApprovers(
     .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'approver_assignment',
+    entityId:    userId,
+    entityLabel: employee?.full_name ?? userId,
+    oldValue:    { approver_l1_id: employee?.approver_l1_id, approver_l2_id: employee?.approver_l2_id },
+    newValue:    { approver_l1_id: approverL1Id, approver_l2_id: approverL2Id },
+  })
+
   revalidatePath('/admin/employees')
 }
 
@@ -724,7 +898,11 @@ export async function setEmployeeBackupApprover(
   backupActiveFrom: string | null,
   backupActiveUntil: string | null
 ) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: employee } = await supabase
+    .from('users').select('full_name, approver_l1_backup_id, backup_active_from, backup_active_until').eq('id', userId).single()
 
   if (backupApproverL1Id) {
     const { data: backup } = await supabase.from('users').select('org_id').eq('id', backupApproverL1Id).single()
@@ -742,6 +920,27 @@ export async function setEmployeeBackupApprover(
     .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'approver_assignment',
+    entityId:    userId,
+    entityLabel: employee?.full_name ?? userId,
+    oldValue:    {
+      approver_l1_backup_id: employee?.approver_l1_backup_id,
+      backup_active_from:    employee?.backup_active_from,
+      backup_active_until:   employee?.backup_active_until,
+    },
+    newValue:    {
+      approver_l1_backup_id: backupApproverL1Id,
+      backup_active_from:    backupActiveFrom,
+      backup_active_until:   backupActiveUntil,
+    },
+  })
+
   revalidatePath('/admin/employees')
 }
 
@@ -768,28 +967,64 @@ export async function updateDefontanaSettings(settings: {
   costCenter:      string | null
   providerAccount: string | null
 }) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('organizations')
+    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+    .eq('id', orgId)
+    .single()
+
+  const newValues = {
+    defontana_contra_account:   settings.contraAccount   || null,
+    defontana_voucher_type:     settings.voucherType      || 'Egreso',
+    defontana_cost_center:      settings.costCenter       || null,
+    defontana_provider_account: settings.providerAccount || null,
+  }
+
   const { error } = await supabase
     .from('organizations')
-    .update({
-      defontana_contra_account:   settings.contraAccount   || null,
-      defontana_voucher_type:     settings.voucherType      || 'Egreso',
-      defontana_cost_center:      settings.costCenter       || null,
-      defontana_provider_account: settings.providerAccount || null,
-    })
+    .update(newValues)
     .eq('id', orgId)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'defontana_settings',
+    entityId:    orgId,
+    entityLabel: 'Configuración Defontana',
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    newValues as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function updateCategoryDefontanaCode(categoryId: string, code: string) {
-  await requireAdmin()
+  const { orgId, userId: actorId, actorName } = await requireAdmin()
   const admin = createAdminClient()
   const { error } = await admin
     .from('expense_categories')
     .update({ defontana_account_code: code || null })
     .eq('id', categoryId)
+    .eq('org_id', orgId)
   if (error) throw new Error(error.message)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'updated',
+      entityType:  'category',
+      entityId:    categoryId,
+      entityLabel: `Código Defontana actualizado: ${code}`,
+      newValue:    { defontana_account_code: code || null },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/settings')
 }
 
@@ -856,6 +1091,7 @@ export async function getDefontanaExportData(filters: {
     .select('report_id, description, amount_clp, date, merchant, doc_type, doc_number, cost_center_id, supplier_rut, expense_categories(name, defontana_account_code)')
     .in('report_id', reports.map(r => r.id))
     .eq('status', 'approved')
+    .is('deleted_at', null)
 
   type RawItem = {
     report_id:       string
@@ -985,25 +1221,56 @@ export async function getDefontanaSuppliers() {
 }
 
 export async function addDefontanaSupplier(merchant: string, accountCode: string) {
-  const { supabase, orgId } = await requireAdmin()
-  const { error } = await supabase
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+  const { data: newSupplier, error } = await supabase
     .from('defontana_suppliers')
     .insert({ org_id: orgId, merchant_name: merchant.trim(), defontana_account_code: accountCode.trim() })
+    .select('id')
+    .single()
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'created',
+    entityType:  'defontana_supplier',
+    entityId:    (newSupplier as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: merchant.trim(),
+    newValue:    { merchant_name: merchant.trim(), defontana_account_code: accountCode.trim() },
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function deleteDefontanaSupplier(id: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('defontana_suppliers').select('merchant_name, defontana_account_code').eq('id', id).single()
+
   const { error } = await supabase.from('defontana_suppliers').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'deleted',
+    entityType:  'defontana_supplier',
+    entityId:    id,
+    entityLabel: before?.merchant_name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 // ─── Lock de exportación Defontana ───────────────────────────────────────────
 
 export async function markDefontanaExported(reportIds: string[], exportRef: string) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
   const { error } = await supabase
     .from('expense_reports')
     .update({
@@ -1013,23 +1280,53 @@ export async function markDefontanaExported(reportIds: string[], exportRef: stri
     .in('id', reportIds)
     .eq('org_id', orgId)
   if (error) throw new Error(error.message)
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'exported',
+    entityType:  'defontana_export',
+    entityId:    exportRef,
+    entityLabel: `${reportIds.length} rendiciones exportadas`,
+    newValue:    { reportIds, exportRef },
+  })
   revalidatePath('/admin/reports')
 }
 
 // ─── Corrección masiva de centro de costo ────────────────────────────────────
 
 export async function bulkUpdateExpenseItemsCostCenter(reportId: string, costCenterId: string | null) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Count items to be updated
+  const { count } = await supabase
+    .from('expense_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('report_id', reportId)
+
   const { error } = await supabase
     .from('expense_items')
     .update({ cost_center_id: costCenterId })
     .eq('report_id', reportId)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'bulk_updated',
+    entityType:  'cost_center_assignment',
+    entityId:    reportId,
+    entityLabel: `Reporte ${reportId}`,
+    newValue:    { cost_center_id: costCenterId, items_count: count ?? 0 },
+    notes:       `Reasignación masiva de CC a ${costCenterId ?? 'ninguno'}`,
+  })
+
   revalidatePath('/admin/reports')
 }
 
 export async function setDefaultPolicy(policyId: string) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
   // Quitar default de todas
   await supabase
@@ -1042,6 +1339,17 @@ export async function setDefaultPolicy(policyId: string) {
     .from('approval_policies')
     .update({ is_default: true })
     .eq('id', policyId)
+
+  try {
+    await logAudit({
+      orgId, actorId, actorName,
+      action:      'config_changed',
+      entityType:  'policy',
+      entityId:    policyId,
+      entityLabel: 'Política por defecto cambiada',
+      newValue:    { default_policy_id: policyId },
+    })
+  } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
 }
@@ -1100,23 +1408,39 @@ export async function getTrashItems() {
 }
 
 export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
 
   if (type === 'report') {
+    const { data: before } = await supabase
+      .from('expense_reports').select('title').eq('id', id).single()
     const { error } = await supabase
       .from('expense_reports')
       .update({ deleted_at: null })
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'restored', entityType: 'expense_report', entityId: id,
+      entityLabel: before?.title ?? id,
+    })
     revalidatePath('/admin/reports')
   } else if (type === 'fund') {
+    const { data: before } = await supabase
+      .from('petty_cash_funds').select('name').eq('id', id).single()
     const { error } = await supabase
       .from('petty_cash_funds')
       .update({ deleted_at: null })
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'restored', entityType: 'petty_cash_fund', entityId: id,
+      entityLabel: before?.name ?? id,
+    })
     revalidatePath('/petty-cash')
   } else if (type === 'user') {
+    const { data: before } = await supabase
+      .from('users').select('full_name').eq('id', id).single()
     const { error } = await supabase
       .from('users')
       .update({ deleted_at: null, is_active: true })
@@ -1125,6 +1449,11 @@ export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: str
     // Desbanear en auth
     const adminClient = createAdminClient()
     await adminClient.auth.admin.updateUserById(id, { ban_duration: 'none' })
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'restored', entityType: 'user', entityId: id,
+      entityLabel: before?.full_name ?? id,
+    })
     revalidatePath('/admin/employees')
     revalidatePath('/admin/settings')
   }
@@ -1132,24 +1461,48 @@ export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: str
 }
 
 export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user', id: string) {
-  await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
   const adminClient = createAdminClient()
 
   if (type === 'report') {
+    const { data: before } = await supabase
+      .from('expense_reports').select('title').eq('id', id).single()
     const { error } = await adminClient
       .from('expense_reports')
       .delete()
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'permanently_deleted', entityType: 'expense_report', entityId: id,
+      entityLabel: before?.title ?? id,
+      notes: 'Eliminación definitiva desde papelera',
+    })
   } else if (type === 'fund') {
+    const { data: before } = await supabase
+      .from('petty_cash_funds').select('name').eq('id', id).single()
     const { error } = await adminClient
       .from('petty_cash_funds')
       .delete()
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'permanently_deleted', entityType: 'petty_cash_fund', entityId: id,
+      entityLabel: before?.name ?? id,
+      notes: 'Eliminación definitiva desde papelera',
+    })
   } else if (type === 'user') {
+    const { data: before } = await supabase
+      .from('users').select('full_name').eq('id', id).single()
     const { error } = await adminClient.auth.admin.deleteUser(id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'permanently_deleted', entityType: 'user', entityId: id,
+      entityLabel: before?.full_name ?? id,
+      notes: 'Eliminación definitiva desde papelera',
+    })
   }
 
   revalidatePath('/admin/trash')
@@ -1165,6 +1518,7 @@ export async function getReportAttachmentUrls(reportId: string): Promise<
     .from('expense_items')
     .select(`id, description, merchant, date, attachments (id, storage_path, file_type)`)
     .eq('report_id', reportId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (!rawItems?.length) return []
@@ -1292,12 +1646,13 @@ export async function getActiveFundsSummary(): Promise<ActiveFundSummary[]> {
 // ─── Análisis por centro de costo (R19) ─────────────────────────────────────
 
 export type CenterExpenseRow = {
-  cost_center_id: string | null
-  cost_center_name: string | null
-  month: string           // YYYY-MM
-  category_id:   string | null
-  category_name: string | null
-  total_clp: number
+  cost_center_id:    string | null
+  cost_center_name:  string | null
+  month:             string           // YYYY-MM
+  category_id:       string | null
+  category_name:     string | null
+  monthly_budget_clp: number | null
+  total_clp:         number
 }
 
 export async function getExpensesByCenter(monthsBack = 6): Promise<{
@@ -1324,7 +1679,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     .from('expense_items')
     .select(`
       amount_clp, date, cost_center_id, category_id, item_type,
-      expense_categories (name),
+      expense_categories (name, monthly_budget_clp),
       cost_centers:cost_center_id (descripcion),
       expense_reports!inner (org_id, status, deleted_at, submitter_id)
     `)
@@ -1333,6 +1688,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     .eq('status', 'approved')
     .gte('date', dateFrom)
     .is('expense_reports.deleted_at', null)
+    .is('deleted_at', null)
 
   if (error) throw new Error(error.message)
 
@@ -1343,7 +1699,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     cost_center_id: string | null
     category_id: string | null
     item_type: string | null
-    expense_categories: { name: string } | null
+    expense_categories: { name: string; monthly_budget_clp: number | null } | null
     cost_centers: { descripcion: string } | null
     expense_reports: RawReport
   }
@@ -1387,12 +1743,13 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     const key = `${ccId}|${month}|${item.category_id}`
     if (!aggMap.has(key)) {
       aggMap.set(key, {
-        cost_center_id:   ccId,
-        cost_center_name: ccName,
+        cost_center_id:    ccId,
+        cost_center_name:  ccName,
         month,
-        category_id:   item.category_id,
-        category_name: item.expense_categories?.name ?? null,
-        total_clp:     0,
+        category_id:        item.category_id,
+        category_name:      item.expense_categories?.name ?? null,
+        monthly_budget_clp: item.expense_categories?.monthly_budget_clp ?? null,
+        total_clp:          0,
       })
     }
     aggMap.get(key)!.total_clp += item.amount_clp
@@ -1431,6 +1788,7 @@ export async function getItemsWithoutCC(): Promise<ItemWithoutCC[]> {
     .eq('status', 'approved')
     .is('cost_center_id', null)
     .is('expense_reports.deleted_at', null)
+    .is('deleted_at', null)
     .order('date', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -1628,6 +1986,7 @@ export async function getHistoricalFundDefontanaData(
     .eq('report_id', reportId)
     .in('item_type', itemTypes)
     .is('defontana_exported_at', null)
+    .is('deleted_at', null)
 
   type RawItem = {
     id: string
@@ -1726,6 +2085,7 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
     .in('report_id', ids)
     .eq('status', 'approved')
     .eq('item_type', 'expense')
+    .is('deleted_at', null)
 
   if (!items || items.length === 0) return []
 
@@ -1753,4 +2113,205 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
     .sort((a, b) => b.amount_clp - a.amount_clp)
 
   return result
+}
+
+// ─── Auditoría ──────────────────────────────────────────────────────────────
+
+export type AuditLogFilters = {
+  actorId?:    string
+  entityType?: string
+  action?:     string
+  from?:       string  // YYYY-MM-DD
+  to?:         string
+  search?:     string  // busca en entity_label, notes, actor_name
+  limit?:      number
+  offset?:     number
+}
+
+export async function getAuditLog(filters: AuditLogFilters = {}) {
+  const { orgId } = await requireAdmin()
+  const admin = createAdminClient()
+
+  let q = admin
+    .from('audit_log')
+    .select('*', { count: 'exact' })
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(filters.limit ?? 50)
+
+  if (filters.offset)     q = q.range(filters.offset, filters.offset + (filters.limit ?? 50) - 1)
+  if (filters.actorId)    q = q.eq('actor_id', filters.actorId)
+  if (filters.entityType) q = q.eq('entity_type', filters.entityType)
+  if (filters.action)     q = q.eq('action', filters.action)
+  if (filters.from)       q = q.gte('created_at', `${filters.from}T00:00:00Z`)
+  if (filters.to)         q = q.lte('created_at', `${filters.to}T23:59:59Z`)
+  if (filters.search) {
+    const safeSearch = filters.search
+      .replace(/\\/g, '\\\\')
+      .replace(/,/g,  '\\,')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+    q = q.or(`entity_label.ilike.%${safeSearch}%,notes.ilike.%${safeSearch}%,actor_name.ilike.%${safeSearch}%`)
+  }
+
+  const { data, count } = await q
+  return { items: (data ?? []) as import('@/lib/supabase/types').AuditLog[], total: count ?? 0 }
+}
+
+// ─── Salud operacional ───────────────────────────────────────────────────────
+
+export async function getOrgHealthMetrics() {
+  const { supabase, orgId } = await requireAdmin()
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
+  const sixMonthsAgo  = new Date(now.getTime() - 182 * 86400000).toISOString()
+
+  // Rendiciones aprobadas vs rechazadas (últimos 30 días)
+  const [approved, rejected, pending] = await Promise.all([
+    supabase.from('expense_reports').select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId).eq('status', 'approved').gte('updated_at', thirtyDaysAgo).is('deleted_at', null),
+    supabase.from('expense_reports').select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId).eq('status', 'rejected').gte('updated_at', thirtyDaysAgo).is('deleted_at', null),
+    supabase.from('expense_reports').select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId).in('status', ['submitted', 'pending_l2']).is('deleted_at', null),
+  ])
+
+  // Empleados sin actividad en 30 días
+  const { data: activeUsers } = await supabase
+    .from('expense_reports')
+    .select('submitter_id')
+    .eq('org_id', orgId)
+    .gte('created_at', thirtyDaysAgo)
+    .is('deleted_at', null)
+  const activeUserIds = new Set((activeUsers ?? []).map(r => r.submitter_id))
+
+  const { data: allUsers } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .eq('org_id', orgId)
+    .eq('is_active', true)
+    .eq('role', 'employee')
+  const inactiveUsers = (allUsers ?? []).filter(u => !activeUserIds.has(u.id))
+
+  // Tiempo promedio de aprobación (días)
+  const { data: recentApproved } = await supabase
+    .from('expense_reports')
+    .select('created_at, updated_at')
+    .eq('org_id', orgId)
+    .eq('status', 'approved')
+    .gte('updated_at', sixMonthsAgo)
+    .is('deleted_at', null)
+    .limit(100)
+
+  const avgDays = recentApproved?.length
+    ? recentApproved.reduce((sum, r) => {
+        const ms = new Date(r.updated_at).getTime() - new Date(r.created_at).getTime()
+        return sum + ms / 86400000
+      }, 0) / recentApproved.length
+    : null
+
+  return {
+    last30Days: {
+      approved:     approved.count  ?? 0,
+      rejected:     rejected.count  ?? 0,
+      pending:      pending.count   ?? 0,
+      approvalRate: (approved.count != null && rejected.count != null && (approved.count + rejected.count) > 0)
+        ? Math.round((approved.count / (approved.count + rejected.count)) * 100)
+        : null,
+    },
+    avgApprovalDays:   avgDays ? Math.round(avgDays * 10) / 10 : null,
+    inactiveEmployees: inactiveUsers.slice(0, 5),
+    inactiveCount:     inactiveUsers.length,
+  }
+}
+
+// ─── Webhooks salientes ─────────────────────────────────────────────────────
+
+export async function listWebhooks() {
+  const { orgId } = await requireAdmin()
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('webhooks')
+    .select('id, url, events, activo, created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+  return data ?? []
+}
+
+export async function createWebhook(url: string, secret: string, events: string[]) {
+  const { orgId, userId, actorName } = await requireAdmin()
+
+  // Validar URL: solo HTTPS, sin rangos privados/link-local
+  let parsed: URL
+  try { parsed = new URL(url) } catch { throw new Error('URL inválida') }
+  if (parsed.protocol !== 'https:') throw new Error('La URL debe usar HTTPS')
+  const host = parsed.hostname
+  const privateRanges = [
+    /^localhost$/i,
+    /^127\./,
+    /^10\./,
+    /^192\.168\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^169\.254\./,
+    /^::1$/,
+    /^fc00:/i,
+    /^fe80:/i,
+  ]
+  if (privateRanges.some(r => r.test(host))) throw new Error('La URL apunta a una dirección privada')
+
+  // Validar events: solo valores conocidos
+  const VALID_EVENTS: string[] = [
+    'report.approved', 'report.partially_approved', 'report.rejected',
+    'report.reimbursed', 'defontana.exported',
+  ]
+  const invalidEvents = events.filter(e => !VALID_EVENTS.includes(e))
+  if (invalidEvents.length) throw new Error(`Eventos inválidos: ${invalidEvents.join(', ')}`)
+
+  // Validar secret: mínimo 16 caracteres
+  if (!secret || secret.length < 16) throw new Error('El secret debe tener al menos 16 caracteres')
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('webhooks')
+    .insert({ org_id: orgId, url, secret, events })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'created',
+    entityType:  'webhook',
+    entityId:    (data as { id: string }).id,
+    entityLabel: url,
+    newValue:    { url, events },
+  })
+  revalidatePath('/admin/settings')
+}
+
+export async function deleteWebhook(id: string) {
+  const { orgId, userId, actorName } = await requireAdmin()
+  const supabase = await createClient()
+  const { data: wh } = await supabase
+    .from('webhooks')
+    .select('url')
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .single()
+  await supabase
+    .from('webhooks')
+    .delete()
+    .eq('id', id)
+    .eq('org_id', orgId)
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'deleted',
+    entityType:  'webhook',
+    entityId:    id,
+    entityLabel: (wh as { url: string } | null)?.url,
+  })
+  revalidatePath('/admin/settings')
 }

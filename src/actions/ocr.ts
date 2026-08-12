@@ -3,8 +3,17 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { buildOcrPrompt, parseOcrResponse } from '@/lib/ocr-helpers'
 import type { OcrResult } from '@/lib/ocr-helpers'
+import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function runOcr(imageBase64: string, mimeType: string): Promise<OcrResult | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { allowed } = await checkRateLimit(user.id, 'ocr', 30)
+  if (!allowed) throw new Error('Límite de OCR alcanzado. Intenta en una hora.')
+
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY!,
   })

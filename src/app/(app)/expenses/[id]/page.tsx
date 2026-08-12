@@ -17,9 +17,13 @@ import {
   uploadAttachment,
   getReportWithItems,
   getReportApprovals,
+  getReportTimeline,
+  type TimelineEvent,
 } from '@/actions/expenses'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
+import { exportEmployeeReportPdf } from '@/lib/export/pdf'
+import { Download } from 'lucide-react'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
@@ -39,6 +43,8 @@ export default function ExpenseDetailPage() {
   const [employeeCostCenterId, setEmployeeCC]     = useState<string | null>(null)
   const [mileageRate, setMileageRate]             = useState<number>(136)
   const [currentUserId, setCurrentUserId]         = useState<string | null>(null)
+  const [currentOrgId, setCurrentOrgId]           = useState<string | null>(null)
+  const [submitterName, setSubmitterName]         = useState<string | null>(null)
   const [showForm, setShowForm]                   = useState(false)
   const [submitting, setSubmitting]               = useState(false)
   const [deleting, setDeleting]                   = useState(false)
@@ -47,6 +53,7 @@ export default function ExpenseDetailPage() {
   const [approvalAtts, setApprovalAtts]           = useState<ApprovalAtt[]>([])
   const [reportApprovals, setReportApprovals]     = useState<ReportApproval[]>([])
   const [exportingPdf, setExportingPdf]           = useState(false)
+  const [timeline,     setTimeline]               = useState<TimelineEvent[]>([])
 
   async function load() {
     const data = await getReportWithItems(id)
@@ -91,6 +98,7 @@ export default function ExpenseDetailPage() {
   useEffect(() => {
     load()
     loadApprovalAtts()
+    getReportTimeline(id).then(setTimeline)
 
     const supabase = createClient()
     // Categorías
@@ -103,9 +111,11 @@ export default function ExpenseDetailPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setCurrentUserId(user.id)
-      supabase.from('users').select('cost_center_id, org_id').eq('id', user.id).single()
+      supabase.from('users').select('cost_center_id, org_id, full_name').eq('id', user.id).single()
         .then(({ data }) => {
           setEmployeeCC(data?.cost_center_id ?? null)
+          setSubmitterName(data?.full_name ?? null)
+          if (data?.org_id) setCurrentOrgId(data.org_id)
           if (data?.org_id) {
             supabase.from('organizations').select('mileage_rate_per_km').eq('id', data.org_id).single()
               .then(({ data: org }) => {
@@ -216,12 +226,43 @@ export default function ExpenseDetailPage() {
   }
 
   const isDraft              = report.status === 'draft'
+  const isHistorical         = report.is_historical_import === true
+  const canUploadAttachment  = isDraft || isHistorical
   const isMyDraft            = isDraft && report.submitter_id === currentUserId
   const items                = (report.expense_items ?? []) as ItemWithRelations[]
   const rejectedItems        = items.filter(i => i.status === 'rejected')
   const isRejected           = report.status === 'rejected'
   const isPartiallyApproved  = report.status === 'partially_approved'
   const showRejectionBanner  = isRejected || isPartiallyApproved
+
+  // R-03: balance de rendición
+  const totalAprobado  = items.filter(i => i.status === 'approved').reduce((s, i) => s + (i.amount_clp ?? 0), 0)
+  const totalRechazado = items.filter(i => i.status === 'rejected').reduce((s, i) => s + (i.amount_clp ?? 0), 0)
+  const hasPending     = items.some(i => i.status === 'pending')
+  const allDecided     = items.length > 0 && !hasPending
+  const isCuadrada     = allDecided && totalAprobado === report.total_amount
+  const isParcial      = allDecided && totalRechazado > 0
+  const showBalance    = !isDraft && items.length > 0
+
+  // R-04: línea de tiempo
+  const formatTs = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+      + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+  }
+  const timelineDotCls: Record<TimelineEvent['type'], string> = {
+    neutral: 'border-ink-300 bg-ink-100',
+    success: 'border-emerald-500 bg-emerald-50',
+    warning: 'border-amber-400 bg-amber-50',
+    error:   'border-red-400 bg-red-50',
+  }
+  const allTimelineEvents: (TimelineEvent & { key: string })[] = [
+    { key: 'created',   label: 'Borrador creado',      date: report.created_at,   type: 'neutral' },
+    ...(report.submitted_at  ? [{ key: 'submitted',  label: 'Enviada a revisión', date: report.submitted_at,  type: 'neutral' as const }] : []),
+    ...timeline.map((e, i) => ({ ...e, key: `audit-${i}` })),
+    ...(report.reimbursed_at ? [{ key: 'reimbursed', label: 'Reembolsada',        date: report.reimbursed_at, type: 'success' as const }] : []),
+  ]
+  const showTimeline = !!report.submitted_at || timeline.length > 0
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -243,15 +284,14 @@ export default function ExpenseDetailPage() {
           <ReportStatusBadge status={report.status as any} />
           {report.status !== 'draft' && (
             <button
-              onClick={handleDownloadPdf}
-              disabled={exportingPdf}
-              className="text-xs px-2.5 py-1.5 border border-ink-200 rounded-item text-ink-500 hover:bg-ink-50 disabled:opacity-50 transition-colors flex items-center gap-1.5"
-              title="Descargar PDF"
+              onClick={() => exportEmployeeReportPdf(
+                { ...report, submitter_name: submitterName ?? undefined },
+                items.map(i => ({ ...i, category_name: i.expense_categories?.name ?? undefined }))
+              )}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-ink-700 bg-white border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
             >
-              {exportingPdf ? (
-                <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-              ) : '📄'}
-              PDF
+              <Download size={14} />
+              Descargar PDF
             </button>
           )}
         </div>
@@ -291,12 +331,79 @@ export default function ExpenseDetailPage() {
                 itemId={item.id}
                 itemType="expense_item"
                 initialAttachments={item.attachments}
-                canUpload={isDraft}
+                canUpload={canUploadAttachment}
               />
             </div>
           </div>
         ))}
       </div>
+
+      {/* R-03: Balance de rendición */}
+      {showBalance && (
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-ink-700">Resumen de aprobación</span>
+            {isCuadrada && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+                ✓ Cuadrada
+              </span>
+            )}
+            {isParcial && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full">
+                ⚠ Parcial
+              </span>
+            )}
+            {hasPending && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+                En revisión
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-ink-100">
+            <div className="flex justify-between items-center py-2 text-sm">
+              <span className="text-ink-500">Total solicitado</span>
+              <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" />
+            </div>
+            <div className="flex justify-between items-center py-2 text-sm">
+              <span className="text-emerald-600 font-medium">Aprobado</span>
+              <CurrencyAmount amount={totalAprobado} currency="CLP" size="sm" />
+            </div>
+            {totalRechazado > 0 && (
+              <div className="flex justify-between items-center py-2 text-sm">
+                <span className="text-red-500 font-medium">Rechazado</span>
+                <CurrencyAmount amount={totalRechazado} currency="CLP" size="sm" />
+              </div>
+            )}
+            {hasPending && (
+              <div className="flex justify-between items-center py-2 text-sm">
+                <span className="text-amber-500 font-medium">Pendiente de revisión</span>
+                <CurrencyAmount amount={report.total_amount - totalAprobado - totalRechazado} currency="CLP" size="sm" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* R-04: Línea de tiempo */}
+      {showTimeline && (
+        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+          <h3 className="text-sm font-semibold text-ink-700 mb-4">Historial</h3>
+          <div className="space-y-0">
+            {allTimelineEvents.map((ev, i) => (
+              <div key={ev.key} className="flex gap-3 relative">
+                {i < allTimelineEvents.length - 1 && (
+                  <div className="absolute left-[7px] top-4 h-full w-0.5 bg-ink-100" />
+                )}
+                <div className={`w-[15px] h-[15px] rounded-full flex-shrink-0 mt-[3px] border-2 z-10 ${timelineDotCls[ev.type]}`} />
+                <div className="pb-4 flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink-800 leading-tight">{ev.label}</p>
+                  <p className="text-xs text-ink-400 mt-0.5">{formatTs(ev.date)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Formulario de nuevo ítem */}
       {showForm && isDraft && (
@@ -305,6 +412,8 @@ export default function ExpenseDetailPage() {
           costCenters={costCenters}
           employeeCostCenterId={employeeCostCenterId}
           mileageRate={mileageRate}
+          submitterId={currentUserId}
+          orgId={currentOrgId}
           onSave={handleSaveItem}
           onCancel={() => setShowForm(false)}
         />

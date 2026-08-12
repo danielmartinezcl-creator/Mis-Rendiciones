@@ -10,16 +10,18 @@ import {
 } from '@/lib/policy-helpers'
 import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { ExpensePolicy, TravelPolicy } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
+import { validateStringLength, validateAmount } from '@/lib/validators'
 
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
   const { data: profile } = await supabase
-    .from('users').select('org_id, role').eq('id', user.id).single()
+    .from('users').select('org_id, role, full_name').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin')
     throw new Error('Solo los administradores pueden gestionar políticas')
-  return { supabase, user, org_id: profile.org_id }
+  return { supabase, user, org_id: profile.org_id, actorName: profile.full_name }
 }
 
 // ─── Consultas ────────────────────────────────────────────────────────────────
@@ -65,31 +67,97 @@ export interface PolicyCheckResult {
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function createPolicy(data: PolicyInput): Promise<void> {
-  const { supabase, org_id } = await requireAdmin()
-  const { error } = await supabase.from('expense_policies').insert({ org_id, ...data })
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  if (!validateStringLength(data.name, 200)) throw new Error('Nombre de política inválido (1-200 caracteres)')
+
+  const { data: newPolicy, error } = await supabase
+    .from('expense_policies')
+    .insert({ org_id, ...data })
+    .select('id, name')
+    .single()
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'created',
+    entityType:  'policy',
+    entityId:    (newPolicy as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: (newPolicy as unknown as { name: string } | null)?.name ?? data.name,
+    newValue:    { ...data } as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function updatePolicy(id: string, data: Partial<PolicyInput>): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase.from('expense_policies').select('*').eq('id', id).single()
+
   const { error } = await supabase.from('expense_policies').update(data).eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'updated',
+    entityType:  'policy',
+    entityId:    id,
+    entityLabel: before?.name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    data as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function togglePolicyActive(id: string, active: boolean): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
   const { error } = await supabase
     .from('expense_policies').update({ is_active: active }).eq('id', id)
   if (error) throw new Error(error.message)
+
+  try {
+    await logAudit({
+      orgId:       org_id,
+      actorId:     user.id,
+      actorName,
+      action:      'updated',
+      entityType:  'policy',
+      entityId:    id,
+      entityLabel: `Política ${active ? 'activada' : 'desactivada'}`,
+      newValue:    { is_active: active },
+    })
+  } catch { /* silent */ }
+
   revalidatePath('/admin/settings')
 }
 
 export async function deletePolicy(id: string): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  const { data: policy } = await supabase
+    .from('expense_policies').select('name').eq('id', id).single()
+
   const { error } = await supabase.from('expense_policies').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'deleted',
+    entityType:  'policy',
+    entityId:    id,
+    entityLabel: policy?.name ?? id,
+    oldValue:    policy as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -159,6 +227,7 @@ export async function checkPolicyViolations(params: {
       .neq('status', 'rejected')
       .gte('date', annualStart)
       .lte('date', annualEnd)
+      .is('deleted_at', null)
 
     if (categoryId) q = q.eq('category_id', categoryId)
 
@@ -215,23 +284,76 @@ export interface TravelPolicyInput {
 }
 
 export async function createTravelPolicy(data: TravelPolicyInput): Promise<void> {
-  const { supabase, org_id } = await requireAdmin()
-  const { error } = await supabase.from('travel_policies').insert({ org_id, ...data })
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  if (!validateStringLength(data.name, 200)) throw new Error('Nombre de política de viáticos inválido (1-200 caracteres)')
+  if (!validateAmount(data.max_amount)) throw new Error('El monto máximo debe ser un número positivo')
+
+  const { data: newPolicy, error } = await supabase
+    .from('travel_policies')
+    .insert({ org_id, ...data })
+    .select('id, name')
+    .single()
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'created',
+    entityType:  'travel_policy',
+    entityId:    (newPolicy as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: (newPolicy as unknown as { name: string } | null)?.name ?? data.name,
+    newValue:    { ...data } as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function updateTravelPolicy(id: string, data: Partial<TravelPolicyInput>): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase.from('travel_policies').select('*').eq('id', id).single()
+
   const { error } = await supabase.from('travel_policies').update(data).eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'updated',
+    entityType:  'travel_policy',
+    entityId:    id,
+    entityLabel: before?.name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    data as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function deleteTravelPolicy(id: string): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  const { data: policy } = await supabase
+    .from('travel_policies').select('name').eq('id', id).single()
+
   const { error } = await supabase.from('travel_policies').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'deleted',
+    entityType:  'travel_policy',
+    entityId:    id,
+    entityLabel: policy?.name ?? id,
+    oldValue:    policy as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 

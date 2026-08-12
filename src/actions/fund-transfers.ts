@@ -60,21 +60,24 @@ export type FundTransferRow = {
   created_at:            string
 }
 
-// ── Crear traspaso (pago desde fondo activo o carga histórica) ────────────────
+// ── Crear traspaso (pago desde fondo activo o rendición/carga histórica) ──────
 
 export async function createFundTransfer(params: {
-  date:                 string
-  amount:               number
-  description?:         string
-  receiver_employee_id: string
-  // Exactamente uno de los dos:
-  payer_fund_id?:   string
-  payer_report_id?: string
+  date:                  string
+  amount:                number
+  description?:          string
+  receiver_employee_id:  string
+  // Exactamente uno de los dos para el origen:
+  payer_fund_id?:        string
+  payer_report_id?:      string
+  // Opcionales para vinculación directa al crear:
+  receiver_fund_id?:     string
+  receiver_report_id?:   string
 }) {
-  const { supabase, userId, profile, orgId } = await requireAdmin()
+  const { supabase, userId, orgId } = await requireAdmin()
 
   if (!params.payer_fund_id && !params.payer_report_id)
-    throw new Error('Debe especificar el fondo o carga histórica de origen')
+    throw new Error('Debe especificar el fondo o rendición de origen')
   if (params.amount <= 0) throw new Error('El monto debe ser mayor a cero')
 
   // Verificar que el empleado receptor pertenece a la misma org
@@ -86,7 +89,11 @@ export async function createFundTransfer(params: {
     .single()
   if (!receiver) throw new Error('Empleado receptor no encontrado en la organización')
 
-  // Verificar origen
+  const adminClient = createAdminClient()
+  let transferId: string | null = null
+  let payerEmployeeId: string | null = null
+
+  // ── Rama origen: fondo de caja chica ────────────────────────────────────
   if (params.payer_fund_id) {
     const { data: fund } = await supabase
       .from('petty_cash_funds')
@@ -95,10 +102,9 @@ export async function createFundTransfer(params: {
       .eq('org_id', orgId)
       .single()
     if (!fund) throw new Error('Fondo de origen no encontrado')
+    payerEmployeeId = fund.employee_id
 
-    // Crear registro de traspaso
-    const adminClient = createAdminClient()
-    const { data: transfer, error: tErr } = await adminClient
+    const { data: t, error: tErr } = await adminClient
       .from('fund_transfers')
       .insert({
         org_id:               orgId,
@@ -113,24 +119,25 @@ export async function createFundTransfer(params: {
       })
       .select('id')
       .single()
-    if (tErr || !transfer) throw new Error(tErr?.message ?? 'Error al crear traspaso')
+    if (tErr || !t) throw new Error(tErr?.message ?? 'Error al crear traspaso')
+    transferId = t.id
 
-    // Ítem en petty_cash_items del fondo pagador
     const { data: recUser } = await supabase
       .from('users').select('full_name').eq('id', params.receiver_employee_id).single()
     await adminClient.from('petty_cash_items').insert({
-      fund_id:     params.payer_fund_id,
-      org_id:      orgId,
-      description: `↗ Traspaso → ${recUser?.full_name ?? 'empleado'}`,
-      amount:      params.amount,
-      currency:    'CLP',
+      fund_id:       params.payer_fund_id,
+      org_id:        orgId,
+      description:   `↗ Traspaso → ${recUser?.full_name ?? 'empleado'}`,
+      amount:        params.amount,
+      currency:      'CLP',
       exchange_rate: 1,
-      amount_clp:  params.amount,
-      date:        params.date,
-      notes:       params.description?.trim() || null,
-      transfer_id: transfer.id,
+      amount_clp:    params.amount,
+      date:          params.date,
+      notes:         params.description?.trim() || null,
+      transfer_id:   t.id,
     })
 
+  // ── Rama origen: rendición o carga histórica ─────────────────────────────
   } else if (params.payer_report_id) {
     const { data: report } = await supabase
       .from('expense_reports')
@@ -138,10 +145,10 @@ export async function createFundTransfer(params: {
       .eq('id', params.payer_report_id)
       .eq('org_id', orgId)
       .single()
-    if (!report) throw new Error('Carga histórica de origen no encontrada')
+    if (!report) throw new Error('Rendición de origen no encontrada')
+    payerEmployeeId = report.submitter_id
 
-    const adminClient = createAdminClient()
-    const { data: transfer, error: tErr } = await adminClient
+    const { data: t, error: tErr } = await adminClient
       .from('fund_transfers')
       .insert({
         org_id:               orgId,
@@ -156,9 +163,9 @@ export async function createFundTransfer(params: {
       })
       .select('id')
       .single()
-    if (tErr || !transfer) throw new Error(tErr?.message ?? 'Error al crear traspaso')
+    if (tErr || !t) throw new Error(tErr?.message ?? 'Error al crear traspaso')
+    transferId = t.id
 
-    // Ítem en expense_items de la carga histórica pagadora
     const { data: recUser } = await supabase
       .from('users').select('full_name').eq('id', params.receiver_employee_id).single()
     await adminClient.from('expense_items').insert({
@@ -173,12 +180,61 @@ export async function createFundTransfer(params: {
       date:                 params.date,
       item_type:            'transfer' as const,
       notes:                params.description?.trim() || null,
-      transfer_id:          transfer.id,
+      transfer_id:          t.id,
     })
+  }
+
+  // ── Vinculación directa al receptor (si se especificó destino) ───────────
+  if (transferId && (params.receiver_fund_id || params.receiver_report_id)) {
+    const { data: payerUser } = payerEmployeeId
+      ? await supabase.from('users').select('full_name').eq('id', payerEmployeeId).single()
+      : { data: null }
+    const payerName = payerUser?.full_name ?? 'empleado'
+
+    if (params.receiver_fund_id) {
+      await adminClient.from('petty_cash_items').insert({
+        fund_id:       params.receiver_fund_id,
+        org_id:        orgId,
+        description:   `↙ Traspaso ← ${payerName}`,
+        amount:        params.amount,
+        currency:      'CLP',
+        exchange_rate: 1,
+        amount_clp:    params.amount,
+        date:          params.date,
+        notes:         params.description?.trim() || null,
+        transfer_id:   transferId,
+      })
+      await adminClient.from('fund_transfers').update({
+        receiver_fund_id: params.receiver_fund_id,
+        matched:          true,
+        matched_at:       new Date().toISOString(),
+      }).eq('id', transferId)
+    } else if (params.receiver_report_id) {
+      await adminClient.from('expense_items').insert({
+        report_id:            params.receiver_report_id,
+        org_id:               orgId,
+        description:          `↙ Traspaso ← ${payerName}`,
+        amount:               params.amount,
+        currency:             'CLP',
+        exchange_rate:        1,
+        exchange_rate_source: 'manual' as const,
+        amount_clp:           params.amount,
+        date:                 params.date,
+        item_type:            'transfer' as const,
+        notes:                params.description?.trim() || null,
+        transfer_id:          transferId,
+      })
+      await adminClient.from('fund_transfers').update({
+        receiver_report_id: params.receiver_report_id,
+        matched:            true,
+        matched_at:         new Date().toISOString(),
+      }).eq('id', transferId)
+    }
   }
 
   revalidatePath('/petty-cash')
   revalidatePath('/admin/carga-historica')
+  revalidatePath('/admin/reports')
 }
 
 // ── Vincular traspaso pendiente a un fondo o carga histórica receptora ─────────
@@ -631,11 +687,9 @@ export async function getEmployeeTargets(employeeId: string): Promise<EmployeeTa
       .order('created_at', { ascending: false }),
     supabase
       .from('expense_reports')
-      .select('id, title')
+      .select('id, title, is_historical_import, historical_type')
       .eq('org_id', orgId)
       .eq('submitter_id', employeeId)
-      .eq('is_historical_import', true)
-      .eq('historical_type', 'caja_chica')
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
   ])
@@ -643,13 +697,19 @@ export async function getEmployeeTargets(employeeId: string): Promise<EmployeeTa
   const fundTargets: EmployeeTarget[] = (funds ?? []).map(f => ({
     id:    f.id,
     label: `${f.name} (${f.status})`,
-    type:  'fund',
+    type:  'fund' as const,
   }))
-  const reportTargets: EmployeeTarget[] = (reports ?? []).map(r => ({
-    id:    r.id,
-    label: r.title,
-    type:  'report',
-  }))
+  const reportTargets: EmployeeTarget[] = (reports ?? []).map(r => {
+    let prefix = 'Rendición'
+    if (r.is_historical_import) {
+      prefix = r.historical_type === 'caja_chica' ? 'Histórica (CC)' : 'Histórica (Rend.)'
+    }
+    return {
+      id:    r.id,
+      label: `${prefix} — ${r.title}`,
+      type:  'report' as const,
+    }
+  })
 
   return [...fundTargets, ...reportTargets]
 }

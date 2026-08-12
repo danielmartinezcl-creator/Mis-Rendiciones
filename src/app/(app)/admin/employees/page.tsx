@@ -101,6 +101,14 @@ export default function AdminEmployeesPage() {
   }
 
   async function handleSendInvitations(userIds: string[]) {
+    const alreadyInvited = employees.filter(e => userIds.includes(e.id) && e.invited_at)
+    if (alreadyInvited.length > 0) {
+      const detalle = alreadyInvited.map(e => `· ${e.full_name} (invitado el ${formatDate(e.invited_at!)})`).join('\n')
+      const msg = alreadyInvited.length === 1
+        ? `${alreadyInvited[0].full_name} ya fue invitado el ${formatDate(alreadyInvited[0].invited_at!)}.\n\nEl nuevo correo llega como "restablecer contraseña" — puede ignorarlo si no quiere cambiar su clave.\n\n¿Continuar de todas formas?`
+        : `${alreadyInvited.length} de los seleccionados ya recibieron una invitación:\n${detalle}\n\nEl correo llegará como "restablecer contraseña".\n\n¿Continuar de todas formas?`
+      if (!confirm(msg)) return
+    }
     const key = userIds.length > 1 ? 'bulk' : userIds[0]
     setInviting(key)
     setInviteResults(null)
@@ -440,20 +448,22 @@ export default function AdminEmployeesPage() {
 
                   {/* Rol selector + botón invitar individual */}
                   <div className="flex items-center gap-2">
-                    {!emp.invited_at && (
-                      <button
-                        onClick={() => handleSendInvitations([emp.id])}
-                        disabled={!!inviting}
-                        title="Enviar invitación"
-                        className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-40 rounded-item transition-colors border border-teal-200"
-                      >
-                        {isInvitingSingle
-                          ? <Loader2 size={11} className="animate-spin" />
-                          : <Send size={11} />
-                        }
-                        Invitar
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleSendInvitations([emp.id])}
+                      disabled={!!inviting}
+                      title={emp.invited_at ? `Reenviar invitación (ya enviada el ${formatDate(emp.invited_at)})` : 'Enviar invitación'}
+                      className={`inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold disabled:opacity-40 rounded-item transition-colors border ${
+                        emp.invited_at
+                          ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200'
+                          : 'text-teal-700 bg-teal-50 hover:bg-teal-100 border-teal-200'
+                      }`}
+                    >
+                      {isInvitingSingle
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : <Send size={11} />
+                      }
+                      {emp.invited_at ? 'Reenviar' : 'Invitar'}
+                    </button>
 
                     <select
                       value={emp.role}

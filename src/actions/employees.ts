@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { validateRut } from '@/lib/validators'
 
 export type ImportEmployeeRow = {
   full_name:       string
@@ -52,7 +53,17 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
   const { profile, adminClient } = await getAdminContext()
   const results: ImportResult[] = []
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    // Validar RUT del empleado si viene en la fila
+    if (row.rut) {
+      const normalized = row.rut.trim().toUpperCase().replace(/\./g, '')
+      if (!validateRut(normalized)) {
+        results.push({ email: row.email, full_name: row.full_name, success: false, error: `RUT inválido "${row.rut}"` })
+        continue
+      }
+    }
+
     try {
       // createUser crea la cuenta SIN enviar email de invitación
       const { data: created, error: createError } = await adminClient.auth.admin.createUser({
@@ -172,10 +183,20 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
   return results
 }
 
+// ── Validación de complejidad de contraseña ──────────────────────────────────
+
+function validatePassword(pwd: string): string | null {
+  if (pwd.length < 8)       return 'Mínimo 8 caracteres'
+  if (!/[A-Z]/.test(pwd))  return 'Debe incluir al menos una mayúscula'
+  if (!/[0-9]/.test(pwd))  return 'Debe incluir al menos un número'
+  return null
+}
+
 // ── Establecer contraseña de empleado sin enviar email ───────────────────────
 
 export async function setEmployeePassword(userId: string, newPassword: string): Promise<void> {
-  if (newPassword.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres')
+  const pwdError = validatePassword(newPassword)
+  if (pwdError) throw new Error(pwdError)
   const { adminClient } = await getAdminContext()
   const { error } = await adminClient.auth.admin.updateUserById(userId, {
     password:      newPassword,

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { validateStringLength } from '@/lib/validators'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -24,6 +25,8 @@ export async function submitSuggestion(data: {
   category: 'mejora' | 'error' | 'consulta' | 'otro'
 }) {
   const { supabase, userId, profile } = await getProfile()
+
+  if (!validateStringLength(data.content, 5000)) throw new Error('El contenido debe tener entre 1 y 5000 caracteres')
 
   const { error } = await supabase.from('suggestions').insert({
     org_id:   profile.org_id,

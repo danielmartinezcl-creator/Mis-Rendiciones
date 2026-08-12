@@ -7,6 +7,7 @@ import {
   getPendingApprovalList,
   getPendingReimbursementList,
   getExpenseCategoryBreakdown,
+  getOrgHealthMetrics,
 } from '@/actions/admin'
 import { AdminKpiHero }              from '@/components/ui/AdminKpiHero'
 import { PendingApprovalPanel }      from '@/components/admin/PendingApprovalPanel'
@@ -17,12 +18,13 @@ import { ReceiptText, Users, Settings2, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function AdminPage() {
-  const [kpis, pendingList, approvalList, reimbursementList, categoryBreakdown] = await Promise.all([
+  const [kpis, pendingList, approvalList, reimbursementList, categoryBreakdown, health] = await Promise.all([
     getAdminKpis(),
     getPendingToRenderList(),
     getPendingApprovalList(),
     getPendingReimbursementList(),
     getExpenseCategoryBreakdown(),
+    getOrgHealthMetrics(),
   ])
 
   // Totales combinados (rendiciones + caja chica)
@@ -93,6 +95,59 @@ export default async function AdminPage() {
 
       {/* Gráfico de gastos por categoría */}
       <CategoryDonutChart data={categoryBreakdown} />
+
+      {/* Salud operacional */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold font-display text-ink-900 mb-4">Salud operacional</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Tasa de aprobación */}
+          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">Tasa aprobación</p>
+            <p className={`text-2xl font-bold font-mono-amount mt-1 ${
+              health.last30Days.approvalRate == null ? 'text-ink-300' :
+              health.last30Days.approvalRate > 80   ? 'text-teal-600' : 'text-amber-600'
+            }`}>
+              {health.last30Days.approvalRate != null ? `${health.last30Days.approvalRate}%` : '—'}
+            </p>
+            <p className="text-xs text-ink-400 mt-1">últimos 30 días</p>
+          </div>
+
+          {/* Tiempo promedio de aprobación */}
+          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">Tiempo promedio</p>
+            <p className={`text-2xl font-bold font-mono-amount mt-1 ${
+              health.avgApprovalDays == null ? 'text-ink-300' :
+              health.avgApprovalDays < 3    ? 'text-teal-600' :
+              health.avgApprovalDays < 7    ? 'text-amber-600' : 'text-red-600'
+            }`}>
+              {health.avgApprovalDays != null ? `${health.avgApprovalDays}d` : '—'}
+            </p>
+            <p className="text-xs text-ink-400 mt-1">de aprobación (6 meses)</p>
+          </div>
+
+          {/* En espera */}
+          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">En espera</p>
+            <p className={`text-2xl font-bold font-mono-amount mt-1 ${
+              health.last30Days.pending > 10 ? 'text-red-600' : 'text-ink-900'
+            }`}>
+              {health.last30Days.pending}
+            </p>
+            <p className="text-xs text-ink-400 mt-1">rendiciones pendientes</p>
+          </div>
+
+          {/* Empleados sin actividad */}
+          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">Sin actividad</p>
+            <p className={`text-2xl font-bold font-mono-amount mt-1 ${
+              health.inactiveCount > 5 ? 'text-amber-600' : 'text-ink-900'
+            }`}>
+              {health.inactiveCount}
+            </p>
+            <p className="text-xs text-ink-400 mt-1">empleados (30 días)</p>
+          </div>
+        </div>
+      </div>
 
       {/* Accesos rápidos */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

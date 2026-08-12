@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { FundStatus } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
+import { validateStringLength, validateDateRange } from '@/lib/validators'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -53,6 +55,11 @@ export async function createPettyCashFund(data: {
 
   if (!profile.can_manage_petty_cash && profile.role !== 'admin') {
     throw new Error('Sin permiso para crear fondos')
+  }
+
+  if (!validateStringLength(data.name ?? '', 200)) throw new Error('Nombre requerido (máx 200 caracteres)')
+  if (data.period_start && data.period_end && !validateDateRange(data.period_start, data.period_end)) {
+    throw new Error('La fecha de fin debe ser posterior a la fecha de inicio')
   }
 
   // Verificar límite de monto por fondo
@@ -447,21 +454,32 @@ export async function recordSettlement(fundId: string, data: {
 // ── Eliminar fondo (solo admin) ───────────────────────────────────────────────
 
 export async function deletePettyCashFund(fundId: string) {
-  const { supabase } = await getProfile()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { supabase, userId, profile } = await getProfile()
+  if (profile.role !== 'admin') throw new Error('Solo administradores')
 
-  const { data: profile } = await supabase
-    .from('users').select('role').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+  // Capture fund before soft delete
+  const { data: fund } = await supabase
+    .from('petty_cash_funds').select('name').eq('id', fundId).single()
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
     .from('petty_cash_funds')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', fundId)
+    .eq('org_id', profile.org_id)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     userId,
+    actorName:   profile.full_name,
+    action:      'deleted',
+    entityType:  'petty_cash_fund',
+    entityId:    fundId,
+    entityLabel: fund?.name ?? fundId,
+  })
+
   revalidatePath('/petty-cash')
   revalidatePath('/admin/trash')
 }
@@ -528,7 +546,7 @@ export async function getFundDetail(fundId: string) {
     supabase.from('petty_cash_approvals').select('*').eq('fund_id', fundId).order('created_at', { ascending: true }),
     supabase.from('petty_cash_transfers').select('*').eq('fund_id', fundId).order('created_at', { ascending: true }),
     supabase.from('users').select('id, full_name').in('id', [fund.employee_id, fund.manager_id]),
-    supabase.from('expense_categories').select('id, name, color').eq('is_active', true),
+    supabase.from('expense_categories').select('id, name, color').eq('is_active', true).is('deleted_at', null),
   ])
 
   const userMap = Object.fromEntries((usersRes.data ?? []).map(u => [u.id, u.full_name]))
@@ -651,6 +669,7 @@ export async function getActivePettyCashCategories() {
     .select('id, name, color')
     .or(`org_id.eq.${profile.org_id},org_id.is.null`)
     .eq('is_active', true)
+    .is('deleted_at', null)
     .order('name', { ascending: true })
   return data ?? []
 }
@@ -728,6 +747,7 @@ export async function getPettyCashItemsForReport(filters: {
           .from('expense_items')
           .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
           .in('report_id', histReportIds)
+          .is('deleted_at', null)
           .order('date', { ascending: true })
       )
     : Promise.resolve({ data: [] })
@@ -749,7 +769,7 @@ export async function getPettyCashItemsForReport(filters: {
 
   const [catsRes, usersRes] = await Promise.all([
     allCatIds.length
-      ? supabase.from('expense_categories').select('id, name, color').in('id', allCatIds)
+      ? supabase.from('expense_categories').select('id, name, color').in('id', allCatIds).is('deleted_at', null)
       : Promise.resolve({ data: [] as { id: string; name: string; color: string | null }[] }),
     allEmpIds.length
       ? supabase.from('users').select('id, full_name').in('id', allEmpIds)
@@ -907,7 +927,7 @@ export async function getPettyCashFundDefontanaData(fundId: string) {
 }
 
 export async function markPettyCashFundDefontanaExported(fundId: string, ref: string) {
-  const { supabase, profile } = await getProfile()
+  const { supabase, userId, profile } = await getProfile()
   if (profile.role !== 'admin') throw new Error('Sin permiso')
   const { error } = await supabase
     .from('petty_cash_funds')
@@ -918,5 +938,15 @@ export async function markPettyCashFundDefontanaExported(fundId: string, ref: st
     .eq('id', fundId)
     .eq('org_id', profile.org_id)
   if (error) throw new Error(error.message)
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     userId,
+    actorName:   profile.full_name,
+    action:      'exported',
+    entityType:  'defontana_export_petty_cash',
+    entityId:    ref,
+    entityLabel: `Fondo caja chica exportado`,
+    newValue:    { fundId, exportRef: ref },
+  })
   revalidatePath(`/petty-cash/${fundId}`)
 }

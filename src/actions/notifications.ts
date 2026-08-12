@@ -19,13 +19,17 @@ async function trySendEmail(to: string[], subject: string, html: string) {
 }
 
 // Busca emails reales en auth.users usando el admin client (service role)
+// Una llamada por usuario en paralelo — más eficiente que listar todos los usuarios
 async function lookupEmails(userIds: string[]): Promise<string[]> {
   if (!userIds.length) return []
   try {
     const admin = createAdminClient()
-    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-    const emailMap = new Map(data.users.map(u => [u.id, u.email ?? '']))
-    return userIds.map(id => emailMap.get(id) ?? '').filter(Boolean)
+    const results = await Promise.all(
+      userIds.map(id => admin.auth.admin.getUserById(id))
+    )
+    return results
+      .map(r => r.data?.user?.email)
+      .filter((e): e is string => !!e)
   } catch {
     return []
   }
@@ -330,8 +334,12 @@ export async function getMyNotifications() {
 
 export async function markNotificationRead(notificationId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
   await supabase
     .from('notifications')
     .update({ read: true })
     .eq('id', notificationId)
+    .eq('user_id', user.id)  // solo marcar las propias notificaciones
 }
