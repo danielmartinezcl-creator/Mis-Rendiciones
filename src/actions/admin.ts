@@ -2029,3 +2029,39 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
 
   return result
 }
+
+// ─── Auditoría ──────────────────────────────────────────────────────────────
+
+export type AuditLogFilters = {
+  actorId?:    string
+  entityType?: string
+  action?:     string
+  from?:       string  // YYYY-MM-DD
+  to?:         string
+  search?:     string  // busca en entity_label, notes, actor_name
+  limit?:      number
+  offset?:     number
+}
+
+export async function getAuditLog(filters: AuditLogFilters = {}) {
+  const { orgId } = await requireAdmin()
+  const admin = createAdminClient()
+
+  let q = admin
+    .from('audit_log')
+    .select('*', { count: 'exact' })
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(filters.limit ?? 50)
+
+  if (filters.offset)     q = q.range(filters.offset, filters.offset + (filters.limit ?? 50) - 1)
+  if (filters.actorId)    q = q.eq('actor_id', filters.actorId)
+  if (filters.entityType) q = q.eq('entity_type', filters.entityType)
+  if (filters.action)     q = q.eq('action', filters.action)
+  if (filters.from)       q = q.gte('created_at', `${filters.from}T00:00:00Z`)
+  if (filters.to)         q = q.lte('created_at', `${filters.to}T23:59:59Z`)
+  if (filters.search)     q = q.or(`entity_label.ilike.%${filters.search}%,notes.ilike.%${filters.search}%,actor_name.ilike.%${filters.search}%`)
+
+  const { data, count } = await q
+  return { items: (data ?? []) as import('@/lib/supabase/types').AuditLog[], total: count ?? 0 }
+}

@@ -27,6 +27,7 @@ import {
   WalletCards,
   TrendingUp,
   Zap,
+  Shield,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -48,7 +49,8 @@ const NAV_ITEMS = [
   { href: '/admin/reports',   label: 'Rendiciones',     Icon: ReceiptText,      roles: ['admin'] as const },
   { href: '/admin/employees', label: 'Empleados',       Icon: Users,            roles: ['admin'] as const },
   { href: '/admin/settings',  label: 'Configuración',   Icon: Settings2,        roles: ['admin'] as const },
-  { href: '/admin/trash',     label: 'Papelera',        Icon: Trash2,           roles: ['admin'] as const },
+  { href: '/admin/trash',      label: 'Papelera',        Icon: Trash2,           roles: ['admin'] as const },
+  { href: '/admin/auditoria',  label: 'Auditoría',       Icon: Shield,           roles: ['admin'] as const },
   { href: '/admin/carga-historica', label: 'Carga Histórica', Icon: Clock,      roles: ['admin'] as const },
 ]
 
