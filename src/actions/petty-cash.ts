@@ -926,7 +926,7 @@ export async function getPettyCashFundDefontanaData(fundId: string) {
 }
 
 export async function markPettyCashFundDefontanaExported(fundId: string, ref: string) {
-  const { supabase, profile } = await getProfile()
+  const { supabase, userId, profile } = await getProfile()
   if (profile.role !== 'admin') throw new Error('Sin permiso')
   const { error } = await supabase
     .from('petty_cash_funds')
@@ -937,5 +937,15 @@ export async function markPettyCashFundDefontanaExported(fundId: string, ref: st
     .eq('id', fundId)
     .eq('org_id', profile.org_id)
   if (error) throw new Error(error.message)
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     userId,
+    actorName:   profile.full_name,
+    action:      'exported',
+    entityType:  'defontana_export_petty_cash',
+    entityId:    ref,
+    entityLabel: `Fondo caja chica exportado`,
+    newValue:    { fundId, exportRef: ref },
+  })
   revalidatePath(`/petty-cash/${fundId}`)
 }

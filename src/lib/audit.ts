@@ -11,6 +11,7 @@ export type AuditEntityType =
   | 'petty_cash_fund' | 'petty_cash_item'
   | 'user' | 'category' | 'policy' | 'travel_policy'
   | 'defontana_settings' | 'defontana_supplier'
+  | 'defontana_export' | 'defontana_export_petty_cash'
   | 'cost_center_assignment' | 'approver_assignment'
   | 'webhook'
 

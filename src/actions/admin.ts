@@ -1221,7 +1221,7 @@ export async function deleteDefontanaSupplier(id: string) {
 // ─── Lock de exportación Defontana ───────────────────────────────────────────
 
 export async function markDefontanaExported(reportIds: string[], exportRef: string) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
   const { error } = await supabase
     .from('expense_reports')
     .update({
@@ -1231,6 +1231,16 @@ export async function markDefontanaExported(reportIds: string[], exportRef: stri
     .in('id', reportIds)
     .eq('org_id', orgId)
   if (error) throw new Error(error.message)
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'exported',
+    entityType:  'defontana_export',
+    entityId:    exportRef,
+    entityLabel: `${reportIds.length} rendiciones exportadas`,
+    newValue:    { reportIds, exportRef },
+  })
   revalidatePath('/admin/reports')
 }
 
