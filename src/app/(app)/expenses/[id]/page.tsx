@@ -22,6 +22,8 @@ import {
 } from '@/actions/expenses'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
+import { exportEmployeeReportPdf } from '@/lib/export/pdf'
+import { Download } from 'lucide-react'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
@@ -42,6 +44,7 @@ export default function ExpenseDetailPage() {
   const [mileageRate, setMileageRate]             = useState<number>(136)
   const [currentUserId, setCurrentUserId]         = useState<string | null>(null)
   const [currentOrgId, setCurrentOrgId]           = useState<string | null>(null)
+  const [submitterName, setSubmitterName]         = useState<string | null>(null)
   const [showForm, setShowForm]                   = useState(false)
   const [submitting, setSubmitting]               = useState(false)
   const [deleting, setDeleting]                   = useState(false)
@@ -108,9 +111,10 @@ export default function ExpenseDetailPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setCurrentUserId(user.id)
-      supabase.from('users').select('cost_center_id, org_id').eq('id', user.id).single()
+      supabase.from('users').select('cost_center_id, org_id, full_name').eq('id', user.id).single()
         .then(({ data }) => {
           setEmployeeCC(data?.cost_center_id ?? null)
+          setSubmitterName(data?.full_name ?? null)
           if (data?.org_id) setCurrentOrgId(data.org_id)
           if (data?.org_id) {
             supabase.from('organizations').select('mileage_rate_per_km').eq('id', data.org_id).single()
@@ -280,15 +284,14 @@ export default function ExpenseDetailPage() {
           <ReportStatusBadge status={report.status as any} />
           {report.status !== 'draft' && (
             <button
-              onClick={handleDownloadPdf}
-              disabled={exportingPdf}
-              className="text-xs px-2.5 py-1.5 border border-ink-200 rounded-item text-ink-500 hover:bg-ink-50 disabled:opacity-50 transition-colors flex items-center gap-1.5"
-              title="Descargar PDF"
+              onClick={() => exportEmployeeReportPdf(
+                { ...report, submitter_name: submitterName ?? undefined },
+                items.map(i => ({ ...i, category_name: i.expense_categories?.name ?? undefined }))
+              )}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-ink-700 bg-white border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
             >
-              {exportingPdf ? (
-                <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-              ) : '📄'}
-              PDF
+              <Download size={14} />
+              Descargar PDF
             </button>
           )}
         </div>
