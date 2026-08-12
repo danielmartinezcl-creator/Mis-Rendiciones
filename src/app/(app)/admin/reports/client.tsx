@@ -49,8 +49,9 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [defFilter,  setDefFilter]  = useState<'all' | 'notExported' | 'exported'>('all')
 
   // Reembolso inline
-  const [reimbOpen,  setReimbOpen]  = useState<string | null>(null)
-  const [reimbRef,   setReimbRef]   = useState('')
+  const [reimbOpen,   setReimbOpen]   = useState<string | null>(null)
+  const [reimbRef,    setReimbRef]    = useState('')
+  const [reimbAmount, setReimbAmount] = useState('')
   const [reimbSaving, setReimbSaving] = useState(false)
 
   // Cerrar dropdown empleado al hacer click fuera
@@ -222,9 +223,11 @@ export function AdminReportsClient({ initialReports }: Props) {
   async function handleReimburse(reportId: string) {
     setReimbSaving(true)
     try {
-      await markReimbursed(reportId, reimbRef)
+      const amount = reimbAmount ? parseFloat(reimbAmount) : undefined
+      await markReimbursed(reportId, reimbRef, amount)
       setReimbOpen(null)
       setReimbRef('')
+      setReimbAmount('')
       await load()
     } finally {
       setReimbSaving(false)
@@ -607,6 +610,26 @@ export function AdminReportsClient({ initialReports }: Props) {
                           {r.defontana_export_ref && ` · ${r.defontana_export_ref}`}
                         </span>
                       )}
+                      {/* Badge cuadre de reembolso */}
+                      {r.status === 'reimbursed' && r.reimbursed_amount != null && (() => {
+                        const diff = r.reimbursed_amount - r.approved_amount
+                        const absDiff = Math.abs(diff)
+                        if (absDiff < 1) return (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ Cuadrado
+                          </span>
+                        )
+                        if (diff > 0) return (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`Aprobado: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
+                            ↑ Exceso {formatCLP(absDiff)}
+                          </span>
+                        )
+                        return (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200" title={`Aprobado: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
+                            ↓ Déficit {formatCLP(absDiff)}
+                          </span>
+                        )
+                      })()}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       <strong>{r.submitter_name}</strong>
@@ -674,7 +697,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                 {canReimb && !isReopened && (
                   <div className="mt-3 pt-3 border-t border-slate-100">
                     <button
-                      onClick={() => { setReimbOpen(r.id); setReimbRef('') }}
+                      onClick={() => { setReimbOpen(r.id); setReimbRef(''); setReimbAmount(r.approved_amount > 0 ? String(r.approved_amount) : '') }}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
                     >
                       <Banknote size={13} />Marcar como reembolsada
@@ -682,14 +705,37 @@ export function AdminReportsClient({ initialReports }: Props) {
                   </div>
                 )}
                 {isReopened && (
-                  <div className="mt-3 pt-3 border-t border-slate-100 flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={reimbRef}
-                      onChange={e => setReimbRef(e.target.value)}
-                      placeholder="Referencia de pago (opcional)"
-                      className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
-                    />
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-slate-500">Monto reembolsado (CLP)</label>
+                        <input
+                          type="number"
+                          value={reimbAmount}
+                          onChange={e => setReimbAmount(e.target.value)}
+                          placeholder={`Aprobado: ${formatCLP(r.approved_amount)}`}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-slate-500">Referencia (opcional)</label>
+                        <input
+                          type="text"
+                          value={reimbRef}
+                          onChange={e => setReimbRef(e.target.value)}
+                          placeholder="N° transferencia, cheque…"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        />
+                      </div>
+                    </div>
+                    {reimbAmount && (() => {
+                      const paid = parseFloat(reimbAmount)
+                      const diff = paid - r.approved_amount
+                      if (Math.abs(diff) < 1) return <p className="text-xs text-emerald-600 font-medium">✓ Cuadra exacto con el monto aprobado</p>
+                      if (diff > 0) return <p className="text-xs text-amber-600">↑ Estás pagando {formatCLP(diff)} de más sobre los {formatCLP(r.approved_amount)} aprobados</p>
+                      return <p className="text-xs text-red-600">↓ Estás pagando {formatCLP(Math.abs(diff))} de menos sobre los {formatCLP(r.approved_amount)} aprobados</p>
+                    })()}
+                    <div className="flex gap-2 items-center">
                     <button
                       onClick={() => handleReimburse(r.id)}
                       disabled={reimbSaving}
@@ -698,6 +744,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       {reimbSaving ? '...' : 'Confirmar'}
                     </button>
                     <button onClick={() => setReimbOpen(null)} className="text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
+                    </div>
                   </div>
                 )}
               </div>

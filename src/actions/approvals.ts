@@ -510,7 +510,7 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
   revalidatePath('/')
 }
 
-export async function markReimbursed(reportId: string, paymentReference: string) {
+export async function markReimbursed(reportId: string, paymentReference: string, reimbursedAmount?: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -528,10 +528,11 @@ export async function markReimbursed(reportId: string, paymentReference: string)
   const { error } = await supabase
     .from('expense_reports')
     .update({
-      status:            'reimbursed',
-      reimbursed_at:     new Date().toISOString(),
-      reimbursed_by:     user.id,
-      payment_reference: paymentReference.trim() || null,
+      status:             'reimbursed',
+      reimbursed_at:      new Date().toISOString(),
+      reimbursed_by:      user.id,
+      payment_reference:  paymentReference.trim() || null,
+      reimbursed_amount:  reimbursedAmount ?? null,
     })
     .eq('id', reportId)
     .in('status', ['approved', 'partially_approved'])

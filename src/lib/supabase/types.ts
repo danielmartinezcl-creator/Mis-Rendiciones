@@ -240,6 +240,7 @@ export interface Database {
           approved_at: string | null
           reimbursed_at: string | null
           reimbursed_by: string | null
+          reimbursed_amount: number | null
           payment_reference: string | null
           defontana_exported_at: string | null
           defontana_export_ref:  string | null
@@ -269,6 +270,7 @@ export interface Database {
           approved_at?: string | null
           reimbursed_at?: string | null
           reimbursed_by?: string | null
+          reimbursed_amount?: number | null
           payment_reference?: string | null
           defontana_exported_at?: string | null
           defontana_export_ref?:  string | null
@@ -298,6 +300,7 @@ export interface Database {
           approved_at?: string | null
           reimbursed_at?: string | null
           reimbursed_by?: string | null
+          reimbursed_amount?: number | null
           payment_reference?: string | null
           defontana_exported_at?: string | null
           defontana_export_ref?:  string | null

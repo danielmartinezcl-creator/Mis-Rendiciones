@@ -32,7 +32,7 @@ export async function getAdminReports() {
 
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number')
+    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, reimbursed_amount, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number')
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .or('historical_type.neq.caja_chica,historical_type.is.null')
