@@ -390,11 +390,32 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
                                 <p className="text-xs font-semibold text-teal-700 mb-2">
                                   Desglose por categoría — {centerLabel(c.id, c.name)} · {monthLabel(m)}
                                 </p>
-                                <div className="space-y-1">
+                                <div className="space-y-2">
                                   {drillRows.map((r, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs">
-                                      <span className="text-slate-600">{r.category_name ?? 'Sin categoría'}</span>
-                                      <span className="font-mono-amount font-medium text-slate-800">{formatCLP(r.total_clp)}</span>
+                                    <div key={i} className="flex items-center gap-4 text-xs">
+                                      <span className="text-slate-600 w-40 truncate shrink-0">{r.category_name ?? 'Sin categoría'}</span>
+                                      <span className="font-mono-amount font-medium text-slate-800 w-28 text-right shrink-0">{formatCLP(r.total_clp)}</span>
+                                      {r.monthly_budget_clp ? (
+                                        <div className="min-w-[120px] flex-1">
+                                          <div className="flex justify-between text-xs mb-1">
+                                            <span className="font-medium text-slate-600">
+                                              {Math.round((r.total_clp / r.monthly_budget_clp) * 100)}%
+                                            </span>
+                                            <span className="text-ink-400">{formatCLP(r.monthly_budget_clp)}</span>
+                                          </div>
+                                          <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                                            <div
+                                              className={`h-full rounded-full transition-all ${
+                                                r.total_clp > r.monthly_budget_clp ? 'bg-red-500' :
+                                                r.total_clp > r.monthly_budget_clp * 0.8 ? 'bg-amber-500' : 'bg-brand-500'
+                                              }`}
+                                              style={{ width: `${Math.min(100, (r.total_clp / r.monthly_budget_clp) * 100)}%` }}
+                                            />
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <span className="text-ink-300 text-xs">—</span>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

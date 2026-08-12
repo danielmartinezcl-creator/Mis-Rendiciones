@@ -669,17 +669,22 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
   revalidatePath('/admin/settings')
 }
 
-export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
+export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string; monthly_budget_clp?: number | null }) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   const admin = createAdminClient()
 
   // Capture before state
   const { data: before } = await supabase
-    .from('expense_categories').select('name, color, icon').eq('id', id).single()
+    .from('expense_categories').select('name, color, icon, monthly_budget_clp').eq('id', id).single()
 
   const { error } = await admin
     .from('expense_categories')
-    .update({ name: data.name.trim(), color: data.color ?? null, icon: data.icon ?? null })
+    .update({
+      name:               data.name.trim(),
+      color:              data.color ?? null,
+      icon:               data.icon ?? null,
+      monthly_budget_clp: data.monthly_budget_clp ?? null,
+    })
     .eq('id', id)
 
   if (error) throw new Error(error.message)
@@ -693,7 +698,7 @@ export async function updateCategory(id: string, data: { name: string; color?: s
     entityId:    id,
     entityLabel: before?.name ?? id,
     oldValue:    before as unknown as Record<string, unknown>,
-    newValue:    { name: data.name, color: data.color ?? null, icon: data.icon ?? null },
+    newValue:    { name: data.name, color: data.color ?? null, icon: data.icon ?? null, monthly_budget_clp: data.monthly_budget_clp ?? null },
   })
 
   revalidatePath('/admin/settings')
@@ -1563,12 +1568,13 @@ export async function getActiveFundsSummary(): Promise<ActiveFundSummary[]> {
 // ─── Análisis por centro de costo (R19) ─────────────────────────────────────
 
 export type CenterExpenseRow = {
-  cost_center_id: string | null
-  cost_center_name: string | null
-  month: string           // YYYY-MM
-  category_id:   string | null
-  category_name: string | null
-  total_clp: number
+  cost_center_id:    string | null
+  cost_center_name:  string | null
+  month:             string           // YYYY-MM
+  category_id:       string | null
+  category_name:     string | null
+  monthly_budget_clp: number | null
+  total_clp:         number
 }
 
 export async function getExpensesByCenter(monthsBack = 6): Promise<{
@@ -1595,7 +1601,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     .from('expense_items')
     .select(`
       amount_clp, date, cost_center_id, category_id, item_type,
-      expense_categories (name),
+      expense_categories (name, monthly_budget_clp),
       cost_centers:cost_center_id (descripcion),
       expense_reports!inner (org_id, status, deleted_at, submitter_id)
     `)
@@ -1615,7 +1621,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     cost_center_id: string | null
     category_id: string | null
     item_type: string | null
-    expense_categories: { name: string } | null
+    expense_categories: { name: string; monthly_budget_clp: number | null } | null
     cost_centers: { descripcion: string } | null
     expense_reports: RawReport
   }
@@ -1659,12 +1665,13 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
     const key = `${ccId}|${month}|${item.category_id}`
     if (!aggMap.has(key)) {
       aggMap.set(key, {
-        cost_center_id:   ccId,
-        cost_center_name: ccName,
+        cost_center_id:    ccId,
+        cost_center_name:  ccName,
         month,
-        category_id:   item.category_id,
-        category_name: item.expense_categories?.name ?? null,
-        total_clp:     0,
+        category_id:        item.category_id,
+        category_name:      item.expense_categories?.name ?? null,
+        monthly_budget_clp: item.expense_categories?.monthly_budget_clp ?? null,
+        total_clp:          0,
       })
     }
     aggMap.get(key)!.total_clp += item.amount_clp

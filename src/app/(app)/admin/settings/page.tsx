@@ -164,7 +164,7 @@ function CategoriesTab() {
   const [catSaving, setCatSaving] = useState(false)
 
   // Edición inline
-  const [editCat,    setEditCat]    = useState<{ id: string; name: string; color: string; icon: string } | null>(null)
+  const [editCat,    setEditCat]    = useState<{ id: string; name: string; color: string; icon: string; monthly_budget_clp: number | null } | null>(null)
   const [editSaving, setEditSaving] = useState(false)
 
   // Eliminación
@@ -193,7 +193,7 @@ function CategoriesTab() {
     if (!editCat || !editCat.name.trim()) return
     setEditSaving(true)
     try {
-      await updateCategory(editCat.id, { name: editCat.name, color: editCat.color, icon: editCat.icon })
+      await updateCategory(editCat.id, { name: editCat.name, color: editCat.color, icon: editCat.icon, monthly_budget_clp: editCat.monthly_budget_clp })
       setEditCat(null)
       await load()
     } finally { setEditSaving(false) }
@@ -290,6 +290,26 @@ function CategoriesTab() {
                   <IconPicker value={editCat.icon} color={editCat.color}
                     onChange={key => setEditCat(c => c && ({ ...c, icon: key }))} />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink-700 mb-1">
+                    Presupuesto mensual (CLP, opcional)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={editCat.monthly_budget_clp ?? ''}
+                    onChange={e => setEditCat(c => c && ({
+                      ...c,
+                      monthly_budget_clp: e.target.value ? Number(e.target.value) : null
+                    }))}
+                    placeholder="Sin límite"
+                    className={inputCls}
+                  />
+                  <p className="text-xs text-ink-400 mt-1">
+                    Si se define, aparecerá una barra de ejecución en el análisis por categoría.
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <button type="submit" disabled={editSaving || !editCat.name.trim()}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
@@ -329,7 +349,7 @@ function CategoriesTab() {
                       </button>
                     )}
                     <button
-                      onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? '#4A50A0', icon: cat.icon ?? 'tag' })}
+                      onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? '#4A50A0', icon: cat.icon ?? 'tag', monthly_budget_clp: cat.monthly_budget_clp ?? null })}
                       title="Editar categoría"
                       className="p-1.5 text-ink-300 hover:text-brand-600 rounded-item hover:bg-brand-50 transition-colors">
                       <Pencil size={14} />
