@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
 import { notifyApproversOfSubmission } from '@/actions/notifications'
 import type { Json } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -153,7 +154,7 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
   // Verificar que el reporte pertenece al usuario (o es admin)
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, org_id, full_name')
     .eq('id', user.id)
     .single()
 
@@ -167,6 +168,13 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
   if (profile?.role !== 'admin' && report.submitter_id !== user.id) {
     throw new Error('Sin permiso para eliminar ítems de esta rendición')
   }
+
+  // Capture item before soft delete
+  const { data: item } = await supabase
+    .from('expense_items')
+    .select('description, amount_clp')
+    .eq('id', itemId)
+    .single()
 
   const { error } = await supabase
     .from('expense_items')
@@ -192,6 +200,17 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     .from('expense_reports')
     .update({ ai_analysis: null, ai_analysis_at: null })
     .eq('id', reportId)
+
+  await logAudit({
+    orgId:       profile?.org_id ?? '',
+    actorId:     user.id,
+    actorName:   profile?.full_name ?? null,
+    action:      'deleted',
+    entityType:  'expense_item',
+    entityId:    itemId,
+    entityLabel: item?.description ?? itemId,
+    oldValue:    item as unknown as Record<string, unknown>,
+  })
 
   revalidatePath(`/expenses/${reportId}`)
 }
@@ -350,13 +369,17 @@ export async function deleteExpenseReport(reportId: string) {
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('id, status, submitter_id')
+    .select('id, status, submitter_id, org_id, title')
     .eq('id', reportId)
     .single()
 
   if (!report) throw new Error('Rendición no encontrada')
   if (report.submitter_id !== user.id) throw new Error('Solo podés eliminar tus propias rendiciones')
   if (report.status !== 'draft') throw new Error('Solo se pueden eliminar rendiciones en borrador')
+
+  // Fetch actor name for audit
+  const { data: actorProfile } = await supabase
+    .from('users').select('full_name').eq('id', user.id).single()
 
   const { error } = await supabase
     .from('expense_reports')
@@ -365,6 +388,17 @@ export async function deleteExpenseReport(reportId: string) {
     .eq('submitter_id', user.id)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       report.org_id,
+    actorId:     user.id,
+    actorName:   actorProfile?.full_name ?? null,
+    action:      'deleted',
+    entityType:  'expense_report',
+    entityId:    reportId,
+    entityLabel: report.title,
+  })
+
   revalidatePath('/')
 }
 
@@ -376,8 +410,12 @@ export async function adminDeleteExpenseReport(reportId: string) {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('users').select('role').eq('id', user.id).single()
+    .from('users').select('role, org_id, full_name').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+
+  // Capture before state
+  const { data: report } = await supabase
+    .from('expense_reports').select('title').eq('id', reportId).single()
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
@@ -386,6 +424,17 @@ export async function adminDeleteExpenseReport(reportId: string) {
     .eq('id', reportId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     user.id,
+    actorName:   profile.full_name,
+    action:      'deleted',
+    entityType:  'expense_report',
+    entityId:    reportId,
+    entityLabel: report?.title ?? reportId,
+  })
+
   revalidatePath('/admin/reports')
   revalidatePath('/admin/trash')
 }

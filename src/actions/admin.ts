@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -13,14 +14,14 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('org_id, role')
+    .select('org_id, role, full_name')
     .eq('id', user.id)
     .single()
 
   if (!profile || profile.role !== 'admin') {
     throw new Error('Acceso restringido a administradores')
   }
-  return { supabase, userId: user.id, orgId: profile.org_id }
+  return { supabase, userId: user.id, orgId: profile.org_id, actorName: profile.full_name }
 }
 
 // ─── Reportes admin (vista completa) ────────────────────────────────────────
@@ -499,7 +500,14 @@ export async function deactivateEmployee(userId: string) {
 }
 
 export async function deleteEmployee(userId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: emp } = await supabase
+    .from('users')
+    .select('full_name, is_active, role')
+    .eq('id', userId)
+    .single()
 
   // Soft delete: marca deleted_at, el usuario pierde acceso pero los datos se conservan 90 días
   const { error } = await supabase
@@ -512,6 +520,17 @@ export async function deleteEmployee(userId: string) {
   // Suspender cuenta en auth (no puede iniciar sesión)
   const adminClient = createAdminClient()
   await adminClient.auth.admin.updateUserById(userId, { ban_duration: '876000h' })
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'deleted',
+    entityType:  'user',
+    entityId:    userId,
+    entityLabel: emp?.full_name ?? userId,
+    oldValue:    { is_active: emp?.is_active, role: emp?.role },
+  })
 
   revalidatePath('/admin/settings')
   revalidatePath('/admin/employees')
@@ -630,8 +649,15 @@ export async function updateCategory(id: string, data: { name: string; color?: s
 }
 
 export async function deleteCategory(id: string) {
-  await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
   const admin = createAdminClient()
+
+  // Capture before state
+  const { data: category } = await supabase
+    .from('expense_categories')
+    .select('name, org_id')
+    .eq('id', id)
+    .single()
 
   const { error } = await admin
     .from('expense_categories')
@@ -639,6 +665,18 @@ export async function deleteCategory(id: string) {
     .eq('id', id)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'deleted',
+    entityType:  'category',
+    entityId:    id,
+    entityLabel: category?.name ?? id,
+    oldValue:    category as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -1103,23 +1141,39 @@ export async function getTrashItems() {
 }
 
 export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
 
   if (type === 'report') {
+    const { data: before } = await supabase
+      .from('expense_reports').select('title').eq('id', id).single()
     const { error } = await supabase
       .from('expense_reports')
       .update({ deleted_at: null })
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'restored', entityType: 'expense_report', entityId: id,
+      entityLabel: before?.title ?? id,
+    })
     revalidatePath('/admin/reports')
   } else if (type === 'fund') {
+    const { data: before } = await supabase
+      .from('petty_cash_funds').select('name').eq('id', id).single()
     const { error } = await supabase
       .from('petty_cash_funds')
       .update({ deleted_at: null })
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'restored', entityType: 'petty_cash_fund', entityId: id,
+      entityLabel: before?.name ?? id,
+    })
     revalidatePath('/petty-cash')
   } else if (type === 'user') {
+    const { data: before } = await supabase
+      .from('users').select('full_name').eq('id', id).single()
     const { error } = await supabase
       .from('users')
       .update({ deleted_at: null, is_active: true })
@@ -1128,6 +1182,11 @@ export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: str
     // Desbanear en auth
     const adminClient = createAdminClient()
     await adminClient.auth.admin.updateUserById(id, { ban_duration: 'none' })
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'restored', entityType: 'user', entityId: id,
+      entityLabel: before?.full_name ?? id,
+    })
     revalidatePath('/admin/employees')
     revalidatePath('/admin/settings')
   }
@@ -1135,24 +1194,48 @@ export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: str
 }
 
 export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user', id: string) {
-  await requireAdmin()
+  const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
   const adminClient = createAdminClient()
 
   if (type === 'report') {
+    const { data: before } = await supabase
+      .from('expense_reports').select('title').eq('id', id).single()
     const { error } = await adminClient
       .from('expense_reports')
       .delete()
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'permanently_deleted', entityType: 'expense_report', entityId: id,
+      entityLabel: before?.title ?? id,
+      notes: 'Eliminación definitiva desde papelera',
+    })
   } else if (type === 'fund') {
+    const { data: before } = await supabase
+      .from('petty_cash_funds').select('name').eq('id', id).single()
     const { error } = await adminClient
       .from('petty_cash_funds')
       .delete()
       .eq('id', id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'permanently_deleted', entityType: 'petty_cash_fund', entityId: id,
+      entityLabel: before?.name ?? id,
+      notes: 'Eliminación definitiva desde papelera',
+    })
   } else if (type === 'user') {
+    const { data: before } = await supabase
+      .from('users').select('full_name').eq('id', id).single()
     const { error } = await adminClient.auth.admin.deleteUser(id)
     if (error) throw new Error(error.message)
+    await logAudit({
+      orgId, actorId, actorName,
+      action: 'permanently_deleted', entityType: 'user', entityId: id,
+      entityLabel: before?.full_name ?? id,
+      notes: 'Eliminación definitiva desde papelera',
+    })
   }
 
   revalidatePath('/admin/trash')

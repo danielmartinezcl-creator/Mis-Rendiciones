@@ -10,16 +10,17 @@ import {
 } from '@/lib/policy-helpers'
 import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { ExpensePolicy, TravelPolicy } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
 
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
   const { data: profile } = await supabase
-    .from('users').select('org_id, role').eq('id', user.id).single()
+    .from('users').select('org_id, role, full_name').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin')
     throw new Error('Solo los administradores pueden gestionar políticas')
-  return { supabase, user, org_id: profile.org_id }
+  return { supabase, user, org_id: profile.org_id, actorName: profile.full_name }
 }
 
 // ─── Consultas ────────────────────────────────────────────────────────────────
@@ -87,9 +88,25 @@ export async function togglePolicyActive(id: string, active: boolean): Promise<v
 }
 
 export async function deletePolicy(id: string): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  const { data: policy } = await supabase
+    .from('expense_policies').select('name').eq('id', id).single()
+
   const { error } = await supabase.from('expense_policies').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'deleted',
+    entityType:  'policy',
+    entityId:    id,
+    entityLabel: policy?.name ?? id,
+    oldValue:    policy as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -230,9 +247,25 @@ export async function updateTravelPolicy(id: string, data: Partial<TravelPolicyI
 }
 
 export async function deleteTravelPolicy(id: string): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  const { data: policy } = await supabase
+    .from('travel_policies').select('name').eq('id', id).single()
+
   const { error } = await supabase.from('travel_policies').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'deleted',
+    entityType:  'travel_policy',
+    entityId:    id,
+    entityLabel: policy?.name ?? id,
+    oldValue:    policy as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 

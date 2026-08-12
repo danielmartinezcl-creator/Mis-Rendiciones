@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { FundStatus } from '@/lib/supabase/types'
+import { logAudit } from '@/lib/audit'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -447,13 +448,12 @@ export async function recordSettlement(fundId: string, data: {
 // ── Eliminar fondo (solo admin) ───────────────────────────────────────────────
 
 export async function deletePettyCashFund(fundId: string) {
-  const { supabase } = await getProfile()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { supabase, userId, profile } = await getProfile()
+  if (profile.role !== 'admin') throw new Error('Solo administradores')
 
-  const { data: profile } = await supabase
-    .from('users').select('role').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') throw new Error('Solo administradores')
+  // Capture fund before soft delete
+  const { data: fund } = await supabase
+    .from('petty_cash_funds').select('name').eq('id', fundId).single()
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
@@ -462,6 +462,17 @@ export async function deletePettyCashFund(fundId: string) {
     .eq('id', fundId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     userId,
+    actorName:   profile.full_name,
+    action:      'deleted',
+    entityType:  'petty_cash_fund',
+    entityId:    fundId,
+    entityLabel: fund?.name ?? fundId,
+  })
+
   revalidatePath('/petty-cash')
   revalidatePath('/admin/trash')
 }
