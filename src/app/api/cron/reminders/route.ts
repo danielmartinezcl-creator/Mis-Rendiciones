@@ -5,10 +5,12 @@ export const dynamic = 'force-dynamic'
 
 // Verificar que la request viene de Vercel Cron (o del header de desarrollo)
 function isAuthorized(req: Request) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return true  // Dev: sin secret configurado → permitir
-  const auth = req.headers.get('authorization')
-  return auth === `Bearer ${secret}`
+  const secret = req.headers.get('authorization')
+  const expected = `Bearer ${process.env.CRON_SECRET}`
+  if (!process.env.CRON_SECRET || secret !== expected) {
+    return false
+  }
+  return true
 }
 
 export async function GET(req: Request) {
@@ -18,6 +20,7 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient()
   const now      = new Date()
+  const today    = now.toISOString().split('T')[0]  // YYYY-MM-DD
   const results: string[] = []
 
   // ── (a) Borradores > 7 días → notificar al empleado ─────────────────────────
@@ -26,7 +29,7 @@ export async function GET(req: Request) {
 
   const { data: oldDrafts } = await supabase
     .from('expense_reports')
-    .select('id, title, submitter_id')
+    .select('id, title, submitter_id, org_id')
     .eq('status', 'draft')
     .is('deleted_at', null)
     .is('is_historical_import', null)
@@ -35,22 +38,27 @@ export async function GET(req: Request) {
 
   if (oldDrafts?.length) {
     const notifs = oldDrafts.map(r => ({
-      user_id: r.submitter_id,
-      type:    'reminder_draft',
-      title:   'Rendición sin enviar',
-      body:    `"${r.title}" lleva más de 7 días como borrador. ¿La enviás a revisión?`,
-      link:    `/expenses/${r.id}`,
+      org_id:    r.org_id,
+      user_id:   r.submitter_id,
+      type:      'reminder_draft',
+      title:     'Rendición sin enviar',
+      body:      `"${r.title}" lleva más de 7 días como borrador. ¿La enviás a revisión?`,
+      link:      `/expenses/${r.id}`,
+      dedup_key: `draft_reminder:${r.id}:${today}`,
     }))
-    await supabase.from('notifications').insert(notifs as never[])
+    await supabase.from('notifications').upsert(notifs as never[], {
+      onConflict: 'org_id,dedup_key',
+      ignoreDuplicates: true,
+    })
     results.push(`Borradores > 7 días: ${oldDrafts.length} notificaciones`)
   }
 
   // ── (b) Fondos con saldo < 20% → notificar al empleado ──────────────────────
-  type FundRow = { id: string; name: string; employee_id: string; petty_cash_items: { amount_clp: number; item_type: string }[] }
+  type FundRow = { id: string; name: string; employee_id: string; org_id: string; petty_cash_items: { amount_clp: number; item_type: string }[] }
 
   const { data: activeFundsRaw } = await supabase
     .from('petty_cash_funds')
-    .select(`id, name, employee_id, petty_cash_items (amount_clp, item_type)`)
+    .select(`id, name, employee_id, org_id, petty_cash_items (amount_clp, item_type)`)
     .in('status', ['funds_sent', 'submitted'])
     .is('deleted_at', null)
     .limit(100)
@@ -68,16 +76,21 @@ export async function GET(req: Request) {
       const pct     = advance > 0 ? (balance / advance) * 100 : 100
       if (pct < 20) {
         lowFundNotifs.push({
-          user_id: fund.employee_id,
-          type:    'reminder_low_balance',
-          title:   'Saldo bajo en caja chica',
-          body:    `El fondo "${fund.name}" tiene solo ${Math.round(pct)}% de saldo disponible.`,
-          link:    `/petty-cash/${fund.id}`,
+          org_id:    fund.org_id,
+          user_id:   fund.employee_id,
+          type:      'reminder_low_balance',
+          title:     'Saldo bajo en caja chica',
+          body:      `El fondo "${fund.name}" tiene solo ${Math.round(pct)}% de saldo disponible.`,
+          link:      `/petty-cash/${fund.id}`,
+          dedup_key: `low_balance:${fund.id}:${today}`,
         })
       }
     }
     if (lowFundNotifs.length > 0) {
-      await supabase.from('notifications').insert(lowFundNotifs as never[])
+      await supabase.from('notifications').upsert(lowFundNotifs as never[], {
+        onConflict: 'org_id,dedup_key',
+        ignoreDuplicates: true,
+      })
       results.push(`Fondos saldo < 20%: ${lowFundNotifs.length} notificaciones`)
     }
   }
@@ -88,7 +101,7 @@ export async function GET(req: Request) {
 
   const { data: staleSubmitted } = await supabase
     .from('expense_reports')
-    .select('id, title, submitter_id, users!submitter_id (approver_l1_id)')
+    .select('id, title, submitter_id, org_id, users!submitter_id (approver_l1_id)')
     .in('status', ['submitted', 'pending_l2'])
     .is('deleted_at', null)
     .lt('updated_at', submittedCutoff.toISOString())
@@ -101,16 +114,21 @@ export async function GET(req: Request) {
       const approverId = user?.approver_l1_id ?? null
       if (approverId) {
         approverNotifs.push({
-          user_id: approverId,
-          type:    'reminder_pending_approval',
-          title:   'Rendición esperando tu aprobación',
-          body:    `"${report.title}" lleva más de 3 días esperando revisión.`,
-          link:    `/approvals/${report.id}`,
+          org_id:    report.org_id,
+          user_id:   approverId,
+          type:      'reminder_pending_approval',
+          title:     'Rendición esperando tu aprobación',
+          body:      `"${report.title}" lleva más de 3 días esperando revisión.`,
+          link:      `/approvals/${report.id}`,
+          dedup_key: `pending_approval:${report.id}:${today}`,
         })
       }
     }
     if (approverNotifs.length > 0) {
-      await supabase.from('notifications').insert(approverNotifs as never[])
+      await supabase.from('notifications').upsert(approverNotifs as never[], {
+        onConflict: 'org_id,dedup_key',
+        ignoreDuplicates: true,
+      })
       results.push(`Pendientes de aprobación > 3 días: ${approverNotifs.length} notificaciones`)
     }
   }
