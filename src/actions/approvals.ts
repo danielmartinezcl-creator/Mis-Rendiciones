@@ -17,6 +17,7 @@ import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analy
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
 import type { Json } from '@/lib/supabase/types'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { dispatchWebhooks, type WebhookEvent } from '@/lib/webhooks'
 
 export interface ApprovalDecision {
   itemId: string
@@ -270,6 +271,17 @@ export async function submitApprovalDecision(
   revalidatePath(`/approvals/${reportId}`)
   revalidatePath('/approvals')
   revalidatePath('/')
+
+  // Webhook fire-and-forget — solo cuando hay decisión final (no pending_l2)
+  if (isDecided) {
+    const webhookEvent = `report.${newStatus}` as WebhookEvent
+    dispatchWebhooks(profile.org_id, webhookEvent, {
+      report_id:   reportId,
+      status:      newStatus,
+      approved_by: profile.full_name,
+      approved_at: new Date().toISOString(),
+    }).catch(console.error)
+  }
 }
 
 export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<AiAnalysis | null> {

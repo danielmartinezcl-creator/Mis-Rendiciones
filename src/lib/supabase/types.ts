@@ -1020,6 +1020,33 @@ export interface Database {
         Update: Record<string, never>
         Relationships: []
       }
+      webhooks: {
+        Row: {
+          id:         string
+          org_id:     string
+          url:        string
+          secret:     string
+          events:     string[]
+          activo:     boolean
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          org_id:      string
+          url:         string
+          secret:      string
+          events?:     string[]
+          activo?:     boolean
+          created_at?: string
+        }
+        Update: {
+          url?:    string
+          secret?: string
+          events?: string[]
+          activo?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -1057,4 +1084,5 @@ export type FundTransfer       = Database['public']['Tables']['fund_transfers'][
 export type ExpensePolicy      = Database['public']['Tables']['expense_policies']['Row']
 export type TravelPolicy       = Database['public']['Tables']['travel_policies']['Row']
 export type AuditLog           = Database['public']['Tables']['audit_log']['Row']
+export type Webhook            = Database['public']['Tables']['webhooks']['Row']
 export type RateLimitLog       = Database['public']['Tables']['rate_limit_log']['Row']

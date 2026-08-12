@@ -18,13 +18,14 @@ import {
   getDefontanaSettings, updateDefontanaSettings, updateCategoryDefontanaCode,
   getCostCenters,
   getDefontanaSuppliers, addDefontanaSupplier, deleteDefontanaSupplier,
+  listWebhooks, createWebhook, deleteWebhook,
 } from '@/actions/admin'
-import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier, ExpensePolicy } from '@/lib/supabase/types'
+import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier, ExpensePolicy, Webhook } from '@/lib/supabase/types'
 import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deletePolicy, getTravelPolicies, createTravelPolicy, updateTravelPolicy, deleteTravelPolicy } from '@/actions/policies'
 import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
 import type { TravelPolicy } from '@/lib/supabase/types'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -125,6 +126,7 @@ export default function AdminSettingsPage() {
           { id: 'defontana',  label: 'Defontana' },
           { id: 'policies',   label: 'Políticas' },
           { id: 'viaticos',   label: 'Viáticos' },
+          { id: 'webhooks',   label: 'Webhooks' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -148,6 +150,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'defontana'  && <DefontanaTab />}
       {activeTab === 'policies'   && <PoliciesTab />}
       {activeTab === 'viaticos'   && <ViaticosTab />}
+      {activeTab === 'webhooks'   && <WebhooksTab />}
     </div>
   )
 }
@@ -1636,6 +1639,198 @@ function ViaticosTab() {
             )
           })}
         </div>
+      )}
+    </section>
+  )
+}
+
+/* ── Webhooks tab ───────────────────────────────────────────────────────── */
+const WEBHOOK_EVENTS = [
+  { value: 'report.approved',           label: 'Rendición aprobada' },
+  { value: 'report.partially_approved', label: 'Rendición aprobada parcialmente' },
+  { value: 'report.rejected',           label: 'Rendición rechazada' },
+  { value: 'report.reimbursed',         label: 'Rendición reembolsada' },
+  { value: 'defontana.exported',        label: 'Exportada a Defontana' },
+]
+
+function WebhooksTab() {
+  const [hooks,   setHooks]   = useState<Webhook[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState<string | null>(null)
+  const [url,     setUrl]     = useState('')
+  const [secret,  setSecret]  = useState('')
+  const [events,  setEvents]  = useState<string[]>([])
+  const [showForm, setShowForm] = useState(false)
+
+  useEffect(() => {
+    listWebhooks().then(data => { setHooks(data as Webhook[]); setLoading(false) })
+  }, [])
+
+  function toggleEvent(value: string) {
+    setEvents(prev =>
+      prev.includes(value) ? prev.filter(e => e !== value) : [...prev, value]
+    )
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!url.trim() || !secret.trim() || events.length === 0) return
+    setSaving(true)
+    setError(null)
+    try {
+      await createWebhook(url.trim(), secret.trim(), events)
+      setUrl(''); setSecret(''); setEvents([]); setShowForm(false)
+      const data = await listWebhooks()
+      setHooks(data as Webhook[])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear webhook')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('¿Eliminar este webhook?')) return
+    try {
+      await deleteWebhook(id)
+      setHooks(prev => prev.filter(h => h.id !== id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar webhook')
+    }
+  }
+
+  if (loading) return <Spinner />
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h3 className="text-base font-semibold text-ink-900 mb-1">Webhooks salientes</h3>
+        <p className="text-sm text-ink-500">
+          Envía notificaciones automáticas a sistemas externos cuando ocurran eventos.
+          La firma HMAC-SHA256 va en el header{' '}
+          <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">X-Signature-SHA256</code>.
+        </p>
+      </div>
+
+      {/* Lista de webhooks existentes */}
+      {hooks.length === 0 ? (
+        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+          Sin webhooks configurados. Agrega uno para recibir notificaciones en tus sistemas externos.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {hooks.map(hook => (
+            <div key={hook.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!hook.activo ? 'opacity-50' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link2 size={14} className="text-ink-400 shrink-0" />
+                  <span className="font-mono text-sm text-ink-900 break-all">{hook.url}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${hook.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'}`}>
+                    {hook.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {hook.events.map(ev => (
+                    <span key={ev} className="text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded-full">
+                      {WEBHOOK_EVENTS.find(e => e.value === ev)?.label ?? ev}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => handleDelete(hook.id)}
+                className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors shrink-0"
+                title="Eliminar webhook"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Botón para mostrar formulario */}
+      {!showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold transition-colors"
+        >
+          + Agregar webhook
+        </button>
+      )}
+
+      {/* Formulario para agregar nuevo webhook */}
+      {showForm && (
+        <form onSubmit={handleCreate} className="bg-white rounded-card shadow-sm border border-ink-100 p-5 space-y-4">
+          <h4 className="font-semibold text-sm text-ink-900">Nuevo webhook</h4>
+
+          {error && (
+            <div className="flex items-center gap-2 text-rose-600 text-sm bg-rose-50 p-3 rounded-item">
+              <AlertTriangle size={14} />
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-ink-600 uppercase tracking-wide">URL destino</label>
+            <input
+              type="url"
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              required
+              placeholder="https://tuapp.com/webhook"
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-ink-600 uppercase tracking-wide">Secret (HMAC key)</label>
+            <input
+              type="password"
+              value={secret}
+              onChange={e => setSecret(e.target.value)}
+              required
+              placeholder="Mínimo 16 caracteres recomendados"
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-ink-600 uppercase tracking-wide">Eventos</label>
+            <div className="space-y-1.5">
+              {WEBHOOK_EVENTS.map(ev => (
+                <label key={ev.value} className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={events.includes(ev.value)}
+                    onChange={() => toggleEvent(ev.value)}
+                    className="rounded accent-brand-600"
+                  />
+                  <span className="text-sm text-ink-700">{ev.label}</span>
+                  <code className="text-xs text-ink-400">{ev.value}</code>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setError(null); setUrl(''); setSecret(''); setEvents([]) }}
+              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !url.trim() || !secret.trim() || events.length === 0}
+              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors"
+            >
+              {saving ? 'Guardando...' : 'Crear webhook'}
+            </button>
+          </div>
+        </form>
       )}
     </section>
   )

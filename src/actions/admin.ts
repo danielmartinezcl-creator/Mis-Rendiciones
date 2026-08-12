@@ -2147,3 +2147,64 @@ export async function getOrgHealthMetrics() {
     inactiveCount:     inactiveUsers.length,
   }
 }
+
+// ─── Webhooks salientes ─────────────────────────────────────────────────────
+
+export async function listWebhooks() {
+  const { orgId } = await requireAdmin()
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('webhooks')
+    .select('id, url, events, activo, created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+  return data ?? []
+}
+
+export async function createWebhook(url: string, secret: string, events: string[]) {
+  const { orgId, userId, actorName } = await requireAdmin()
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('webhooks')
+    .insert({ org_id: orgId, url, secret, events })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'created',
+    entityType:  'webhook',
+    entityId:    (data as { id: string }).id,
+    entityLabel: url,
+    newValue:    { url, events },
+  })
+  revalidatePath('/admin/settings')
+}
+
+export async function deleteWebhook(id: string) {
+  const { orgId, userId, actorName } = await requireAdmin()
+  const supabase = await createClient()
+  const { data: wh } = await supabase
+    .from('webhooks')
+    .select('url')
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .single()
+  await supabase
+    .from('webhooks')
+    .delete()
+    .eq('id', id)
+    .eq('org_id', orgId)
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'deleted',
+    entityType:  'webhook',
+    entityId:    id,
+    entityLabel: (wh as { url: string } | null)?.url,
+  })
+  revalidatePath('/admin/settings')
+}
