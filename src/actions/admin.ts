@@ -608,9 +608,9 @@ export async function addCategory(data: {
   icon?: string
   color?: string
 }) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
-  const { error } = await supabase
+  const { data: newCat, error } = await supabase
     .from('expense_categories')
     .insert({
       org_id:    orgId,
@@ -619,8 +619,22 @@ export async function addCategory(data: {
       color:     data.color ?? null,
       is_active: true,
     })
+    .select('id, name')
+    .single()
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'created',
+    entityType:  'category',
+    entityId:    (newCat as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: (newCat as unknown as { name: string } | null)?.name ?? data.name,
+    newValue:    { name: data.name, icon: data.icon ?? null, color: data.color ?? null },
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -636,8 +650,12 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
 }
 
 export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
-  await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   const admin = createAdminClient()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('expense_categories').select('name, color, icon').eq('id', id).single()
 
   const { error } = await admin
     .from('expense_categories')
@@ -645,6 +663,19 @@ export async function updateCategory(id: string, data: { name: string; color?: s
     .eq('id', id)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'category',
+    entityId:    id,
+    entityLabel: before?.name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    { name: data.name, color: data.color ?? null, icon: data.icon ?? null },
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -681,7 +712,11 @@ export async function deleteCategory(id: string) {
 }
 
 export async function reclassifyExpenseItem(itemId: string, categoryId: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('expense_items').select('category_id, description').eq('id', itemId).single()
 
   const { error } = await supabase
     .from('expense_items')
@@ -689,6 +724,19 @@ export async function reclassifyExpenseItem(itemId: string, categoryId: string) 
     .eq('id', itemId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'expense_item',
+    entityId:    itemId,
+    entityLabel: before?.description ?? itemId,
+    oldValue:    { category_id: before?.category_id },
+    newValue:    { category_id: categoryId },
+  })
+
   revalidatePath('/admin/reports')
 }
 
@@ -733,7 +781,11 @@ export async function setEmployeeApprovers(
   approverL1Id: string | null,
   approverL2Id: string | null
 ) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: employee } = await supabase
+    .from('users').select('full_name, approver_l1_id, approver_l2_id').eq('id', userId).single()
 
   // Verificar que los aprobadores pertenezcan a la misma org
   if (approverL1Id) {
@@ -755,6 +807,19 @@ export async function setEmployeeApprovers(
     .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'approver_assignment',
+    entityId:    userId,
+    entityLabel: employee?.full_name ?? userId,
+    oldValue:    { approver_l1_id: employee?.approver_l1_id, approver_l2_id: employee?.approver_l2_id },
+    newValue:    { approver_l1_id: approverL1Id, approver_l2_id: approverL2Id },
+  })
+
   revalidatePath('/admin/employees')
 }
 
@@ -764,7 +829,11 @@ export async function setEmployeeBackupApprover(
   backupActiveFrom: string | null,
   backupActiveUntil: string | null
 ) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: employee } = await supabase
+    .from('users').select('full_name, approver_l1_backup_id, backup_active_from, backup_active_until').eq('id', userId).single()
 
   if (backupApproverL1Id) {
     const { data: backup } = await supabase.from('users').select('org_id').eq('id', backupApproverL1Id).single()
@@ -782,6 +851,27 @@ export async function setEmployeeBackupApprover(
     .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'approver_assignment',
+    entityId:    userId,
+    entityLabel: employee?.full_name ?? userId,
+    oldValue:    {
+      approver_l1_backup_id: employee?.approver_l1_backup_id,
+      backup_active_from:    employee?.backup_active_from,
+      backup_active_until:   employee?.backup_active_until,
+    },
+    newValue:    {
+      approver_l1_backup_id: backupApproverL1Id,
+      backup_active_from:    backupActiveFrom,
+      backup_active_until:   backupActiveUntil,
+    },
+  })
+
   revalidatePath('/admin/employees')
 }
 
@@ -808,17 +898,40 @@ export async function updateDefontanaSettings(settings: {
   costCenter:      string | null
   providerAccount: string | null
 }) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('organizations')
+    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+    .eq('id', orgId)
+    .single()
+
+  const newValues = {
+    defontana_contra_account:   settings.contraAccount   || null,
+    defontana_voucher_type:     settings.voucherType      || 'Egreso',
+    defontana_cost_center:      settings.costCenter       || null,
+    defontana_provider_account: settings.providerAccount || null,
+  }
+
   const { error } = await supabase
     .from('organizations')
-    .update({
-      defontana_contra_account:   settings.contraAccount   || null,
-      defontana_voucher_type:     settings.voucherType      || 'Egreso',
-      defontana_cost_center:      settings.costCenter       || null,
-      defontana_provider_account: settings.providerAccount || null,
-    })
+    .update(newValues)
     .eq('id', orgId)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'defontana_settings',
+    entityId:    orgId,
+    entityLabel: 'Configuración Defontana',
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    newValues as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -1026,18 +1139,49 @@ export async function getDefontanaSuppliers() {
 }
 
 export async function addDefontanaSupplier(merchant: string, accountCode: string) {
-  const { supabase, orgId } = await requireAdmin()
-  const { error } = await supabase
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+  const { data: newSupplier, error } = await supabase
     .from('defontana_suppliers')
     .insert({ org_id: orgId, merchant_name: merchant.trim(), defontana_account_code: accountCode.trim() })
+    .select('id')
+    .single()
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'created',
+    entityType:  'defontana_supplier',
+    entityId:    (newSupplier as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: merchant.trim(),
+    newValue:    { merchant_name: merchant.trim(), defontana_account_code: accountCode.trim() },
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function deleteDefontanaSupplier(id: string) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase
+    .from('defontana_suppliers').select('merchant_name, defontana_account_code').eq('id', id).single()
+
   const { error } = await supabase.from('defontana_suppliers').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'deleted',
+    entityType:  'defontana_supplier',
+    entityId:    id,
+    entityLabel: before?.merchant_name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -1060,12 +1204,32 @@ export async function markDefontanaExported(reportIds: string[], exportRef: stri
 // ─── Corrección masiva de centro de costo ────────────────────────────────────
 
 export async function bulkUpdateExpenseItemsCostCenter(reportId: string, costCenterId: string | null) {
-  const { supabase } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // Count items to be updated
+  const { count } = await supabase
+    .from('expense_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('report_id', reportId)
+
   const { error } = await supabase
     .from('expense_items')
     .update({ cost_center_id: costCenterId })
     .eq('report_id', reportId)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'bulk_updated',
+    entityType:  'cost_center_assignment',
+    entityId:    reportId,
+    entityLabel: `Reporte ${reportId}`,
+    newValue:    { cost_center_id: costCenterId, items_count: count ?? 0 },
+    notes:       `Reasignación masiva de CC a ${costCenterId ?? 'ninguno'}`,
+  })
+
   revalidatePath('/admin/reports')
 }
 

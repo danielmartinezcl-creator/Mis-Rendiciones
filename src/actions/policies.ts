@@ -66,16 +66,49 @@ export interface PolicyCheckResult {
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function createPolicy(data: PolicyInput): Promise<void> {
-  const { supabase, org_id } = await requireAdmin()
-  const { error } = await supabase.from('expense_policies').insert({ org_id, ...data })
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+  const { data: newPolicy, error } = await supabase
+    .from('expense_policies')
+    .insert({ org_id, ...data })
+    .select('id, name')
+    .single()
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'created',
+    entityType:  'policy',
+    entityId:    (newPolicy as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: (newPolicy as unknown as { name: string } | null)?.name ?? data.name,
+    newValue:    { ...data } as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function updatePolicy(id: string, data: Partial<PolicyInput>): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase.from('expense_policies').select('*').eq('id', id).single()
+
   const { error } = await supabase.from('expense_policies').update(data).eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'updated',
+    entityType:  'policy',
+    entityId:    id,
+    entityLabel: before?.name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    data as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
@@ -233,16 +266,49 @@ export interface TravelPolicyInput {
 }
 
 export async function createTravelPolicy(data: TravelPolicyInput): Promise<void> {
-  const { supabase, org_id } = await requireAdmin()
-  const { error } = await supabase.from('travel_policies').insert({ org_id, ...data })
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+  const { data: newPolicy, error } = await supabase
+    .from('travel_policies')
+    .insert({ org_id, ...data })
+    .select('id, name')
+    .single()
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'created',
+    entityType:  'travel_policy',
+    entityId:    (newPolicy as unknown as { id: string } | null)?.id ?? 'unknown',
+    entityLabel: (newPolicy as unknown as { name: string } | null)?.name ?? data.name,
+    newValue:    { ...data } as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
 export async function updateTravelPolicy(id: string, data: Partial<TravelPolicyInput>): Promise<void> {
-  const { supabase } = await requireAdmin()
+  const { supabase, user, org_id, actorName } = await requireAdmin()
+
+  // Capture before state
+  const { data: before } = await supabase.from('travel_policies').select('*').eq('id', id).single()
+
   const { error } = await supabase.from('travel_policies').update(data).eq('id', id)
   if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       org_id,
+    actorId:     user.id,
+    actorName,
+    action:      'updated',
+    entityType:  'travel_policy',
+    entityId:    id,
+    entityLabel: before?.name ?? id,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    data as Record<string, unknown>,
+  })
+
   revalidatePath('/admin/settings')
 }
 
