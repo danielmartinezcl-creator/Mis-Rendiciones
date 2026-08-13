@@ -58,12 +58,12 @@ export async function getAdminReports() {
 export async function getReportDetailForAdmin(reportId: string) {
   const { supabase } = await requireAdmin()
 
-  type RawItem = { id: string; category_id: string | null; description: string; amount_clp: number; status: string; rejection_reason: string | null; expense_categories: { name: string } | null }
+  type RawItem = { id: string; category_id: string | null; description: string; amount_clp: number; status: string; item_type: string | null; rejection_reason: string | null; expense_categories: { name: string } | null }
 
   const [itemsRes, approvalsRes] = await Promise.all([
     supabase
       .from('expense_items')
-      .select('id, category_id, description, amount_clp, status, rejection_reason, expense_categories(name)')
+      .select('id, category_id, description, amount_clp, status, item_type, rejection_reason, expense_categories(name)')
       .eq('report_id', reportId)
       .is('deleted_at', null)
       .order('created_at', { ascending: true }),
@@ -95,6 +95,7 @@ export async function getReportDetailForAdmin(reportId: string) {
         description:      item.description,
         amount_clp:       item.amount_clp,
         status:           item.status,
+        item_type:        item.item_type ?? 'expense',
         rejection_reason: item.rejection_reason,
         category_name:    item.expense_categories?.name ?? null,
       }

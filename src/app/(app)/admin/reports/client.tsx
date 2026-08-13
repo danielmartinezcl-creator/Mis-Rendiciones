@@ -9,6 +9,7 @@ import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2 } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
+import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
@@ -788,118 +789,175 @@ export function AdminReportsClient({ initialReports }: Props) {
 
               {/* Detalle expandido */}
               {isOpen && (
-                <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-4">
-                  {!detail && <p className="text-xs text-slate-400 text-center py-2">Cargando...</p>}
-
+                <div className="border-t border-slate-100 bg-slate-50/60">
+                  {!detail && (
+                    <div className="flex items-center justify-center py-6">
+                      <span className="text-xs text-slate-400">Cargando...</span>
+                    </div>
+                  )}
                   {detail && (
                     <>
-                      {/* Historial de aprobaciones */}
-                      {detail.approvals.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Historial de aprobaciones</p>
-                          <div className="space-y-1.5">
-                            {detail.approvals.map((a, i) => (
-                              <div key={i} className={[
-                                'flex items-start gap-2 text-xs rounded-item px-3 py-2',
-                                a.action === 'approved' ? 'bg-emerald-50 text-emerald-800' :
-                                a.action === 'rejected' ? 'bg-red-50 text-red-800' :
-                                'bg-slate-100 text-slate-700',
-                              ].join(' ')}>
-                                <span className="font-medium shrink-0">N{a.level}</span>
-                                <span className="font-semibold shrink-0">{a.approver_name}</span>
-                                <span className="shrink-0">→ {statusLabel(a.action)}</span>
-                                {a.notes && <span className="text-slate-500 italic">"{a.notes}"</span>}
-                                <span className="ml-auto text-slate-400 shrink-0">{formatDate(a.created_at.split('T')[0])}</span>
-                              </div>
-                            ))}
-                          </div>
+                      {/* KPI mini-cards */}
+                      <div className="p-4 pb-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
+                          <p className="text-xs text-slate-400">Total rendición</p>
+                          <p className="text-sm font-bold text-slate-800 font-mono-amount mt-0.5">{formatCLP(r.total_amount)}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{detail.items.length} ítem{detail.items.length !== 1 ? 's' : ''}</p>
                         </div>
-                      )}
-
-                      {/* Ítems */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Ítems ({detail.items.length})</p>
-                          <button
-                            onClick={() => openBulkCC(r.id)}
-                            className="text-xs text-brand-600 border border-brand-200 hover:bg-brand-50 px-2.5 py-1 rounded-item font-semibold transition-colors"
-                          >
-                            Reasignar CC
-                          </button>
+                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
+                          <p className="text-xs text-slate-400">Gastos aprobados</p>
+                          <p className="text-sm font-bold text-slate-800 font-mono-amount mt-0.5">
+                            {formatCLP(detail.items.filter(i => i.status === 'approved' && i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0))}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">{detail.items.filter(i => i.status === 'approved').length} aprobados</p>
                         </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs border-collapse">
-                            <thead>
-                              <tr className="text-left text-slate-400 border-b border-slate-200">
-                                <th className="pb-1.5 pr-3 font-medium">Descripción</th>
-                                <th className="pb-1.5 pr-3 font-medium">Categoría</th>
-                                <th className="pb-1.5 pr-3 font-medium text-right">Monto</th>
-                                <th className="pb-1.5 pr-3 font-medium">Estado</th>
-                                <th className="pb-1.5 font-medium">Motivo rechazo</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {detail.items.map((item, i) => (
-                                <tr key={i}>
-                                  <td className="py-1.5 pr-3 text-slate-700">{item.description}</td>
-                                  <td className="py-1.5 pr-3 text-slate-500">
-                                    {reclassifyingItem === item.id ? (
-                                      <select
-                                        autoFocus
-                                        defaultValue={item.category_id ?? ''}
-                                        disabled={reclassifySaving}
-                                        onChange={async e => {
-                                          if (e.target.value) await handleReclassify(r.id, item.id, e.target.value)
-                                          else setReclassifyingItem(null)
-                                        }}
-                                        onBlur={() => !reclassifySaving && setReclassifyingItem(null)}
-                                        className="text-xs border border-slate-300 rounded px-1 py-0.5 bg-white max-w-[160px]"
-                                      >
-                                        <option value="">— cancelar —</option>
-                                        {categories.map(c => (
-                                          <option key={c.id} value={c.id}>{c.name}</option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <span className="flex items-center gap-1 group/cat">
-                                        <span>{item.category_name ?? '—'}</span>
-                                        <button
-                                          onClick={() => startReclassify(item.id)}
-                                          className="opacity-0 group-hover/cat:opacity-100 transition-opacity text-slate-400 hover:text-brand-600 shrink-0"
-                                          title="Reclasificar categoría"
-                                        >
-                                          <FilePen size={10} />
-                                        </button>
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-1.5 pr-3 text-right font-mono text-slate-800">{formatCLP(item.amount_clp)}</td>
-                                  <td className="py-1.5 pr-3">
-                                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${statusCls(item.status)}`}>
-                                      {statusLabel(item.status)}
-                                    </span>
-                                  </td>
-                                  <td className="py-1.5 text-red-600 italic">{item.rejection_reason ?? ''}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
+                          <p className="text-xs text-slate-400">Por reembolsar</p>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.approved_amount > 0 ? 'text-brand-700' : 'text-slate-400'}`}>
+                            {r.approved_amount > 0 ? formatCLP(r.approved_amount) : '—'}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">neto aprobado</p>
+                        </div>
+                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
+                          <p className="text-xs text-slate-400">Reembolsado</p>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-emerald-700' : 'text-slate-400'}`}>
+                            {r.reimbursed_amount != null ? formatCLP(r.reimbursed_amount) : '—'}
+                          </p>
+                          {r.reimbursed_at && (
+                            <p className="text-xs text-slate-400 mt-0.5">{formatDate(r.reimbursed_at.split('T')[0])}</p>
+                          )}
                         </div>
                       </div>
 
-                      {/* ZIP comprobantes */}
-                      <div className="flex justify-end pt-1">
-                        <button
-                          onClick={() => handleExportZip(r.id, r.title)}
-                          disabled={zippingId === r.id}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-item transition-colors disabled:opacity-40"
-                        >
-                          {zippingId === r.id
-                            ? <span className="w-3 h-3 border border-brand-400 border-t-transparent rounded-full animate-spin" />
-                            : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                          }
-                          {zippingId === r.id ? 'Preparando ZIP…' : 'Comprobantes ZIP'}
-                        </button>
+                      {/* Contenido: timeline + detalle */}
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-[160px_1fr] gap-6">
+                        {/* Columna izquierda: timeline vertical */}
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Progreso</p>
+                          <VerticalTimeline
+                            steps={REPORT_STEPS}
+                            currentStatus={r.status === 'partially_approved' ? 'approved' : r.status}
+                          />
+                        </div>
+
+                        {/* Columna derecha: historial + ítems + zip */}
+                        <div className="space-y-5">
+                          {/* Historial de aprobaciones */}
+                          {detail.approvals.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Historial de aprobaciones</p>
+                              <div className="space-y-1.5">
+                                {detail.approvals.map((a, i) => (
+                                  <div key={i} className={[
+                                    'flex items-start gap-2 text-xs rounded-item px-3 py-2',
+                                    a.action === 'approved' ? 'bg-emerald-50 text-emerald-800' :
+                                    a.action === 'rejected' ? 'bg-red-50 text-red-800' :
+                                    'bg-slate-100 text-slate-700',
+                                  ].join(' ')}>
+                                    <span className="font-medium shrink-0">N{a.level}</span>
+                                    <span className="font-semibold shrink-0">{a.approver_name}</span>
+                                    <span className="shrink-0">→ {statusLabel(a.action)}</span>
+                                    {a.notes && <span className="text-slate-500 italic">"{a.notes}"</span>}
+                                    <span className="ml-auto text-slate-400 shrink-0">{formatDate(a.created_at.split('T')[0])}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Ítems */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Ítems ({detail.items.length})</p>
+                              <button
+                                onClick={() => openBulkCC(r.id)}
+                                className="text-xs text-brand-600 border border-brand-200 hover:bg-brand-50 px-2.5 py-1 rounded-item font-semibold transition-colors"
+                              >
+                                Reasignar CC
+                              </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr className="text-left text-slate-400 border-b border-slate-200">
+                                    <th className="pb-1.5 pr-3 font-medium">Descripción</th>
+                                    <th className="pb-1.5 pr-3 font-medium">Tipo</th>
+                                    <th className="pb-1.5 pr-3 font-medium">Categoría</th>
+                                    <th className="pb-1.5 pr-3 font-medium text-right">Monto</th>
+                                    <th className="pb-1.5 pr-3 font-medium">Estado</th>
+                                    <th className="pb-1.5 font-medium">Motivo rechazo</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {detail.items.map((item, i) => (
+                                    <tr key={i}>
+                                      <td className="py-1.5 pr-3 text-slate-700">{item.description}</td>
+                                      <td className="py-1.5 pr-3">
+                                        {item.item_type === 'advance'  && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium">Anticipo</span>}
+                                        {item.item_type === 'return'   && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">Devolución</span>}
+                                        {item.item_type === 'transfer' && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">Traspaso</span>}
+                                        {(item.item_type === 'expense' || !item.item_type) && <span className="text-slate-400">—</span>}
+                                      </td>
+                                      <td className="py-1.5 pr-3 text-slate-500">
+                                        {reclassifyingItem === item.id ? (
+                                          <select
+                                            autoFocus
+                                            defaultValue={item.category_id ?? ''}
+                                            disabled={reclassifySaving}
+                                            onChange={async e => {
+                                              if (e.target.value) await handleReclassify(r.id, item.id, e.target.value)
+                                              else setReclassifyingItem(null)
+                                            }}
+                                            onBlur={() => !reclassifySaving && setReclassifyingItem(null)}
+                                            className="text-xs border border-slate-300 rounded px-1 py-0.5 bg-white max-w-[160px]"
+                                          >
+                                            <option value="">— cancelar —</option>
+                                            {categories.map(c => (
+                                              <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <span className="flex items-center gap-1 group/cat">
+                                            <span>{item.category_name ?? '—'}</span>
+                                            <button
+                                              onClick={() => startReclassify(item.id)}
+                                              className="opacity-0 group-hover/cat:opacity-100 transition-opacity text-slate-400 hover:text-brand-600 shrink-0"
+                                              title="Reclasificar categoría"
+                                            >
+                                              <FilePen size={10} />
+                                            </button>
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-1.5 pr-3 text-right font-mono text-slate-800">{formatCLP(item.amount_clp)}</td>
+                                      <td className="py-1.5 pr-3">
+                                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${statusCls(item.status)}`}>
+                                          {statusLabel(item.status)}
+                                        </span>
+                                      </td>
+                                      <td className="py-1.5 text-red-600 italic">{item.rejection_reason ?? ''}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          {/* ZIP comprobantes */}
+                          <div className="flex justify-end pt-1">
+                            <button
+                              onClick={() => handleExportZip(r.id, r.title)}
+                              disabled={zippingId === r.id}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-item transition-colors disabled:opacity-40"
+                            >
+                              {zippingId === r.id
+                                ? <span className="w-3 h-3 border border-brand-400 border-t-transparent rounded-full animate-spin" />
+                                : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                              }
+                              {zippingId === r.id ? 'Preparando ZIP…' : 'Comprobantes ZIP'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </>
                   )}
