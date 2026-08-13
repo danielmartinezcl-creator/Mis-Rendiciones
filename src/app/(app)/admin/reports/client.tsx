@@ -664,7 +664,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-800">{formatCLP(r.total_amount)}</p>
                       {r.approved_amount > 0 && r.approved_amount !== r.total_amount && (
-                        <p className="text-xs text-emerald-600">Aprobado: {formatCLP(r.approved_amount)}</p>
+                        <p className="text-xs text-emerald-600">Por reembolsar: {formatCLP(r.approved_amount)}</p>
                       )}
                     </div>
                     <button
@@ -740,7 +740,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           type="number"
                           value={reimbAmount}
                           onChange={e => setReimbAmount(e.target.value)}
-                          placeholder={`Aprobado: ${formatCLP(r.approved_amount)}`}
+                          placeholder={`Por reembolsar: ${formatCLP(r.approved_amount)}`}
                           className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-600"
                         />
                       </div>
