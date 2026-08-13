@@ -105,18 +105,18 @@ function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: num
     return (
       <span
         className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
-        title={`Aprobado: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
+        title={`Aprobado neto: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
       >
-        ↑ Exceso {formatCLP(absDiff)}
+        ↑ Exceso de reembolso {formatCLP(absDiff)}
       </span>
     )
   }
   return (
     <span
       className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200"
-      title={`Aprobado: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
+      title={`Aprobado neto: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
     >
-      ↓ Déficit {formatCLP(absDiff)}
+      ↓ Pendiente por reembolsar {formatCLP(absDiff)}
     </span>
   )
 }

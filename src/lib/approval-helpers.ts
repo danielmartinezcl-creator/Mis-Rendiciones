@@ -9,8 +9,19 @@ export function computeReportStatus(items: { status: string }[]): ReportStatus {
   return 'partially_approved'
 }
 
-export function computeApprovedAmount(items: { status: string; amount_clp: number }[]): number {
+// NET: expense items add, advance and return items subtract.
+// advance = money company already gave employee upfront (reduces what's still owed)
+// return  = money employee returns to company (reduces what company must reimburse)
+// transfer = internal movement, ignored
+export function computeApprovedAmount(
+  items: { status: string; amount_clp: number; item_type?: string }[]
+): number {
   return items
     .filter(i => i.status === 'approved')
-    .reduce((sum, i) => sum + i.amount_clp, 0)
+    .reduce((sum, i) => {
+      const type = i.item_type ?? 'expense'
+      if (type === 'advance' || type === 'return') return sum - i.amount_clp
+      if (type === 'transfer') return sum
+      return sum + i.amount_clp
+    }, 0)
 }

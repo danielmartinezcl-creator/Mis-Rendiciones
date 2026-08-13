@@ -200,7 +200,7 @@ export async function submitApprovalDecision(
   // Re-leer ítems para calcular estado
   const { data: allItems } = await supabase
     .from('expense_items')
-    .select('status, amount_clp')
+    .select('status, amount_clp, item_type')
     .eq('report_id', reportId)
     .is('deleted_at', null)
 
@@ -443,8 +443,8 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
 
   // Leer todos los ítems para calcular estado global
   const { data: allItems } = await supabase
-    .from('expense_items').select('id, status, amount_clp').eq('report_id', reportId).is('deleted_at', null)
-  const items = (allItems ?? []) as { id: string; status: string; amount_clp: number }[]
+    .from('expense_items').select('id, status, amount_clp, item_type').eq('report_id', reportId).is('deleted_at', null)
+  const items = (allItems ?? []) as { id: string; status: string; amount_clp: number; item_type?: string }[]
 
   const isL1 = report.status === 'submitted'
   const allApproved = items.every(i => i.status === 'approved')
@@ -558,6 +558,16 @@ export async function revertReimbursement(reportId: string) {
     throw new Error('Solo los administradores pueden revertir reembolsos')
   }
 
+  // Recalcular monto aprobado neto (expense - advance - return) para corregir
+  // valores calculados con la fórmula vieja (suma bruta sin distinguir item_type)
+  const { data: itemsData } = await supabase
+    .from('expense_items')
+    .select('status, amount_clp, item_type')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+
+  const netApproved = computeApprovedAmount(itemsData ?? [])
+
   const { error } = await supabase
     .from('expense_reports')
     .update({
@@ -566,6 +576,7 @@ export async function revertReimbursement(reportId: string) {
       reimbursed_by:     null,
       payment_reference: null,
       reimbursed_amount: null,
+      approved_amount:   netApproved,
     })
     .eq('id', reportId)
     .eq('status', 'reimbursed')

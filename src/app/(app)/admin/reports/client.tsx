@@ -637,13 +637,13 @@ export function AdminReportsClient({ initialReports }: Props) {
                           </span>
                         )
                         if (diff > 0) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`Aprobado: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
-                            ↑ Exceso {formatCLP(absDiff)}
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
+                            ↑ Exceso de reembolso {formatCLP(absDiff)}
                           </span>
                         )
                         return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200" title={`Aprobado: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
-                            ↓ Déficit {formatCLP(absDiff)}
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
+                            ↓ Pendiente por reembolsar {formatCLP(absDiff)}
                           </span>
                         )
                       })()}
