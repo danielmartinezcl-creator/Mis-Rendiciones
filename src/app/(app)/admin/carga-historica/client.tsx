@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt } from 'lucide-react'
+import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
@@ -14,6 +14,20 @@ import { parseExcelBuffer } from '@/lib/historical-import/parser'
 import type { ParsedHistoricalImport } from '@/lib/historical-import/parser'
 import type { CategorySuggestion } from '@/lib/historical-import/categorizer'
 import type { ExpenseCategory, UserProfile, CostCenter } from '@/lib/supabase/types'
+
+type HistoricalImport = {
+  id: string
+  title: string
+  status: string
+  total_amount: number
+  approved_amount: number
+  reimbursed_amount: number | null
+  reimbursed_at: string | null
+  fund_number: string | null
+  created_at: string
+  defontana_exported_at: string | null
+  submitter_name: string
+}
 
 const DEFAULT_COST_CENTER = 'EMPGESINGING'
 const DOC_TYPES = [
@@ -33,9 +47,10 @@ const ITEM_TYPES = [
 type ItemType = 'expense' | 'advance' | 'return'
 
 interface Props {
-  categories:  ExpenseCategory[]
-  employees:   UserProfile[]
-  costCenters: CostCenter[]
+  categories:        ExpenseCategory[]
+  employees:         UserProfile[]
+  costCenters:       CostCenter[]
+  historicalImports: HistoricalImport[]
 }
 
 interface GridRow extends HistoricalGridRow {
@@ -63,8 +78,47 @@ function fmtCLP(n: number) {
   return '$ ' + Math.round(Math.abs(n)).toLocaleString('es-CL')
 }
 
-export function HistoricalImportClient({ categories, employees, costCenters }: Props) {
-  const [tab, setTab] = useState<'excel' | 'manual'>('excel')
+function formatCLP(n: number) {
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+}
+
+function formatDate(s: string) {
+  return new Date(s).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: number; reimbursedAmount: number | null }) {
+  if (reimbursedAmount == null) return null
+  const diff = reimbursedAmount - approvedAmount
+  const absDiff = Math.abs(diff)
+  if (absDiff < 1) {
+    return (
+      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+        ✓ Cuadrado
+      </span>
+    )
+  }
+  if (diff > 0) {
+    return (
+      <span
+        className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+        title={`Aprobado: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
+      >
+        ↑ Exceso {formatCLP(absDiff)}
+      </span>
+    )
+  }
+  return (
+    <span
+      className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200"
+      title={`Aprobado: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
+    >
+      ↓ Déficit {formatCLP(absDiff)}
+    </span>
+  )
+}
+
+export function HistoricalImportClient({ categories, employees, costCenters, historicalImports }: Props) {
+  const [tab, setTab] = useState<'excel' | 'manual' | 'historial'>('excel')
   const [parsed, setParsed] = useState<ParsedHistoricalImport | null>(null)
   const [rows, setRows] = useState<GridRow[]>([emptyRow(employees[0])])
   const [docType, setDocType] = useState<'rendicion' | 'caja_chica'>('rendicion')
@@ -270,7 +324,11 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
 
       {/* Tabs */}
       <div className="flex gap-1 bg-ink-100 p-1 rounded-item w-fit">
-        {([['excel', 'Subir Excel'], ['manual', 'Ingreso Manual']] as const).map(([key, label]) => (
+        {([
+          ['excel',    'Subir Excel'],
+          ['manual',   'Ingreso Manual'],
+          ['historial', `Historial (${historicalImports.length})`],
+        ] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -282,6 +340,72 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
           </button>
         ))}
       </div>
+
+      {/* Vista historial */}
+      {tab === 'historial' && (
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <ClipboardList size={18} className="text-brand-600" />
+            <h2 className="font-semibold text-ink-800">Rendiciones históricas importadas</h2>
+          </div>
+          {historicalImports.length === 0 ? (
+            <p className="text-sm text-ink-400 text-center py-8">
+              Aún no hay rendiciones históricas importadas.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-ink-100">
+                    <th className="text-left text-xs font-medium text-ink-500 pb-2 pr-4">Título</th>
+                    <th className="text-left text-xs font-medium text-ink-500 pb-2 pr-4">Responsable</th>
+                    <th className="text-left text-xs font-medium text-ink-500 pb-2 pr-4">Fecha importación</th>
+                    <th className="text-right text-xs font-medium text-ink-500 pb-2 pr-4">Monto aprobado</th>
+                    <th className="text-left text-xs font-medium text-ink-500 pb-2">Estado de pago</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-50">
+                  {historicalImports.map(r => (
+                    <tr key={r.id} className="hover:bg-ink-50/50">
+                      <td className="py-2.5 pr-4">
+                        <div className="font-medium text-ink-800 text-sm">{r.title}</div>
+                        {r.fund_number && (
+                          <div className="text-xs text-ink-400">N° {r.fund_number}</div>
+                        )}
+                        {r.defontana_exported_at && (
+                          <div className="text-xs text-teal-600 mt-0.5">
+                            ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 text-sm text-ink-600">{r.submitter_name}</td>
+                      <td className="py-2.5 pr-4 text-sm text-ink-500">{formatDate(r.created_at.split('T')[0])}</td>
+                      <td className="py-2.5 pr-4 text-right font-mono-amount text-sm text-ink-800">
+                        {formatCLP(r.approved_amount)}
+                      </td>
+                      <td className="py-2.5">
+                        {r.status === 'reimbursed' ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-ink-500">
+                              Reembolsado {r.reimbursed_at ? formatDate(r.reimbursed_at.split('T')[0]) : ''}
+                            </span>
+                            <CuadreBadge
+                              approvedAmount={r.approved_amount}
+                              reimbursedAmount={r.reimbursed_amount}
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-ink-400 italic">Sin reembolso</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Upload zone */}
       {tab === 'excel' && (
@@ -311,6 +435,9 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
           )}
         </Card>
       )}
+
+      {/* Formulario de importación (oculto en tab historial) */}
+      {tab !== 'historial' && (<>
 
       {/* Datos del documento */}
       <Card>
@@ -515,6 +642,8 @@ export function HistoricalImportClient({ categories, employees, costCenters }: P
           {isCommitting ? 'Importando…' : `Confirmar importación (${rows.length} ítems)`}
         </Button>
       </div>
+
+      </>)}
     </div>
   )
 }

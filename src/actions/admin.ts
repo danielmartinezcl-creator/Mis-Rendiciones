@@ -1922,6 +1922,45 @@ export async function getHistoricalCajaChicaImports() {
   })
 }
 
+/** Retorna las importaciones históricas de Rendición (expense_reports con historical_type='rendicion').
+ *  Se usa en /admin/carga-historica para mostrar el historial con badge de cuadre. */
+export async function getHistoricalRendicionImports() {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data } = await supabase
+    .from('expense_reports')
+    .select('id, title, status, total_amount, approved_amount, reimbursed_amount, reimbursed_at, fund_number, historical_type, created_at, submitter_id, defontana_exported_at')
+    .eq('org_id', orgId)
+    .eq('is_historical_import', true)
+    .eq('historical_type', 'rendicion')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (!data?.length) return []
+
+  const submitterIds = [...new Set(data.map(r => r.submitter_id))]
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .in('id', submitterIds)
+
+  const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+
+  return data.map(r => ({
+    id:                    r.id,
+    title:                 r.title,
+    status:                r.status,
+    total_amount:          r.total_amount,
+    approved_amount:       r.approved_amount,
+    reimbursed_amount:     r.reimbursed_amount,
+    reimbursed_at:         r.reimbursed_at,
+    fund_number:           r.fund_number,
+    created_at:            r.created_at,
+    defontana_exported_at: r.defontana_exported_at,
+    submitter_name:        userMap[r.submitter_id] ?? 'Desconocido',
+  }))
+}
+
 /** Marca una importación histórica (caja chica o rendición) como contabilizada en Defontana */
 export async function markHistoricalImportDefontana(
   reportId: string,
