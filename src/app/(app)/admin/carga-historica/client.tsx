@@ -87,7 +87,11 @@ function formatDate(s: string) {
 }
 
 function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: number; reimbursedAmount: number | null }) {
-  if (reimbursedAmount == null) return null
+  if (reimbursedAmount == null) return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="No se registró el monto pagado">
+      — Sin registro
+    </span>
+  )
   const diff = reimbursedAmount - approvedAmount
   const absDiff = Math.abs(diff)
   if (absDiff < 1) {

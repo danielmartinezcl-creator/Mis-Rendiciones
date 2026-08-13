@@ -3,11 +3,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
-import { markReimbursed } from '@/actions/approvals'
+import { markReimbursed, revertReimbursement } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2 } from 'lucide-react'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
 
@@ -49,10 +49,11 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [defFilter,  setDefFilter]  = useState<'all' | 'notExported' | 'exported'>('all')
 
   // Reembolso inline
-  const [reimbOpen,   setReimbOpen]   = useState<string | null>(null)
-  const [reimbRef,    setReimbRef]    = useState('')
-  const [reimbAmount, setReimbAmount] = useState('')
-  const [reimbSaving, setReimbSaving] = useState(false)
+  const [reimbOpen,    setReimbOpen]    = useState<string | null>(null)
+  const [reimbRef,     setReimbRef]     = useState('')
+  const [reimbAmount,  setReimbAmount]  = useState('')
+  const [reimbSaving,  setReimbSaving]  = useState(false)
+  const [revertingId,  setRevertingId]  = useState<string | null>(null)
 
   // Cerrar dropdown empleado al hacer click fuera
   useEffect(() => {
@@ -231,6 +232,17 @@ export function AdminReportsClient({ initialReports }: Props) {
       await load()
     } finally {
       setReimbSaving(false)
+    }
+  }
+
+  async function handleRevert(reportId: string, title: string) {
+    if (!confirm(`¿Revertir el reembolso de "${title}"?\n\nLa rendición volverá a estado Aprobada y se podrá marcar como reembolsada nuevamente.`)) return
+    setRevertingId(reportId)
+    try {
+      await revertReimbursement(reportId)
+      await load()
+    } finally {
+      setRevertingId(null)
     }
   }
 
@@ -611,7 +623,12 @@ export function AdminReportsClient({ initialReports }: Props) {
                         </span>
                       )}
                       {/* Badge cuadre de reembolso */}
-                      {r.status === 'reimbursed' && r.reimbursed_amount != null && (() => {
+                      {r.status === 'reimbursed' && (() => {
+                        if (r.reimbursed_amount == null) return (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="No se registró el monto pagado">
+                            — Sin registro
+                          </span>
+                        )
                         const diff = r.reimbursed_amount - r.approved_amount
                         const absDiff = Math.abs(diff)
                         if (absDiff < 1) return (
@@ -664,6 +681,16 @@ export function AdminReportsClient({ initialReports }: Props) {
                         title="Mover a Caja Chica"
                       >
                         <ArrowRightLeft size={14} />
+                      </button>
+                    )}
+                    {r.status === 'reimbursed' && (
+                      <button
+                        onClick={() => handleRevert(r.id, r.title)}
+                        disabled={revertingId === r.id}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-item transition-colors disabled:opacity-40"
+                        title="Revertir reembolso (vuelve a Aprobada)"
+                      >
+                        <Undo2 size={14} />
                       </button>
                     )}
                     <button

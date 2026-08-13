@@ -543,6 +543,39 @@ export async function markReimbursed(reportId: string, paymentReference: string,
   revalidatePath('/')
 }
 
+export async function revertReimbursement(reportId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.role !== 'admin') {
+    throw new Error('Solo los administradores pueden revertir reembolsos')
+  }
+
+  const { error } = await supabase
+    .from('expense_reports')
+    .update({
+      status:            'approved',
+      reimbursed_at:     null,
+      reimbursed_by:     null,
+      payment_reference: null,
+      reimbursed_amount: null,
+    })
+    .eq('id', reportId)
+    .eq('status', 'reimbursed')
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/')
+}
+
 // ── Workflow bancario para Rendiciones ────────────────────────────────────────
 
 async function requireAdminOrBankPerm(perm: 'can_load_bank_transfer' | 'can_authorize_bank_transfer') {
