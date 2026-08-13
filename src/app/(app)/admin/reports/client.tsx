@@ -8,6 +8,8 @@ import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expen
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2 } from 'lucide-react'
+import { CompactStepper } from '@/components/ui/CompactStepper'
+import { REPORT_STEPS } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
 
@@ -658,6 +660,14 @@ export function AdminReportsClient({ initialReports }: Props) {
                       {r.reimbursed_at && ` · Reembolsada ${formatDate(r.reimbursed_at.split('T')[0])}`}
                       {r.payment_reference && ` · Ref: ${r.payment_reference}`}
                     </p>
+                    {r.status !== 'rejected' && (
+                      <div className="mt-2 max-w-xs">
+                        <CompactStepper
+                          steps={REPORT_STEPS}
+                          currentStatus={r.status === 'partially_approved' ? 'approved' : r.status}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
