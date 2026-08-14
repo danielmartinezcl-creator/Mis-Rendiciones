@@ -146,6 +146,7 @@ src/
 │   │   ├── expenses/new + [id]/          ← Rendición empleado (OCR + viáticos + políticas)
 │   │   ├── reimbursements/               ← Historial reembolsos
 │   │   ├── approvals/ + [id]/            ← Bandeja aprobador (AI summary + travel badges)
+│   │   ├── banco/                        ← Cola bancaria (operadores de carga/autorización)
 │   │   ├── informes/                     ← Informes unificados (4 fuentes, filtros completos)
 │   │   ├── admin/
 │   │   │   ├── page.tsx                  ← KPIs globales + alerta rendiciones +5 días
@@ -164,7 +165,7 @@ src/
 │   ├── api/auth/callback/                ← OAuth code exchange
 │   └── globals.css                       ← Tailwind v4 @theme + clases fallback
 ├── actions/                ← 16 server actions
-│   ├── admin.ts            ← KPIs, reportes, empleados, Defontana, CC masivo, fondos
+│   ├── admin.ts            ← KPIs, reportes, empleados, Defontana, CC masivo, fondos, getBankQueue
 │   ├── approvals.ts        ← aprobaciones L1/L2/backup, reembolso, análisis IA
 │   ├── cost-centers.ts     ← getCostCenters (sin requireAdmin — cualquier user)
 │   ├── employees.ts        ← importEmployees, setApprovers, setBackup
@@ -328,6 +329,13 @@ references/
 ### ✅ Flujo rápido móvil (R20)
 - `/quick` — 3 pasos optimizados para mobile: foto → OCR → confirmar monto/cat → seleccionar fondo → enviar
 - Shortcut en `manifest.json` para acceso directo desde el ícono de la PWA
+
+### ✅ Cola Bancaria (2026-08-14)
+- `/banco` — vista centralizada de rendiciones en proceso de transferencia, para operadores bancarios
+- `getBankQueue()` en `actions/admin.ts` resuelve `isAdmin` / `canLoad` / `canAuth` y devuelve **solo los estados que ese rol puede accionar**: admin ve `approved` + `partially_approved`; `canLoad` ve `pending_bank_load`; `canAuth` ve `pending_bank_auth`
+- Sidebar: entrada "Cola Bancaria" visible para admin o para quien tenga `can_load_bank_transfer` / `can_authorize_bank_transfer`
+- `revalidatePath('/banco')` en `requestReportBankLoad`, `confirmReportBankLoad` y `authorizeReportBank`
+- `/admin/reports`: estados "En banco (carga)" y "En banco (auth)" en el filtro + botón "Iniciar proceso bancario"
 
 ### ✅ Otros módulos completados
 - **Soft delete + Papelera** (`/admin/trash`): `expense_reports.deleted_at`; restaurar o eliminar definitivamente
