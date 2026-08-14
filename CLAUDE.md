@@ -1,2 +1,2 @@
 @AGENTS.md
-@.claude/skills/rindegastos-context/SKILL.md
+@.claude/skills/mi-rendicion-context/SKILL.md

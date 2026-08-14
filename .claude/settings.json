@@ -23,7 +23,7 @@
       "Bash(python3 -c ' *)",
       "Bash(bash \".superpowers/sdd/scripts/review-package\" *)",
       "Bash(bash \".superpowers/sdd/scripts/task-brief\" *)",
-      "Edit(/.claude/skills/rindegastos-context/**)"
+      "Edit(/.claude/skills/mi-rendicion-context/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\danie\\Desktop"

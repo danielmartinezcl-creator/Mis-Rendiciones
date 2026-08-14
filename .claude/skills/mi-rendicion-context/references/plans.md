@@ -1,4 +1,4 @@
-# Estado de implementación — Rindegastos
+# Estado de implementación — Mi Rendición
 
 > Última actualización: 2026-07-23
 

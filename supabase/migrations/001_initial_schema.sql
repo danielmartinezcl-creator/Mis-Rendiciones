@@ -1,7 +1,7 @@
 -- ============================================================
--- App Rindegastos — Schema inicial v1
+-- Mi Rendición — Schema inicial v1
 -- Aplicado: 2026-06-02
--- Proyecto: jqtbtgduqzxkgubmzukg (Rindegastos PENTA)
+-- Proyecto: jqtbtgduqzxkgubmzukg (Mi Rendición — PENTA)
 -- ============================================================
 -- Ver historial completo en Supabase Dashboard > Database > Migrations
 -- Este archivo es copia local de referencia.

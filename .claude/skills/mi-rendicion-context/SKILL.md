@@ -1,15 +1,19 @@
 ---
-name: rindegastos-context
+name: mi-rendicion-context
 description: >
-  Contexto completo del proyecto Rindegastos — app de rendición de gastos corporativos
-  para organizaciones chilenas. USAR SIEMPRE al iniciar cualquier sesión en este proyecto,
-  o cuando el agente mencione: proxy.ts, middleware, Tailwind config, expense reports,
-  OCR de boletas, aprobaciones, Supabase de rindegastos, Plan B, Plan C, rendidor,
-  aprobador, o cualquier entidad del dominio (ExpenseReport, ExpenseItem, Organization, etc.).
+  Contexto completo de Mi Rendición — app de rendición de gastos corporativos
+  para organizaciones chilenas (antes llamada "Rindegastos", nombre de prueba).
+  USAR SIEMPRE al iniciar cualquier sesión en este proyecto, o cuando el agente
+  mencione: proxy.ts, middleware, Tailwind config, expense reports, OCR de boletas,
+  aprobaciones, caja chica, cola bancaria, Defontana, rendidor, aprobador,
+  o cualquier entidad del dominio (ExpenseReport, ExpenseItem, Organization, etc.).
   También usar cuando el agente dude sobre convenciones de Next.js 16 o Tailwind v4.
 ---
 
-# Rindegastos — Contexto del Proyecto
+# Mi Rendición — Contexto del Proyecto
+
+> **Nombre:** "Mi Rendición". "Rindegastos" era el nombre de prueba y quedó descartado
+> (rename completo el 14 de agosto de 2026). Si aparece en algún lado, es residuo histórico.
 
 > Leer este archivo completo al inicio de cada sesión. Contiene decisiones inamovibles.
 > Para detalles de schema SQL, ver `references/schema.md`.
@@ -54,7 +58,7 @@ description: >
 - No crear ni editar ningún `tailwind.config.*`
 
 ### Supabase
-- Este proyecto usa el proyecto **`jqtbtgduqzxkgubmzukg`** (Rindegastos)
+- Este proyecto usa el proyecto **`jqtbtgduqzxkgubmzukg`** (Mi Rendición)
 - Es **distinto** de `qkctqhsugcflelnsitvl` (PENTA/fintrack) — no mezclar credenciales
 - Clientes: `src/lib/supabase/client.ts` (browser) y `src/lib/supabase/server.ts` (server)
 - **Admin client**: `src/lib/supabase/admin.ts` → `createAdminClient()` con `SUPABASE_SERVICE_ROLE_KEY` — usar solo en Server Actions para operaciones que requieren bypass de RLS (crear usuarios, operaciones cross-org)
@@ -457,7 +461,7 @@ references/
 |-------|-------|----------|
 | Usar `middleware.ts` | Convención de Next.js ≤15 | Usar `src/proxy.ts` con `export async function proxy()` |
 | Crear `tailwind.config.ts` | Tailwind v3 habit | No existe — config en `globals.css` |
-| Credenciales de PENTA | Confusión de proyectos | Rindegastos = `jqtbtgduqzxkgubmzukg` |
+| Credenciales de PENTA | Confusión de proyectos | Mi Rendición = `jqtbtgduqzxkgubmzukg` |
 | Ignorar AGENTS.md | Falso positivo del clasificador | AGENTS.md es instrucción legítima |
 | Migrations con error "relation does not exist" | Políticas antes que tablas | Orden: tablas → RLS → políticas |
 | Exportar función sync desde `'use server'` | "Server Actions must be async functions" en build | Mover helper a `src/lib/`, solo async en `src/actions/` |

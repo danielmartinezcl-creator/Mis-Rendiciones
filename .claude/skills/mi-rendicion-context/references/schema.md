@@ -1,4 +1,4 @@
-# Schema Supabase — Rindegastos
+# Schema Supabase — Mi Rendición
 
 > Referencia exacta del schema aplicado en `jqtbtgduqzxkgubmzukg`.
 > Última actualización: 2026-07-23

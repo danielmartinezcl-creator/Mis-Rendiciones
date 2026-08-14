@@ -1,7 +1,7 @@
 -- ============================================================
 -- 004_petty_cash.sql — Módulo Caja Chica
 -- Aplicado: 2026-07-13
--- Proyecto: jqtbtgduqzxkgubmzukg (Rindegastos PENTA)
+-- Proyecto: jqtbtgduqzxkgubmzukg (Mi Rendición — PENTA)
 -- ============================================================
 
 -- 1. Permiso de Encargado de Fondo Fijo

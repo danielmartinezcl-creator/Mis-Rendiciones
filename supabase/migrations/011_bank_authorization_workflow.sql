@@ -2,7 +2,7 @@
 -- 011_bank_authorization_workflow.sql
 -- Flujo de autorización bancaria en Caja Chica y Rendiciones
 -- Aplicado: 2026-07-28
--- Proyecto: jqtbtgduqzxkgubmzukg (Rindegastos PENTA)
+-- Proyecto: jqtbtgduqzxkgubmzukg (Mi Rendición — PENTA)
 -- ============================================================
 
 -- 1. Nuevas columnas de permiso bancario en users
