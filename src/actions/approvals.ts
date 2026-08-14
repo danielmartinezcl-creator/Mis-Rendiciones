@@ -634,6 +634,7 @@ export async function requestReportBankLoad(reportId: string) {
   })
 
   revalidatePath('/admin/reports')
+  revalidatePath('/banco')
   revalidatePath('/')
 }
 
@@ -665,6 +666,7 @@ export async function confirmReportBankLoad(reportId: string, data: {
   notifyBankAuthorizersOfLoad(reportId).catch(() => {})
 
   revalidatePath('/admin/reports')
+  revalidatePath('/banco')
   revalidatePath('/')
 }
 
@@ -698,5 +700,6 @@ export async function authorizeReportBank(reportId: string, paymentReference: st
   notifySubmitterOfReimbursement(reportId).catch(() => {})
 
   revalidatePath('/admin/reports')
+  revalidatePath('/banco')
   revalidatePath('/')
 }

@@ -2355,3 +2355,91 @@ export async function deleteWebhook(id: string) {
   })
   revalidatePath('/admin/settings')
 }
+
+// ─── Cola bancaria (accesible a bank operators + admin) ─────────────────────
+
+export interface BankQueueReport {
+  id:              string
+  title:           string
+  status:          string
+  total_amount:    number
+  approved_amount: number
+  currency:        string
+  submitted_at:    string | null
+  approved_at:     string | null
+  submitter_name:  string
+  department:      string | null
+}
+
+export interface BankQueueResult {
+  isAdmin: boolean
+  canLoad: boolean
+  canAuth: boolean
+  reports: BankQueueReport[]
+}
+
+type BankStatus = 'approved' | 'partially_approved' | 'pending_bank_load' | 'pending_bank_auth'
+
+export async function getBankQueue(): Promise<BankQueueResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, org_id, can_load_bank_transfer, can_authorize_bank_transfer')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) redirect('/login')
+
+  const isAdmin = profile.role === 'admin'
+  const canLoad = isAdmin || !!profile.can_load_bank_transfer
+  const canAuth = isAdmin || !!profile.can_authorize_bank_transfer
+
+  if (!isAdmin && !canLoad && !canAuth) {
+    return { isAdmin: false, canLoad: false, canAuth: false, reports: [] }
+  }
+
+  const statuses: BankStatus[] = []
+  if (isAdmin) statuses.push('approved', 'partially_approved')
+  if (canLoad) statuses.push('pending_bank_load')
+  if (canAuth) statuses.push('pending_bank_auth')
+
+  const admin = createAdminClient()
+  const { data } = await (await admin)
+    .from('expense_reports')
+    .select(`
+      id, title, status, total_amount, approved_amount, currency,
+      submitted_at, approved_at,
+      submitter:users!submitter_id (full_name, department)
+    `)
+    .eq('org_id', profile.org_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .in('status', statuses as any)
+    .is('deleted_at', null)
+    .order('approved_at', { ascending: true, nullsFirst: false })
+
+  type Sub = { full_name: string; department: string | null }
+
+  return {
+    isAdmin,
+    canLoad,
+    canAuth,
+    reports: (data ?? []).map(r => {
+      const sub = r.submitter as Sub | null
+      return {
+        id:              r.id as string,
+        title:           r.title as string,
+        status:          r.status as string,
+        total_amount:    r.total_amount as number,
+        approved_amount: r.approved_amount as number,
+        currency:        r.currency as string,
+        submitted_at:    r.submitted_at as string | null,
+        approved_at:     r.approved_at as string | null,
+        submitter_name:  sub?.full_name ?? 'Desconocido',
+        department:      sub?.department ?? null,
+      }
+    }),
+  }
+}

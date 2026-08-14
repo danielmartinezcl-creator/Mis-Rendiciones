@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Zap,
   Shield,
+  Landmark,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
   { href: '/petty-cash',      label: 'Caja Chica',      Icon: Wallet,           roles: ['admin','approver','employee'] as const },
   { href: '/mis-gastos',      label: 'Mis gastos',      Icon: TrendingUp,       roles: ['admin','approver','employee'] as const },
   { href: '/approvals',       label: 'Aprobaciones',    Icon: CheckCircle2,     roles: ['admin','approver'] as const },
+  { href: '/banco',           label: 'Cola Bancaria',   Icon: Landmark,         roles: ['admin'] as const },
   { href: '/suggestions',     label: 'Sugerencias',     Icon: Lightbulb,        roles: ['admin','approver','employee'] as const },
   { href: '/admin',           label: 'Dashboard',       Icon: BarChart3,        roles: ['admin'] as const },
   { href: '/informes',        label: 'Informes',         Icon: BarChart2,        roles: ['admin', 'approver'] as const },
@@ -73,7 +75,8 @@ export function Sidebar({ user }: SidebarProps) {
 
   const visible = NAV_ITEMS.filter(item =>
     (item.roles as readonly string[]).includes(user.role) ||
-    (item.href === '/approvals' && user.can_approve)
+    (item.href === '/approvals' && user.can_approve) ||
+    (item.href === '/banco' && (user.can_load_bank_transfer || user.can_authorize_bank_transfer))
   )
 
   const [items,        setItems]        = useState<NavItem[]>(visible)

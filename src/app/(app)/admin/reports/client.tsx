@@ -3,11 +3,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
-import { markReimbursed, revertReimbursement } from '@/actions/approvals'
+import { markReimbursed, revertReimbursement, requestReportBankLoad } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2 } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS } from '@/lib/constants'
@@ -18,12 +18,14 @@ type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
 type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
 
 const STATUS_OPTS = [
-  { value: 'submitted',          label: 'En revisión',    color: 'bg-blue-100 text-blue-700' },
-  { value: 'pending_l2',         label: 'Revisión N2',    color: 'bg-purple-100 text-purple-700' },
-  { value: 'approved',           label: 'Aprobada',       color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'submitted',          label: 'En revisión',      color: 'bg-blue-100 text-blue-700' },
+  { value: 'pending_l2',         label: 'Revisión N2',      color: 'bg-purple-100 text-purple-700' },
+  { value: 'approved',           label: 'Aprobada',         color: 'bg-emerald-100 text-emerald-700' },
   { value: 'partially_approved', label: 'Aprobada parcial', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'rejected',           label: 'Rechazada',      color: 'bg-red-100 text-red-700' },
-  { value: 'reimbursed',         label: 'Reembolsada',    color: 'bg-slate-100 text-slate-600' },
+  { value: 'rejected',           label: 'Rechazada',        color: 'bg-red-100 text-red-700' },
+  { value: 'pending_bank_load',  label: 'En banco (carga)', color: 'bg-teal-100 text-teal-700' },
+  { value: 'pending_bank_auth',  label: 'En banco (auth)',  color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'reimbursed',         label: 'Reembolsada',      color: 'bg-slate-100 text-slate-600' },
 ]
 
 function statusLabel(s: string) { return STATUS_OPTS.find(o => o.value === s)?.label ?? s }
@@ -72,6 +74,9 @@ export function AdminReportsClient({ initialReports }: Props) {
   // Eliminar
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
   const [deletingAll, setDeletingAll] = useState(false)
+
+  // Proceso bancario
+  const [bankInitId, setBankInitId] = useState<string | null>(null)
 
   // Mover módulo (rendicion ↔ caja_chica)
   const [movingId, setMovingId] = useState<string | null>(null)
@@ -235,6 +240,19 @@ export function AdminReportsClient({ initialReports }: Props) {
       await load()
     } finally {
       setReimbSaving(false)
+    }
+  }
+
+  async function handleBankInit(reportId: string, title: string) {
+    if (!confirm(`¿Enviar "${title}" al proceso bancario?\n\nLa rendición pasará al estado "En banco (carga)" y los operadores bancarios podrán confirmar la transferencia.`)) return
+    setBankInitId(reportId)
+    try {
+      await requestReportBankLoad(reportId)
+      await load()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Error al iniciar el proceso bancario')
+    } finally {
+      setBankInitId(null)
     }
   }
 
@@ -731,14 +749,22 @@ export function AdminReportsClient({ initialReports }: Props) {
                   </div>
                 )}
 
-                {/* Botón reembolso */}
+                {/* Acciones de reembolso */}
                 {canReimb && !isReopened && (
-                  <div className="mt-3 pt-3 border-t border-slate-100">
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => handleBankInit(r.id, r.title)}
+                      disabled={bankInitId === r.id}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-item transition-colors"
+                    >
+                      <Landmark size={13} />
+                      {bankInitId === r.id ? 'Iniciando…' : 'Iniciar proceso bancario'}
+                    </button>
                     <button
                       onClick={() => { setReimbOpen(r.id); setReimbRef(''); setReimbAmount(r.approved_amount > 0 ? String(r.approved_amount) : '') }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
                     >
-                      <Banknote size={13} />Marcar como reembolsada
+                      <Banknote size={13} />Marcar reembolsada directamente
                     </button>
                   </div>
                 )}
