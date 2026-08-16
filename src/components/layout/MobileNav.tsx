@@ -43,7 +43,7 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: '/admin',                 label: 'Dashboard',        shortLabel: 'Admin',    Icon: BarChart3,       roles: ['admin'],                     section: 'admin' },
   { href: '/admin/fondos',          label: 'Saldos CC',        shortLabel: 'Fondos',   Icon: WalletCards,     roles: ['admin'],                     section: 'admin' },
   { href: '/admin/analisis',        label: 'Análisis CC',      shortLabel: 'Análisis', Icon: PieChart,        roles: ['admin'],                     section: 'admin' },
-  { href: '/admin/reports',         label: 'Rendiciones',      shortLabel: 'Rendic.',  Icon: ReceiptText,     roles: ['admin'],                     section: 'admin' },
+  { href: '/admin/reports',         label: 'Rendiciones',      shortLabel: 'Rendición',Icon: ReceiptText,     roles: ['admin'],                     section: 'admin' },
   { href: '/admin/employees',       label: 'Empleados',        shortLabel: 'Empleados',Icon: Users,           roles: ['admin'],                     section: 'admin' },
   { href: '/admin/settings',        label: 'Configuración',    shortLabel: 'Config.',  Icon: Settings2,       roles: ['admin'],                     section: 'admin' },
   { href: '/admin/trash',           label: 'Papelera',         shortLabel: 'Papelera', Icon: Trash2,          roles: ['admin'],                     section: 'admin' },
