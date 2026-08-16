@@ -29,7 +29,9 @@ export function CurrencyAmount({
   return (
     <span
       className={cn(
-        'font-manrope font-bold tabular-nums',
+        // leading-none: un monto es una sola línea, el interlineado por defecto
+        // le suma ~20% de alto muerto y engorda la tarjeta sin agrandar la cifra
+        'font-manrope font-bold tabular-nums leading-none',
         sizes[size],
         muted ? 'text-slate-400' : 'text-slate-900',
         className

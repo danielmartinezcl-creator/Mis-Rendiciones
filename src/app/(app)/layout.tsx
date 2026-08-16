@@ -31,9 +31,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <LogoutButton />
             </div>
           </header>
-          {/* pb-28 (112px) deja aire bajo la barra inferior de 96px — si cambia
+          {/* pb-20 (80px) deja aire bajo la barra inferior de 64px — si cambia
               la altura de MobileNav, ajustar este padding o el contenido queda tapado */}
-          <main className="flex-1 p-4 md:p-6 pb-28 md:pb-6 content-area">
+          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 content-area">
             <Suspense fallback={<PageSkeleton />}>
               {children}
             </Suspense>

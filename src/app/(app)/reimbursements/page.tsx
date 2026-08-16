@@ -33,8 +33,8 @@ export default async function ReimbursementsPage() {
         </div>
       )}
 
-      {/* Lista completa */}
-      <div className="space-y-2">
+      {/* Lista completa — mismo espaciado que el dashboard, es la misma tarjeta */}
+      <div className="space-y-3">
         {all.map(report => (
           <div key={report.id}>
             <ExpenseReportCard

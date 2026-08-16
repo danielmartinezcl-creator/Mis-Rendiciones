@@ -111,9 +111,12 @@ export function MobileNav({ user }: MobileNavProps) {
       {/* ── Barra inferior ── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-ink-200"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {/* h-24 = 96px. El padding inferior de <main> en layout.tsx (pb-28)
-            está calculado contra esta altura — si cambia una, cambiar la otra. */}
-        <div className="flex h-24">
+        {/* h-16 = 64px, la altura original: la barra no debe crecer. Lo que crece
+            es el contenido — ícono 28 (antes 21) y rótulo 13px (antes 10). Entran
+            justos: 28 + 4 de gap + 13 = 45px, con ~9px de aire arriba y abajo.
+            El padding inferior de <main> en layout.tsx (pb-20) está calculado
+            contra esta altura — si cambia una, cambiar la otra. */}
+        <div className="flex h-16">
           {primaryItems.map(item => {
             const active = pathname === item.href
             return (
@@ -121,12 +124,12 @@ export function MobileNav({ user }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-1.5 transition-colors',
+                  'flex-1 flex flex-col items-center justify-center gap-1 transition-colors',
                   active ? 'text-brand-600' : 'text-ink-400'
                 )}
               >
-                <item.Icon size={32} />
-                <span className="text-[14px] font-semibold leading-none">{item.shortLabel}</span>
+                <item.Icon size={28} />
+                <span className="text-[13px] font-semibold leading-none">{item.shortLabel}</span>
               </Link>
             )
           })}
@@ -139,8 +142,8 @@ export function MobileNav({ user }: MobileNavProps) {
               open || moreIsActive ? 'text-brand-600' : 'text-ink-400'
             )}
           >
-            <MoreHorizontal size={32} />
-            <span className="text-[14px] font-semibold leading-none">Más</span>
+            <MoreHorizontal size={28} />
+            <span className="text-[13px] font-semibold leading-none">Más</span>
           </button>
         </div>
       </nav>

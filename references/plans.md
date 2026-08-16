@@ -69,12 +69,18 @@
 
 ---
 
-## Backlog real (1 ítem)
+## Backlog real (2 ítems)
 
 ### 1. Service worker offline
 **Estado:** No implementado.
 **Bloqueante:** `next-pwa` v5 es incompatible con Turbopack (Next.js 16). La app es instalable como PWA (manifest.json + metadata en layout.tsx) pero sin cache offline.
 **Workaround:** Manual service worker sin `next-pwa`, pero complejidad alta para beneficio bajo. Backlog indefinido.
+
+### 2. Marca por organización (white-label)
+**Estado:** No implementado. Pedido por Daniel el 2026-08-16, a abordar **después** de la fase 2 de la escala tipográfica.
+**Qué:** hoy el header móvil y el sidebar muestran "Penta Rend" fijo (hardcodeado en `src/app/(app)/layout.tsx` y `src/components/layout/Sidebar.tsx`). Cada empresa que contrate la app debe poder poner su propio logotipo o nombre en ese lugar.
+**Alcance a definir al retomarlo:** columnas nuevas en `organizations` (nombre visible + URL de logo), bucket de Storage para los logos, carga desde `/admin/settings`, y fallback cuando la org no subió nada. Ojo con el favicon y el `manifest.json` de la PWA — hoy también son fijos.
+**Nota:** encaja con el trabajo de multi-tenancy ya hecho en la migración 016 (`org_id` en `cost_centers`).
 
 ---
 

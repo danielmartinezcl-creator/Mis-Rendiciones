@@ -29,19 +29,21 @@ export default async function DashboardPage() {
 
       {/* Card héroe con montos */}
       <Card hero>
-        <div className="space-y-1">
+        {/* Interlineados y separaciones ajustados a la baja para compensar la
+            subida de tamaño: la letra crece, la tarjeta no. */}
+        <div className="space-y-1.5">
           <p className="card-eyebrow text-brand-300">Por cobrar (aprobado)</p>
-          <CurrencyAmount amount={approved} currency="CLP" size="xl" className="text-white" />
+          <CurrencyAmount amount={approved} currency="CLP" size="xl" className="text-white block" />
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
             {/* brand-300 y no brand-400: a 17px sobre el degradé oscuro, el 400 queda flojo */}
-            <p className="card-label text-brand-300">En revisión</p>
-            <CurrencyAmount amount={inReview} currency="CLP" size="md" className="text-white" />
+            <p className="card-label text-brand-300 mb-1">En revisión</p>
+            <CurrencyAmount amount={inReview} currency="CLP" size="md" className="text-white block" />
           </div>
           <div>
-            <p className="card-label text-brand-300">Borradores</p>
-            <CurrencyAmount amount={pending} currency="CLP" size="md" className="text-white" />
+            <p className="card-label text-brand-300 mb-1">Borradores</p>
+            <CurrencyAmount amount={pending} currency="CLP" size="md" className="text-white block" />
           </div>
         </div>
       </Card>
@@ -78,7 +80,9 @@ export default async function DashboardPage() {
           <h2 className="section-title text-ink-500">
             Rendiciones recientes
           </h2>
-          <div className="space-y-2">
+          {/* space-y-3: más aire entre rendiciones, para que la separación se lea
+              junto con el borde de cada tarjeta */}
+          <div className="space-y-3">
             {recent.map(report => (
               <ExpenseReportCard
                 key={report.id}
