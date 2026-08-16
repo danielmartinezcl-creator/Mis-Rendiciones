@@ -111,7 +111,9 @@ export function MobileNav({ user }: MobileNavProps) {
       {/* ── Barra inferior ── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-ink-200"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex h-16">
+        {/* h-24 = 96px. El padding inferior de <main> en layout.tsx (pb-28)
+            está calculado contra esta altura — si cambia una, cambiar la otra. */}
+        <div className="flex h-24">
           {primaryItems.map(item => {
             const active = pathname === item.href
             return (
@@ -119,12 +121,12 @@ export function MobileNav({ user }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-1 transition-colors',
+                  'flex-1 flex flex-col items-center justify-center gap-1.5 transition-colors',
                   active ? 'text-brand-600' : 'text-ink-400'
                 )}
               >
-                <item.Icon size={21} />
-                <span className="text-[10px] font-semibold leading-none">{item.shortLabel}</span>
+                <item.Icon size={32} />
+                <span className="text-[14px] font-semibold leading-none">{item.shortLabel}</span>
               </Link>
             )
           })}
@@ -133,12 +135,12 @@ export function MobileNav({ user }: MobileNavProps) {
           <button
             onClick={() => setOpen(v => !v)}
             className={cn(
-              'flex-1 flex flex-col items-center justify-center gap-1 transition-colors',
+              'flex-1 flex flex-col items-center justify-center gap-1.5 transition-colors',
               open || moreIsActive ? 'text-brand-600' : 'text-ink-400'
             )}
           >
-            <MoreHorizontal size={21} />
-            <span className="text-[10px] font-semibold leading-none">Más</span>
+            <MoreHorizontal size={32} />
+            <span className="text-[14px] font-semibold leading-none">Más</span>
           </button>
         </div>
       </nav>
@@ -175,13 +177,13 @@ export function MobileNav({ user }: MobileNavProps) {
 
           {/* Cabecera */}
           <div className="flex items-center justify-between px-5 pt-3 pb-3">
-            <span className="font-display font-bold text-ink-900 text-base">Menú</span>
+            <span className="font-display font-bold text-ink-900 text-[19px]">Menú</span>
             <button
               onClick={() => setOpen(false)}
-              className="w-8 h-8 rounded-full bg-ink-100 flex items-center justify-center text-ink-500 transition-colors hover:bg-ink-200"
+              className="w-10 h-10 rounded-full bg-ink-100 flex items-center justify-center text-ink-500 transition-colors hover:bg-ink-200"
               aria-label="Cerrar menú"
             >
-              <X size={15} />
+              <X size={18} />
             </button>
           </div>
 
@@ -189,7 +191,7 @@ export function MobileNav({ user }: MobileNavProps) {
           <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-4">
             {sheetSections.map(section => (
               <div key={section.key}>
-                <p className="text-[10px] font-bold text-ink-400 uppercase tracking-widest px-3 mb-1.5">
+                <p className="card-label font-bold text-ink-400 px-3 mb-2">
                   {section.label}
                 </p>
                 <div className="space-y-0.5">
@@ -200,24 +202,24 @@ export function MobileNav({ user }: MobileNavProps) {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          'flex items-center gap-3 px-3 py-3 rounded-item text-sm font-semibold transition-colors',
+                          'flex items-center gap-3 px-3 py-3.5 rounded-item text-[17px] font-semibold transition-colors',
                           active
                             ? 'bg-brand-50 text-brand-700'
                             : 'text-ink-700 hover:bg-ink-50',
                         )}
                       >
                         <div className={cn(
-                          'w-9 h-9 rounded-item flex items-center justify-center shrink-0 transition-colors',
+                          'w-11 h-11 rounded-item flex items-center justify-center shrink-0 transition-colors',
                           active ? 'bg-brand-100' : 'bg-ink-100',
                         )}>
                           <item.Icon
-                            size={17}
+                            size={22}
                             className={active ? 'text-brand-600' : 'text-ink-500'}
                           />
                         </div>
                         <span className="flex-1">{item.label}</span>
                         {active && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" />
+                          <div className="w-2 h-2 rounded-full bg-brand-500 shrink-0" />
                         )}
                       </Link>
                     )

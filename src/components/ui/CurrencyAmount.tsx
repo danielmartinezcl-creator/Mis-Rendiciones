@@ -10,11 +10,13 @@ interface CurrencyAmountProps {
   muted?: boolean
 }
 
+/* Escala de montos (2026-08-16) — subida para que se lean en un celular.
+   Antes: 14 / 16 / 20 / 30px. */
 const sizes = {
-  sm: 'text-sm',
-  md: 'text-base',
-  lg: 'text-xl',
-  xl: 'text-3xl',
+  sm: 'text-[19px]',
+  md: 'text-[24px]',
+  lg: 'text-[28px]',
+  xl: 'text-[40px]',
 }
 
 export function CurrencyAmount({

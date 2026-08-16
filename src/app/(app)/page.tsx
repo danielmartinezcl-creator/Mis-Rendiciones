@@ -30,16 +30,17 @@ export default async function DashboardPage() {
       {/* Card héroe con montos */}
       <Card hero>
         <div className="space-y-1">
-          <p className="text-brand-300 text-sm font-medium">Por cobrar (aprobado)</p>
+          <p className="card-eyebrow text-brand-300">Por cobrar (aprobado)</p>
           <CurrencyAmount amount={approved} currency="CLP" size="xl" className="text-white" />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="mt-5 grid grid-cols-2 gap-4">
           <div>
-            <p className="text-brand-400 text-xs">En revisión</p>
+            {/* brand-300 y no brand-400: a 17px sobre el degradé oscuro, el 400 queda flojo */}
+            <p className="card-label text-brand-300">En revisión</p>
             <CurrencyAmount amount={inReview} currency="CLP" size="md" className="text-white" />
           </div>
           <div>
-            <p className="text-brand-400 text-xs">Borradores</p>
+            <p className="card-label text-brand-300">Borradores</p>
             <CurrencyAmount amount={pending} currency="CLP" size="md" className="text-white" />
           </div>
         </div>
@@ -52,21 +53,21 @@ export default async function DashboardPage() {
           className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-card p-3 hover:bg-red-100 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <AlertCircle size={16} className="text-red-500 shrink-0" />
-            <p className="text-sm font-medium text-red-700">
+            <AlertCircle size={20} className="text-red-500 shrink-0" />
+            <p className="card-label font-medium text-red-700">
               {rejected.length === 1
                 ? 'Una rendición fue rechazada — revisá los motivos'
                 : `${rejected.length} rendiciones fueron rechazadas`}
             </p>
           </div>
-          <span className="text-xs text-red-600 font-semibold shrink-0">Ver →</span>
+          <span className="card-meta text-red-600 font-semibold shrink-0">Ver →</span>
         </Link>
       )}
 
       {/* CTA principal */}
       <Link href="/expenses/new">
-        <button className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-card text-base flex items-center justify-center gap-3 transition-all duration-[180ms] shadow-brand active:scale-[.98]">
-          <ScanLine size={22} />
+        <button className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-card text-[19px] flex items-center justify-center gap-3 transition-all duration-[180ms] shadow-brand active:scale-[.98]">
+          <ScanLine size={26} />
           Tomá la foto y listo
         </button>
       </Link>
@@ -74,7 +75,7 @@ export default async function DashboardPage() {
       {/* Rendiciones recientes */}
       {recent.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-ink-500 uppercase tracking-wide">
+          <h2 className="section-title text-ink-500">
             Rendiciones recientes
           </h2>
           <div className="space-y-2">
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
             ))}
           </div>
           {reports.length > 5 && (
-            <Link href="/reimbursements" className="block text-center text-sm text-brand-600 hover:underline">
+            <Link href="/reimbursements" className="block text-center card-label text-brand-600 hover:underline">
               Ver todas ({reports.length})
             </Link>
           )}
@@ -99,9 +100,9 @@ export default async function DashboardPage() {
 
       {recent.length === 0 && (
         <div className="text-center py-12 text-ink-400">
-          <ReceiptText size={40} className="mx-auto mb-3 opacity-40" />
-          <p className="font-medium">No tenés rendiciones aún</p>
-          <p className="text-sm mt-1">Usá el botón de arriba para crear tu primera</p>
+          <ReceiptText size={44} className="mx-auto mb-3 opacity-40" />
+          <p className="card-eyebrow">No tenés rendiciones aún</p>
+          <p className="card-label mt-1">Usá el botón de arriba para crear tu primera</p>
         </div>
       )}
     </div>

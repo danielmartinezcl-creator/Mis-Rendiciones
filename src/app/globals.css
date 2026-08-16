@@ -101,6 +101,50 @@
     font-family: var(--font-bricolage), system-ui, sans-serif;
   }
 
+  /* ── Escala de rótulos de tarjeta (2026-08-16) ─────────────────────────
+     Reemplaza los `text-xs` / `text-[10px]` sueltos: en un celular no se
+     leían. Piso de 15px y jerarquía explícita — el rótulo principal
+     siempre por encima de los secundarios.
+
+     Van SIN `uppercase`: el texto se escribe como frase en el JSX
+     ("Rendiciones recientes", no "RENDICIONES RECIENTES"). Si agregás un
+     rótulo nuevo, usá estas clases y no `text-xs`.
+
+     En rem para que respeten el tamaño de fuente del navegador.
+  ─────────────────────────────────────────────────────────────────────── */
+
+  /* Rótulo principal de una tarjeta — "Por cobrar (aprobado)" */
+  .card-eyebrow {
+    font-size: 1.1875rem;   /* 19px */
+    line-height: 1.3;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none;
+  }
+
+  /* Rótulos secundarios — "En revisión", "Borradores", labels de filtros */
+  .card-label {
+    font-size: 1.0625rem;   /* 17px */
+    line-height: 1.35;
+    font-weight: 500;
+    text-transform: none;
+  }
+
+  /* Datos de apoyo — fechas, contadores, texto de pie de tarjeta */
+  .card-meta {
+    font-size: 0.9375rem;   /* 15px */
+    line-height: 1.4;
+  }
+
+  /* Encabezado de sección — "Rendiciones recientes", "Progreso", "Filtros" */
+  .section-title {
+    font-size: 1.1875rem;   /* 19px */
+    line-height: 1.3;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    text-transform: none;
+  }
+
   /* Acentos laterales por estado de ítem (3px) */
   .item-accent-approved  { border-left: 3px solid #10B981; }
   .item-accent-pending   { border-left: 3px solid #F59E0B; }

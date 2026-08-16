@@ -23,15 +23,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Sidebar user={profile} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="md:hidden bg-sidebar px-4 py-3 flex items-center gap-3">
-            <div className="w-7 h-7 bg-brand-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center text-white text-[15px] font-bold">
               P
             </div>
-            <span className="text-white font-semibold text-sm">Penta Rend</span>
+            <span className="text-white font-semibold text-[17px]">Penta Rend</span>
             <div className="ml-auto">
               <LogoutButton />
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 content-area">
+          {/* pb-28 (112px) deja aire bajo la barra inferior de 96px — si cambia
+              la altura de MobileNav, ajustar este padding o el contenido queda tapado */}
+          <main className="flex-1 p-4 md:p-6 pb-28 md:pb-6 content-area">
             <Suspense fallback={<PageSkeleton />}>
               {children}
             </Suspense>
