@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ReportStatusBadge } from '@/components/ui/Badge'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatDisplayTitle } from '@/lib/utils'
 import type { ReportStatus } from '@/lib/constants'
 
 interface ExpenseReportCardProps {
@@ -40,9 +40,13 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               {/* Sin truncate: el título se ve entero aunque ocupe dos líneas.
-                  17px y no 19 para que pese menos, pero sigue por encima de la
-                  fecha (15px) y del badge de estado (14px) — la jerarquía se mantiene. */}
-              <p className="text-[17px] leading-snug font-semibold text-slate-800">{report.title}</p>
+                  16px y no 19 para que pese menos, pero sigue por encima de la
+                  fecha (15px) y del badge de estado (14px) — la jerarquía se mantiene.
+                  formatDisplayTitle saca el TODO EN MAYÚSCULAS, que era lo que le
+                  daba el protagonismo visual. */}
+              <p className="text-[16px] leading-snug font-semibold text-slate-800">
+                {formatDisplayTitle(report.title)}
+              </p>
               <p className="card-meta text-slate-400 mt-0.5">{dateLabel}</p>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
