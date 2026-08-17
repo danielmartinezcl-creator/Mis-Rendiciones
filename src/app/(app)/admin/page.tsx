@@ -102,7 +102,7 @@ export default async function AdminPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Tasa de aprobación */}
           <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
-            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">Tasa aprobación</p>
+            <p className="card-meta text-ink-400 font-semibold">Tasa aprobación</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.last30Days.approvalRate == null ? 'text-ink-300' :
               health.last30Days.approvalRate > 80   ? 'text-teal-600' : 'text-amber-600'
@@ -114,7 +114,7 @@ export default async function AdminPage() {
 
           {/* Tiempo promedio de aprobación */}
           <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
-            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">Tiempo promedio</p>
+            <p className="card-meta text-ink-400 font-semibold">Tiempo promedio</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.avgApprovalDays == null ? 'text-ink-300' :
               health.avgApprovalDays < 3    ? 'text-teal-600' :
@@ -127,7 +127,7 @@ export default async function AdminPage() {
 
           {/* En espera */}
           <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
-            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">En espera</p>
+            <p className="card-meta text-ink-400 font-semibold">En espera</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.last30Days.pending > 10 ? 'text-red-600' : 'text-ink-900'
             }`}>
@@ -138,7 +138,7 @@ export default async function AdminPage() {
 
           {/* Empleados sin actividad */}
           <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
-            <p className="text-xs text-ink-400 uppercase tracking-wide font-medium">Sin actividad</p>
+            <p className="card-meta text-ink-400 font-semibold">Sin actividad</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.inactiveCount > 5 ? 'text-amber-600' : 'text-ink-900'
             }`}>

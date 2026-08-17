@@ -95,7 +95,7 @@ export function FundFilters({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Filter size={13} className="text-ink-400" />
-            <span className="text-xs font-bold text-ink-700 uppercase tracking-wide">Filtros de lista</span>
+            <span className="card-label font-bold text-ink-700">Filtros de lista</span>
           </div>
           {activeFilters && (
             <button
@@ -230,7 +230,7 @@ export function FundFilters({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart2 size={13} className="text-ink-400" />
-              <span className="text-xs font-bold text-ink-700 uppercase tracking-wide">Búsqueda de ítems</span>
+              <span className="card-label font-bold text-ink-700">Búsqueda de ítems</span>
               <span className="text-xs text-ink-400">— busca gastos dentro de los fondos</span>
             </div>
             {(reportDateFrom || reportDateTo || selectedCatIds.length > 0 || itemStatusFilter !== 'all') && (
@@ -361,7 +361,7 @@ export function FundFilters({
                 <div className="overflow-x-auto rounded-item border border-ink-100">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-ink-50 text-ink-500 font-semibold uppercase tracking-wide">
+                      <tr className="bg-ink-50 text-ink-500 font-semibold">
                         <th className="text-left px-3 py-2">Empleado</th>
                         <th className="text-left px-3 py-2">Fondo</th>
                         <th className="text-left px-3 py-2">Descripción</th>

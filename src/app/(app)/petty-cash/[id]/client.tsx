@@ -203,7 +203,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       {/* Progreso del fondo */}
       {fund.status !== 'rejected' && (
         <div className="bg-white rounded-card shadow-card px-5 py-4">
-          <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-4">Progreso</p>
+          <p className="section-title text-ink-500 mb-4">Progreso</p>
           <VerticalTimeline steps={FUND_STEPS} currentStatus={fund.status} />
         </div>
       )}

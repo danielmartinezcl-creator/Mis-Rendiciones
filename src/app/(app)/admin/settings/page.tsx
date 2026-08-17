@@ -1773,7 +1773,7 @@ function WebhooksTab() {
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-600 uppercase tracking-wide">URL destino</label>
+            <label className="card-meta font-semibold text-ink-600">URL destino</label>
             <input
               type="url"
               value={url}
@@ -1785,7 +1785,7 @@ function WebhooksTab() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink-600 uppercase tracking-wide">Secret (HMAC key)</label>
+            <label className="card-meta font-semibold text-ink-600">Secret (HMAC key)</label>
             <input
               type="password"
               value={secret}
@@ -1797,7 +1797,7 @@ function WebhooksTab() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-ink-600 uppercase tracking-wide">Eventos</label>
+            <label className="card-meta font-semibold text-ink-600">Eventos</label>
             <div className="space-y-1.5">
               {WEBHOOK_EVENTS.map(ev => (
                 <label key={ev.value} className="flex items-center gap-2 cursor-pointer select-none">

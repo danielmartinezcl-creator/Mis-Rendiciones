@@ -173,7 +173,7 @@ export function BancoClient({ queue }: Props) {
       {/* Sección 1: Para enviar al banco (solo admin) */}
       {queue.isAdmin && ready.length > 0 && (
         <section className="space-y-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-700 uppercase tracking-wide">
+          <h2 className="flex items-center gap-2 section-title text-amber-700">
             <SendHorizonal size={14} />
             Aprobadas — enviar al banco ({ready.length})
           </h2>
@@ -203,7 +203,7 @@ export function BancoClient({ queue }: Props) {
       {/* Sección 2: Confirmación de carga bancaria */}
       {queue.canLoad && loading.length > 0 && (
         <section className="space-y-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-teal-700 uppercase tracking-wide">
+          <h2 className="flex items-center gap-2 section-title text-teal-700">
             <Upload size={14} />
             Pendientes de confirmación de carga ({loading.length})
           </h2>
@@ -259,7 +259,7 @@ export function BancoClient({ queue }: Props) {
       {/* Sección 3: Autorización bancaria */}
       {queue.canAuth && authoriz.length > 0 && (
         <section className="space-y-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-blue-700 uppercase tracking-wide">
+          <h2 className="flex items-center gap-2 section-title text-blue-700">
             <ShieldCheck size={14} />
             Pendientes de autorización ({authoriz.length})
           </h2>

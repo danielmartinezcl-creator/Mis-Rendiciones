@@ -630,7 +630,7 @@ export default function AdminEmployeesPage() {
               {/* Panel editar datos del empleado */}
               {isEditOpen && (
                 <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
-                  <p className="text-xs font-semibold text-ink-600 mb-3 uppercase tracking-wide">Editar datos del empleado</p>
+                  <p className="card-label font-semibold text-ink-600 mb-3">Editar datos del empleado</p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-ink-600 mb-1">Nombre completo</label>
@@ -697,7 +697,7 @@ export default function AdminEmployeesPage() {
               {/* Panel establecer contraseña */}
               {pwPanel === emp.id && (
                 <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
-                  <p className="text-xs font-semibold text-ink-600 mb-3 uppercase tracking-wide">Establecer contraseña</p>
+                  <p className="card-label font-semibold text-ink-600 mb-3">Establecer contraseña</p>
                   {pwSuccess ? (
                     <p className="text-sm text-emerald-600 font-medium flex items-center gap-2">
                       <Check size={15} /> Contraseña actualizada correctamente
@@ -755,7 +755,7 @@ export default function AdminEmployeesPage() {
               {/* Panel cadena de aprobación */}
               {isOpen && (
                 <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
-                  <p className="text-xs font-semibold text-ink-600 mb-3 uppercase tracking-wide">Cadena de aprobación</p>
+                  <p className="card-label font-semibold text-ink-600 mb-3">Cadena de aprobación</p>
                   <ApproverConfig
                     employee={emp}
                     allUsers={employees}

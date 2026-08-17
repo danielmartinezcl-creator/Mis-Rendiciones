@@ -588,7 +588,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
         {/* Balance */}
         {(advanceTotal > 0 || returnTotal > 0) && (
           <div className="mt-5 pt-4 border-t border-ink-100">
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Balance de la rendición</p>
+            <p className="card-label font-semibold text-ink-500 mb-2">Balance de la rendición</p>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="flex items-center gap-1.5 text-blue-700">

@@ -316,7 +316,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {months.map(m => (
               <div key={m} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
-                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">{monthLabel(m)}</p>
+                <p className="card-meta text-slate-400 font-semibold mb-1">{monthLabel(m)}</p>
                 <p className="text-lg font-mono-amount font-semibold text-slate-800">{formatCLP(monthTotals[m] ?? 0)}</p>
               </div>
             ))}

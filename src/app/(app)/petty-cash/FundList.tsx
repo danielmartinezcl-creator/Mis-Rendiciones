@@ -37,11 +37,11 @@ export function FundList({
       return (
         <div className="text-center py-16 text-ink-400">
           <Wallet size={40} className="mx-auto mb-4 opacity-25" />
-          <p className="text-sm font-medium">Sin fondos de caja chica</p>
-          <p className="text-xs mt-1 text-ink-300">Los fondos aparecerán aquí una vez creados</p>
+          <p className="card-eyebrow">Sin fondos de caja chica</p>
+          <p className="card-label mt-1 text-ink-300">Los fondos aparecerán aquí una vez creados</p>
           <Link
             href="/petty-cash/new"
-            className="inline-flex items-center gap-2 mt-4 text-brand-600 text-sm font-semibold hover:underline"
+            className="inline-flex items-center gap-2 mt-4 text-brand-600 card-label font-semibold hover:underline"
           >
             <Plus size={14} />
             Crear primer fondo
@@ -52,10 +52,10 @@ export function FundList({
     return (
       <div className="text-center py-12 text-ink-400">
         <Filter size={32} className="mx-auto mb-3 opacity-25" />
-        <p className="text-sm font-medium">Sin resultados con los filtros actuales</p>
+        <p className="card-label font-medium">Sin resultados con los filtros actuales</p>
         <button
           onClick={clearListFilters}
-          className="mt-2 text-brand-600 text-sm hover:underline"
+          className="mt-2 text-brand-600 card-label hover:underline"
         >
           Limpiar filtros
         </button>
@@ -72,15 +72,15 @@ export function FundList({
             <Link href={`/petty-cash/${f.id}`} className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
               <FundStatusBadge status={f.status} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink-800 truncate">{f.name}</p>
-                <p className="text-xs text-ink-400">
+                <p className="text-[16px] leading-snug font-semibold text-ink-800">{f.name}</p>
+                <p className="card-meta text-ink-400">
                   {f.employee_name} · {formatPeriod(f.period_start, f.period_end)}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-mono-amount text-sm font-bold text-ink-900">{fmtCLP(f.amount_approved ?? f.amount_requested)}</p>
+                <p className="font-mono-amount text-[19px] leading-none font-bold text-ink-900">{fmtCLP(f.amount_approved ?? f.amount_requested)}</p>
                 {f.amount_approved != null && f.amount_approved !== f.amount_requested && (
-                  <p className="text-xs text-ink-400">Sol: {fmtCLP(f.amount_requested)}</p>
+                  <p className="card-meta text-ink-400">Sol: {fmtCLP(f.amount_requested)}</p>
                 )}
               </div>
             </Link>
@@ -124,12 +124,12 @@ export function FundList({
                   <p className="font-semibold text-ink-900 truncate">{f.name}</p>
                   <FundStatusBadge status={f.status} />
                 </div>
-                <p className="text-xs text-ink-500 mt-1">
+                <p className="card-meta text-ink-500 mt-1">
                   Empleado: <span className="font-medium text-ink-700">{f.employee_name}</span>
                   {' · '}
                   EFF: <span className="font-medium text-ink-700">{f.manager_name}</span>
                 </p>
-                <p className="text-xs text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
+                <p className="card-meta text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
                 {f.status !== 'rejected' && (
                   <div className="mt-2 max-w-[220px]">
                     <CompactStepper steps={FUND_STEPS} currentStatus={f.status} />
@@ -139,7 +139,7 @@ export function FundList({
               <div className="text-right shrink-0">
                 <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(f.amount_approved ?? f.amount_requested)}</p>
                 {f.amount_approved != null && f.amount_approved !== f.amount_requested && (
-                  <p className="text-xs text-ink-400">Solicitado: {fmtCLP(f.amount_requested)}</p>
+                  <p className="card-meta text-ink-400">Solicitado: {fmtCLP(f.amount_requested)}</p>
                 )}
               </div>
             </div>

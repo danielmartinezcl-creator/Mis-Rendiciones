@@ -69,7 +69,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-ink-600 uppercase tracking-wide flex items-center gap-2">
+      <p className="card-label font-semibold text-ink-600 flex items-center gap-2">
         <Paperclip size={13} />
         Adjuntos de respaldo ({attachments.length})
       </p>

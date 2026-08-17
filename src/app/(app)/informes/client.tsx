@@ -164,7 +164,7 @@ export function InformesClient({ filterOptions }: Props) {
         {/* Fila 1: Fuente + Datos */}
         <div className="flex flex-wrap gap-4">
           <div>
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Fuente</p>
+            <p className="card-meta font-semibold text-ink-500 mb-2">Fuente</p>
             <div className="flex gap-2">
               {(['rendicion', 'caja_chica'] as const).map(src => (
                 <button
@@ -183,7 +183,7 @@ export function InformesClient({ filterOptions }: Props) {
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Datos</p>
+            <p className="card-meta font-semibold text-ink-500 mb-2">Datos</p>
             <div className="flex gap-2">
               {([['all','Todos'],['new','Nuevos'],['historical','Histórico']] as const).map(([val, label]) => (
                 <button
@@ -202,7 +202,7 @@ export function InformesClient({ filterOptions }: Props) {
 
         {/* Fila 2: Período */}
         <div>
-          <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Período</p>
+          <p className="card-meta font-semibold text-ink-500 mb-2">Período</p>
           <div className="flex flex-wrap gap-3 items-end">
             <div>
               <label className="text-xs text-ink-500 mb-1 block">Seleccionar período</label>
@@ -266,7 +266,7 @@ export function InformesClient({ filterOptions }: Props) {
           {/* Departamento — multi-select dropdown */}
           {filterOptions.departments.length > 0 && (
             <div className="min-w-[180px]" ref={deptDropRef}>
-              <label className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2 block">Departamento</label>
+              <label className="card-meta font-semibold text-ink-500 mb-2 block">Departamento</label>
               <div className="relative">
                 <button
                   type="button"
@@ -308,7 +308,7 @@ export function InformesClient({ filterOptions }: Props) {
 
           {/* Empleados — multi-select dropdown con búsqueda */}
           <div className="min-w-[220px]" ref={empDropRef}>
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Empleados</p>
+            <p className="card-meta font-semibold text-ink-500 mb-2">Empleados</p>
             <div className="relative">
               <button
                 type="button"
@@ -365,7 +365,7 @@ export function InformesClient({ filterOptions }: Props) {
         {/* Fila 4: Categorías */}
         {filterOptions.categories.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Categorías</p>
+            <p className="card-meta font-semibold text-ink-500 mb-2">Categorías</p>
             <div className="flex flex-wrap gap-1.5">
               {filterOptions.categories.map(c => (
                 <button
@@ -389,7 +389,7 @@ export function InformesClient({ filterOptions }: Props) {
         <div className="flex flex-wrap gap-4">
           {sourceTypes.includes('rendicion') && filterOptions.rendiciones.length > 0 && (
             <div className="min-w-[220px] max-w-xs">
-              <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Rendición específica</p>
+              <p className="card-meta font-semibold text-ink-500 mb-2">Rendición específica</p>
               <div className="max-h-28 overflow-y-auto border border-ink-200 rounded-item p-2 space-y-1">
                 {filterOptions.rendiciones.map(r => (
                   <label key={r.id} className="flex items-center gap-2 cursor-pointer">
@@ -408,7 +408,7 @@ export function InformesClient({ filterOptions }: Props) {
 
           {sourceTypes.includes('caja_chica') && filterOptions.fondos.length > 0 && (
             <div className="min-w-[220px] max-w-xs">
-              <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Fondo específico</p>
+              <p className="card-meta font-semibold text-ink-500 mb-2">Fondo específico</p>
               <div className="max-h-28 overflow-y-auto border border-ink-200 rounded-item p-2 space-y-1">
                 {filterOptions.fondos.map(f => (
                   <label key={f.id} className="flex items-center gap-2 cursor-pointer">
@@ -428,7 +428,7 @@ export function InformesClient({ filterOptions }: Props) {
 
         {/* Fila 6: Estados del informe */}
         <div>
-          <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Estado del informe</p>
+          <p className="card-meta font-semibold text-ink-500 mb-2">Estado del informe</p>
           <div className="flex flex-wrap gap-1.5">
             {REPORT_STATUS_OPTS.map(o => (
               <button
@@ -447,7 +447,7 @@ export function InformesClient({ filterOptions }: Props) {
         {/* Fila 7: Estado ítem + Reembolso + Defontana */}
         <div className="flex flex-wrap gap-6">
           <div>
-            <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Estado del ítem</p>
+            <p className="card-meta font-semibold text-ink-500 mb-2">Estado del ítem</p>
             <div className="flex gap-2">
               {ITEM_STATUS_OPTS.map(o => (
                 <button
@@ -466,7 +466,7 @@ export function InformesClient({ filterOptions }: Props) {
           {sourceTypes.includes('rendicion') && (
             <>
               <div>
-                <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Reembolso</p>
+                <p className="card-meta font-semibold text-ink-500 mb-2">Reembolso</p>
                 <div className="flex gap-2">
                   {([['all','Todos'],['pending','Pendiente'],['reimbursed','Reembolsado']] as const).map(([val, lbl]) => (
                     <button
@@ -481,7 +481,7 @@ export function InformesClient({ filterOptions }: Props) {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Defontana</p>
+                <p className="card-meta font-semibold text-ink-500 mb-2">Defontana</p>
                 <div className="flex gap-2">
                   {([['all','Todos'],['notExported','Sin exportar'],['exported','Exportado']] as const).map(([val, lbl]) => (
                     <button
@@ -582,7 +582,7 @@ export function InformesClient({ filterOptions }: Props) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-ink-100 text-xs text-ink-500 font-semibold uppercase tracking-wide">
+                    <tr className="border-b border-ink-100 text-[13px] text-ink-500 font-semibold">
                       <th className="text-left px-4 py-3">Fuente</th>
                       <th className="text-left px-4 py-3">Empleado</th>
                       <th className="text-left px-4 py-3">Depto</th>

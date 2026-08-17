@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
 import { markReimbursed, revertReimbursement, requestReportBankLoad } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
-import { formatDate, formatCLP } from '@/lib/utils'
+import { formatDate, formatCLP, formatDisplayTitle } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
@@ -483,7 +483,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       {/* Filtros */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Filtros</p>
+          <p className="card-meta font-semibold text-slate-600">Filtros</p>
           {hasFilters && (
             <button
               onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter([]); setDeptFilter(''); setReimb('all'); setDefFilter('all') }}
@@ -633,7 +633,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-slate-800">{r.title}</p>
+                      <p className="text-[16px] leading-snug font-semibold text-slate-800">{formatDisplayTitle(r.title)}</p>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusCls(r.status)}`}>
                         {statusLabel(r.status)}
                       </span>
@@ -859,7 +859,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <div className="p-4 grid grid-cols-1 md:grid-cols-[160px_1fr] gap-6">
                         {/* Columna izquierda: timeline vertical */}
                         <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Progreso</p>
+                          <p className="card-label font-semibold text-slate-500 mb-3">Progreso</p>
                           <VerticalTimeline
                             steps={REPORT_STEPS}
                             currentStatus={r.status === 'partially_approved' ? 'approved' : r.status}
@@ -871,7 +871,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           {/* Historial de aprobaciones */}
                           {detail.approvals.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Historial de aprobaciones</p>
+                              <p className="card-label font-semibold text-slate-500 mb-2">Historial de aprobaciones</p>
                               <div className="space-y-1.5">
                                 {detail.approvals.map((a, i) => (
                                   <div key={i} className={[
@@ -894,7 +894,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           {/* Ítems */}
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Ítems ({detail.items.length})</p>
+                              <p className="card-label font-semibold text-slate-500">Ítems ({detail.items.length})</p>
                               <button
                                 onClick={() => openBulkCC(r.id)}
                                 className="text-xs text-brand-600 border border-brand-200 hover:bg-brand-50 px-2.5 py-1 rounded-item font-semibold transition-colors"

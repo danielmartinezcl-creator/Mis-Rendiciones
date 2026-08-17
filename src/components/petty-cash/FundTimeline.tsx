@@ -50,7 +50,7 @@ function fmtCLP(n: number) {
 
 export function FundTimeline({ entries }: { entries: AuditEntry[] }) {
   if (!entries.length) {
-    return <p className="text-sm text-ink-400 py-4">Sin actividad registrada.</p>
+    return <p className="card-label text-ink-400 py-4">Sin actividad registrada.</p>
   }
 
   return (
@@ -69,18 +69,18 @@ export function FundTimeline({ entries }: { entries: AuditEntry[] }) {
               </div>
               <div className={`flex-1 pb-4 ${isLast ? '' : ''}`}>
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="text-sm font-semibold text-ink-800">
+                  <span className="card-label font-semibold text-ink-800">
                     {FUND_AUDIT_LABELS[e.action] ?? e.action}
                   </span>
                   {e.amount != null && (
-                    <span className="font-mono-amount text-xs text-ink-600">{fmtCLP(e.amount)}</span>
+                    <span className="font-mono-amount text-[15px] text-ink-600">{fmtCLP(e.amount)}</span>
                   )}
                 </div>
-                <p className="text-xs text-ink-400 mt-0.5">
+                <p className="card-meta text-ink-400 mt-0.5">
                   {e.actor_name} · {fmtDate(e.created_at)}
                 </p>
                 {e.notes && (
-                  <p className="text-xs text-ink-600 mt-1 bg-ink-50 rounded-item px-2 py-1 border border-ink-100">
+                  <p className="card-meta text-ink-600 mt-1 bg-ink-50 rounded-item px-2 py-1 border border-ink-100">
                     {e.notes}
                   </p>
                 )}
