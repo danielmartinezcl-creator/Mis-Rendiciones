@@ -25,15 +25,16 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
         {/* Fila principal: descripción + monto */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-slate-800 truncate">{item.description}</p>
+            {/* Sin truncate: la descripción del gasto se lee entera */}
+            <p className="text-[16px] leading-snug font-semibold text-slate-800">{item.description}</p>
             {item.merchant && (
-              <p className="text-xs text-slate-400 mt-0.5">{item.merchant}</p>
+              <p className="card-meta text-slate-400 mt-0.5">{item.merchant}</p>
             )}
           </div>
           <div className="text-right shrink-0">
             <CurrencyAmount amount={item.amount_clp} currency="CLP" size="md" />
             {item.currency !== 'CLP' && (
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="card-meta text-slate-400 mt-0.5">
                 {item.currency} {item.amount.toLocaleString('es-CL')}
               </p>
             )}
@@ -41,7 +42,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
         </div>
 
         {/* Metadatos */}
-        <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-slate-500">
           <span>{formatDate(item.date)}</span>
           {item.expense_categories && (
             <span className="flex items-center gap-1">
@@ -62,14 +63,14 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
         {/* Motivo de rechazo */}
         {item.status === 'rejected' && item.rejection_reason && (
           <div className="bg-red-50 border border-red-200 rounded-item p-2">
-            <p className="text-xs text-red-600 font-medium">Motivo de rechazo:</p>
-            <p className="text-xs text-red-500 mt-0.5">{item.rejection_reason}</p>
+            <p className="card-meta text-red-600 font-semibold">Motivo de rechazo:</p>
+            <p className="card-meta text-red-500 mt-0.5">{item.rejection_reason}</p>
           </div>
         )}
 
         {/* Notas */}
         {item.notes && (
-          <p className="text-xs text-slate-400 italic">{item.notes}</p>
+          <p className="card-meta text-slate-400 italic">{item.notes}</p>
         )}
 
         {/* Eliminar */}
@@ -77,7 +78,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
           <button
             type="button"
             onClick={() => onDelete(item.id)}
-            className="text-xs text-red-400 hover:text-red-600 transition-colors"
+            className="card-meta text-red-400 hover:text-red-600 transition-colors"
           >
             Eliminar ítem
           </button>

@@ -10,7 +10,7 @@ import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ReportStatusBadge } from '@/components/ui/Badge'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatDisplayTitle } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
 import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment, TravelPolicy } from '@/lib/supabase/types'
@@ -220,13 +220,13 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     if (!attItem) return null
     return (
       <div className="mt-1.5 px-2 py-1.5 bg-amber-50 rounded-item border border-amber-200">
-        <p className="text-xs font-semibold text-amber-700 mb-0.5">Requiere atención:</p>
+        <p className="card-meta font-semibold text-amber-700 mb-0.5">Requiere atención:</p>
         <ul className="list-disc list-inside space-y-0.5">
           {attItem.reasons.map((r, i) => (
-            <li key={i} className="text-xs text-amber-600">{r}</li>
+            <li key={i} className="card-meta text-amber-600">{r}</li>
           ))}
         </ul>
-        <p className="text-xs font-medium text-amber-700 mt-1">
+        <p className="card-meta font-medium text-amber-700 mt-1">
           Sugerencia IA: {attItem.suggestion === 'aprobar' ? 'Aprobar' :
            attItem.suggestion === 'rechazar' ? 'Rechazar' : 'Revisión manual recomendada'}
         </p>
@@ -240,15 +240,15 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       <div>
         <button
           onClick={() => router.push('/approvals')}
-          className="text-xs text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
+          className="card-meta text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
         >
           ← Bandeja de aprobaciones
         </button>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">{report.title}</h1>
+            <h1 className="text-xl font-bold text-slate-800">{formatDisplayTitle(report.title)}</h1>
             {report.submitter_name && (
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="card-label text-slate-500 mt-0.5">
                 Enviado por <strong>{report.submitter_name}</strong>
                 {report.submitted_at && ` el ${formatDate(report.submitted_at.split('T')[0])}`}
               </p>
@@ -260,7 +260,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
 
       {/* Total */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
-        <span className="text-sm text-slate-500">Total rendición</span>
+        <span className="card-label text-slate-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
@@ -278,7 +278,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                 analysis.risk_level === 'medium' ? 'bg-amber-500' :
                                                    'bg-emerald-500'
               }`} />
-              <span className={`text-xs font-semibold uppercase tracking-wide ${
+              <span className={`card-label font-semibold ${
                 analysis.risk_level === 'high'   ? 'text-rose-600' :
                 analysis.risk_level === 'medium' ? 'text-amber-600' :
                                                    'text-emerald-600'
@@ -287,15 +287,15 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                  analysis.risk_level === 'medium' ? 'Riesgo medio' : 'Riesgo bajo'}
               </span>
             </div>
-            <span className="text-xs text-ink-400 flex items-center gap-1">
-              <Sparkles size={12} />
+            <span className="card-meta text-ink-400 flex items-center gap-1">
+              <Sparkles size={14} />
               Análisis IA
             </span>
           </div>
 
-          <p className="text-sm font-medium text-ink-800">{analysis.headline}</p>
+          <p className="card-label font-medium text-ink-800">{analysis.headline}</p>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-500">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 card-meta text-ink-500">
             <span>${analysis.stats.total_clp.toLocaleString('es-CL')} total</span>
             <span>{analysis.stats.vs_employee_avg} vs su promedio</span>
             {analysis.stats.policy_violations > 0 && (
@@ -320,15 +320,15 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproving}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item card-meta font-semibold transition-colors"
               >
-                <CheckCheck size={13} />
+                <CheckCheck size={16} />
                 {bulkApproving
                   ? 'Aprobando...'
                   : `Aprobar ${analysis.routine_item_ids.length} ítem${analysis.routine_item_ids.length !== 1 ? 's' : ''} rutinario${analysis.routine_item_ids.length !== 1 ? 's' : ''}`
                 }
               </button>
-              <span className="text-xs text-ink-400 self-center">
+              <span className="card-meta text-ink-400 self-center">
                 {analysis.attention_items.length > 0
                   ? `Los ${analysis.attention_items.length} de atención quedan para revisión manual`
                   : 'Todos los ítems son rutinarios'
@@ -337,7 +337,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             </div>
           )}
           {bulkDone && (
-            <p className="text-xs text-emerald-600 font-medium">Ítems rutinarios aprobados — revisa los de atención abajo</p>
+            <p className="card-meta text-emerald-600 font-medium">Ítems rutinarios aprobados — revisa los de atención abajo</p>
           )}
         </div>
       )}
@@ -364,19 +364,19 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               {/* Info del ítem */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-800">{item.description}</p>
-                  {item.merchant && <p className="text-xs text-slate-400 mt-0.5">{item.merchant}</p>}
+                  <p className="text-[16px] leading-snug font-semibold text-slate-800">{item.description}</p>
+                  {item.merchant && <p className="card-meta text-slate-400 mt-0.5">{item.merchant}</p>}
                 </div>
                 <div className="text-right shrink-0">
                   <CurrencyAmount amount={item.amount_clp} currency="CLP" size="md" />
                   {item.currency !== 'CLP' && (
-                    <p className="text-xs text-slate-400 mt-0.5">{item.currency} {item.amount.toLocaleString('es-CL')}</p>
+                    <p className="card-meta text-slate-400 mt-0.5">{item.currency} {item.amount.toLocaleString('es-CL')}</p>
                   )}
                 </div>
               </div>
 
               {/* Metadatos */}
-              <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-slate-500">
                 <span>{formatDate(item.date)}</span>
                 {item.expense_categories && (
                   <span>{item.expense_categories.icon} {item.expense_categories.name}</span>
@@ -387,7 +387,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
 
               {/* Badge política de viáticos */}
               {travelCheck && (
-                <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item border ${
+                <div className={`flex items-center gap-1.5 card-meta font-medium px-2.5 py-1.5 rounded-item border ${
                   travelCheck.exceeds
                     ? 'bg-amber-50 border-amber-200 text-amber-700'
                     : 'bg-emerald-50 border-emerald-200 text-emerald-700'
@@ -403,7 +403,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               )}
 
               {item.notes && (
-                <p className="text-xs text-slate-400 italic bg-slate-50 rounded p-2">{item.notes}</p>
+                <p className="card-meta text-slate-400 italic bg-slate-50 rounded p-2">{item.notes}</p>
               )}
 
               {/* Razones de atención IA */}
@@ -428,7 +428,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                         />
                       </a>
                     ) : (
-                      <span key={att.id} className="text-xs text-slate-400 flex items-center gap-1">
+                      <span key={att.id} className="card-meta text-slate-400 flex items-center gap-1">
                         📎 {att.file_type === 'pdf' ? 'PDF' : 'Adjunto'}
                       </span>
                     )
@@ -444,7 +444,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       type="button"
                       onClick={() => setDecision(item.id, 'action', 'approve')}
                       className={[
-                        'flex-1 py-2 rounded-item text-sm font-semibold transition-colors',
+                        'flex-1 py-2.5 rounded-item card-label font-semibold transition-colors',
                         d.action === 'approve'
                           ? 'bg-emerald-500 text-white'
                           : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
@@ -456,7 +456,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       type="button"
                       onClick={() => setDecision(item.id, 'action', 'reject')}
                       className={[
-                        'flex-1 py-2 rounded-item text-sm font-semibold transition-colors',
+                        'flex-1 py-2.5 rounded-item card-label font-semibold transition-colors',
                         d.action === 'reject'
                           ? 'bg-red-500 text-white'
                           : 'bg-red-50 text-red-600 hover:bg-red-100',
@@ -472,7 +472,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       onChange={e => setDecision(item.id, 'reason', e.target.value)}
                       placeholder="Motivo del rechazo (obligatorio)..."
                       rows={2}
-                      className="w-full px-3 py-2 border border-red-200 rounded-item text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-red-50"
+                      className="w-full px-3 py-2 border border-red-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-red-50"
                     />
                   )}
                 </div>
@@ -495,20 +495,22 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       {isActionable && (
         <div className="space-y-3 pt-2">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block card-label font-medium text-slate-700 mb-1">
               Nota general (opcional)
             </label>
+            {/* text-[16px] en los campos: por debajo de 16px, Safari en iPhone
+                hace zoom automático al enfocar el campo y descoloca la pantalla */}
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Comentario para el rendidor..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-item text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
+            <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
               {error}
             </div>
           )}
@@ -516,25 +518,25 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
           <button
             onClick={handleApproveAll}
             disabled={submitting}
-            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors text-sm flex items-center justify-center gap-2"
+            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors card-label flex items-center justify-center gap-2"
           >
-            <CheckCheck size={16} />
+            <CheckCheck size={18} />
             {submitting ? 'Aprobando...' : `Aprobar todos — ${items.length} ítem${items.length !== 1 ? 's' : ''}`}
           </button>
           <div className="flex items-center gap-2">
             <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs text-slate-400">o decide ítem por ítem</span>
+            <span className="card-meta text-slate-400">o decide ítem por ítem</span>
             <div className="flex-1 h-px bg-slate-200" />
           </div>
           <button
             onClick={handleSubmit}
             disabled={submitting || !allDecided()}
-            className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-card transition-colors"
+            className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-card transition-colors card-label"
           >
             {submitting ? 'Enviando decisión...' : 'Enviar decisión'}
           </button>
           {!allDecided() && (
-            <p className="text-xs text-slate-400 text-center">
+            <p className="card-meta text-slate-400 text-center">
               Decide todos los ítems para poder enviar
             </p>
           )}
@@ -542,7 +544,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       )}
 
       {!isActionable && (
-        <div className="bg-slate-50 rounded-card p-4 text-center text-sm text-slate-500">
+        <div className="bg-slate-50 rounded-card p-4 text-center card-label text-slate-500">
           Esta rendición ya fue procesada (estado: <strong>{report.status}</strong>).
         </div>
       )}

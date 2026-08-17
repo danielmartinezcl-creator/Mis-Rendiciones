@@ -109,17 +109,17 @@ export default function QuickPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-5 px-4">
         <CheckCircle2 size={56} className="text-teal-500" />
         <h2 className="text-xl font-display font-bold text-ink-800">¡Gasto registrado!</h2>
-        <p className="text-ink-500 text-sm">El gasto se agregó a tu caja chica.</p>
+        <p className="text-ink-500 card-label">El gasto se agregó a tu caja chica.</p>
         <div className="flex gap-3">
           <button
             onClick={() => { setDone(false); setStep('photo'); setPhoto(null); setDesc(''); setAmount(''); setCategoryId(''); setFundId('') }}
-            className="px-4 py-2.5 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50"
+            className="px-4 py-3 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50"
           >
             Otro gasto
           </button>
           <button
             onClick={() => router.push('/petty-cash/' + fundId)}
-            className="px-4 py-2.5 bg-brand-600 text-white rounded-item text-sm font-semibold hover:bg-brand-700"
+            className="px-4 py-3 bg-brand-600 text-white rounded-item card-label font-semibold hover:bg-brand-700"
           >
             Ver fondo →
           </button>
@@ -134,9 +134,9 @@ export default function QuickPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-display font-bold text-ink-800">Gasto rápido</h1>
-          <p className="text-xs text-ink-400 mt-0.5">3 pasos, solo lo esencial</p>
+          <p className="card-meta text-ink-400 mt-0.5">3 pasos, solo lo esencial</p>
         </div>
-        <button onClick={() => router.push('/')} className="text-xs text-ink-400 hover:text-ink-600">
+        <button onClick={() => router.push('/')} className="card-label text-ink-400 hover:text-ink-600">
           Cancelar
         </button>
       </div>
@@ -151,12 +151,12 @@ export default function QuickPage() {
           </div>
         ))}
       </div>
-      <p className="text-xs font-semibold text-ink-500 -mt-3">{STEP_LABELS[step]}</p>
+      <p className="card-label font-semibold text-ink-500 -mt-3">{STEP_LABELS[step]}</p>
 
       {error && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-item px-3 py-2.5">
-          <AlertCircle size={14} className="text-red-500 shrink-0" />
-          <p className="text-xs text-red-700">{error}</p>
+          <AlertCircle size={18} className="text-red-500 shrink-0" />
+          <p className="card-label text-red-700">{error}</p>
         </div>
       )}
 
@@ -174,8 +174,8 @@ export default function QuickPage() {
             ) : (
               <>
                 <Camera size={44} className="text-white/40 mb-3" />
-                <p className="text-white/60 text-sm font-semibold">Tomá la foto</p>
-                <p className="text-white/30 text-xs mt-1">Boleta, factura o ticket</p>
+                <p className="text-white/70 card-eyebrow">Tomá la foto</p>
+                <p className="text-white/40 card-label mt-1">Boleta, factura o ticket</p>
               </>
             )}
             {ocrRunning && (
@@ -197,18 +197,18 @@ export default function QuickPage() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={ocrRunning}
-            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-card font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-card font-bold text-[19px] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
           >
-            <Camera size={20} />
+            <Camera size={24} />
             {ocrRunning ? 'Analizando...' : 'Abrir cámara'}
           </button>
 
           {photo && !ocrRunning && (
             <button
               onClick={() => setStep('confirm')}
-              className="w-full py-3 border border-ink-200 rounded-card text-sm font-semibold text-ink-600 hover:bg-ink-50 flex items-center justify-center gap-2"
+              className="w-full py-3 border border-ink-200 rounded-card card-label font-semibold text-ink-600 hover:bg-ink-50 flex items-center justify-center gap-2"
             >
-              Continuar sin OCR <ArrowRight size={15} />
+              Continuar sin OCR <ArrowRight size={18} />
             </button>
           )}
         </div>
@@ -232,30 +232,30 @@ export default function QuickPage() {
 
           <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Descripción *</label>
+              <label className="block card-label font-semibold text-ink-600 mb-1">Descripción *</label>
               <input
                 value={description}
                 onChange={e => setDesc(e.target.value)}
                 placeholder="Ej: Almuerzo de trabajo"
-                className="w-full px-3 py-2 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Monto CLP *</label>
+              <label className="block card-label font-semibold text-ink-600 mb-1">Monto CLP *</label>
               <input
                 type="number"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-600 mb-1">Categoría</label>
+              <label className="block card-label font-semibold text-ink-600 mb-1">Categoría</label>
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
               >
                 <option value="">Sin categoría</option>
                 {categories.map(c => (
@@ -282,25 +282,25 @@ export default function QuickPage() {
       {step === 'fund' && (
         <div className="space-y-4">
           <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-2">
-            <p className="text-sm font-semibold text-ink-700">{description}</p>
-            <p className="font-mono-amount font-bold text-teal-700 text-xl">{fmtCLP(parseFloat(amount) || 0)}</p>
+            <p className="card-eyebrow text-ink-700">{description}</p>
+            <p className="font-mono-amount font-bold text-teal-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
           </div>
 
           {readyFunds.length === 0 ? (
             <div className="text-center py-8 space-y-3">
-              <Wallet size={36} className="mx-auto text-ink-200" />
-              <p className="text-sm text-ink-500 font-medium">Sin fondos activos</p>
-              <p className="text-xs text-ink-400">Necesitás un fondo de caja chica con fondos enviados.</p>
+              <Wallet size={40} className="mx-auto text-ink-200" />
+              <p className="card-eyebrow text-ink-500">Sin fondos activos</p>
+              <p className="card-label text-ink-400">Necesitás un fondo de caja chica con fondos enviados.</p>
               <button
                 onClick={() => router.push('/petty-cash')}
-                className="text-xs text-brand-600 hover:underline"
+                className="card-label text-brand-600 hover:underline"
               >
                 Ver caja chica →
               </button>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-ink-600">Elegí el fondo de caja chica:</p>
+              <p className="card-label font-semibold text-ink-600">Elegí el fondo de caja chica:</p>
               {readyFunds.map(f => (
                 <button
                   key={f.id}
@@ -311,8 +311,8 @@ export default function QuickPage() {
                       : 'border-ink-100 bg-white hover:border-ink-300'
                   }`}
                 >
-                  <p className="font-semibold text-sm text-ink-800">{f.name}</p>
-                  <p className="text-xs text-ink-400 mt-0.5">{f.employee_name}</p>
+                  <p className="card-eyebrow text-ink-800">{f.name}</p>
+                  <p className="card-meta text-ink-400 mt-0.5">{f.employee_name}</p>
                 </button>
               ))}
             </div>

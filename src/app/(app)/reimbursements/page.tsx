@@ -28,7 +28,7 @@ export default async function ReimbursementsPage() {
       {/* KPI total reembolsado */}
       {reimbursed.length > 0 && (
         <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
-          <p className="text-sm text-slate-500">Total reembolsado</p>
+          <p className="card-label text-slate-500">Total reembolsado</p>
           <CurrencyAmount amount={totalReimbursed} currency="CLP" size="lg" />
         </div>
       )}
@@ -45,13 +45,13 @@ export default async function ReimbursementsPage() {
               }}
             />
             {report.status === 'reimbursed' && report.payment_reference && (
-              <p className="text-xs text-slate-400 ml-2 mt-1">
+              <p className="card-meta text-slate-400 ml-2 mt-1">
                 Ref: {report.payment_reference}
                 {report.reimbursed_at && ` · ${new Date(report.reimbursed_at).toLocaleDateString('es-CL')}`}
               </p>
             )}
             {(report.status === 'rejected' || report.status === 'partially_approved') && (
-              <p className="text-xs text-red-500 ml-2 mt-1 font-medium">
+              <p className="card-meta text-red-500 ml-2 mt-1 font-medium">
                 ⚠ Requiere corrección — revisa los motivos en el detalle
               </p>
             )}

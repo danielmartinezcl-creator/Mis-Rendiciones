@@ -121,21 +121,21 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
           ) : (
             <span className="text-3xl">📷</span>
           )}
-          <span className="text-sm font-semibold text-brand-600">
+          <span className="card-label font-semibold text-brand-600">
             {labels[status]}
           </span>
           {status === 'idle' && (
-            <span className="text-xs text-slate-400">
+            <span className="card-meta text-slate-400">
               JPG · PNG · WebP · PDF — máx 10 MB
             </span>
           )}
           {status === 'done' && (
-            <span className="text-xs text-slate-400">
+            <span className="card-meta text-slate-400">
               Datos pre-cargados — revisá y confirmá
             </span>
           )}
           {status === 'error' && (
-            <span className="text-xs text-slate-400">
+            <span className="card-meta text-slate-400">
               La IA no pudo leer el documento — completá los campos manualmente
             </span>
           )}

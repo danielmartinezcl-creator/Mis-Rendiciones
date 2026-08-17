@@ -9,6 +9,7 @@ import { ReportStatusBadge } from '@/components/ui/Badge'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
+import { formatDisplayTitle } from '@/lib/utils'
 import {
   addExpenseItem,
   deleteExpenseItem,
@@ -271,13 +272,13 @@ export default function ExpenseDetailPage() {
         <div>
           <button
             onClick={() => router.push('/')}
-            className="text-xs text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
+            className="card-meta text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
           >
             ← Inicio
           </button>
-          <h1 className="text-xl font-bold text-slate-800">{report.title}</h1>
+          <h1 className="text-xl font-bold text-slate-800">{formatDisplayTitle(report.title)}</h1>
           {report.description && (
-            <p className="text-sm text-slate-500 mt-1">{report.description}</p>
+            <p className="card-label text-slate-500 mt-1">{report.description}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -288,9 +289,9 @@ export default function ExpenseDetailPage() {
                 { ...report, submitter_name: submitterName ?? undefined },
                 items.map(i => ({ ...i, category_name: i.expense_categories?.name ?? undefined }))
               )}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-ink-700 bg-white border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 card-label font-semibold text-ink-700 bg-white border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
             >
-              <Download size={14} />
+              <Download size={16} />
               Descargar PDF
             </button>
           )}
@@ -299,13 +300,13 @@ export default function ExpenseDetailPage() {
 
       {/* Total */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
-        <span className="text-sm text-slate-500">Total rendición</span>
+        <span className="card-label text-slate-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
+        <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
           {error}
         </div>
       )}
@@ -342,40 +343,40 @@ export default function ExpenseDetailPage() {
       {showBalance && (
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-ink-700">Resumen de aprobación</span>
+            <span className="section-title text-ink-700">Resumen de aprobación</span>
             {isCuadrada && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full">
                 ✓ Cuadrada
               </span>
             )}
             {isParcial && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-amber-100 text-amber-700 rounded-full">
                 ⚠ Parcial
               </span>
             )}
             {hasPending && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-slate-100 text-slate-500 rounded-full">
                 En revisión
               </span>
             )}
           </div>
           <div className="divide-y divide-ink-100">
-            <div className="flex justify-between items-center py-2 text-sm">
+            <div className="flex justify-between items-center py-2 card-label">
               <span className="text-ink-500">Total solicitado</span>
               <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" />
             </div>
-            <div className="flex justify-between items-center py-2 text-sm">
+            <div className="flex justify-between items-center py-2 card-label">
               <span className="text-emerald-600 font-medium">Aprobado</span>
               <CurrencyAmount amount={totalAprobado} currency="CLP" size="sm" />
             </div>
             {totalRechazado > 0 && (
-              <div className="flex justify-between items-center py-2 text-sm">
+              <div className="flex justify-between items-center py-2 card-label">
                 <span className="text-red-500 font-medium">Rechazado</span>
                 <CurrencyAmount amount={totalRechazado} currency="CLP" size="sm" />
               </div>
             )}
             {hasPending && (
-              <div className="flex justify-between items-center py-2 text-sm">
+              <div className="flex justify-between items-center py-2 card-label">
                 <span className="text-amber-500 font-medium">Pendiente de revisión</span>
                 <CurrencyAmount amount={report.total_amount - totalAprobado - totalRechazado} currency="CLP" size="sm" />
               </div>
@@ -387,7 +388,7 @@ export default function ExpenseDetailPage() {
       {/* R-04: Línea de tiempo */}
       {showTimeline && (
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
-          <h3 className="text-sm font-semibold text-ink-700 mb-4">Historial</h3>
+          <h3 className="section-title text-ink-700 mb-4">Historial</h3>
           <div className="space-y-0">
             {allTimelineEvents.map((ev, i) => (
               <div key={ev.key} className="flex gap-3 relative">
@@ -396,8 +397,8 @@ export default function ExpenseDetailPage() {
                 )}
                 <div className={`w-[15px] h-[15px] rounded-full flex-shrink-0 mt-[3px] border-2 z-10 ${timelineDotCls[ev.type]}`} />
                 <div className="pb-4 flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink-800 leading-tight">{ev.label}</p>
-                  <p className="text-xs text-ink-400 mt-0.5">{formatTs(ev.date)}</p>
+                  <p className="card-label font-medium text-ink-800">{ev.label}</p>
+                  <p className="card-meta text-ink-400 mt-0.5">{formatTs(ev.date)}</p>
                 </div>
               </div>
             ))}
@@ -425,7 +426,7 @@ export default function ExpenseDetailPage() {
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
-              className="w-full py-3 border-2 border-dashed border-brand-200 hover:border-brand-500 rounded-card text-brand-600 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 border-2 border-dashed border-brand-200 hover:border-brand-500 rounded-card text-brand-600 font-semibold card-label transition-colors flex items-center justify-center gap-2"
             >
               + Agregar ítem
             </button>
@@ -435,7 +436,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors"
+              className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors card-label"
             >
               {submitting
                 ? 'Enviando...'
@@ -447,7 +448,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleDeleteReport}
               disabled={deleting}
-              className="w-full py-2 text-red-500 hover:text-red-700 text-sm font-medium border border-red-200 hover:border-red-400 rounded-card transition-colors disabled:opacity-50"
+              className="w-full py-2.5 text-red-500 hover:text-red-700 card-label font-medium border border-red-200 hover:border-red-400 rounded-card transition-colors disabled:opacity-50"
             >
               {deleting ? 'Eliminando...' : 'Eliminar rendición'}
             </button>
@@ -458,11 +459,11 @@ export default function ExpenseDetailPage() {
       {/* Banner de rechazo (para empleado) */}
       {showRejectionBanner && (
         <div className={`rounded-card p-4 border ${isRejected ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-          <p className={`font-semibold text-sm ${isRejected ? 'text-red-800' : 'text-amber-800'}`}>
+          <p className={`card-eyebrow ${isRejected ? 'text-red-800' : 'text-amber-800'}`}>
             {isRejected ? 'Tu rendición fue rechazada' : 'Tu rendición fue parcialmente aprobada'}
           </p>
           {rejectedItems.length > 0 && (
-            <p className={`text-sm mt-1 ${isRejected ? 'text-red-700' : 'text-amber-700'}`}>
+            <p className={`card-label mt-1 ${isRejected ? 'text-red-700' : 'text-amber-700'}`}>
               {rejectedItems.length} ítem{rejectedItems.length !== 1 ? 's' : ''} rechazado{rejectedItems.length !== 1 ? 's' : ''} — revisa los motivos debajo de cada ítem.
             </p>
           )}
@@ -471,7 +472,7 @@ export default function ExpenseDetailPage() {
 
       {/* Estado informativo (no borrador, sin rechazo) */}
       {!isDraft && !showRejectionBanner && (
-        <div className="bg-slate-50 rounded-card p-4 text-center text-sm text-slate-500">
+        <div className="bg-slate-50 rounded-card p-4 text-center card-label text-slate-500">
           Esta rendición está en estado <strong>{report.status}</strong> y no puede editarse.
         </div>
       )}

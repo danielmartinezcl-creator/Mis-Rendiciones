@@ -91,22 +91,22 @@ export default function NewExpensePage() {
         <div className="flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-card p-4">
           <RotateCcw size={16} className="text-teal-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-teal-800">Borrador guardado</p>
-            <p className="text-xs text-teal-600 mt-0.5">
+            <p className="card-eyebrow text-teal-800">Borrador guardado</p>
+            <p className="card-meta text-teal-600 mt-0.5">
               &ldquo;{draft.title}&rdquo; · {draftDate}
             </p>
             <div className="flex gap-2 mt-2">
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-item font-semibold hover:bg-teal-700 transition-colors"
+                className="card-meta px-3 py-2 bg-teal-600 text-white rounded-item font-semibold hover:bg-teal-700 transition-colors"
               >
                 Restaurar
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="text-xs px-3 py-1.5 border border-teal-300 text-teal-700 rounded-item font-semibold hover:bg-teal-100 transition-colors"
+                className="card-meta px-3 py-2 border border-teal-300 text-teal-700 rounded-item font-semibold hover:bg-teal-100 transition-colors"
               >
                 Descartar
               </button>
@@ -119,14 +119,14 @@ export default function NewExpensePage() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
+        <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-5 space-y-4">
         <div>
-          <label htmlFor="title" className="block text-sm font-semibold text-ink-700 mb-1">
+          <label htmlFor="title" className="block card-label font-semibold text-ink-700 mb-1">
             Nombre de la rendición *
           </label>
           <input
@@ -138,15 +138,19 @@ export default function NewExpensePage() {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Ej: Viaje a Santiago — Mayo 2026"
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            // autoCapitalize="sentences": el teclado del celular arranca en
+            // mayúscula. Ataca el problema en el origen, en vez de corregir
+            // después con formatDisplayTitle.
+            autoCapitalize="sentences"
+            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
-          <p className="text-xs text-ink-400 mt-1">
-            Un nombre que identifique claramente el grupo de gastos
+          <p className="card-meta text-ink-400 mt-1">
+            Escribilo como una frase normal — evitá las mayúsculas completas
           </p>
         </div>
 
         <div>
-          <label htmlFor="description" className="block text-sm font-semibold text-ink-700 mb-1">
+          <label htmlFor="description" className="block card-label font-semibold text-ink-700 mb-1">
             Descripción (opcional)
           </label>
           <textarea
@@ -156,7 +160,7 @@ export default function NewExpensePage() {
             value={description}
             onChange={e => setDesc(e.target.value)}
             placeholder="Contexto adicional para quien aprueba..."
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
           />
         </div>
 
@@ -165,21 +169,21 @@ export default function NewExpensePage() {
             type="button"
             onClick={() => router.back()}
             disabled={loading}
-            className="flex-1 py-2.5 px-4 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
+            className="flex-1 py-3 px-4 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={loading || !title.trim()}
-            className="flex-1 py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
+            className="flex-1 py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item card-label font-semibold disabled:opacity-50 transition-colors"
           >
             {loading ? 'Creando...' : 'Crear rendición →'}
           </button>
         </div>
       </form>
 
-      <p className="text-center text-xs text-ink-300">
+      <p className="text-center card-meta text-ink-300">
         El título y descripción se guardan automáticamente en este dispositivo
       </p>
     </div>
