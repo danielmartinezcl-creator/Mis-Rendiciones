@@ -39,7 +39,10 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
         <div className="p-3.5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <p className="text-[19px] font-semibold text-slate-800 truncate">{report.title}</p>
+              {/* Sin truncate: el título se ve entero aunque ocupe dos líneas.
+                  17px y no 19 para que pese menos, pero sigue por encima de la
+                  fecha (15px) y del badge de estado (14px) — la jerarquía se mantiene. */}
+              <p className="text-[17px] leading-snug font-semibold text-slate-800">{report.title}</p>
               <p className="card-meta text-slate-400 mt-0.5">{dateLabel}</p>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { getMyReports } from '@/actions/expenses'
-import { ScanLine, ReceiptText, AlertCircle } from 'lucide-react'
+import { ReceiptText, AlertCircle } from 'lucide-react'
 import type { ReportStatus } from '@/lib/constants'
 
 export default async function DashboardPage() {
@@ -24,8 +24,10 @@ export default async function DashboardPage() {
   const rejected = reports.filter(r => r.status === 'rejected')
   const recent   = reports.slice(0, 5)
 
+  // space-y-3 (12px): la distancia entre la card de montos y "Rendiciones
+  // recientes" queda igual a la separación entre una rendición y la siguiente
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-3 max-w-2xl mx-auto">
 
       {/* Card héroe con montos */}
       <Card hero>
@@ -66,22 +68,20 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* CTA principal */}
-      <Link href="/expenses/new">
-        <button className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-card text-[19px] flex items-center justify-center gap-3 transition-all duration-[180ms] shadow-brand active:scale-[.98]">
-          <ScanLine size={26} />
-          Tomá la foto y listo
-        </button>
-      </Link>
+      {/* El CTA "Tomá la foto y listo" se quitó a pedido. La entrada para crear
+          una rendición sigue disponible en la barra inferior ("Rendir") y en /quick. */}
 
       {/* Rendiciones recientes */}
       {recent.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="section-title text-ink-500">
+        <div>
+          {/* pl-1: el título arranca 4px a la derecha. Sin eso queda ópticamente
+              más a la izquierda que las tarjetas, porque el radio de 14px de la
+              esquina hace que su contenido parezca entrar más adentro. */}
+          <h2 className="section-title text-ink-500 pl-1 mb-2">
             Rendiciones recientes
           </h2>
-          {/* space-y-3: más aire entre rendiciones, para que la separación se lea
-              junto con el borde de cada tarjeta */}
+          {/* space-y-3: la misma separación que hay entre la card de montos y
+              este bloque — un solo ritmo de 12px en toda la pantalla */}
           <div className="space-y-3">
             {recent.map(report => (
               <ExpenseReportCard
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
             ))}
           </div>
           {reports.length > 5 && (
-            <Link href="/reimbursements" className="block text-center card-label text-brand-600 hover:underline">
+            <Link href="/reimbursements" className="block text-center card-label text-brand-600 hover:underline mt-3">
               Ver todas ({reports.length})
             </Link>
           )}
@@ -106,7 +106,8 @@ export default async function DashboardPage() {
         <div className="text-center py-12 text-ink-400">
           <ReceiptText size={44} className="mx-auto mb-3 opacity-40" />
           <p className="card-eyebrow">No tenés rendiciones aún</p>
-          <p className="card-label mt-1">Usá el botón de arriba para crear tu primera</p>
+          {/* El texto apuntaba al botón "Tomá la foto y listo", que ya no está */}
+          <p className="card-label mt-1">Tocá «Rendir» en la barra de abajo para crear tu primera</p>
         </div>
       )}
     </div>
