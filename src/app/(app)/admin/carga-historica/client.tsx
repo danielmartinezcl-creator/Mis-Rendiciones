@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList } from 'lucide-react'
+import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList, Undo2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
+import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
+import { revertDefontanaExport } from '@/actions/admin'
 import {
   categorizeItems,
   commitHistoricalImport,
@@ -136,6 +138,19 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
   const [successId, setSuccessId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Historial + reversa de contabilización Defontana
+  const [imports, setImports]           = useState<HistoricalImport[]>(historicalImports)
+  const [revertTarget, setRevertTarget] = useState<HistoricalImport | null>(null)
+
+  async function handleRevertDefontana(reason: string) {
+    if (!revertTarget) return
+    await revertDefontanaExport([revertTarget.id], reason)
+    setImports(prev => prev.map(r =>
+      r.id === revertTarget.id ? { ...r, defontana_exported_at: null } : r
+    ))
+    setRevertTarget(null)
+  }
 
   // ── KPIs de balance ──────────────────────────────────────────────────────────
   const advanceTotal  = rows.filter(r => r.itemType === 'advance').reduce((s, r) => s + (Number(r.amountCLP) || 0), 0)
@@ -331,7 +346,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
         {([
           ['excel',    'Subir Excel'],
           ['manual',   'Ingreso Manual'],
-          ['historial', `Historial (${historicalImports.length})`],
+          ['historial', `Historial (${imports.length})`],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -352,7 +367,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <ClipboardList size={18} className="text-brand-600" />
             <h2 className="font-semibold text-ink-800">Rendiciones históricas importadas</h2>
           </div>
-          {historicalImports.length === 0 ? (
+          {imports.length === 0 ? (
             <p className="text-sm text-ink-400 text-center py-8">
               Aún no hay rendiciones históricas importadas.
             </p>
@@ -369,7 +384,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-50">
-                  {historicalImports.map(r => (
+                  {imports.map(r => (
                     <tr key={r.id} className="hover:bg-ink-50/50">
                       <td className="py-2.5 pr-4">
                         <div className="font-medium text-ink-800 text-sm">{r.title}</div>
@@ -377,8 +392,17 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                           <div className="text-xs text-ink-400">N° {r.fund_number}</div>
                         )}
                         {r.defontana_exported_at && (
-                          <div className="text-xs text-teal-600 mt-0.5">
-                            ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-xs text-teal-600">
+                              ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
+                            </span>
+                            <button
+                              onClick={() => setRevertTarget(r)}
+                              title="Revertir contabilización"
+                              className="p-0.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors"
+                            >
+                              <Undo2 size={11} />
+                            </button>
                           </div>
                         )}
                       </td>
@@ -648,6 +672,17 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
       </div>
 
       </>)}
+
+      {revertTarget && (
+        <RevertDefontanaDialog
+          targetLabel={revertTarget.title}
+          detail={revertTarget.defontana_exported_at
+            ? `Contabilizada el ${formatDate(revertTarget.defontana_exported_at.split('T')[0])}`
+            : null}
+          onCancel={() => setRevertTarget(null)}
+          onConfirm={handleRevertDefontana}
+        />
+      )}
     </div>
   )
 }

@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
+import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, revertDefontanaExport, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
 import { markReimbursed, revertReimbursement, requestReportBankLoad } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP, formatDisplayTitle } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark } from 'lucide-react'
+import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark, BookCheck, FileSpreadsheet } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS } from '@/lib/constants'
@@ -40,6 +41,12 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [expanded,  setExpanded]  = useState<string | null>(null)
   const [exporting, setExporting] = useState<'xlsx' | 'pdf' | 'defontana' | null>(null)
   const [defontanaWarnings, setDefontanaWarnings] = useState<{ reportTitle: string; categories: string[] }[]>([])
+
+  // Defontana: selección manual de un lote + export de una rendición puntual
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [defRowId,    setDefRowId]    = useState<string | null>(null)
+  // Reversa de contabilización — el diálogo pide el motivo
+  const [revertTarget, setRevertTarget] = useState<{ ids: string[]; label: string; detail: string | null } | null>(null)
 
   // Filtros
   const [dateFrom,   setDateFrom]   = useState('')
@@ -298,17 +305,26 @@ export function AdminReportsClient({ initialReports }: Props) {
     }
   }
 
-  async function handleExportDefontana() {
+  /** Exporta a Defontana. Sin argumentos toma todo el filtro actual; con `ids` exporta
+   *  solo esas rendiciones — una fila puntual o el lote marcado con las casillas. */
+  async function handleExportDefontana(ids?: string[]) {
+    const scoped    = !!ids?.length
+    const targetIds = scoped ? ids! : filtered.map(r => r.id)
+
     setExporting('defontana')
+    if (scoped && ids!.length === 1) setDefRowId(ids![0])
     setDefontanaWarnings([])
     try {
       const { reports: defReports, settings, exportedReportIds } = await getDefontanaExportData({
-        reportIds: filtered.map(r => r.id),
-        dateFrom:  dateFrom || undefined,
-        dateTo:    dateTo   || undefined,
+        reportIds: targetIds,
+        // Con selección explícita el rango de fechas no debe recortar lo elegido
+        dateFrom:  scoped ? undefined : (dateFrom || undefined),
+        dateTo:    scoped ? undefined : (dateTo   || undefined),
       })
       if (!defReports.length) {
-        alert('No hay rendiciones aprobadas en el filtro actual para exportar a Defontana.')
+        alert(scoped && targetIds.length === 1
+          ? 'Esta rendición no tiene ítems aprobados para exportar a Defontana.\n\nSolo se exportan rendiciones aprobadas, aprobadas parcialmente o reembolsadas.'
+          : 'No hay rendiciones aprobadas en la selección para exportar a Defontana.')
         return
       }
       if (!settings?.contraAccount) {
@@ -318,7 +334,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       // Advertir si alguna rendición ya fue exportada antes
       if (exportedReportIds.length > 0) {
         const ok = window.confirm(
-          `⚠ ${exportedReportIds.length} rendición(es) del filtro ya fue(ron) exportada(s) a Defontana anteriormente.\n\n` +
+          `⚠ ${exportedReportIds.length} rendición(es) ya fue(ron) contabilizada(s) en Defontana anteriormente.\n\n` +
           `Exportar de nuevo puede generar asientos duplicados en la contabilidad.\n\n` +
           `¿Deseas continuar de todas formas?`
         )
@@ -326,18 +342,60 @@ export function AdminReportsClient({ initialReports }: Props) {
       }
       const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries(defReports, settings)
-      const exportRef = `DEF-${new Date().toISOString().slice(0, 10)}`
-      exportDefontanaToExcel(result, `asientos-defontana-${exportRef}`)
+      // Hora local en el ref: distingue dos exportaciones del mismo día al revertir
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const exportRef = `DEF-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+      const fileName = defReports.length === 1
+        ? `defontana-${defReports[0].reportTitle.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, '').trim().replace(/\s+/g, '-').slice(0, 40)}-${exportRef}`
+        : `asientos-defontana-${exportRef}`
+      exportDefontanaToExcel(result, fileName)
       // Marcar todas las rendiciones incluidas como exportadas
       const justExportedIds = defReports.map(r => r.reportId)
       await markDefontanaExported(justExportedIds, exportRef)
       if (result.warnings.length > 0) {
         setDefontanaWarnings(result.warnings.map(w => ({ reportTitle: w.reportTitle, categories: w.categories })))
       }
+      setSelectedIds(new Set())
       await load()
     } finally {
       setExporting(null)
+      setDefRowId(null)
     }
+  }
+
+  /** Abre el diálogo de motivo para deshacer el "Contabilizado" de una o varias rendiciones. */
+  function openRevertDefontana(rows: Report[]) {
+    const contabilizadas = rows.filter(r => r.defontana_exported_at)
+    if (!contabilizadas.length) {
+      alert('Ninguna de las rendiciones seleccionadas está contabilizada.')
+      return
+    }
+    const refs = [...new Set(contabilizadas.map(r => r.defontana_export_ref).filter(Boolean))]
+    setRevertTarget({
+      ids:    contabilizadas.map(r => r.id),
+      label:  contabilizadas.length === 1
+        ? formatDisplayTitle(contabilizadas[0].title)
+        : `${contabilizadas.length} rendiciones contabilizadas`,
+      detail: refs.length ? `Comprobante: ${refs.join(' · ')}` : null,
+    })
+  }
+
+  async function handleConfirmRevertDefontana(reason: string) {
+    if (!revertTarget) return
+    await revertDefontanaExport(revertTarget.ids, reason)
+    setRevertTarget(null)
+    setSelectedIds(new Set())
+    await load()
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else              next.add(id)
+      return next
+    })
   }
 
   async function handleDelete(id: string, title: string) {
@@ -419,13 +477,14 @@ export function AdminReportsClient({ initialReports }: Props) {
             {exporting === 'pdf' ? 'Exportando…' : 'PDF'}
           </button>
           <button
-            onClick={handleExportDefontana}
+            onClick={() => handleExportDefontana()}
             disabled={!!exporting || filtered.length === 0}
+            title={`Exportar las ${filtered.length} rendiciones del filtro actual`}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
             style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            {exporting === 'defontana' ? 'Exportando…' : 'Defontana'}
+            {exporting === 'defontana' && !defRowId ? 'Exportando…' : `Defontana (${filtered.length})`}
           </button>
           <button
             onClick={handleDeleteAll}
@@ -618,6 +677,48 @@ export function AdminReportsClient({ initialReports }: Props) {
         </div>
       )}
 
+      {/* Barra de lote — aparece al marcar casillas */}
+      {selectedIds.size > 0 && (() => {
+        const picked        = filtered.filter(r => selectedIds.has(r.id))
+        const contabilizadas = picked.filter(r => r.defontana_exported_at).length
+        return (
+          <div className="sticky top-2 z-30 bg-ink-900 text-white rounded-card px-4 py-3 flex items-center justify-between gap-3 flex-wrap shadow-lg">
+            <div className="text-sm">
+              <strong>{picked.length}</strong> seleccionada{picked.length !== 1 ? 's' : ''}
+              {contabilizadas > 0 && (
+                <span className="text-teal-300 ml-2 text-xs">· {contabilizadas} ya contabilizada{contabilizadas !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => handleExportDefontana(picked.map(r => r.id))}
+                disabled={!!exporting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-teal-600 hover:bg-teal-500 rounded-item disabled:opacity-40 transition-colors"
+              >
+                <FileSpreadsheet size={13} />
+                {exporting === 'defontana' ? 'Exportando…' : `Exportar a Defontana (${picked.length})`}
+              </button>
+              {contabilizadas > 0 && (
+                <button
+                  onClick={() => openRevertDefontana(picked)}
+                  disabled={!!exporting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-200 border border-amber-400/40 hover:bg-amber-400/10 rounded-item disabled:opacity-40 transition-colors"
+                >
+                  <Undo2 size={13} />
+                  Revertir contabilización ({contabilizadas})
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-3 py-1.5 text-xs font-semibold text-ink-300 hover:text-white transition-colors"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="space-y-2">
         {filtered.map(r => {
           const isOpen    = expanded === r.id
@@ -625,12 +726,23 @@ export function AdminReportsClient({ initialReports }: Props) {
           const loading   = expanding === r.id
           const canReimb  = r.status === 'approved' || r.status === 'partially_approved'
           const isReopened = reimbOpen === r.id
+          // Defontana solo acepta rendiciones ya aprobadas
+          const canDefontana = ['approved', 'partially_approved', 'reimbursed'].includes(r.status)
 
           return (
             <div key={r.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
               {/* Fila principal */}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
+                  {canDefontana && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(r.id)}
+                      onChange={() => toggleSelected(r.id)}
+                      title="Seleccionar para exportar a Defontana"
+                      className="mt-1 w-4 h-4 shrink-0 accent-teal-600 cursor-pointer"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[16px] leading-snug font-semibold text-slate-800">{formatDisplayTitle(r.title)}</p>
@@ -702,6 +814,28 @@ export function AdminReportsClient({ initialReports }: Props) {
                     >
                       {loading ? '...' : isOpen ? '▲ Cerrar' : '▼ Ver detalle'}
                     </button>
+                    {canDefontana && !r.defontana_exported_at && (
+                      <button
+                        onClick={() => handleExportDefontana([r.id])}
+                        disabled={!!exporting}
+                        className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-item transition-colors disabled:opacity-40"
+                        title="Exportar solo esta rendición a Defontana"
+                      >
+                        {defRowId === r.id
+                          ? <span className="inline-block w-3.5 h-3.5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                          : <FileSpreadsheet size={14} />}
+                      </button>
+                    )}
+                    {r.defontana_exported_at && (
+                      <button
+                        onClick={() => openRevertDefontana([r])}
+                        disabled={!!exporting}
+                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                        title="Revertir contabilización (vuelve a Sin contabilizar)"
+                      >
+                        <BookCheck size={14} />
+                      </button>
+                    )}
                     {r.is_historical_import && (
                       <button
                         onClick={() => handleMoveModule(r.id, r.title)}
@@ -1033,6 +1167,16 @@ export function AdminReportsClient({ initialReports }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Diálogo Revertir contabilización Defontana ── */}
+      {revertTarget && (
+        <RevertDefontanaDialog
+          targetLabel={revertTarget.label}
+          detail={revertTarget.detail}
+          onCancel={() => setRevertTarget(null)}
+          onConfirm={handleConfirmRevertDefontana}
+        />
       )}
     </div>
   )

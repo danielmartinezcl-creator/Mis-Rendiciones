@@ -2443,3 +2443,140 @@ export async function getBankQueue(): Promise<BankQueueResult> {
     }),
   }
 }
+
+// ─── Reversa de contabilización Defontana ────────────────────────────────────
+
+/** Revierte el estado "Contabilizado" de una o varias rendiciones.
+ *  Limpia el lock de la cabecera y el de cada ítem, dejándolas exportables de nuevo.
+ *  El motivo es obligatorio: queda en auditoría junto al comprobante que se revirtió. */
+export async function revertDefontanaExport(reportIds: string[], reason: string) {
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
+  if (!reportIds.length) throw new Error('No hay rendiciones para revertir')
+
+  const motivo = reason.trim()
+  if (motivo.length < 5) throw new Error('Indica el motivo de la reversa (mínimo 5 caracteres)')
+
+  // Estado previo — se registra en auditoría para poder rastrear el asiento anulado
+  const { data: before } = await supabase
+    .from('expense_reports')
+    .select('id, title, defontana_exported_at, defontana_export_ref')
+    .in('id', reportIds)
+    .eq('org_id', orgId)
+
+  const targets = (before ?? []).filter(r => r.defontana_exported_at != null)
+  if (!targets.length) throw new Error('Ninguna de las rendiciones seleccionadas está contabilizada')
+
+  const targetIds = targets.map(r => r.id)
+
+  const { error } = await supabase
+    .from('expense_reports')
+    .update({ defontana_exported_at: null, defontana_export_ref: null })
+    .in('id', targetIds)
+    .eq('org_id', orgId)
+  if (error) throw new Error(error.message)
+
+  // Las cargas históricas llevan el lock a nivel de ítem — hay que limpiarlo también
+  const { error: itemsError } = await supabase
+    .from('expense_items')
+    .update({ defontana_exported_at: null })
+    .in('report_id', targetIds)
+    .not('defontana_exported_at', 'is', null)
+  if (itemsError) throw new Error(itemsError.message)
+
+  for (const r of targets) {
+    await logAudit({
+      orgId,
+      actorId:     userId,
+      actorName,
+      action:      'reverted',
+      entityType:  'defontana_export',
+      entityId:    r.id,
+      entityLabel: r.title,
+      oldValue:    {
+        defontana_exported_at: r.defontana_exported_at,
+        defontana_export_ref:  r.defontana_export_ref,
+      },
+      newValue:    { defontana_exported_at: null, defontana_export_ref: null },
+      notes:       motivo,
+    })
+  }
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/admin/carga-historica')
+  revalidatePath('/petty-cash')
+
+  return { reverted: targetIds.length }
+}
+
+/** Revierte la contabilización de una carga histórica de caja chica, por tipo de ítem.
+ *  El lock vive en cada ítem; el comprobante de la cabecera solo se borra cuando ya no
+ *  queda ningún ítem contabilizado en la carga. */
+export async function revertHistoricalFundDefontana(
+  reportId:  string,
+  itemTypes: ('expense' | 'advance' | 'return')[],
+  reason:    string,
+) {
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
+
+  const motivo = reason.trim()
+  if (motivo.length < 5)  throw new Error('Indica el motivo de la reversa (mínimo 5 caracteres)')
+  if (!itemTypes.length)  throw new Error('Selecciona al menos un tipo de ítem para revertir')
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, defontana_export_ref')
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .single()
+  if (!report) throw new Error('Carga histórica no encontrada')
+
+  const { data: contabilizados } = await supabase
+    .from('expense_items')
+    .select('id')
+    .eq('report_id', reportId)
+    .in('item_type', itemTypes)
+    .not('defontana_exported_at', 'is', null)
+
+  const ids = (contabilizados ?? []).map(i => i.id)
+  if (!ids.length) throw new Error('No hay ítems contabilizados de los tipos seleccionados')
+
+  const { error } = await supabase
+    .from('expense_items')
+    .update({ defontana_exported_at: null })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+
+  // ¿Queda algo contabilizado en la carga? Si no, el comprobante de la cabecera pierde sentido
+  const { count } = await supabase
+    .from('expense_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('report_id', reportId)
+    .not('defontana_exported_at', 'is', null)
+
+  const headerCleared = !count
+  if (headerCleared) {
+    await supabase
+      .from('expense_reports')
+      .update({ defontana_exported_at: null, defontana_export_ref: null })
+      .eq('id', reportId)
+      .eq('org_id', orgId)
+  }
+
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'reverted',
+    entityType:  'defontana_export',
+    entityId:    reportId,
+    entityLabel: report.title,
+    oldValue:    { defontana_export_ref: report.defontana_export_ref, itemTypes },
+    newValue:    { revertedItems: ids.length, headerCleared },
+    notes:       motivo,
+  })
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/reports')
+
+  return { revertedItems: ids.length, headerCleared }
+}

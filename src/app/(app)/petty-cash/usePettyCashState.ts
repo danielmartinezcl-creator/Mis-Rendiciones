@@ -7,6 +7,7 @@ import {
   markHistoricalImportDefontana,
   getHistoricalFundDefontanaData,
   markExpenseItemsDefontanaExported,
+  revertHistoricalFundDefontana,
 } from '@/actions/admin'
 import type { getHistoricalCajaChicaImports } from '@/actions/admin'
 import { adminDeleteExpenseReport } from '@/actions/expenses'
@@ -483,6 +484,28 @@ export function usePettyCashState({
     }))
   }
 
+  // Deshace la contabilización de los tipos indicados. El motivo queda en auditoría.
+  async function handleRevertContabilizado(
+    reportId:  string,
+    itemTypes: ('expense' | 'advance' | 'return')[],
+    reason:    string,
+  ): Promise<void> {
+    const { headerCleared } = await revertHistoricalFundDefontana(reportId, itemTypes, reason)
+
+    setHistoricalImports(prev => prev.map(h => {
+      if (h.id !== reportId) return h
+      return {
+        ...h,
+        defontana_export_ref: headerCleared ? null : h.defontana_export_ref,
+        items: h.items.map(i =>
+          (itemTypes as string[]).includes(i.item_type || '')
+            ? { ...i, defontana_exported_at: null }
+            : i
+        ),
+      }
+    }))
+  }
+
   async function handleDeleteFund(id: string, name: string) {
     if (!confirm(`¿Eliminar el fondo "${name}"?\n\nSe eliminarán todos sus ítems y aprobaciones.\nEsta acción no se puede deshacer.`)) return
     setDeletingId(id)
@@ -717,6 +740,7 @@ export function usePettyCashState({
     handleMarkDefontana,
     handleExportDefontanaFund,
     handleConfirmContabilizado,
+    handleRevertContabilizado,
     handleDeleteFund,
     handleMoveToRendicion,
     openEditTransferModal,

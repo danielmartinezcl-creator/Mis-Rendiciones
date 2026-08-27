@@ -17,7 +17,9 @@ import {
   Pencil,
   Check,
   X,
+  Undo2,
 } from 'lucide-react'
+import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/actions/admin'
 import { deleteExpenseItem } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
@@ -34,6 +36,7 @@ export interface HistoricalSectionProps {
   onDelete:                   (id: string, title: string) => void
   onExportDefontana:          (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
   onConfirmContabilizado:     (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], comprobante: string) => Promise<void>
+  onRevertContabilizado:      (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], reason: string) => Promise<void>
   onItemSaved:                (reportId: string, itemId: string, patch: ItemSavedPatch) => void
   onItemDeleted?:             (reportId: string, itemId: string) => void
   onTitleUpdated:             (reportId: string, title: string) => void
@@ -312,7 +315,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
 
 // ── HistoricalSection ─────────────────────────────────────────────────────────
 
-export function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
+export function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onRevertContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     // Todos los grupos inician colapsados
@@ -334,6 +337,8 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
   const [defExportWarnings, setDefExportWarnings] = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
   const [defComprobante,    setDefComprobante]    = useState('')
   const [defConfirming,     setDefConfirming]     = useState(false)
+  // Reversa de contabilización — guarda la carga y los tipos a revertir
+  const [revertTarget,      setRevertTarget]      = useState<{ h: HistoricalImport; types: ('expense' | 'advance' | 'return')[] } | null>(null)
 
   function openDefPanel(h: HistoricalImport) {
     const pending = new Set<string>()
@@ -376,6 +381,13 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
     } finally {
       setDefConfirming(false)
     }
+  }
+
+  async function runRevertContabilizado(reason: string) {
+    if (!revertTarget) return
+    await onRevertContabilizado(revertTarget.h.id, revertTarget.types, reason)
+    setRevertTarget(null)
+    setDefPanelId(null)
   }
 
   async function handleSaveTitle(reportId: string) {
@@ -736,6 +748,15 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                         {exported.length > 0 && <span className="text-teal-600 ml-1">(+{exported.length} ya contabilizados)</span>}
                                       </span>
                                     )}
+                                    {exported.length > 0 && (
+                                      <button
+                                        onClick={e => { e.preventDefault(); e.stopPropagation(); setRevertTarget({ h, types: [type] }) }}
+                                        title={`Revertir la contabilización de ${LABEL[type].toLowerCase()} (${exported.length} ítems)`}
+                                        className="shrink-0 p-1 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors"
+                                      >
+                                        <Undo2 size={12} />
+                                      </button>
+                                    )}
                                   </label>
                                 )
                               })}
@@ -821,6 +842,25 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
           </div>
         )
       })}
+
+      {revertTarget && (() => {
+        const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones' }
+        const count = revertTarget.h.items.filter(
+          i => revertTarget.types.includes(i.item_type as 'expense' | 'advance' | 'return') && i.defontana_exported_at
+        ).length
+        const tipos = revertTarget.types.map(t => LABEL[t] ?? t).join(', ')
+        return (
+          <RevertDefontanaDialog
+            targetLabel={`${revertTarget.h.title} — ${tipos}`}
+            detail={[
+              `${count} ítem${count !== 1 ? 's' : ''}`,
+              revertTarget.h.defontana_export_ref ? `Comprobante: ${revertTarget.h.defontana_export_ref}` : null,
+            ].filter(Boolean).join(' · ')}
+            onCancel={() => setRevertTarget(null)}
+            onConfirm={runRevertContabilizado}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
   removeFundItem,
   getPettyCashFundDefontanaData,
   markPettyCashFundDefontanaExported,
+  revertPettyCashFundDefontanaExport,
 } from '@/actions/petty-cash'
 import type { FundDetail } from '@/actions/petty-cash'
 import { FundStatusBadge }   from '@/components/petty-cash/FundStatusBadge'
@@ -24,11 +25,12 @@ import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
 import { VerticalTimeline }  from '@/components/ui/VerticalTimeline'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
+import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation } from '@/lib/petty-cash-helpers'
 import { FUND_STEPS } from '@/lib/constants'
-import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, FileSpreadsheet, Building2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, FileSpreadsheet, Building2, ShieldCheck, Undo2 } from 'lucide-react'
 import Link from 'next/link'
 
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
@@ -78,6 +80,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const [settleDate, setSettleDate]       = useState(today())
   const [exportingDef, setExportingDef]   = useState(false)
   const [defWarnings, setDefWarnings]     = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
+  const [revertingDef, setRevertingDef]   = useState(false)
   const [approvalAtts, setApprovalAtts]   = useState<ApprovalAtt[]>([])
 
   useEffect(() => {
@@ -109,7 +112,10 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries([report], settings)
 
-      const exportRef = `CC-${new Date().toISOString().slice(0, 10)}`
+      // Hora local en el ref: distingue dos exportaciones del mismo día al revertir
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const exportRef = `CC-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
       exportDefontanaToExcel(result, `caja-chica-defontana-${exportRef}`)
 
       await markPettyCashFundDefontanaExported(id, exportRef)
@@ -124,6 +130,13 @@ export function FundDetailClient({ id, initialDetail }: Props) {
     } finally {
       setExportingDef(false)
     }
+  }
+
+  async function handleRevertDefontana(reason: string) {
+    await revertPettyCashFundDefontanaExport(id, reason)
+    setRevertingDef(false)
+    setDefWarnings(null)
+    await load()
   }
 
   async function load() {
@@ -670,15 +683,39 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               <p className="text-amber-600 mt-1">Asigna sus códigos en Configuración → Defontana.</p>
             </div>
           )}
-          <button
-            onClick={handleExportDefontana}
-            disabled={exportingDef}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold rounded-item transition-colors"
-          >
-            <FileSpreadsheet size={14} />
-            {exportingDef ? 'Generando...' : (fund.defontana_exported_at ? 'Re-exportar a Defontana' : 'Exportar a Defontana')}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleExportDefontana}
+              disabled={exportingDef}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold rounded-item transition-colors"
+            >
+              <FileSpreadsheet size={14} />
+              {exportingDef ? 'Generando...' : (fund.defontana_exported_at ? 'Re-exportar a Defontana' : 'Exportar a Defontana')}
+            </button>
+            {fund.defontana_exported_at && (
+              <button
+                onClick={() => setRevertingDef(true)}
+                disabled={exportingDef}
+                title="Deshacer el estado Contabilizado de este fondo"
+                className="flex items-center gap-1.5 px-3 py-2 text-amber-700 border border-amber-300 hover:bg-amber-50 disabled:opacity-50 text-sm font-semibold rounded-item transition-colors"
+              >
+                <Undo2 size={14} />
+                Revertir contabilización
+              </button>
+            )}
+          </div>
         </div>
+      )}
+
+      {revertingDef && (
+        <RevertDefontanaDialog
+          targetLabel={fund.name}
+          detail={(fund as { defontana_export_ref?: string | null }).defontana_export_ref
+            ? `Comprobante: ${(fund as { defontana_export_ref?: string | null }).defontana_export_ref}`
+            : null}
+          onCancel={() => setRevertingDef(false)}
+          onConfirm={handleRevertDefontana}
+        />
       )}
 
       {/* Timeline de auditoría */}

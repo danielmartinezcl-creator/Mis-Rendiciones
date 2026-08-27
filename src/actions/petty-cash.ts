@@ -950,3 +950,49 @@ export async function markPettyCashFundDefontanaExported(fundId: string, ref: st
   })
   revalidatePath(`/petty-cash/${fundId}`)
 }
+
+/** Revierte el estado "Contabilizado" de un fondo de caja chica liquidado.
+ *  Solo admin. El motivo queda en auditoría junto al comprobante revertido. */
+export async function revertPettyCashFundDefontanaExport(fundId: string, reason: string) {
+  const { supabase, userId, profile } = await getProfile()
+  if (profile.role !== 'admin') throw new Error('Sin permiso')
+
+  const motivo = reason.trim()
+  if (motivo.length < 5) throw new Error('Indica el motivo de la reversa (mínimo 5 caracteres)')
+
+  const { data: fund } = await supabase
+    .from('petty_cash_funds')
+    .select('id, name, defontana_exported_at, defontana_export_ref')
+    .eq('id', fundId)
+    .eq('org_id', profile.org_id)
+    .single()
+
+  if (!fund) throw new Error('Fondo no encontrado')
+  if (!fund.defontana_exported_at) throw new Error('Este fondo no está contabilizado')
+
+  const { error } = await supabase
+    .from('petty_cash_funds')
+    .update({ defontana_exported_at: null, defontana_export_ref: null })
+    .eq('id', fundId)
+    .eq('org_id', profile.org_id)
+  if (error) throw new Error(error.message)
+
+  await logAudit({
+    orgId:       profile.org_id,
+    actorId:     userId,
+    actorName:   profile.full_name,
+    action:      'reverted',
+    entityType:  'defontana_export_petty_cash',
+    entityId:    fundId,
+    entityLabel: fund.name,
+    oldValue:    {
+      defontana_exported_at: fund.defontana_exported_at,
+      defontana_export_ref:  fund.defontana_export_ref,
+    },
+    newValue:    { defontana_exported_at: null, defontana_export_ref: null },
+    notes:       motivo,
+  })
+
+  revalidatePath(`/petty-cash/${fundId}`)
+  revalidatePath('/petty-cash')
+}

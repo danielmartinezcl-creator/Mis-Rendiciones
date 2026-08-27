@@ -49,6 +49,7 @@ export function PettyCashClient({
     handleDeleteHistorical,
     handleExportDefontanaFund,
     handleConfirmContabilizado,
+    handleRevertContabilizado,
     handleItemSaved,
     handleItemDeleted,
     handleTitleUpdated,
@@ -225,6 +226,7 @@ export function PettyCashClient({
           onDelete={handleDeleteHistorical}
           onExportDefontana={handleExportDefontanaFund}
           onConfirmContabilizado={handleConfirmContabilizado}
+          onRevertContabilizado={handleRevertContabilizado}
           onItemSaved={handleItemSaved}
           onItemDeleted={handleItemDeleted}
           onTitleUpdated={handleTitleUpdated}

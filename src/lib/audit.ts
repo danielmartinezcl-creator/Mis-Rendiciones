@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export type AuditAction =
   | 'deleted' | 'restored' | 'permanently_deleted'
   | 'created'  | 'updated'  | 'bulk_updated'
-  | 'config_changed' | 'exported' | 'submitted' | 'approved' | 'rejected'
+  | 'config_changed' | 'exported' | 'reverted' | 'submitted' | 'approved' | 'rejected'
 
 export type AuditEntityType =
   | 'expense_report' | 'expense_item'
