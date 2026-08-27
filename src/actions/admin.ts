@@ -2524,22 +2524,48 @@ export async function revertHistoricalFundDefontana(
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('id, title, defontana_export_ref')
+    .select('id, title, defontana_exported_at, defontana_export_ref')
     .eq('id', reportId)
     .eq('org_id', orgId)
     .single()
   if (!report) throw new Error('Carga histórica no encontrada')
 
-  const { data: contabilizados } = await supabase
+  const { data: rawAll } = await supabase
     .from('expense_items')
-    .select('id')
+    .select('id, item_type, defontana_exported_at')
     .eq('report_id', reportId)
-    .in('item_type', itemTypes)
-    .not('defontana_exported_at', 'is', null)
+    .is('deleted_at', null)
 
-  const ids = (contabilizados ?? []).map(i => i.id)
+  type Row = { id: string; item_type: string | null; defontana_exported_at: string | null }
+  const all = ((rawAll ?? []) as unknown as Row[])
+    .filter(i => ['expense', 'advance', 'return'].includes(i.item_type ?? ''))
+
+  // Estado "legacy": la carga se contabilizó desde /admin/reports, que marca la
+  // cabecera y no los ítems. El lock de la cabecera vale entonces por todos ellos.
+  // Al revertir un tipo hay que bajar ese lock a los tipos que SÍ siguen contabilizados,
+  // o se perdería el registro de que esos ya están en Defontana.
+  const legacyHeaderOnly = !!report.defontana_exported_at && all.every(i => i.defontana_exported_at == null)
+
+  if (legacyHeaderOnly) {
+    const keepIds = all
+      .filter(i => !(itemTypes as string[]).includes(i.item_type ?? ''))
+      .map(i => i.id)
+    if (keepIds.length) {
+      const { error: seedError } = await supabase
+        .from('expense_items')
+        .update({ defontana_exported_at: report.defontana_exported_at })
+        .in('id', keepIds)
+      if (seedError) throw new Error(seedError.message)
+    }
+  }
+
+  const ids = all
+    .filter(i => (itemTypes as string[]).includes(i.item_type ?? ''))
+    .filter(i => legacyHeaderOnly || i.defontana_exported_at != null)
+    .map(i => i.id)
   if (!ids.length) throw new Error('No hay ítems contabilizados de los tipos seleccionados')
 
+  // En legacy los ítems ya están en null; el update es inofensivo y deja el estado explícito
   const { error } = await supabase
     .from('expense_items')
     .update({ defontana_exported_at: null })
@@ -2579,4 +2605,126 @@ export async function revertHistoricalFundDefontana(
   revalidatePath('/admin/reports')
 
   return { revertedItems: ids.length, headerCleared }
+}
+
+/** Desglose por tipo de ítem para el panel Defontana de una carga histórica.
+ *  Usa el mismo criterio que getHistoricalFundDefontanaData para que lo que muestra
+ *  el panel sea exactamente lo que entra en el Excel.
+ *
+ *  Estado "legacy": la carga fue contabilizada desde /admin/reports, que marca la
+ *  cabecera pero no los ítems. En ese caso se informan todos los ítems como
+ *  contabilizados — es lo que refleja la realidad contable. */
+export async function getDefontanaTypeBreakdown(reportId: string) {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, defontana_exported_at, defontana_export_ref')
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .single()
+  if (!report) throw new Error('Rendición no encontrada')
+
+  const { data: rawItems } = await supabase
+    .from('expense_items')
+    .select('item_type, amount_clp, defontana_exported_at')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+
+  type Row = { item_type: string | null; amount_clp: number; defontana_exported_at: string | null }
+  const items = ((rawItems ?? []) as unknown as Row[])
+    .filter(i => ['expense', 'advance', 'return'].includes(i.item_type ?? ''))
+
+  const anyItemLock     = items.some(i => i.defontana_exported_at != null)
+  const legacyHeaderOnly = !!report.defontana_exported_at && !anyItemLock
+
+  const types = (['expense', 'advance', 'return'] as const).map(type => {
+    const ofType   = items.filter(i => i.item_type === type)
+    // En estado legacy el lock de la cabecera vale por todos los ítems
+    const exported = legacyHeaderOnly ? ofType : ofType.filter(i => i.defontana_exported_at != null)
+    const pending  = legacyHeaderOnly ? []     : ofType.filter(i => i.defontana_exported_at == null)
+    return {
+      type,
+      totalCount:    ofType.length,
+      pendingCount:  pending.length,
+      pendingCLP:    pending.reduce((s, i) => s + i.amount_clp, 0),
+      exportedCount: exported.length,
+      exportedCLP:   exported.reduce((s, i) => s + i.amount_clp, 0),
+    }
+  }).filter(t => t.totalCount > 0)
+
+  return {
+    reportTitle:      report.title,
+    headerExportedAt: report.defontana_exported_at,
+    headerRef:        report.defontana_export_ref,
+    legacyHeaderOnly,
+    types,
+  }
+}
+
+/** Marca como contabilizados los ítems pendientes de los tipos indicados y guarda el
+ *  comprobante en la cabecera. Resuelve los ítems del lado servidor para que el cliente
+ *  no tenga que arrastrar los ids entre el paso de export y el de confirmación. */
+export async function confirmHistoricalDefontanaByType(
+  reportId:    string,
+  itemTypes:   ('expense' | 'advance' | 'return')[],
+  comprobante: string,
+) {
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
+  if (!itemTypes.length) throw new Error('Selecciona al menos un tipo de ítem')
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, defontana_export_ref')
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .single()
+  if (!report) throw new Error('Rendición no encontrada')
+
+  const { data: pendientes } = await supabase
+    .from('expense_items')
+    .select('id')
+    .eq('report_id', reportId)
+    .in('item_type', itemTypes)
+    .is('defontana_exported_at', null)
+    .is('deleted_at', null)
+
+  const ids = (pendientes ?? []).map(i => i.id)
+  const now = new Date().toISOString()
+  const ref = comprobante.trim()
+
+  if (ids.length) {
+    const { error } = await supabase
+      .from('expense_items')
+      .update({ defontana_exported_at: now })
+      .in('id', ids)
+    if (error) throw new Error(error.message)
+  }
+
+  const { error: headerError } = await supabase
+    .from('expense_reports')
+    .update({
+      defontana_exported_at: now,
+      defontana_export_ref:  ref || report.defontana_export_ref,
+    })
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+  if (headerError) throw new Error(headerError.message)
+
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'exported',
+    entityType:  'defontana_export',
+    entityId:    reportId,
+    entityLabel: report.title,
+    newValue:    { itemTypes, exportRef: ref || null, items: ids.length },
+  })
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/admin/carga-historica')
+  revalidatePath('/petty-cash')
+
+  return { confirmedItems: ids.length }
 }

@@ -8,6 +8,7 @@ import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expen
 import { formatDate, formatCLP, formatDisplayTitle } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
+import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark, BookCheck, FileSpreadsheet } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
@@ -45,6 +46,8 @@ export function AdminReportsClient({ initialReports }: Props) {
   // Defontana: selección manual de un lote + export de una rendición puntual
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [defRowId,    setDefRowId]    = useState<string | null>(null)
+  // Panel Defontana por tipo — cargas históricas
+  const [defPanelId,  setDefPanelId]  = useState<string | null>(null)
   // Reversa de contabilización — el diálogo pide el motivo
   const [revertTarget, setRevertTarget] = useState<{ ids: string[]; label: string; detail: string | null } | null>(null)
 
@@ -814,7 +817,21 @@ export function AdminReportsClient({ initialReports }: Props) {
                     >
                       {loading ? '...' : isOpen ? '▲ Cerrar' : '▼ Ver detalle'}
                     </button>
-                    {canDefontana && !r.defontana_exported_at && (
+                    {canDefontana && r.is_historical_import && (
+                      <button
+                        onClick={() => setDefPanelId(prev => prev === r.id ? null : r.id)}
+                        className={[
+                          'p-1.5 rounded-item transition-colors',
+                          defPanelId === r.id
+                            ? 'text-teal-700 bg-teal-100'
+                            : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50',
+                        ].join(' ')}
+                        title="Defontana por tipo: exportar, confirmar o revertir gastos y adelantos por separado"
+                      >
+                        <FileSpreadsheet size={14} />
+                      </button>
+                    )}
+                    {canDefontana && !r.is_historical_import && !r.defontana_exported_at && (
                       <button
                         onClick={() => handleExportDefontana([r.id])}
                         disabled={!!exporting}
@@ -826,7 +843,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           : <FileSpreadsheet size={14} />}
                       </button>
                     )}
-                    {r.defontana_exported_at && (
+                    {r.defontana_exported_at && !r.is_historical_import && (
                       <button
                         onClick={() => openRevertDefontana([r])}
                         disabled={!!exporting}
@@ -946,6 +963,16 @@ export function AdminReportsClient({ initialReports }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* Panel Defontana por tipo — solo cargas históricas (gastos y adelantos
+                  pueden ir en comprobantes separados) */}
+              {defPanelId === r.id && (
+                <DefontanaTypePanel
+                  reportId={r.id}
+                  onClose={() => setDefPanelId(null)}
+                  onChanged={load}
+                />
+              )}
 
               {/* Detalle expandido */}
               {isOpen && (

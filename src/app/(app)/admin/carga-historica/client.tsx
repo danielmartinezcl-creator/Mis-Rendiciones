@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList, Undo2 } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList, FileSpreadsheet } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
-import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
-import { revertDefontanaExport } from '@/actions/admin'
+import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
+import { getHistoricalRendicionImports } from '@/actions/admin'
 import {
   categorizeItems,
   commitHistoricalImport,
@@ -139,17 +139,17 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Historial + reversa de contabilización Defontana
-  const [imports, setImports]           = useState<HistoricalImport[]>(historicalImports)
-  const [revertTarget, setRevertTarget] = useState<HistoricalImport | null>(null)
+  // Historial + panel Defontana por tipo
+  const [imports,    setImports]    = useState<HistoricalImport[]>(historicalImports)
+  const [defPanelId, setDefPanelId] = useState<string | null>(null)
 
-  async function handleRevertDefontana(reason: string) {
-    if (!revertTarget) return
-    await revertDefontanaExport([revertTarget.id], reason)
-    setImports(prev => prev.map(r =>
-      r.id === revertTarget.id ? { ...r, defontana_exported_at: null } : r
-    ))
-    setRevertTarget(null)
+  /** Relee el historial tras confirmar o revertir en el panel Defontana. */
+  async function refreshImport() {
+    try {
+      setImports(await getHistoricalRendicionImports())
+    } catch {
+      // Si falla la relectura el panel ya muestra su propio estado actualizado
+    }
   }
 
   // ── KPIs de balance ──────────────────────────────────────────────────────────
@@ -385,26 +385,27 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                 </thead>
                 <tbody className="divide-y divide-ink-50">
                   {imports.map(r => (
-                    <tr key={r.id} className="hover:bg-ink-50/50">
+                    <React.Fragment key={r.id}>
+                    <tr className="hover:bg-ink-50/50">
                       <td className="py-2.5 pr-4">
                         <div className="font-medium text-ink-800 text-sm">{r.title}</div>
                         {r.fund_number && (
                           <div className="text-xs text-ink-400">N° {r.fund_number}</div>
                         )}
-                        {r.defontana_exported_at && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {r.defontana_exported_at && (
                             <span className="text-xs text-teal-600">
                               ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
                             </span>
-                            <button
-                              onClick={() => setRevertTarget(r)}
-                              title="Revertir contabilización"
-                              className="p-0.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors"
-                            >
-                              <Undo2 size={11} />
-                            </button>
-                          </div>
-                        )}
+                          )}
+                          <button
+                            onClick={() => setDefPanelId(prev => prev === r.id ? null : r.id)}
+                            title="Defontana por tipo: exportar, confirmar o revertir gastos y adelantos por separado"
+                            className={`p-0.5 rounded-item transition-colors ${defPanelId === r.id ? 'text-teal-700 bg-teal-100' : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50'}`}
+                          >
+                            <FileSpreadsheet size={12} />
+                          </button>
+                        </div>
                       </td>
                       <td className="py-2.5 pr-4 text-sm text-ink-600">{r.submitter_name}</td>
                       <td className="py-2.5 pr-4 text-sm text-ink-500">{formatDate(r.created_at.split('T')[0])}</td>
@@ -427,6 +428,18 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                         )}
                       </td>
                     </tr>
+                    {defPanelId === r.id && (
+                      <tr>
+                        <td colSpan={5} className="p-0">
+                          <DefontanaTypePanel
+                            reportId={r.id}
+                            onClose={() => setDefPanelId(null)}
+                            onChanged={refreshImport}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -672,17 +685,6 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
       </div>
 
       </>)}
-
-      {revertTarget && (
-        <RevertDefontanaDialog
-          targetLabel={revertTarget.title}
-          detail={revertTarget.defontana_exported_at
-            ? `Contabilizada el ${formatDate(revertTarget.defontana_exported_at.split('T')[0])}`
-            : null}
-          onCancel={() => setRevertTarget(null)}
-          onConfirm={handleRevertDefontana}
-        />
-      )}
     </div>
   )
 }
