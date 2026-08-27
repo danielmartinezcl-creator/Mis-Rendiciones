@@ -703,6 +703,13 @@ function DefontanaTab() {
   const [providerAccount, setProviderAccount] = useState('')
   const [voucherType,    setVoucherType]    = useState('Egreso')
   const [costCenter,     setCostCenter]     = useState('')
+  // ── Movimientos: adelantos, devoluciones y traspasos
+  const [bankAccount,         setBankAccount]         = useState('')
+  const [voucherTypeAdvance,  setVoucherTypeAdvance]  = useState('')
+  const [voucherTypeReturn,   setVoucherTypeReturn]   = useState('')
+  const [voucherTypeTransfer, setVoucherTypeTransfer] = useState('')
+  const [docTypeAdvance,      setDocTypeAdvance]      = useState('CARGO')
+  const [docTypeReturn,       setDocTypeReturn]       = useState('ABONO')
   const [costCenters,    setCostCenters]    = useState<CostCenter[]>([])
   const [cfgLoading,     setCfgLoading]     = useState(true)
   const [cfgSaving,      setCfgSaving]      = useState(false)
@@ -730,6 +737,12 @@ function DefontanaTab() {
         setVoucherType(s.voucherType)
         setCostCenter(s.costCenter ?? '')
         setProviderAccount(s.providerAccount ?? '')
+        setBankAccount(s.bankAccount ?? '')
+        setVoucherTypeAdvance(s.voucherTypeAdvance ?? '')
+        setVoucherTypeReturn(s.voucherTypeReturn ?? '')
+        setVoucherTypeTransfer(s.voucherTypeTransfer ?? '')
+        setDocTypeAdvance(s.docTypeAdvance || 'CARGO')
+        setDocTypeReturn(s.docTypeReturn || 'ABONO')
         setCfgLoading(false)
       }),
       getOrgCategories().then(cats => {
@@ -749,7 +762,18 @@ function DefontanaTab() {
     setCfgSaving(true)
     setCfgError(null)
     try {
-      await updateDefontanaSettings({ contraAccount, voucherType, costCenter: costCenter || null, providerAccount: providerAccount || null })
+      await updateDefontanaSettings({
+        contraAccount,
+        voucherType,
+        costCenter:      costCenter || null,
+        providerAccount: providerAccount || null,
+        bankAccount:         bankAccount || null,
+        voucherTypeAdvance:  voucherTypeAdvance  || null,
+        voucherTypeReturn:   voucherTypeReturn   || null,
+        voucherTypeTransfer: voucherTypeTransfer || null,
+        docTypeAdvance:      docTypeAdvance,
+        docTypeReturn:       docTypeReturn,
+      })
       setCfgSaved(true)
       setTimeout(() => setCfgSaved(false), 3000)
     } catch (err) {
@@ -806,11 +830,14 @@ function DefontanaTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">
-                Cuenta contrapartida (Haber)
+                Cuenta Fondos por Rendir
               </label>
-              <p className="text-xs text-ink-400 mb-1.5">La cuenta que se acredita por el total de cada rendición (ej: 2.1.1.01.001)</p>
+              <p className="text-xs text-ink-400 mb-1.5">
+                Lleva el saldo de cada responsable. Se acredita por el total de una rendición
+                de gastos y se debita cuando se entrega un adelanto.
+              </p>
               <input type="text" value={contraAccount} onChange={e => setContraAccount(e.target.value)}
-                placeholder="2.1.1.01.001" className={inputCls} />
+                placeholder="1.1.1010.10.03" className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo de comprobante</label>
@@ -840,6 +867,86 @@ function DefontanaTab() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* ── Movimientos de fondos ── */}
+          <div className="border-t border-ink-100 pt-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-ink-800">Movimientos de fondos</h3>
+              <p className="text-xs text-ink-400 mt-0.5">
+                Cada movimiento arma un asiento distinto. La rendición de gastos usa la
+                configuración de arriba; adelantos y devoluciones pasan por el banco.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Cuenta banco</label>
+              <p className="text-xs text-ink-400 mb-1.5">
+                Contrapartida de adelantos y devoluciones. Sin ella esos movimientos quedan fuera del Excel.
+              </p>
+              <input type="text" value={bankAccount} onChange={e => setBankAccount(e.target.value)}
+                placeholder="1.1.1010.20.01" className={inputCls} />
+            </div>
+
+            <div className="rounded-item border border-ink-100 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-ink-50 text-ink-500">
+                  <tr>
+                    <th className="text-left font-semibold px-3 py-2 w-32">Movimiento</th>
+                    <th className="text-left font-semibold px-3 py-2">Asiento</th>
+                    <th className="text-left font-semibold px-3 py-2 w-40">Tipo de comprobante</th>
+                    <th className="text-left font-semibold px-3 py-2 w-32">Tipo doc. banco</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-ink-700 align-top">Adelanto</td>
+                    <td className="px-3 py-2 text-ink-500 align-top">
+                      Debe Fondos por Rendir · Haber Banco<br />
+                      <span className="text-ink-400">N° de documento = fecha (24-02-2026 → 240226)</span>
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <input type="text" value={voucherTypeAdvance} onChange={e => setVoucherTypeAdvance(e.target.value)}
+                        placeholder={voucherType || 'Egreso'} className={inputCls} />
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <input type="text" value={docTypeAdvance} onChange={e => setDocTypeAdvance(e.target.value)}
+                        placeholder="CARGO" className={inputCls} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-ink-700 align-top">Devolución</td>
+                    <td className="px-3 py-2 text-ink-500 align-top">
+                      Debe Banco · Haber Fondos por Rendir<br />
+                      <span className="text-ink-400">N° de documento = fecha del reembolso</span>
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <input type="text" value={voucherTypeReturn} onChange={e => setVoucherTypeReturn(e.target.value)}
+                        placeholder={voucherType || 'Egreso'} className={inputCls} />
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <input type="text" value={docTypeReturn} onChange={e => setDocTypeReturn(e.target.value)}
+                        placeholder="ABONO" className={inputCls} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-ink-700 align-top">Traspaso</td>
+                    <td className="px-3 py-2 text-ink-500 align-top">
+                      Fondos por Rendir contra sí misma: debe la ficha de quien recibe,
+                      haber la de quien entrega. No toca el banco.
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <input type="text" value={voucherTypeTransfer} onChange={e => setVoucherTypeTransfer(e.target.value)}
+                        placeholder={voucherType || 'Egreso'} className={inputCls} />
+                    </td>
+                    <td className="px-3 py-2 text-ink-300 align-top">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-ink-400">
+              Si dejás vacío un tipo de comprobante se usa el de la configuración general.
+            </p>
           </div>
 
           {cfgError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{cfgError}</div>}

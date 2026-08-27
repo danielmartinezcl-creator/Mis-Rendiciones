@@ -1,0 +1,263 @@
+import { describe, it, expect } from 'vitest'
+import {
+  buildDefontanaEntries,
+  toBankDocNumber,
+  type DefontanaItem,
+  type DefontanaReportInput,
+  type DefontanaSettings,
+} from '@/lib/export/defontana'
+
+// Cuentas reales de PENTA
+const FONDOS_POR_RENDIR = '1.1.1010.10.03'   // → 1110101003
+const BANCO             = '1.1.1010.20.01'   // → 1110102001
+
+const settings: DefontanaSettings = {
+  contraAccount:       FONDOS_POR_RENDIR,
+  voucherType:         'Traspaso',
+  costCenter:          'EMPGESINGING',
+  providerAccount:     '2.1.1070.20.01',
+  bankAccount:         BANCO,
+  voucherTypeAdvance:  null,
+  voucherTypeReturn:   null,
+  voucherTypeTransfer: null,
+  docTypeAdvance:      'CARGO',
+  docTypeReturn:       'ABONO',
+}
+
+function item(over: Partial<DefontanaItem> = {}): DefontanaItem {
+  return {
+    description:            'Movimiento',
+    amount_clp:             1000,
+    category_name:          null,
+    defontana_account_code: null,
+    supplier_account_code:  null,
+    doc_type:               null,
+    doc_number:             null,
+    cost_center_id:         null,
+    supplier_rut:           null,
+    merchant:               null,
+    ...over,
+  }
+}
+
+function report(items: DefontanaItem[], over: Partial<DefontanaReportInput> = {}): DefontanaReportInput {
+  return {
+    reportId:             '9c78e6f9-7852-4981-affa-6e08786623d9',
+    reportTitle:          'Caja Chica N° 174 - Oficina Ingenieria',
+    date:                 '2026-02-24',
+    employeeName:         'Ana Pérez',
+    employeeRut:          '15381452K',
+    employeeCostCenterId: 'EMPGESINGING',
+    items,
+    ...over,
+  }
+}
+
+describe('toBankDocNumber', () => {
+  it('abrevia el año a dos dígitos: 24-02-2026 → 240226', () => {
+    expect(toBankDocNumber('2026-02-24')).toBe('240226')
+  })
+
+  it('conserva los ceros a la izquierda del día y del mes', () => {
+    expect(toBankDocNumber('2026-03-05')).toBe('050326')
+  })
+})
+
+describe('adelantos', () => {
+  const res = buildDefontanaEntries(
+    [report([item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24', description: 'Adelanto Caja Chica' })])],
+    settings,
+  )
+
+  it('genera exactamente dos líneas', () => {
+    expect(res.lines).toHaveLength(2)
+  })
+
+  it('carga Fondos por Rendir al debe con la ficha del empleado', () => {
+    const fondos = res.lines[0]
+    expect(fondos.cuenta).toBe('1110101003')
+    expect(fondos.debe).toBe(200_000)
+    expect(fondos.haber).toBe('')
+    expect(fondos.cod_ficha).toBe('15381452K')
+  })
+
+  it('abona el banco con tipo de documento CARGO y la fecha como número de documento', () => {
+    const banco = res.lines[1]
+    expect(banco.cuenta).toBe('1110102001')
+    expect(banco.haber).toBe(200_000)
+    expect(banco.debe).toBe('')
+    expect(banco.tipo_doc).toBe('CARGO')
+    expect(banco.nro_doc).toBe('240226')
+  })
+
+  it('no pone ficha ni centro de costo en la línea del banco', () => {
+    expect(res.lines[1].cod_ficha).toBe('')
+    expect(res.lines[1].centro_negocios).toBe('')
+  })
+
+  it('cuadra el asiento', () => {
+    const debe  = res.lines.reduce((s, l) => s + (typeof l.debe  === 'number' ? l.debe  : 0), 0)
+    const haber = res.lines.reduce((s, l) => s + (typeof l.haber === 'number' ? l.haber : 0), 0)
+    expect(debe).toBe(haber)
+  })
+
+  it('usa la fecha del ítem, no la del reporte', () => {
+    const otro = buildDefontanaEntries(
+      [report([item({ item_type: 'advance', amount_clp: 81_728, date: '2026-03-12' })], { date: '2026-01-01' })],
+      settings,
+    )
+    expect(otro.lines[1].nro_doc).toBe('120326')
+  })
+
+  it('agrupa en un solo asiento los adelantos de la misma fecha', () => {
+    const dos = buildDefontanaEntries(
+      [report([
+        item({ item_type: 'advance', amount_clp: 100_000, date: '2026-02-24' }),
+        item({ item_type: 'advance', amount_clp: 100_000, date: '2026-02-24' }),
+      ])],
+      settings,
+    )
+    expect(dos.lines).toHaveLength(2)
+    expect(dos.lines[0].debe).toBe(200_000)
+  })
+
+  it('separa en asientos distintos los adelantos de fechas distintas', () => {
+    const dos = buildDefontanaEntries(
+      [report([
+        item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24' }),
+        item({ item_type: 'advance', amount_clp: 81_728,  date: '2026-03-12' }),
+      ])],
+      settings,
+    )
+    expect(dos.lines).toHaveLength(4)
+    expect(new Set(dos.lines.map(l => l.numero)).size).toBe(2)
+  })
+
+  it('sin cuenta banco no emite líneas y avisa', () => {
+    const sinBanco = buildDefontanaEntries(
+      [report([item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24' })])],
+      { ...settings, bankAccount: null },
+    )
+    expect(sinBanco.lines).toHaveLength(0)
+    expect(sinBanco.warnings[0].categories[0]).toContain('cuenta banco')
+    expect(sinBanco.warnings[0].unmappedCLP).toBe(200_000)
+  })
+})
+
+describe('devoluciones', () => {
+  const res = buildDefontanaEntries(
+    [report([item({ item_type: 'return', amount_clp: 50_000, date: '2026-03-04', description: 'Devolución saldo' })])],
+    settings,
+  )
+
+  it('invierte el asiento del adelanto: banco al debe, fondos por rendir al haber', () => {
+    const fondos = res.lines[0]
+    const banco  = res.lines[1]
+    expect(fondos.cuenta).toBe('1110101003')
+    expect(fondos.haber).toBe(50_000)
+    expect(fondos.debe).toBe('')
+    expect(banco.cuenta).toBe('1110102001')
+    expect(banco.debe).toBe(50_000)
+    expect(banco.haber).toBe('')
+  })
+
+  it('usa ABONO como tipo de documento del banco', () => {
+    expect(res.lines[1].tipo_doc).toBe('ABONO')
+    expect(res.lines[1].nro_doc).toBe('040326')
+  })
+})
+
+describe('traspasos entre responsables', () => {
+  const traspaso = item({
+    item_type:         'transfer',
+    amount_clp:        75_000,
+    date:              '2026-03-10',
+    description:       'Traspaso a Oficina Central',
+    counterpart_rut:   '156435414',
+    counterpart_name:  'Carlos Soto',
+    is_transfer_payer: true,
+  })
+
+  const res = buildDefontanaEntries([report([traspaso])], settings)
+
+  it('mueve Fondos por Rendir contra sí misma, sin tocar el banco', () => {
+    expect(res.lines).toHaveLength(2)
+    expect(res.lines.every(l => l.cuenta === '1110101003')).toBe(true)
+  })
+
+  it('carga al que recibe y abona al que entrega', () => {
+    const [recibe, entrega] = res.lines
+    expect(recibe.debe).toBe(75_000)
+    expect(recibe.cod_ficha).toBe('156435414')
+    expect(recibe.nombre).toBe('Carlos Soto')
+    expect(entrega.haber).toBe(75_000)
+    expect(entrega.cod_ficha).toBe('15381452K')
+  })
+
+  it('no duplica el asiento desde el lado que recibe', () => {
+    const ladoReceptor = buildDefontanaEntries(
+      [report([{ ...traspaso, is_transfer_payer: false }])],
+      settings,
+    )
+    expect(ladoReceptor.lines).toHaveLength(0)
+  })
+
+  it('avisa cuando el traspaso no tiene contraparte vinculada', () => {
+    const suelto = buildDefontanaEntries(
+      [report([{ ...traspaso, counterpart_rut: null, counterpart_name: null }])],
+      settings,
+    )
+    expect(suelto.lines).toHaveLength(0)
+    expect(suelto.warnings[0].categories[0]).toContain('contraparte')
+  })
+})
+
+describe('gastos (comportamiento previo)', () => {
+  const gastos = [
+    item({ item_type: 'expense', amount_clp: 30_000, defontana_account_code: '4.5.1030.10.13', category_name: 'Insumos', doc_type: 'boleta' }),
+    item({ item_type: 'expense', amount_clp: 20_000, defontana_account_code: '4.5.1030.10.13', category_name: 'Insumos', doc_type: 'boleta' }),
+  ]
+
+  it('agrupa boletas de la misma cuenta y cierra contra Fondos por Rendir', () => {
+    const res = buildDefontanaEntries([report(gastos)], settings)
+    expect(res.lines).toHaveLength(2)
+    expect(res.lines[0].debe).toBe(50_000)
+    expect(res.lines[1].cuenta).toBe('1110101003')
+    expect(res.lines[1].haber).toBe(50_000)
+  })
+
+  it('sigue tratando como gasto un ítem sin item_type', () => {
+    const res = buildDefontanaEntries(
+      [report([item({ amount_clp: 10_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' })])],
+      settings,
+    )
+    expect(res.lines[0].debe).toBe(10_000)
+    expect(res.lines[1].haber).toBe(10_000)
+  })
+})
+
+describe('reporte con movimientos mezclados', () => {
+  it('arma un asiento por movimiento, cada uno cuadrado', () => {
+    const res = buildDefontanaEntries(
+      [report([
+        item({ item_type: 'expense', amount_clp: 40_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' }),
+        item({ item_type: 'advance', amount_clp: 100_000, date: '2026-02-24' }),
+        item({ item_type: 'return',  amount_clp: 60_000,  date: '2026-03-04' }),
+      ])],
+      settings,
+    )
+
+    const porVoucher = new Map<string, { debe: number; haber: number }>()
+    for (const l of res.lines) {
+      const acc = porVoucher.get(l.numero) ?? { debe: 0, haber: 0 }
+      acc.debe  += typeof l.debe  === 'number' ? l.debe  : 0
+      acc.haber += typeof l.haber === 'number' ? l.haber : 0
+      porVoucher.set(l.numero, acc)
+    }
+
+    expect(porVoucher.size).toBe(3)
+    for (const { debe, haber } of porVoucher.values()) {
+      expect(debe).toBe(haber)
+    }
+  })
+})

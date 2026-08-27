@@ -7,6 +7,8 @@ import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
+import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
+import type { DefontanaMovement } from '@/lib/export/defontana'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -23,6 +25,60 @@ async function requireAdmin() {
     throw new Error('Acceso restringido a administradores')
   }
   return { supabase, userId: user.id, orgId: profile.org_id, actorName: profile.full_name }
+}
+
+// ─── Helpers de export Defontana ─────────────────────────────────────────────
+
+/** item_type de la BD → movimiento contable. Nulo o desconocido cuenta como gasto,
+ *  que es como se comportaba el export antes de separar los movimientos. */
+function toDefontanaMovement(itemType: string | null): DefontanaMovement {
+  if (itemType === 'advance' || itemType === 'return' || itemType === 'transfer') return itemType
+  return 'expense'
+}
+
+interface TransferCounterpart {
+  payerReportId: string | null
+  receiverName:  string | null
+  receiverRut:   string | null
+}
+
+/** Contraparte de cada traspaso, para poder armar su asiento.
+ *  Un traspaso deja un ítem en el reporte de cada lado; el asiento se emite solo
+ *  desde el pagador, así que hay que saber cuál de los dos reportes es. */
+async function loadTransferCounterparts(
+  supabase:    Awaited<ReturnType<typeof createClient>>,
+  transferIds: (string | null)[],
+): Promise<Record<string, TransferCounterpart>> {
+  const ids = [...new Set(transferIds.filter(Boolean))] as string[]
+  if (!ids.length) return {}
+
+  const { data: transfers } = await supabase
+    .from('fund_transfers')
+    .select('id, payer_report_id, receiver_employee_id')
+    .in('id', ids)
+
+  const rows = (transfers ?? []) as unknown as {
+    id: string; payer_report_id: string | null; receiver_employee_id: string | null
+  }[]
+
+  const receiverIds = [...new Set(rows.map(t => t.receiver_employee_id).filter(Boolean))] as string[]
+  const { data: receivers } = receiverIds.length
+    ? await supabase.from('users').select('id, full_name, rut').in('id', receiverIds)
+    : { data: [] }
+
+  const byUser = Object.fromEntries(
+    ((receivers ?? []) as unknown as { id: string; full_name: string; rut: string | null }[])
+      .map(u => [u.id, { name: u.full_name, rut: u.rut }])
+  )
+
+  return Object.fromEntries(rows.map(t => {
+    const recv = t.receiver_employee_id ? byUser[t.receiver_employee_id] : undefined
+    return [t.id, {
+      payerReportId: t.payer_report_id,
+      receiverName:  recv?.name ?? null,
+      receiverRut:   recv?.rut  ?? null,
+    }]
+  }))
 }
 
 // ─── Reportes admin (vista completa) ────────────────────────────────────────
@@ -951,14 +1007,21 @@ export async function getDefontanaSettings() {
   const { supabase, orgId } = await requireAdmin()
   const { data } = await supabase
     .from('organizations')
-    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+    .select(DEFONTANA_ORG_COLUMNS)
     .eq('id', orgId)
     .single()
+  const org = data as unknown as DefontanaOrgRow | null
   return {
-    contraAccount:   data?.defontana_contra_account   ?? '',
-    voucherType:     data?.defontana_voucher_type      ?? 'Egreso',
-    costCenter:      data?.defontana_cost_center       ?? '',
-    providerAccount: data?.defontana_provider_account  ?? '',
+    contraAccount:   org?.defontana_contra_account   ?? '',
+    voucherType:     org?.defontana_voucher_type      ?? 'Egreso',
+    costCenter:      org?.defontana_cost_center       ?? '',
+    providerAccount: org?.defontana_provider_account  ?? '',
+    bankAccount:         org?.defontana_bank_account          ?? '',
+    voucherTypeAdvance:  org?.defontana_voucher_type_advance  ?? '',
+    voucherTypeReturn:   org?.defontana_voucher_type_return   ?? '',
+    voucherTypeTransfer: org?.defontana_voucher_type_transfer ?? '',
+    docTypeAdvance:      org?.defontana_doc_type_advance      ?? 'CARGO',
+    docTypeReturn:       org?.defontana_doc_type_return       ?? 'ABONO',
   }
 }
 
@@ -967,13 +1030,19 @@ export async function updateDefontanaSettings(settings: {
   voucherType:     string
   costCenter:      string | null
   providerAccount: string | null
+  bankAccount?:         string | null
+  voucherTypeAdvance?:  string | null
+  voucherTypeReturn?:   string | null
+  voucherTypeTransfer?: string | null
+  docTypeAdvance?:      string | null
+  docTypeReturn?:       string | null
 }) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
   // Capture before state
   const { data: before } = await supabase
     .from('organizations')
-    .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+    .select(DEFONTANA_ORG_COLUMNS)
     .eq('id', orgId)
     .single()
 
@@ -982,6 +1051,13 @@ export async function updateDefontanaSettings(settings: {
     defontana_voucher_type:     settings.voucherType      || 'Egreso',
     defontana_cost_center:      settings.costCenter       || null,
     defontana_provider_account: settings.providerAccount || null,
+    defontana_bank_account:          settings.bankAccount         || null,
+    defontana_voucher_type_advance:  settings.voucherTypeAdvance  || null,
+    defontana_voucher_type_return:   settings.voucherTypeReturn   || null,
+    defontana_voucher_type_transfer: settings.voucherTypeTransfer || null,
+    // Los tipos de documento del banco tienen default: vaciarlos rompería el asiento
+    defontana_doc_type_advance:      settings.docTypeAdvance      || 'CARGO',
+    defontana_doc_type_return:       settings.docTypeReturn       || 'ABONO',
   }
 
   const { error } = await supabase
@@ -1040,7 +1116,7 @@ export async function getDefontanaExportData(filters: {
   const [orgRes, suppliersRes] = await Promise.all([
     supabase
       .from('organizations')
-      .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+      .select(DEFONTANA_ORG_COLUMNS)
       .eq('id', orgId)
       .single(),
     supabase
@@ -1089,7 +1165,7 @@ export async function getDefontanaExportData(filters: {
   // Ítems aprobados con todos los campos nuevos
   const { data: rawItems } = await supabase
     .from('expense_items')
-    .select('report_id, description, amount_clp, date, merchant, doc_type, doc_number, cost_center_id, supplier_rut, expense_categories(name, defontana_account_code)')
+    .select('report_id, description, amount_clp, date, merchant, doc_type, doc_number, cost_center_id, supplier_rut, item_type, transfer_id, expense_categories(name, defontana_account_code)')
     .in('report_id', reports.map(r => r.id))
     .eq('status', 'approved')
     .is('deleted_at', null)
@@ -1104,10 +1180,14 @@ export async function getDefontanaExportData(filters: {
     doc_number:      string | null
     cost_center_id:  string | null
     supplier_rut:    string | null
+    item_type:       string | null
+    transfer_id:     string | null
     expense_categories: { name: string; defontana_account_code: string | null } | null
   }
 
   const items = (rawItems ?? []) as unknown as RawItem[]
+
+  const transferMap = await loadTransferCounterparts(supabase, items.map(i => i.transfer_id))
 
   const itemsByReport: Record<string, RawItem[]> = {}
   for (const item of items) {
@@ -1127,6 +1207,8 @@ export async function getDefontanaExportData(filters: {
     const mappedItems = reportItems.map(i => {
       const rawCat = i.expense_categories
       const merchantKey = (i.merchant ?? '').toLowerCase()
+      const transfer   = i.transfer_id ? transferMap[i.transfer_id] : undefined
+      const isPayer    = transfer ? transfer.payerReportId === r.id : false
       return {
         description:            i.description,
         amount_clp:             i.amount_clp,
@@ -1138,6 +1220,11 @@ export async function getDefontanaExportData(filters: {
         cost_center_id:         i.cost_center_id,
         supplier_rut:           i.supplier_rut,
         merchant:               i.merchant,
+        item_type:              toDefontanaMovement(i.item_type),
+        date:                   i.date,
+        counterpart_rut:        isPayer ? transfer?.receiverRut  ?? null : null,
+        counterpart_name:       isPayer ? transfer?.receiverName ?? null : null,
+        is_transfer_payer:      isPayer,
       }
     })
 
@@ -1155,12 +1242,7 @@ export async function getDefontanaExportData(filters: {
   return {
     reports: exportReports,
     exportedReportIds,
-    settings: {
-      contraAccount:   orgData?.defontana_contra_account   ?? '',
-      voucherType:     orgData?.defontana_voucher_type      ?? 'Egreso',
-      costCenter:      orgData?.defontana_cost_center       ?? null,
-      providerAccount: orgData?.defontana_provider_account  ?? null,
-    },
+    settings: mapDefontanaSettings(orgData as unknown as DefontanaOrgRow),
   }
 }
 
@@ -1984,7 +2066,7 @@ export async function markHistoricalImportDefontana(
 
 export async function getHistoricalFundDefontanaData(
   reportId:  string,
-  itemTypes: ('expense' | 'advance' | 'return')[],
+  itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[],
 ) {
   const { supabase, orgId } = await requireAdmin()
 
@@ -1996,7 +2078,7 @@ export async function getHistoricalFundDefontanaData(
       .single(),
     supabase
       .from('organizations')
-      .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+      .select(DEFONTANA_ORG_COLUMNS)
       .eq('id', orgId)
       .single(),
     supabase
@@ -2022,7 +2104,7 @@ export async function getHistoricalFundDefontanaData(
   // Ítems de los tipos seleccionados que NO han sido exportados todavía
   const { data: rawItems } = await supabase
     .from('expense_items')
-    .select('id, description, amount_clp, date, merchant, doc_type, doc_number, supplier_rut, expense_categories(name, defontana_account_code)')
+    .select('id, description, amount_clp, date, merchant, doc_type, doc_number, supplier_rut, item_type, transfer_id, expense_categories(name, defontana_account_code)')
     .eq('report_id', reportId)
     .in('item_type', itemTypes)
     .is('defontana_exported_at', null)
@@ -2037,11 +2119,15 @@ export async function getHistoricalFundDefontanaData(
     doc_type: string | null
     doc_number: string | null
     supplier_rut: string | null
+    item_type: string | null
+    transfer_id: string | null
     expense_categories: { name: string; defontana_account_code: string | null } | null
   }
 
   const items = (rawItems ?? []) as unknown as RawItem[]
   const itemIds = items.map(i => i.id)
+
+  const transferMap = await loadTransferCounterparts(supabase, items.map(i => i.transfer_id))
 
   const dates = items.map(i => i.date).filter(Boolean).sort() as string[]
   const reportDate = dates[0] ?? (report.approved_at ?? '').split('T')[0]
@@ -2049,6 +2135,8 @@ export async function getHistoricalFundDefontanaData(
   const mappedItems = items.map(i => {
     const cat = i.expense_categories
     const merchantKey = (i.merchant ?? '').toLowerCase()
+    const transfer    = i.transfer_id ? transferMap[i.transfer_id] : undefined
+    const isPayer     = transfer ? transfer.payerReportId === report.id : false
     return {
       description:            i.description,
       amount_clp:             i.amount_clp,
@@ -2060,6 +2148,11 @@ export async function getHistoricalFundDefontanaData(
       cost_center_id:         null as string | null,
       supplier_rut:           i.supplier_rut,
       merchant:               i.merchant,
+      item_type:              toDefontanaMovement(i.item_type),
+      date:                   i.date,
+      counterpart_rut:        isPayer ? transfer?.receiverRut  ?? null : null,
+      counterpart_name:       isPayer ? transfer?.receiverName ?? null : null,
+      is_transfer_payer:      isPayer,
     }
   })
 
@@ -2075,12 +2168,7 @@ export async function getHistoricalFundDefontanaData(
       employeeCostCenterId: empUser?.cost_center_id ?? null,
       items:                mappedItems,
     },
-    settings: {
-      contraAccount:   orgData?.defontana_contra_account   ?? '',
-      voucherType:     orgData?.defontana_voucher_type      ?? 'Egreso',
-      costCenter:      orgData?.defontana_cost_center       ?? null,
-      providerAccount: orgData?.defontana_provider_account  ?? null,
-    },
+    settings: mapDefontanaSettings(orgData as unknown as DefontanaOrgRow),
     itemIds,
   }
 }
@@ -2513,7 +2601,7 @@ export async function revertDefontanaExport(reportIds: string[], reason: string)
  *  queda ningún ítem contabilizado en la carga. */
 export async function revertHistoricalFundDefontana(
   reportId:  string,
-  itemTypes: ('expense' | 'advance' | 'return')[],
+  itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[],
   reason:    string,
 ) {
   const { supabase, orgId, userId, actorName } = await requireAdmin()
@@ -2538,7 +2626,7 @@ export async function revertHistoricalFundDefontana(
 
   type Row = { id: string; item_type: string | null; defontana_exported_at: string | null }
   const all = ((rawAll ?? []) as unknown as Row[])
-    .filter(i => ['expense', 'advance', 'return'].includes(i.item_type ?? ''))
+    .filter(i => ['expense', 'advance', 'return', 'transfer'].includes(i.item_type ?? ''))
 
   // Estado "legacy": la carga se contabilizó desde /admin/reports, que marca la
   // cabecera y no los ítems. El lock de la cabecera vale entonces por todos ellos.
@@ -2633,12 +2721,12 @@ export async function getDefontanaTypeBreakdown(reportId: string) {
 
   type Row = { item_type: string | null; amount_clp: number; defontana_exported_at: string | null }
   const items = ((rawItems ?? []) as unknown as Row[])
-    .filter(i => ['expense', 'advance', 'return'].includes(i.item_type ?? ''))
+    .filter(i => ['expense', 'advance', 'return', 'transfer'].includes(i.item_type ?? ''))
 
   const anyItemLock     = items.some(i => i.defontana_exported_at != null)
   const legacyHeaderOnly = !!report.defontana_exported_at && !anyItemLock
 
-  const types = (['expense', 'advance', 'return'] as const).map(type => {
+  const types = (['expense', 'advance', 'return', 'transfer'] as const).map(type => {
     const ofType   = items.filter(i => i.item_type === type)
     // En estado legacy el lock de la cabecera vale por todos los ítems
     const exported = legacyHeaderOnly ? ofType : ofType.filter(i => i.defontana_exported_at != null)
@@ -2667,7 +2755,7 @@ export async function getDefontanaTypeBreakdown(reportId: string) {
  *  no tenga que arrastrar los ids entre el paso de export y el de confirmación. */
 export async function confirmHistoricalDefontanaByType(
   reportId:    string,
-  itemTypes:   ('expense' | 'advance' | 'return')[],
+  itemTypes:   ('expense' | 'advance' | 'return' | 'transfer')[],
   comprobante: string,
 ) {
   const { supabase, orgId, userId, actorName } = await requireAdmin()

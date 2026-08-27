@@ -22,6 +22,12 @@ export interface Database {
           defontana_voucher_type:     string | null
           defontana_cost_center:      string | null
           defontana_provider_account: string | null
+          defontana_bank_account:          string | null
+          defontana_voucher_type_advance:  string | null
+          defontana_voucher_type_return:   string | null
+          defontana_voucher_type_transfer: string | null
+          defontana_doc_type_advance:      string | null
+          defontana_doc_type_return:       string | null
           mileage_rate_per_km:        number | null
         }
         Insert: {
@@ -39,6 +45,12 @@ export interface Database {
           defontana_voucher_type?:     string | null
           defontana_cost_center?:      string | null
           defontana_provider_account?: string | null
+          defontana_bank_account?:          string | null
+          defontana_voucher_type_advance?:  string | null
+          defontana_voucher_type_return?:   string | null
+          defontana_voucher_type_transfer?: string | null
+          defontana_doc_type_advance?:      string | null
+          defontana_doc_type_return?:       string | null
           mileage_rate_per_km?:        number | null
         }
         Update: {
@@ -56,6 +68,12 @@ export interface Database {
           defontana_voucher_type?:     string | null
           defontana_cost_center?:      string | null
           defontana_provider_account?: string | null
+          defontana_bank_account?:          string | null
+          defontana_voucher_type_advance?:  string | null
+          defontana_voucher_type_return?:   string | null
+          defontana_voucher_type_transfer?: string | null
+          defontana_doc_type_advance?:      string | null
+          defontana_doc_type_return?:       string | null
           mileage_rate_per_km?:        number | null
         }
         Relationships: []

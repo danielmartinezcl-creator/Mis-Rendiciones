@@ -11,12 +11,13 @@ import {
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { formatCLP } from '@/lib/utils'
 
-type ItemType = 'expense' | 'advance' | 'return'
+type ItemType = 'expense' | 'advance' | 'return' | 'transfer'
 
 const LABEL: Record<ItemType, string> = {
   expense: 'Gastos',
   advance: 'Adelantos',
-  return:  'Devoluciones',
+  return:   'Devoluciones',
+  transfer: 'Traspasos',
 }
 
 type Breakdown = Awaited<ReturnType<typeof getDefontanaTypeBreakdown>>

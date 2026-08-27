@@ -7,6 +7,9 @@ import * as XLSX from 'xlsx'
 
 // ── Interfaces de entrada ───────────────────────────────────────────────────
 
+/** Tipo de movimiento contable. Cada uno arma un asiento distinto. */
+export type DefontanaMovement = 'expense' | 'advance' | 'return' | 'transfer'
+
 export interface DefontanaItem {
   description:            string
   amount_clp:             number
@@ -18,6 +21,18 @@ export interface DefontanaItem {
   cost_center_id:         string | null   // override por ítem (prioridad sobre empleado)
   supplier_rut:           string | null   // requerido para facturas (crédito fiscal IVA)
   merchant:               string | null
+  /** Movimiento del ítem. Ausente = 'expense' (comportamiento histórico). */
+  item_type?:             DefontanaMovement | null
+  /** YYYY-MM-DD del movimiento. Da la fecha del asiento y el N° de documento
+   *  bancario (DDMMYY) en adelantos y devoluciones. */
+  date?:                  string | null
+  /** Traspasos: RUT y nombre de la otra parte. */
+  counterpart_rut?:       string | null
+  counterpart_name?:      string | null
+  /** Traspasos: true si este reporte es el que ENTREGA el fondo. Cada traspaso
+   *  genera un ítem en cada lado; el asiento se emite solo desde el pagador
+   *  para no duplicarlo. */
+  is_transfer_payer?:     boolean
 }
 
 export interface DefontanaReportInput {
@@ -31,10 +46,19 @@ export interface DefontanaReportInput {
 }
 
 export interface DefontanaSettings {
-  contraAccount:   string        // cuenta Haber contrapartida (con o sin puntos)
-  voucherType:     string        // tipo comprobante (ej: "EGRESO")
+  contraAccount:   string        // cuenta Fondos por Rendir (con o sin puntos)
+  voucherType:     string        // tipo comprobante de la rendición de gastos
   costCenter:      string | null // ID fallback a nivel org (ej: "EMPGESFINADM")
   providerAccount: string | null // cuenta Proveedor Nacional para facturas (con o sin puntos)
+  /** Cuenta del banco. Sin ella los adelantos y devoluciones no se pueden asentar. */
+  bankAccount?:         string | null
+  /** Tipo de comprobante por movimiento. Nulo → cae en voucherType. */
+  voucherTypeAdvance?:  string | null
+  voucherTypeReturn?:   string | null
+  voucherTypeTransfer?: string | null
+  /** Tipo de documento de la línea de banco. */
+  docTypeAdvance?:      string | null   // salida de dinero  → "CARGO"
+  docTypeReturn?:       string | null   // entrada de dinero → "ABONO"
 }
 
 // ── Interfaces de salida ────────────────────────────────────────────────────
@@ -121,7 +145,207 @@ function tipoDocDefontana(docType: string | null): string {
   return ''
 }
 
-const VOUCHER_TYPE_DEFAULT = 'EGRESO'
+const VOUCHER_TYPE_DEFAULT     = 'EGRESO'
+const DOC_TYPE_ADVANCE_DEFAULT = 'CARGO'
+const DOC_TYPE_RETURN_DEFAULT  = 'ABONO'
+
+/** YYYY-MM-DD → "DDMMYY". Es el N° de documento del movimiento bancario:
+ *  el 24-02-2026 se registra como 240226. */
+export function toBankDocNumber(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-')
+  return `${d}${m}${y.slice(-2)}`
+}
+
+/** Ítems que no pudieron entrar al asiento, con su motivo. */
+interface MovementIssue {
+  label:  string
+  amount: number
+}
+
+/**
+ * Asiento de un movimiento bancario de fondos (adelanto o devolución).
+ *
+ *   Adelanto    Debe  Fondos por Rendir  / Haber Banco   (tipo doc CARGO)
+ *   Devolución  Debe  Banco              / Haber Fondos por Rendir (tipo doc ABONO)
+ *
+ * Se emite un asiento por fecha, porque el N° de documento del banco ES la fecha.
+ * La ficha del empleado va solo en Fondos por Rendir: es la cuenta que lleva el
+ * saldo por persona. El banco no se imputa a centro de costo.
+ */
+function buildBankVoucher(
+  report:     DefontanaReportInput,
+  items:      DefontanaItem[],
+  kind:       'advance' | 'return',
+  settings:   DefontanaSettings,
+  contraCode: string,
+): { lines: DefontanaRow[]; issues: MovementIssue[] } {
+  const out:    DefontanaRow[]  = []
+  const issues: MovementIssue[] = []
+  if (!items.length) return { lines: out, issues }
+
+  const bankCode = settings.bankAccount ? stripDots(settings.bankAccount) : ''
+  if (!bankCode) {
+    issues.push({
+      label:  kind === 'advance'
+        ? 'Adelantos — falta configurar la cuenta banco'
+        : 'Devoluciones — falta configurar la cuenta banco',
+      amount: items.reduce((s, i) => s + i.amount_clp, 0),
+    })
+    return { lines: out, issues }
+  }
+
+  const tipo = (kind === 'advance' ? settings.voucherTypeAdvance : settings.voucherTypeReturn)
+    || settings.voucherType || VOUCHER_TYPE_DEFAULT
+  const docType = kind === 'advance'
+    ? (settings.docTypeAdvance ?? DOC_TYPE_ADVANCE_DEFAULT)
+    : (settings.docTypeReturn  ?? DOC_TYPE_RETURN_DEFAULT)
+  const prefix = kind === 'advance' ? 'AD' : 'DE'
+
+  // Un asiento por fecha de movimiento
+  const byDate = new Map<string, DefontanaItem[]>()
+  for (const item of items) {
+    const d   = item.date ?? report.date
+    const arr = byDate.get(d)
+    if (arr) arr.push(item)
+    else     byDate.set(d, [item])
+  }
+
+  for (const [date, group] of byDate) {
+    const total = group.reduce((s, i) => s + i.amount_clp, 0)
+    if (total <= 0) continue
+
+    const docNo      = toBankDocNumber(date)
+    const numero     = `${prefix}-${docNo}-${report.reportId.slice(-4).toUpperCase()}`
+    const serial     = toExcelSerial(date)
+    const comentario = kind === 'advance'
+      ? `Adelanto de fondos: ${report.reportTitle}`
+      : `Devolución de fondos: ${report.reportTitle}`
+    const glosa = `${report.reportTitle} — ${report.employeeName}`
+    const cc    = report.employeeCostCenterId ?? settings.costCenter ?? ''
+
+    out.push({
+      numero,
+      tipo_comprobante: tipo,
+      moneda:           'CLP',
+      fecha:            serial,
+      linea:            1,
+      cuenta:           contraCode,
+      comentario,
+      glosa,
+      debe:             kind === 'advance' ? total : '',
+      haber:            kind === 'advance' ? ''    : total,
+      cod_ficha:        report.employeeRut ?? '',
+      tipo_doc:         '',
+      nro_doc:          '',
+      centro_negocios:  cc,
+      codigo_legal:     report.employeeRut ?? '',
+      nombre:           report.employeeName,
+    })
+
+    out.push({
+      numero,
+      tipo_comprobante: tipo,
+      moneda:           'CLP',
+      fecha:            serial,
+      linea:            2,
+      cuenta:           bankCode,
+      comentario,
+      glosa,
+      debe:             kind === 'advance' ? ''    : total,
+      haber:            kind === 'advance' ? total : '',
+      cod_ficha:        '',
+      tipo_doc:         docType,
+      nro_doc:          docNo,
+      centro_negocios:  '',
+      codigo_legal:     '',
+      nombre:           report.employeeName,
+    })
+  }
+
+  return { lines: out, issues }
+}
+
+/**
+ * Traspaso de fondos entre responsables: la plata no sale de la empresa, solo
+ * cambia de manos. Fondos por Rendir contra sí misma, con la ficha de cada uno.
+ *
+ *   Debe  Fondos por Rendir (ficha de quien RECIBE)
+ *   Haber Fondos por Rendir (ficha de quien ENTREGA)
+ *
+ * Cada traspaso genera un ítem en el reporte de cada parte; el asiento se emite
+ * solo desde el pagador para no contabilizarlo dos veces.
+ */
+function buildTransferVouchers(
+  report:     DefontanaReportInput,
+  items:      DefontanaItem[],
+  settings:   DefontanaSettings,
+  contraCode: string,
+): { lines: DefontanaRow[]; issues: MovementIssue[] } {
+  const out:    DefontanaRow[]  = []
+  const issues: MovementIssue[] = []
+
+  const tipo = settings.voucherTypeTransfer || settings.voucherType || VOUCHER_TYPE_DEFAULT
+
+  for (const item of items) {
+    // El lado receptor no emite asiento: ya lo emitió el pagador
+    if (!item.is_transfer_payer) continue
+
+    if (!item.counterpart_name && !item.counterpart_rut) {
+      issues.push({
+        label:  'Traspasos sin la contraparte vinculada',
+        amount: item.amount_clp,
+      })
+      continue
+    }
+
+    const date       = item.date ?? report.date
+    const numero     = `TR-${toBankDocNumber(date)}-${report.reportId.slice(-4).toUpperCase()}`
+    const serial     = toExcelSerial(date)
+    const comentario = `Traspaso de fondos: ${report.reportTitle}`
+    const cc         = report.employeeCostCenterId ?? settings.costCenter ?? ''
+    const receptor   = item.counterpart_name ?? 'Destinatario'
+
+    out.push({
+      numero,
+      tipo_comprobante: tipo,
+      moneda:           'CLP',
+      fecha:            serial,
+      linea:            1,
+      cuenta:           contraCode,
+      comentario,
+      glosa:            `Recibe ${receptor} — ${item.description || 'traspaso de fondos'}`,
+      debe:             item.amount_clp,
+      haber:            '',
+      cod_ficha:        item.counterpart_rut ?? '',
+      tipo_doc:         '',
+      nro_doc:          '',
+      centro_negocios:  cc,
+      codigo_legal:     item.counterpart_rut ?? '',
+      nombre:           receptor,
+    })
+
+    out.push({
+      numero,
+      tipo_comprobante: tipo,
+      moneda:           'CLP',
+      fecha:            serial,
+      linea:            2,
+      cuenta:           contraCode,
+      comentario,
+      glosa:            `Entrega ${report.employeeName} — ${item.description || 'traspaso de fondos'}`,
+      debe:             '',
+      haber:            item.amount_clp,
+      cod_ficha:        report.employeeRut ?? '',
+      tipo_doc:         '',
+      nro_doc:          '',
+      centro_negocios:  cc,
+      codigo_legal:     report.employeeRut ?? '',
+      nombre:           report.employeeName,
+    })
+  }
+
+  return { lines: out, issues }
+}
 
 // ── Construcción de asientos ────────────────────────────────────────────────
 
@@ -142,6 +366,14 @@ export function buildDefontanaEntries(
     let lineNum      = 1
     let totalDebe    = 0
     const unmapped:  DefontanaItem[] = []
+    const issues:    MovementIssue[] = []
+
+    // Cada movimiento arma su propio asiento. Sin item_type se asume gasto,
+    // que es como se comportaba el export antes de separarlos.
+    const expenseItems  = report.items.filter(i => !i.item_type || i.item_type === 'expense')
+    const advanceItems  = report.items.filter(i => i.item_type === 'advance')
+    const returnItems   = report.items.filter(i => i.item_type === 'return')
+    const transferItems = report.items.filter(i => i.item_type === 'transfer')
 
     // Acumulador para boletas/tickets agrupados: key = "account|costCenter"
     const grouped = new Map<string, {
@@ -151,7 +383,7 @@ export function buildDefontanaEntries(
       account:   string
     }>()
 
-    for (const item of report.items) {
+    for (const item of expenseItems) {
       const account = resolveAccount(item, settings)
 
       if (!account) {
@@ -252,10 +484,23 @@ export function buildDefontanaEntries(
       })
     }
 
-    // Registrar ítems sin mapeo de cuenta
-    if (unmapped.length > 0) {
-      const unmappedCLP = unmapped.reduce((s, i) => s + i.amount_clp, 0)
-      const categories  = [...new Set(unmapped.map(i => i.category_name ?? 'Sin categoría'))]
+    // ── Asientos de los demás movimientos ──────────────────────────────────
+    const advance  = buildBankVoucher(report, advanceItems, 'advance', settings, contraCode)
+    const devol    = buildBankVoucher(report, returnItems,  'return',  settings, contraCode)
+    const traspaso = buildTransferVouchers(report, transferItems, settings, contraCode)
+
+    lines.push(...advance.lines, ...devol.lines, ...traspaso.lines)
+    issues.push(...advance.issues, ...devol.issues, ...traspaso.issues)
+
+    // Registrar lo que quedó fuera del asiento: categorías sin cuenta y
+    // movimientos que no se pudieron armar
+    const unmappedCLP = unmapped.reduce((s, i) => s + i.amount_clp, 0)
+                      + issues.reduce((s, i) => s + i.amount, 0)
+    const categories  = [
+      ...new Set(unmapped.map(i => i.category_name ?? 'Sin categoría')),
+      ...new Set(issues.map(i => i.label)),
+    ]
+    if (categories.length > 0) {
       warnings.push({ reportId: report.reportId, reportTitle: report.reportTitle, unmappedCLP, categories })
     }
   }

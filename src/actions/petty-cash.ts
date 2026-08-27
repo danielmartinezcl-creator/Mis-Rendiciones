@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import type { FundStatus } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateDateRange } from '@/lib/validators'
+import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -838,7 +839,7 @@ export async function getPettyCashFundDefontanaData(fundId: string) {
       .single(),
     supabase
       .from('organizations')
-      .select('defontana_contra_account, defontana_voucher_type, defontana_cost_center, defontana_provider_account')
+      .select(DEFONTANA_ORG_COLUMNS)
       .eq('id', profile.org_id)
       .single(),
     supabase
@@ -915,12 +916,7 @@ export async function getPettyCashFundDefontanaData(fundId: string) {
       employeeCostCenterId: empUser?.cost_center_id ?? null,
       items:                mappedItems,
     },
-    settings: {
-      contraAccount:   orgData?.defontana_contra_account   ?? '',
-      voucherType:     orgData?.defontana_voucher_type      ?? 'Egreso',
-      costCenter:      orgData?.defontana_cost_center       ?? null,
-      providerAccount: orgData?.defontana_provider_account  ?? null,
-    },
+    settings: mapDefontanaSettings(orgData as unknown as DefontanaOrgRow),
     alreadyExported: !!fund.defontana_exported_at,
     exportedAt:      fund.defontana_exported_at ?? null,
   }

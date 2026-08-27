@@ -34,9 +34,9 @@ export interface HistoricalSectionProps {
   deletingHistId:             string | null
   onMove:                     (id: string, title: string) => void
   onDelete:                   (id: string, title: string) => void
-  onExportDefontana:          (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
-  onConfirmContabilizado:     (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], comprobante: string) => Promise<void>
-  onRevertContabilizado:      (reportId: string, itemTypes: ('expense' | 'advance' | 'return')[], reason: string) => Promise<void>
+  onExportDefontana:          (reportId: string, itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[], title: string) => Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }>
+  onConfirmContabilizado:     (reportId: string, itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[], comprobante: string) => Promise<void>
+  onRevertContabilizado:      (reportId: string, itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[], reason: string) => Promise<void>
   onItemSaved:                (reportId: string, itemId: string, patch: ItemSavedPatch) => void
   onItemDeleted?:             (reportId: string, itemId: string) => void
   onTitleUpdated:             (reportId: string, title: string) => void
@@ -338,12 +338,12 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
   const [defComprobante,    setDefComprobante]    = useState('')
   const [defConfirming,     setDefConfirming]     = useState(false)
   // Reversa de contabilización — guarda la carga y los tipos a revertir
-  const [revertTarget,      setRevertTarget]      = useState<{ h: HistoricalImport; types: ('expense' | 'advance' | 'return')[] } | null>(null)
+  const [revertTarget,      setRevertTarget]      = useState<{ h: HistoricalImport; types: ('expense' | 'advance' | 'return' | 'transfer')[] } | null>(null)
 
   function openDefPanel(h: HistoricalImport) {
     const pending = new Set<string>()
     for (const item of h.items) {
-      if (['expense', 'advance', 'return'].includes(item.item_type || '') && !item.defontana_exported_at) {
+      if (['expense', 'advance', 'return', 'transfer'].includes(item.item_type || '') && !item.defontana_exported_at) {
         pending.add(item.item_type!)
       }
     }
@@ -354,7 +354,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
   }
 
   async function runExport(h: HistoricalImport) {
-    const types = Array.from(defSelectedTypes) as ('expense' | 'advance' | 'return')[]
+    const types = Array.from(defSelectedTypes) as ('expense' | 'advance' | 'return' | 'transfer')[]
     if (!types.length) return
     setDefExporting(true)
     setDefExportWarnings(null)
@@ -370,7 +370,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
   }
 
   async function runConfirmContabilizado(h: HistoricalImport) {
-    const types = Array.from(defSelectedTypes) as ('expense' | 'advance' | 'return')[]
+    const types = Array.from(defSelectedTypes) as ('expense' | 'advance' | 'return' | 'transfer')[]
     setDefConfirming(true)
     try {
       await onConfirmContabilizado(h.id, types, defComprobante)
@@ -623,7 +623,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                           )}
                           {(() => {
                             const exportedCount = h.items.filter(i => i.defontana_exported_at).length
-                            const totalExportable = h.items.filter(i => ['expense','advance','return'].includes(i.item_type || '')).length
+                            const totalExportable = h.items.filter(i => ['expense','advance','return','transfer'].includes(i.item_type || '')).length
                             return (
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap justify-end">
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium">
@@ -689,7 +689,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
 
                     {/* Panel Defontana export */}
                     {defPanelId === h.id && (() => {
-                      const EXPORTABLE = ['expense', 'advance', 'return'] as const
+                      const EXPORTABLE = ['expense', 'advance', 'return', 'transfer'] as const
                       const typeInfo = EXPORTABLE.map(type => {
                         const all      = h.items.filter(i => i.item_type === type)
                         const pending  = all.filter(i => !i.defontana_exported_at)
@@ -699,7 +699,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                       }).filter(t => t.all.length > 0)
 
                       const hasAnythingPending = typeInfo.some(t => t.pending.length > 0 && defSelectedTypes.has(t.type))
-                      const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones' }
+                      const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones', transfer: 'Traspasos' }
 
                       return (
                         <div className="border-t border-teal-100 bg-teal-50 px-4 py-4 space-y-3">
@@ -844,9 +844,9 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
       })}
 
       {revertTarget && (() => {
-        const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones' }
+        const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones', transfer: 'Traspasos' }
         const count = revertTarget.h.items.filter(
-          i => revertTarget.types.includes(i.item_type as 'expense' | 'advance' | 'return') && i.defontana_exported_at
+          i => revertTarget.types.includes(i.item_type as 'expense' | 'advance' | 'return' | 'transfer') && i.defontana_exported_at
         ).length
         const tipos = revertTarget.types.map(t => LABEL[t] ?? t).join(', ')
         return (

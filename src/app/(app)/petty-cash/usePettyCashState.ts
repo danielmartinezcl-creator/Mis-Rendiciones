@@ -426,7 +426,7 @@ export function usePettyCashState({
   // La confirmación es un paso separado (handleConfirmContabilizado).
   async function handleExportDefontanaFund(
     reportId:  string,
-    itemTypes: ('expense' | 'advance' | 'return')[],
+    itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[],
     title:     string,
   ): Promise<{ warnings: { categories: string[]; unmappedCLP: number } | null }> {
     const { report, settings, itemIds } = await getHistoricalFundDefontanaData(reportId, itemTypes)
@@ -453,7 +453,7 @@ export function usePettyCashState({
   // que la importación en Defontana fue exitosa.
   async function handleConfirmContabilizado(
     reportId:    string,
-    itemTypes:   ('expense' | 'advance' | 'return')[],
+    itemTypes:   ('expense' | 'advance' | 'return' | 'transfer')[],
     comprobante: string,
   ): Promise<void> {
     const fund = historicalImports.find(h => h.id === reportId)
@@ -487,7 +487,7 @@ export function usePettyCashState({
   // Deshace la contabilización de los tipos indicados. El motivo queda en auditoría.
   async function handleRevertContabilizado(
     reportId:  string,
-    itemTypes: ('expense' | 'advance' | 'return')[],
+    itemTypes: ('expense' | 'advance' | 'return' | 'transfer')[],
     reason:    string,
   ): Promise<void> {
     const { headerCleared } = await revertHistoricalFundDefontana(reportId, itemTypes, reason)
