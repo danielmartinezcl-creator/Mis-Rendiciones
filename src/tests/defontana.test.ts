@@ -5,6 +5,8 @@ import {
   toSheetCostCenter,
   toSheetRut,
   countVouchers,
+  splitByVoucher,
+  voucherFileName,
   toBankDocNumber,
   type DefontanaItem,
   type DefontanaReportInput,
@@ -418,5 +420,50 @@ describe('RUT en Código de Ficha (caso fondo 176)', () => {
     )
     const rows = buildSheetRows(res.lines)
     expect(rows[2][col(rows, 'Código de Ficha')]).toBe('15.381.452-K')
+  })
+})
+
+describe('un comprobante por archivo', () => {
+  // Defontana no distingue dos asientos dentro del mismo Excel
+  const mixto = buildDefontanaEntries(
+    [report([
+      item({ item_type: 'expense', amount_clp: 40_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' }),
+      item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24' }),
+      item({ item_type: 'advance', amount_clp:  81_728, date: '2026-03-12' }),
+    ])],
+    settings,
+  )
+
+  it('parte el resultado en un grupo por asiento', () => {
+    const vouchers = splitByVoucher(mixto)
+    expect(vouchers).toHaveLength(3)
+    expect(vouchers.every(v => v.lines.length === 2)).toBe(true)
+  })
+
+  it('cada grupo queda cuadrado por separado', () => {
+    for (const v of splitByVoucher(mixto)) {
+      const debe  = v.lines.reduce((s, l) => s + (typeof l.debe  === 'number' ? l.debe  : 0), 0)
+      const haber = v.lines.reduce((s, l) => s + (typeof l.haber === 'number' ? l.haber : 0), 0)
+      expect(debe).toBe(haber)
+    }
+  })
+
+  it('nombra los archivos con correlativo, tipo y fecha', () => {
+    const vouchers = splitByVoucher(mixto)
+    const nombres  = vouchers.map((v, i) => voucherFileName(v, i))
+    expect(nombres[0]).toMatch(/^01-/)
+    expect(nombres.some(n => n.includes('gastos'))).toBe(true)
+    expect(nombres.some(n => n.includes('adelanto-2026-02-24'))).toBe(true)
+    expect(nombres.some(n => n.includes('adelanto-2026-03-12'))).toBe(true)
+    expect(nombres.every(n => n.endsWith('.xlsx'))).toBe(true)
+  })
+
+  it('un solo asiento sigue siendo un solo archivo', () => {
+    const simple = buildDefontanaEntries(
+      [report([item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24' })])],
+      settings,
+    )
+    expect(splitByVoucher(simple)).toHaveLength(1)
+    expect(countVouchers(simple)).toBe(1)
   })
 })

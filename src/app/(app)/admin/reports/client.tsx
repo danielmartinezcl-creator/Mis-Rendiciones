@@ -343,21 +343,8 @@ export function AdminReportsClient({ initialReports }: Props) {
         )
         if (!ok) return
       }
-      const { buildDefontanaEntries, exportDefontanaToExcel, countVouchers } = await import('@/lib/export/defontana')
+      const { buildDefontanaEntries, exportDefontanaAuto } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries(defReports, settings)
-
-      // La columna Número va fija en "A": Defontana funde en un solo comprobante
-      // todo lo que venga en el archivo
-      const vouchers = countVouchers(result)
-      if (vouchers > 1) {
-        const ok = window.confirm(
-          `Este archivo contiene ${vouchers} asientos distintos.\n\n` +
-          `Defontana los va a importar como un único comprobante, porque la columna Número va fija en "A".\n\n` +
-          `Si necesitás que queden separados, exportá de a una rendición.\n\n` +
-          `¿Generar el Excel igualmente?`
-        )
-        if (!ok) return
-      }
       // Hora local en el ref: distingue dos exportaciones del mismo día al revertir
       const now = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')
@@ -365,12 +352,21 @@ export function AdminReportsClient({ initialReports }: Props) {
       const fileName = defReports.length === 1
         ? `defontana-${defReports[0].reportTitle.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, '').trim().replace(/\s+/g, '-').slice(0, 40)}-${exportRef}`
         : `asientos-defontana-${exportRef}`
-      exportDefontanaToExcel(result, fileName)
+      // Un asiento → un .xlsx; varios → .zip con un archivo por comprobante,
+      // porque Defontana no distingue dos asientos dentro del mismo archivo
+      const vouchers = await exportDefontanaAuto(result, fileName)
       // Marcar todas las rendiciones incluidas como exportadas
       const justExportedIds = defReports.map(r => r.reportId)
       await markDefontanaExported(justExportedIds, exportRef)
       if (result.warnings.length > 0) {
         setDefontanaWarnings(result.warnings.map(w => ({ reportTitle: w.reportTitle, categories: w.categories })))
+      }
+      if (vouchers > 1) {
+        alert(
+          `Se generó un ZIP con ${vouchers} comprobantes, uno por archivo.\n\n` +
+          `Defontana importa un comprobante por archivo, así que hay que subirlos de a uno.\n` +
+          `Están numerados en el orden en que conviene importarlos.`
+        )
       }
       setSelectedIds(new Set())
       await load()

@@ -42,6 +42,7 @@ export function DefontanaTypePanel({ reportId, onClose, onChanged }: Props) {
   const [comprobante, setComprobante] = useState('')
   const [warnings,    setWarnings]    = useState<{ categories: string[]; unmappedCLP: number } | null>(null)
   const [revertTypes, setRevertTypes] = useState<ItemType[] | null>(null)
+  const [info,        setInfo]        = useState<string | null>(null)
 
   function applyBreakdown(d: Breakdown) {
     setData(d)
@@ -93,25 +94,20 @@ export function DefontanaTypePanel({ reportId, onClose, onChanged }: Props) {
         setError('No hay ítems pendientes de contabilizar para los tipos seleccionados.')
         return
       }
-      const { buildDefontanaEntries, exportDefontanaToExcel, countVouchers } = await import('@/lib/export/defontana')
+      const { buildDefontanaEntries, exportDefontanaAuto } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries([report], settings)
 
-      // La columna Número va fija en "A": Defontana funde en un solo comprobante
-      // todo lo que venga en el archivo. Marcar gastos y adelantos juntos, o
-      // adelantos de fechas distintas, genera más de un asiento.
-      const vouchers = countVouchers(result)
-      if (vouchers > 1) {
-        const ok = window.confirm(
-          `Los tipos seleccionados generan ${vouchers} asientos distintos.\n\n` +
-          `Defontana los va a importar como un único comprobante, porque la columna Número va fija en "A".\n\n` +
-          `Si necesitás comprobantes separados, exportá un tipo a la vez.\n\n` +
-          `¿Generar el Excel igualmente?`
-        )
-        if (!ok) return
-      }
-
+      // Un asiento → un .xlsx; varios → .zip con un archivo por comprobante.
+      // Marcar gastos y adelantos juntos, o adelantos de fechas distintas,
+      // genera más de un asiento y Defontana no los distingue en un mismo archivo.
       const slug = types.map(t => LABEL[t].toLowerCase()).join('-')
-      exportDefontanaToExcel(result, `defontana-${slug}-${new Date().toISOString().slice(0, 10)}`)
+      const vouchers = await exportDefontanaAuto(result, `defontana-${slug}-${new Date().toISOString().slice(0, 10)}`)
+      if (vouchers > 1) {
+        setError(null)
+        setInfo(`Se generó un ZIP con ${vouchers} comprobantes, uno por archivo — Defontana importa uno por vez.`)
+      } else {
+        setInfo(null)
+      }
       const w = result.warnings[0]
       if (w) setWarnings({ categories: w.categories, unmappedCLP: w.unmappedCLP })
     } catch (e) {
@@ -223,6 +219,10 @@ export function DefontanaTypePanel({ reportId, onClose, onChanged }: Props) {
           Sin cuenta Defontana: {warnings.categories.join(', ')}
           {warnings.unmappedCLP > 0 && ` — ${formatCLP(warnings.unmappedCLP)} no incluidos en el asiento`}
         </div>
+      )}
+
+      {info && (
+        <p className="text-xs text-teal-800 bg-white border border-teal-200 rounded-item px-3 py-2">{info}</p>
       )}
 
       {error && (

@@ -109,14 +109,15 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         if (!ok) return
       }
 
-      const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
+      const { buildDefontanaEntries, exportDefontanaAuto } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries([report], settings)
 
       // Hora local en el ref: distingue dos exportaciones del mismo día al revertir
       const now = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')
       const exportRef = `CC-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
-      exportDefontanaToExcel(result, `caja-chica-defontana-${exportRef}`)
+      const vouchers = await exportDefontanaAuto(result, `caja-chica-defontana-${exportRef}`)
+      if (vouchers > 1) alert(`Se generó un ZIP con ${vouchers} comprobantes, uno por archivo — Defontana importa uno por vez.`)
 
       await markPettyCashFundDefontanaExported(id, exportRef)
       await load()

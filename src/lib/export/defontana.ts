@@ -601,10 +601,7 @@ export function buildSheetRows(lines: DefontanaRow[]): (string | number | '')[][
   return [HEADERS, ...lines.map(rowToArray)]
 }
 
-export function exportDefontanaToExcel(
-  result:   DefontanaResult,
-  filename = 'asientos-defontana',
-): void {
+function buildWorkbook(result: DefontanaResult): XLSX.WorkBook {
   const wb = XLSX.utils.book_new()
 
   // ── Hoja 1: Asientos (formato exacto del importador Defontana) ─────────────
@@ -640,5 +637,104 @@ export function exportDefontanaToExcel(
     XLSX.utils.book_append_sheet(wb, ws2, 'Sin mapear ⚠')
   }
 
-  XLSX.writeFile(wb, `${filename}.xlsx`)
+  return wb
+}
+
+export function exportDefontanaToExcel(
+  result:   DefontanaResult,
+  filename = 'asientos-defontana',
+): void {
+  XLSX.writeFile(buildWorkbook(result), `${filename}.xlsx`)
+}
+
+// ── Un comprobante por archivo ─────────────────────────────────────────────
+// Defontana no distingue dos asientos dentro del mismo Excel: todo lo que entra
+// en un archivo queda como un único comprobante. Cuando el export abarca varios,
+// se entrega un ZIP con un archivo por asiento.
+
+const VOUCHER_KIND: Record<string, string> = {
+  RE: 'gastos',
+  AD: 'adelanto',
+  DE: 'devolucion',
+  TR: 'traspaso',
+}
+
+/** Serial Excel → YYYY-MM-DD (inverso de toExcelSerial). */
+function serialToDate(serial: number): string {
+  const ms = Date.UTC(1899, 11, 30) + serial * 86_400_000
+  return new Date(ms).toISOString().slice(0, 10)
+}
+
+export interface DefontanaVoucher {
+  numero: string
+  lines:  DefontanaRow[]
+}
+
+/** Agrupa las líneas por asiento, conservando el orden de aparición. */
+export function splitByVoucher(result: DefontanaResult): DefontanaVoucher[] {
+  const byVoucher = new Map<string, DefontanaRow[]>()
+  for (const l of result.lines) {
+    const arr = byVoucher.get(l.numero)
+    if (arr) arr.push(l)
+    else     byVoucher.set(l.numero, [l])
+  }
+  return [...byVoucher.entries()].map(([numero, lines]) => ({ numero, lines }))
+}
+
+/** Nombre del archivo de un comprobante dentro del ZIP. Lleva un correlativo
+ *  al principio para que el orden de importación sea el del listado. */
+export function voucherFileName(voucher: DefontanaVoucher, index: number): string {
+  const first  = voucher.lines[0]
+  const kind   = VOUCHER_KIND[voucher.numero.slice(0, 2)] ?? 'asiento'
+  const fecha  = serialToDate(first.fecha)
+  const titulo = (first.comentario.includes(':')
+    ? first.comentario.slice(first.comentario.indexOf(':') + 1)
+    : first.comentario)
+    .replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 40)
+  return `${String(index + 1).padStart(2, '0')}-${kind}-${fecha}${titulo ? `-${titulo}` : ''}.xlsx`
+}
+
+/**
+ * Exporta el resultado en el formato que Defontana puede importar:
+ * un solo asiento → un .xlsx; varios → un .zip con un .xlsx por asiento.
+ * Devuelve cuántos comprobantes se generaron.
+ */
+export async function exportDefontanaAuto(
+  result:   DefontanaResult,
+  filename = 'asientos-defontana',
+): Promise<number> {
+  const vouchers = splitByVoucher(result)
+
+  if (vouchers.length <= 1) {
+    exportDefontanaToExcel(result, filename)
+    return vouchers.length
+  }
+
+  const JSZip = (await import('jszip')).default
+  const zip   = new JSZip()
+
+  vouchers.forEach((voucher, i) => {
+    // Las advertencias van una sola vez, en el archivo aparte de abajo
+    const wb  = buildWorkbook({ lines: voucher.lines, warnings: [] })
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+    zip.file(voucherFileName(voucher, i), buf)
+  })
+
+  if (result.warnings.length > 0) {
+    const wb  = buildWorkbook({ lines: [], warnings: result.warnings })
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+    zip.file('00-sin-mapear.xlsx', buf)
+  }
+
+  const content = await zip.generateAsync({ type: 'blob' })
+  const link    = document.createElement('a')
+  link.href     = URL.createObjectURL(content)
+  link.download = `${filename}.zip`
+  link.click()
+  URL.revokeObjectURL(link.href)
+
+  return vouchers.length
 }
