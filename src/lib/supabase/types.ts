@@ -654,6 +654,7 @@ export interface Database {
           transfer_id: string | null
           created_at: string
           defontana_exported_at: string | null
+          defontana_export_ref:  string | null
         }
         Insert: {
           id?: string
@@ -676,6 +677,7 @@ export interface Database {
           transfer_id?: string | null
           created_at?: string
           defontana_exported_at?: string | null
+          defontana_export_ref?:  string | null
         }
         Update: {
           description?: string
@@ -692,6 +694,7 @@ export interface Database {
           rejection_reason?: string | null
           transfer_id?: string | null
           defontana_exported_at?: string | null
+          defontana_export_ref?:  string | null
         }
         Relationships: []
       }
@@ -728,6 +731,8 @@ export interface Database {
           registered_by: string
           notes: string | null
           created_at: string
+          defontana_exported_at: string | null
+          defontana_export_ref:  string | null
         }
         Insert: {
           id?: string
@@ -739,9 +744,13 @@ export interface Database {
           registered_by: string
           notes?: string | null
           created_at?: string
+          defontana_exported_at?: string | null
+          defontana_export_ref?:  string | null
         }
         Update: {
           notes?: string | null
+          defontana_exported_at?: string | null
+          defontana_export_ref?:  string | null
         }
         Relationships: []
       }

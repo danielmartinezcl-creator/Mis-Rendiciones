@@ -8,6 +8,7 @@ import type { FundStatus } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateDateRange } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
+import type { DefontanaItem } from '@/lib/export/defontana'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -825,86 +826,172 @@ export async function getPettyCashItemsForReport(filters: {
   return { items: all, totalCLP }
 }
 
-// ── Export Defontana ──────────────────────────────────────────────────────────
+// ── Defontana por movimiento en fondos vivos ─────────────────────────────────
+// En un fondo vivo el adelanto y los reembolsos son transferencias bancarias, no
+// ítems. Se mapean al movimiento contable según hacia dónde se mueve la plata:
+//   disbursement / refund_to_employee    → sale del banco  → adelanto   (CARGO)
+//   reimbursement_from_employee          → entra al banco  → devolución (ABONO)
 
-export async function getPettyCashFundDefontanaData(fundId: string) {
+export type FundMovement = 'advance' | 'expense' | 'return'
+
+// Una transferencia nunca es un gasto: siempre mueve el banco en un sentido u otro
+const TRANSFER_MOVEMENT: Record<string, 'advance' | 'return'> = {
+  disbursement:                'advance',
+  refund_to_employee:          'advance',
+  reimbursement_from_employee: 'return',
+}
+
+/** Desglose por movimiento de un fondo vivo: qué está pendiente de contabilizar
+ *  y qué ya se contabilizó. Los gastos cuentan solo si están aprobados. */
+export async function getFundDefontanaBreakdown(fundId: string) {
   const { supabase, profile } = await getProfile()
   if (profile.role !== 'admin') throw new Error('Sin permiso')
 
+  const [fundRes, itemsRes, transfersRes] = await Promise.all([
+    supabase.from('petty_cash_funds')
+      .select('id, name, defontana_export_ref')
+      .eq('id', fundId).eq('org_id', profile.org_id).single(),
+    supabase.from('petty_cash_items')
+      .select('id, amount_clp, status, defontana_exported_at')
+      .eq('fund_id', fundId),
+    supabase.from('petty_cash_transfers')
+      .select('id, type, amount, transferred_at, defontana_exported_at')
+      .eq('fund_id', fundId),
+  ])
+
+  const fund = fundRes.data
+  if (!fund) throw new Error('Fondo no encontrado')
+
+  type ItemRow     = { id: string; amount_clp: number; status: string; defontana_exported_at: string | null }
+  type TransferRow = { id: string; type: string; amount: number; transferred_at: string; defontana_exported_at: string | null }
+
+  const items     = ((itemsRes.data ?? []) as unknown as ItemRow[]).filter(i => i.status === 'approved')
+  const transfers = (transfersRes.data ?? []) as unknown as TransferRow[]
+
+  function summarize(pending: { amount: number }[], exported: { amount: number }[]) {
+    return {
+      pendingCount:  pending.length,
+      pendingCLP:    pending.reduce((s, x) => s + x.amount, 0),
+      exportedCount: exported.length,
+      exportedCLP:   exported.reduce((s, x) => s + x.amount, 0),
+      totalCount:    pending.length + exported.length,
+    }
+  }
+
+  const byMovement = (['advance', 'expense', 'return'] as const).map(movement => {
+    if (movement === 'expense') {
+      const pending  = items.filter(i => !i.defontana_exported_at).map(i => ({ amount: i.amount_clp }))
+      const exported = items.filter(i =>  i.defontana_exported_at).map(i => ({ amount: i.amount_clp }))
+      return { movement, ...summarize(pending, exported) }
+    }
+    const ofKind   = transfers.filter(t => TRANSFER_MOVEMENT[t.type] === movement)
+    const pending  = ofKind.filter(t => !t.defontana_exported_at).map(t => ({ amount: t.amount }))
+    const exported = ofKind.filter(t =>  t.defontana_exported_at).map(t => ({ amount: t.amount }))
+    return { movement, ...summarize(pending, exported) }
+  }).filter(m => m.totalCount > 0)
+
+  return { fundName: fund.name, headerRef: fund.defontana_export_ref, byMovement }
+}
+
+/** Datos para armar los asientos de los movimientos indicados. Sintetiza un
+ *  DefontanaItem por transferencia para reusar el mismo generador que las
+ *  rendiciones: el motor ya sabe qué asiento corresponde a cada item_type. */
+export async function getFundDefontanaMovementData(fundId: string, movements: FundMovement[]) {
+  const { supabase, profile } = await getProfile()
+  if (profile.role !== 'admin') throw new Error('Sin permiso')
+  if (!movements.length) throw new Error('Selecciona al menos un movimiento')
+
   const [fundRes, orgRes, suppliersRes] = await Promise.all([
-    supabase
-      .from('petty_cash_funds')
-      .select('id, name, period_start, employee_id, defontana_exported_at')
-      .eq('id', fundId)
-      .single(),
-    supabase
-      .from('organizations')
-      .select(DEFONTANA_ORG_COLUMNS)
-      .eq('id', profile.org_id)
-      .single(),
-    supabase
-      .from('defontana_suppliers')
-      .select('merchant_name, defontana_account_code')
-      .eq('org_id', profile.org_id),
+    supabase.from('petty_cash_funds')
+      .select('id, name, period_start, employee_id')
+      .eq('id', fundId).eq('org_id', profile.org_id).single(),
+    supabase.from('organizations').select(DEFONTANA_ORG_COLUMNS).eq('id', profile.org_id).single(),
+    supabase.from('defontana_suppliers').select('merchant_name, defontana_account_code').eq('org_id', profile.org_id),
   ])
 
   const fund = fundRes.data
   if (!fund) throw new Error('Fondo no encontrado')
 
   const supplierMap: Record<string, string> = {}
-  for (const s of suppliersRes.data ?? []) {
-    supplierMap[s.merchant_name.toLowerCase()] = s.defontana_account_code
-  }
+  for (const s of suppliersRes.data ?? []) supplierMap[s.merchant_name.toLowerCase()] = s.defontana_account_code
 
-  // Empleado: nombre, RUT y centro de costo
   const { data: empUser } = await supabase
-    .from('users')
-    .select('full_name, rut, cost_center_id')
-    .eq('id', fund.employee_id)
-    .single()
+    .from('users').select('full_name, rut, cost_center_id').eq('id', fund.employee_id).single()
 
-  // Ítems aprobados con cuenta Defontana de la categoría
-  const { data: rawItems } = await supabase
-    .from('petty_cash_items')
-    .select('description, amount_clp, date, merchant, doc_type, doc_number, supplier_rut, expense_categories(name, defontana_account_code)')
-    .eq('fund_id', fundId)
-    .eq('status', 'approved')
+  const mapped: DefontanaItem[] = []
+  const itemIds:     string[] = []
+  const transferIds: string[] = []
 
-  type RawPCItem = {
-    description:       string
-    amount_clp:        number
-    date:              string
-    merchant:          string | null
-    doc_type:          string | null
-    doc_number:        string | null
-    supplier_rut:      string | null
-    expense_categories: { name: string; defontana_account_code: string | null } | null
+  if (movements.includes('expense')) {
+    const { data: rawItems } = await supabase
+      .from('petty_cash_items')
+      .select('id, description, amount_clp, date, merchant, doc_type, doc_number, supplier_rut, expense_categories(name, defontana_account_code)')
+      .eq('fund_id', fundId)
+      .eq('status', 'approved')
+      .is('defontana_exported_at', null)
+
+    type RawItem = {
+      id: string; description: string; amount_clp: number; date: string
+      merchant: string | null; doc_type: string | null; doc_number: string | null; supplier_rut: string | null
+      expense_categories: { name: string; defontana_account_code: string | null } | null
+    }
+    for (const i of (rawItems ?? []) as unknown as RawItem[]) {
+      const merchantKey = (i.merchant ?? '').toLowerCase()
+      itemIds.push(i.id)
+      mapped.push({
+        description:            i.description,
+        amount_clp:             i.amount_clp,
+        category_name:          i.expense_categories?.name ?? null,
+        defontana_account_code: i.expense_categories?.defontana_account_code ?? null,
+        supplier_account_code:  merchantKey ? (supplierMap[merchantKey] ?? null) : null,
+        doc_type:               i.doc_type,
+        doc_number:             i.doc_number,
+        cost_center_id:         null,
+        supplier_rut:           i.supplier_rut,
+        merchant:               i.merchant,
+        item_type:              'expense',
+        date:                   i.date,
+      })
+    }
   }
 
-  const items = (rawItems ?? []) as unknown as RawPCItem[]
+  const transferMovements = movements.filter(m => m !== 'expense')
+  if (transferMovements.length) {
+    const { data: rawTransfers } = await supabase
+      .from('petty_cash_transfers')
+      .select('id, type, amount, transferred_at')
+      .eq('fund_id', fundId)
+      .is('defontana_exported_at', null)
 
-  // Usar la fecha del ítem más antiguo como fecha del asiento
-  const dates = items.map(i => i.date).sort()
-  const reportDate = dates[0] ?? fund.period_start
-
-  const mappedItems = items.map(i => {
-    const cat = i.expense_categories
-    const merchantKey = (i.merchant ?? '').toLowerCase()
-    return {
-      description:            i.description,
-      amount_clp:             i.amount_clp,
-      category_name:          cat?.name ?? null,
-      defontana_account_code: cat?.defontana_account_code ?? null,
-      supplier_account_code:  merchantKey ? (supplierMap[merchantKey] ?? null) : null,
-      doc_type:               i.doc_type,
-      doc_number:             i.doc_number,
-      cost_center_id:         null,   // los ítems de caja chica no tienen override; usa el del empleado
-      supplier_rut:           i.supplier_rut,
-      merchant:               i.merchant,
+    type RawTransfer = { id: string; type: string; amount: number; transferred_at: string }
+    const TRANSFER_LABEL: Record<string, string> = {
+      disbursement:                'Fondos enviados al empleado',
+      refund_to_employee:          'Devolución al empleado',
+      reimbursement_from_employee: 'Reembolso del empleado',
     }
-  })
+    for (const t of (rawTransfers ?? []) as unknown as RawTransfer[]) {
+      const movement = TRANSFER_MOVEMENT[t.type]
+      if (!movement || !transferMovements.includes(movement)) continue
+      transferIds.push(t.id)
+      mapped.push({
+        description:            TRANSFER_LABEL[t.type] ?? 'Movimiento de fondos',
+        amount_clp:             t.amount,
+        category_name:          null,
+        defontana_account_code: null,
+        supplier_account_code:  null,
+        doc_type:               null,
+        doc_number:             null,
+        cost_center_id:         null,
+        supplier_rut:           null,
+        merchant:               null,
+        item_type:              movement,
+        date:                   t.transferred_at,
+      })
+    }
+  }
 
-  const orgData = orgRes.data
+  const dates      = mapped.map(m => m.date).filter(Boolean).sort() as string[]
+  const reportDate = dates[0] ?? fund.period_start
 
   return {
     report: {
@@ -914,64 +1001,156 @@ export async function getPettyCashFundDefontanaData(fundId: string) {
       employeeName:         empUser?.full_name ?? 'Desconocido',
       employeeRut:          empUser?.rut ?? null,
       employeeCostCenterId: empUser?.cost_center_id ?? null,
-      items:                mappedItems,
+      items:                mapped,
     },
-    settings: mapDefontanaSettings(orgData as unknown as DefontanaOrgRow),
-    alreadyExported: !!fund.defontana_exported_at,
-    exportedAt:      fund.defontana_exported_at ?? null,
+    settings: mapDefontanaSettings(orgRes.data as unknown as DefontanaOrgRow),
+    itemIds,
+    transferIds,
   }
 }
 
-export async function markPettyCashFundDefontanaExported(fundId: string, ref: string) {
+/** Marca como contabilizados los movimientos indicados que estaban pendientes. */
+export async function confirmFundDefontana(
+  fundId:      string,
+  movements:   FundMovement[],
+  comprobante: string,
+) {
   const { supabase, userId, profile } = await getProfile()
   if (profile.role !== 'admin') throw new Error('Sin permiso')
-  const { error } = await supabase
+  if (!movements.length) throw new Error('Selecciona al menos un movimiento')
+
+  const { data: fund } = await supabase
+    .from('petty_cash_funds').select('id, name').eq('id', fundId).eq('org_id', profile.org_id).single()
+  if (!fund) throw new Error('Fondo no encontrado')
+
+  const now = new Date().toISOString()
+  const ref = comprobante.trim() || null
+  let marked = 0
+
+  if (movements.includes('expense')) {
+    const { data: pend } = await supabase
+      .from('petty_cash_items').select('id')
+      .eq('fund_id', fundId).eq('status', 'approved').is('defontana_exported_at', null)
+    const ids = (pend ?? []).map(i => i.id)
+    if (ids.length) {
+      const { error } = await supabase
+        .from('petty_cash_items')
+        .update({ defontana_exported_at: now, defontana_export_ref: ref })
+        .in('id', ids)
+      if (error) throw new Error(error.message)
+      marked += ids.length
+    }
+  }
+
+  const transferMovements = movements.filter(m => m !== 'expense')
+  if (transferMovements.length) {
+    const { data: pend } = await supabase
+      .from('petty_cash_transfers').select('id, type')
+      .eq('fund_id', fundId).is('defontana_exported_at', null)
+    const ids = ((pend ?? []) as unknown as { id: string; type: string }[])
+      .filter(t => transferMovements.includes(TRANSFER_MOVEMENT[t.type]))
+      .map(t => t.id)
+    if (ids.length) {
+      const { error } = await supabase
+        .from('petty_cash_transfers')
+        .update({ defontana_exported_at: now, defontana_export_ref: ref })
+        .in('id', ids)
+      if (error) throw new Error(error.message)
+      marked += ids.length
+    }
+  }
+
+  // La marca del fondo queda como referencia del último comprobante cargado
+  await supabase
     .from('petty_cash_funds')
-    .update({
-      defontana_exported_at: new Date().toISOString(),
-      defontana_export_ref:  ref,
-    })
-    .eq('id', fundId)
-    .eq('org_id', profile.org_id)
-  if (error) throw new Error(error.message)
+    .update({ defontana_exported_at: now, defontana_export_ref: ref })
+    .eq('id', fundId).eq('org_id', profile.org_id)
+
   await logAudit({
     orgId:       profile.org_id,
     actorId:     userId,
     actorName:   profile.full_name,
     action:      'exported',
     entityType:  'defontana_export_petty_cash',
-    entityId:    ref,
-    entityLabel: `Fondo caja chica exportado`,
-    newValue:    { fundId, exportRef: ref },
+    entityId:    fundId,
+    entityLabel: fund.name,
+    newValue:    { movements, exportRef: ref, marcados: marked },
   })
+
   revalidatePath(`/petty-cash/${fundId}`)
+  revalidatePath('/petty-cash')
+  return { marked }
 }
 
-/** Revierte el estado "Contabilizado" de un fondo de caja chica liquidado.
- *  Solo admin. El motivo queda en auditoría junto al comprobante revertido. */
-export async function revertPettyCashFundDefontanaExport(fundId: string, reason: string) {
+/** Deshace la contabilización de los movimientos indicados. Motivo obligatorio. */
+export async function revertFundDefontana(
+  fundId:    string,
+  movements: FundMovement[],
+  reason:    string,
+) {
   const { supabase, userId, profile } = await getProfile()
   if (profile.role !== 'admin') throw new Error('Sin permiso')
 
   const motivo = reason.trim()
   if (motivo.length < 5) throw new Error('Indica el motivo de la reversa (mínimo 5 caracteres)')
+  if (!movements.length) throw new Error('Selecciona al menos un movimiento para revertir')
 
   const { data: fund } = await supabase
-    .from('petty_cash_funds')
-    .select('id, name, defontana_exported_at, defontana_export_ref')
-    .eq('id', fundId)
-    .eq('org_id', profile.org_id)
-    .single()
-
+    .from('petty_cash_funds').select('id, name, defontana_export_ref')
+    .eq('id', fundId).eq('org_id', profile.org_id).single()
   if (!fund) throw new Error('Fondo no encontrado')
-  if (!fund.defontana_exported_at) throw new Error('Este fondo no está contabilizado')
 
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ defontana_exported_at: null, defontana_export_ref: null })
-    .eq('id', fundId)
-    .eq('org_id', profile.org_id)
-  if (error) throw new Error(error.message)
+  let reverted = 0
+
+  if (movements.includes('expense')) {
+    const { data: done } = await supabase
+      .from('petty_cash_items').select('id')
+      .eq('fund_id', fundId).not('defontana_exported_at', 'is', null)
+    const ids = (done ?? []).map(i => i.id)
+    if (ids.length) {
+      const { error } = await supabase
+        .from('petty_cash_items')
+        .update({ defontana_exported_at: null, defontana_export_ref: null })
+        .in('id', ids)
+      if (error) throw new Error(error.message)
+      reverted += ids.length
+    }
+  }
+
+  const transferMovements = movements.filter(m => m !== 'expense')
+  if (transferMovements.length) {
+    const { data: done } = await supabase
+      .from('petty_cash_transfers').select('id, type')
+      .eq('fund_id', fundId).not('defontana_exported_at', 'is', null)
+    const ids = ((done ?? []) as unknown as { id: string; type: string }[])
+      .filter(t => transferMovements.includes(TRANSFER_MOVEMENT[t.type]))
+      .map(t => t.id)
+    if (ids.length) {
+      const { error } = await supabase
+        .from('petty_cash_transfers')
+        .update({ defontana_exported_at: null, defontana_export_ref: null })
+        .in('id', ids)
+      if (error) throw new Error(error.message)
+      reverted += ids.length
+    }
+  }
+
+  if (!reverted) throw new Error('No hay movimientos contabilizados de los tipos seleccionados')
+
+  // Si ya no queda nada contabilizado, el fondo vuelve a estar sin contabilizar
+  const [itemsLeft, transfersLeft] = await Promise.all([
+    supabase.from('petty_cash_items').select('id', { count: 'exact', head: true })
+      .eq('fund_id', fundId).not('defontana_exported_at', 'is', null),
+    supabase.from('petty_cash_transfers').select('id', { count: 'exact', head: true })
+      .eq('fund_id', fundId).not('defontana_exported_at', 'is', null),
+  ])
+  const headerCleared = !itemsLeft.count && !transfersLeft.count
+  if (headerCleared) {
+    await supabase
+      .from('petty_cash_funds')
+      .update({ defontana_exported_at: null, defontana_export_ref: null })
+      .eq('id', fundId).eq('org_id', profile.org_id)
+  }
 
   await logAudit({
     orgId:       profile.org_id,
@@ -981,14 +1160,12 @@ export async function revertPettyCashFundDefontanaExport(fundId: string, reason:
     entityType:  'defontana_export_petty_cash',
     entityId:    fundId,
     entityLabel: fund.name,
-    oldValue:    {
-      defontana_exported_at: fund.defontana_exported_at,
-      defontana_export_ref:  fund.defontana_export_ref,
-    },
-    newValue:    { defontana_exported_at: null, defontana_export_ref: null },
+    oldValue:    { defontana_export_ref: fund.defontana_export_ref, movements },
+    newValue:    { reverted, headerCleared },
     notes:       motivo,
   })
 
   revalidatePath(`/petty-cash/${fundId}`)
   revalidatePath('/petty-cash')
+  return { reverted, headerCleared }
 }
