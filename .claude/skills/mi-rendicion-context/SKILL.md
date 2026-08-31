@@ -128,12 +128,18 @@ users:          cost_center_id, approver_l1_id, approver_l2_id, approver_l1_back
                 approver_l1_backup_from, approver_l1_backup_until,
                 can_load_bank_transfer, can_authorize_bank_transfer,
                 rut, bank_name, bank_account_type, can_manage_petty_cash
-organizations:  defontana_provider_account, mileage_rate_per_km
+organizations:  defontana_provider_account, mileage_rate_per_km,
+                defontana_bank_account, defontana_voucher_type_advance,
+                defontana_voucher_type_return, defontana_voucher_type_transfer,
+                defontana_doc_type_advance ('CARGO'), defontana_doc_type_return ('ABONO')
 expense_items:  cost_center_id, supplier_rut, policy_justification, policy_violations,
-                mileage_km, mileage_rate, transfer_id, attachment_url
+                mileage_km, mileage_rate, transfer_id, attachment_url,
+                defontana_exported_at
 expense_reports: ai_analysis, ai_analysis_at, defontana_exported_at, defontana_export_ref,
                  is_historical_import, historical_type, fund_number, deleted_at
-petty_cash_funds: defontana_exported_at, defontana_export_ref, is_historical_import
+petty_cash_funds:     defontana_exported_at, defontana_export_ref, is_historical_import
+petty_cash_items:     defontana_exported_at, defontana_export_ref
+petty_cash_transfers: defontana_exported_at, defontana_export_ref
 ```
 
 ---
@@ -187,8 +193,9 @@ src/
 │   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones
 ├── components/
 │   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
-│   ├── ui/                 ← Button, Card, Badge, CurrencyAmount
-│   ├── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig
+│   ├── ui/                 ← Button, Card, Badge, CurrencyAmount, RevertDefontanaDialog
+│   ├── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig, DefontanaTypePanel
+│   ├── petty-cash/         ← FundStatusBadge, FundTimeline, AddFundItemForm, FundDefontanaPanel
 │   └── expenses/           ← ExpenseItemForm (OCR, km, viáticos, políticas), PhotoUpload, ExportButton
 ├── lib/
 │   ├── constants.ts        ← CURRENCIES, DOC_TYPES, STATUS_COLORS, STATUS_DOT
@@ -201,9 +208,10 @@ src/
 │   ├── ocr-helpers.ts         ← buildOcrPrompt, parseOcrResponse
 │   ├── petty-cash-helpers.ts  ← computeFundBalance, computeFundStatus
 │   ├── policy-helpers.ts      ← resolveApplicablePolicy, checkItemLimit, checkPeriodLimit
-│   ├── report-helpers.ts      ← UnifiedReportItem, buildPeriodRange, computeUnifiedKpis
+│   ├── report-helpers.ts      ← UnifiedReportItem, buildPeriodRange, computeUnifiedKpis (byMovement)
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
-│   └── export/             ← excel.ts, pdf.ts, defontana.ts (34 columnas reales)
+│   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
+│                             defontana-settings.ts (config por movimiento)
 ├── proxy.ts                ← protección de rutas (Next.js 16)
 └── tests/
 supabase/
@@ -219,7 +227,9 @@ supabase/
 │   ├── 011_bank_authorization_workflow.sql           ← permisos bancarios en users + status extendido
 │   ├── 012_defontana_cost_centers.sql                ← cost_centers (46 PENTA) + defontana_suppliers + CC en users/items
 │   ├── 013_petty_cash_defontana.sql                  ← defontana_exported_at/ref en petty_cash_funds
-│   └── 015_travel_policies.sql                       ← tabla travel_policies (viáticos por destino/categoría)
+│   ├── 015_travel_policies.sql                       ← tabla travel_policies (viáticos por destino/categoría)
+│   ├── 021_defontana_movements.sql                   ← cuenta banco + tipo comprobante/documento por movimiento
+│   └── 022_petty_cash_defontana_by_movement.sql      ← marca Defontana por ítem y por transferencia de fondo vivo
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -293,6 +303,45 @@ references/
 - Botón "Reasignar CC" masivo en admin/reports → `bulkUpdateExpenseItemsCostCenter(reportId, ccId)`
 - Badge "Exportado Defontana" + filtro "Sin exportar / Ya exportadas" en lista de reportes
 
+### ✅ Defontana v3 — un asiento por movimiento (migraciones 021 + 022)
+Verificado importando de verdad en Defontana. Cada movimiento arma su propio asiento:
+
+| Movimiento | Debe | Haber | Banco |
+|---|---|---|---|
+| Adelanto   | Fondos por Rendir | Banco | `CARGO` |
+| Gastos     | cuentas de gasto  | Fondos por Rendir | — |
+| Devolución | Banco | Fondos por Rendir | `ABONO` |
+| Traspaso   | Fondos por Rendir (ficha receptor) | Fondos por Rendir (ficha pagador) | — |
+
+- `defontana_contra_account` **es** la cuenta Fondos por Rendir (PENTA: `1.1.1010.10.03`);
+  `defontana_bank_account` es el banco (`1110102001`)
+- **Un asiento por fecha** en adelantos y devoluciones: el N° de documento bancario *es*
+  la fecha, así que dos movimientos de días distintos no pueden compartir comprobante
+- Traspasos: cada uno deja un ítem en el reporte de **ambas** partes; el asiento se emite
+  solo desde el pagador (`is_transfer_payer`) o saldría duplicado
+- Configuración por movimiento (tipo de comprobante y tipo de documento) en
+  `/admin/settings` → Defontana → "Movimientos de fondos"
+- `src/lib/export/defontana-settings.ts`: `DEFONTANA_ORG_COLUMNS` + `mapDefontanaSettings()`,
+  usados por las tres funciones que leen la config
+
+**Fondos de caja chica vivos** (migración 022): el adelanto y los reembolsos son
+`petty_cash_transfers`, no ítems. Se sintetizan como `DefontanaItem` para pasar por el
+mismo generador. El mapeo sigue el sentido del dinero, no el nombre del registro:
+`disbursement` y `refund_to_employee` sacan plata → adelanto; `reimbursement_from_employee`
+la devuelve → devolución. Cada movimiento se contabiliza cuando queda firme, sin esperar
+la liquidación (`FundDefontanaPanel`).
+
+### ✅ Reversa del estado "Contabilizado"
+- Rendiciones (`/admin/reports`), cargas históricas (`/admin/carga-historica`, `/petty-cash`)
+  y fondos vivos (`/petty-cash/[id]`)
+- Motivo obligatorio (mín. 5 caracteres) → `RevertDefontanaDialog`, queda en `/admin/auditoria`
+  con acción `reverted`
+- Cargas históricas y fondos: reversa **por tipo de movimiento**
+- **Siembra perezosa del estado legacy**: una carga contabilizada desde `/admin/reports`
+  tiene marca en la cabecera y no en los ítems. Al revertir un tipo, `revertHistoricalFundDefontana`
+  baja esa marca a los tipos que NO se revierten — sin eso, revertir los adelantos dejaría
+  los gastos como si nunca hubieran ido a Defontana
+
 ### ✅ Políticas de gasto en tiempo real (migración 011)
 - `expense_policies`: límites por categoría / departamento / usuario, períodos mensual/trimestral/anual
 - Enforcement: `warn` | `require_justification` | `block`
@@ -354,9 +403,10 @@ references/
 - **Sidebar dinámico**: drag & drop (admin), orden persistido en `localStorage`, entrada "Informes"
 - **Invitación empleados**: `set-password` flow — empleado recibe link, establece contraseña
 
-### ⏳ Pendiente / Backlog (solo 2 ítems reales)
+### ⏳ Pendiente / Backlog
 1. **Notificaciones email completas**: Resend instalado y funcional en algunos paths. El lookup de `auth.users.email` por UUID requiere `SUPABASE_SERVICE_ROLE_KEY` (ya disponible vía `createAdminClient()`). Asegurarse de que TODOS los `resend.emails.send()` usen el admin client para el lookup — algunos paths actuales pueden saltear el email por falta de email del destinatario.
 2. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
+3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
 
 ---
 
@@ -432,6 +482,23 @@ references/
     - Facturas: línea individual (preserva RUT/tipoDoc/nroDoc para IVA); boletas: agrupadas
     - Prioridad de cuenta: supplier_account_code → providerAccount (si es factura) → category code
     - Lock inmediato post-export: `markDefontanaExported(reportIds, exportRef)` antes de cerrar el dialog
+    - **Formato del importador → todo en la serialización (`rowToArray`), nunca en el asiento.**
+      Verificado importando de verdad; cambiar cualquiera rompe la importación:
+      | Columna | Valor |
+      |---|---|
+      | Número | la letra `A` fija — el voucher interno NO llega a Defontana |
+      | Moneda comprobante | `PESO`, no `CLP` |
+      | Centro de Negocios | `+000` al final (`EMPGESINGING000`); vacío queda vacío |
+      | Código de Ficha | RUT con puntos y guión (`toSheetRut` → `76.247.147-7`) |
+      | Tipo/Número de **movimiento** | `CARGO`/`ABONO` y fecha `DDMMYY` en la línea de banco |
+      | Tipo/Número de **documento** | solo facturas (`FVAELECT` + folio) |
+    - La cuenta Fondos por Rendir y el banco **no llevan centro de negocios**: son cuentas de
+      balance, se imputan por ficha. El centro va en las líneas de gasto
+    - `numero` interno (`AD-240226-8623`, `RE-…`) existe solo para agrupar líneas y partir el ZIP
+    - **Un comprobante por archivo**: Defontana no distingue dos asientos dentro del mismo Excel
+      (confirmado por el proveedor). `exportDefontanaAuto()` baja `.xlsx` si hay uno y `.zip`
+      con un archivo por asiento si hay varios — usarla siempre en vez de `exportDefontanaToExcel`
+    - `src/tests/defontana.test.ts` fija todo esto con los datos reales del fondo 174
 
 14. **Políticas de gasto — resolución**:
     - `resolveApplicablePolicy(policies, userId, department, categoryId)` → prioridad: target_user_id > department > category_id > global
@@ -440,6 +507,14 @@ references/
 15. **Políticas de viáticos — prioridad**:
     - Categoría específica > categoría null (aplica a todas)
     - La comparación es en CLP; si la política es en USD, `exceeds = false` siempre (comparación imposible sin TC histórico)
+
+16. **Gasto ≠ movimiento de fondos** (informes y dashboard):
+    - Un adelanto es la plata que se entrega y el gasto es en qué se usó: **sumarlos cuenta
+      dos veces la misma plata**. Las devoluciones son plata que vuelve
+    - `computeUnifiedKpis` devuelve `byMovement`; el KPI principal de `/informes` es
+      `byMovement.expense.approvedCLP`, no `totalCLP`
+    - `getExpenseCategoryBreakdown()` (dashboard) filtra `item_type='expense'` **y** el año en curso
+    - Los ítems de un fondo vivo no tienen `item_type` — `toUnifiedMovement()` los cuenta como gasto
 
 ---
 
@@ -451,7 +526,9 @@ references/
 
 **Aprobador**: Email → `/approvals` → resumen IA → revisar ítems con foto + badges de viáticos → Aprobar/rechazar → email al rendidor
 
-**Admin**: KPIs → Rendiciones (filtros, export Defontana 34 col, reasignar CC, badge exportado) → Informes unificados (4 fuentes) → Empleados (cadena aprobación, CC, backup) → Settings (categorías, políticas, viáticos, Defontana, CC por defecto)
+**Admin**: KPIs → Rendiciones (filtros, export Defontana por rendición / lote / filtro, reasignar CC, badge contabilizado + reversa) → Informes unificados (4 fuentes, KPIs por movimiento) → Empleados (cadena aprobación, CC, backup) → Settings (categorías, políticas, viáticos, Defontana + movimientos de fondos, CC por defecto)
+
+**Contabilización Defontana** (admin): cada movimiento por separado, desde tres lugares según la fuente — `/admin/reports` y `/admin/carga-historica` para rendiciones y cargas históricas, `/petty-cash` para cargas históricas de caja chica, `/petty-cash/[id]` para fondos vivos. El ciclo es siempre: elegir movimientos → generar Excel (o ZIP si son varios asientos) → importar en Defontana → confirmar con el N° de comprobante → revertir con motivo si algo salió mal.
 
 ---
 
@@ -492,3 +569,11 @@ references/
 | Reenviar invitación llega como "restablecer contraseña" | Supabase no distingue invitación de reset en el email | Es el comportamiento esperado. Informar al empleado con el confirm() que el nuevo correo llegará así |
 | `getEmployeeTargets` retornaba solo caja chica histórica | `is_historical_import` y `historical_type` filtraban demasiado | Eliminar esos filtros — retornar todos los expense_reports del empleado para poder vincular traspasos a rendiciones regulares |
 | `lookupEmails()` en notifications.ts carga todos los usuarios | `listUsers({ perPage: 1000 })` en cada envío de email — ineficiente a escala | Migrar a `getUserById()` individual por cada destinatario, o cachear el mapa user_id→email |
+| Tratar un adelanto como gasto en el asiento Defontana | El generador solo sabía armar la rendición de gastos; los `item_type` advance/return/transfer caían en esa rama | Cada movimiento tiene su asiento — ver punto 13. Nunca meter un adelanto en la agrupación de gastos |
+| Poner centro de negocios en Fondos por Rendir o en el banco | Son cuentas de balance: se imputan por ficha del responsable, no por centro | Solo las líneas de gasto llevan centro (`+000`) |
+| RUT sin puntos en Código de Ficha | El OCR guarda `76247147-7` y el importador lo rechaza | `toSheetRut()` en la serialización — también normaliza el DV `k` a mayúscula |
+| Varios asientos en un mismo Excel | Defontana no los distingue: los funde en un comprobante con fechas mezcladas | `exportDefontanaAuto()` → ZIP con un archivo por comprobante |
+| Emitir el asiento de traspaso desde los dos lados | Cada traspaso deja un ítem en el reporte del pagador Y del receptor | Emitir solo desde `is_transfer_payer` |
+| Sumar adelantos y gastos en un KPI de "total" | Es la misma plata contada dos veces | `byMovement` — el gasto es `expense`, el resto es flujo de fondos |
+| Buscar los adelantos de un fondo vivo en `petty_cash_items` | Ahí solo hay gastos; adelantos y reembolsos son `petty_cash_transfers` | Mapear por sentido del dinero: `disbursement`/`refund_to_employee` → adelanto, `reimbursement_from_employee` → devolución |
+| Heredoc largo con TSX/TS en el Bash tool | El comando falla con "unexpected EOF while looking for matching `''" | Usar el tool Write (o Write a un temporal + `cat >>`) para bloques grandes |
