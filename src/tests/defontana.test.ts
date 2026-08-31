@@ -87,13 +87,16 @@ describe('adelantos', () => {
     expect(fondos.cod_ficha).toBe('15381452K')
   })
 
-  it('abona el banco con tipo de documento CARGO y la fecha como número de documento', () => {
+  it('abona el banco con CARGO y la fecha en las columnas de movimiento', () => {
     const banco = res.lines[1]
     expect(banco.cuenta).toBe('1110102001')
     expect(banco.haber).toBe(200_000)
     expect(banco.debe).toBe('')
-    expect(banco.tipo_doc).toBe('CARGO')
-    expect(banco.nro_doc).toBe('240226')
+    expect(banco.tipo_movimiento).toBe('CARGO')
+    expect(banco.nro_movimiento).toBe('240226')
+    // Las columnas de documento quedan libres para el folio de una factura
+    expect(banco.tipo_doc).toBe('')
+    expect(banco.nro_doc).toBe('')
   })
 
   it('no pone ficha ni centro de costo en la línea del banco', () => {
@@ -112,7 +115,29 @@ describe('adelantos', () => {
       [report([item({ item_type: 'advance', amount_clp: 81_728, date: '2026-03-12' })], { date: '2026-01-01' })],
       settings,
     )
-    expect(otro.lines[1].nro_doc).toBe('120326')
+    expect(otro.lines[1].nro_movimiento).toBe('120326')
+  })
+
+  it('en la planilla, CARGO y la fecha caen en las columnas de movimiento', () => {
+    const rows = buildSheetRows(res.lines)
+    const col  = (name: string) => rows[0].indexOf(name)
+    const banco = rows[2]
+    expect(banco[col('Tipo de movimiento')]).toBe('CARGO')
+    expect(banco[col('Número de movimiento')]).toBe('240226')
+    expect(banco[col('Tipo de Documento')]).toBe('')
+    expect(banco[col('Número de Documento')]).toBe('')
+  })
+
+  it('las facturas siguen usando las columnas de documento', () => {
+    const factura = buildDefontanaEntries(
+      [report([item({ item_type: 'expense', amount_clp: 50_400, doc_type: 'factura', doc_number: '12345', supplier_rut: '76247147-7' })])],
+      settings,
+    )
+    const rows = buildSheetRows(factura.lines)
+    const col  = (name: string) => rows[0].indexOf(name)
+    expect(rows[1][col('Tipo de Documento')]).toBe('FVAELECT')
+    expect(rows[1][col('Número de Documento')]).toBe('12345')
+    expect(rows[1][col('Tipo de movimiento')]).toBe('')
   })
 
   it('agrupa en un solo asiento los adelantos de la misma fecha', () => {
@@ -167,9 +192,11 @@ describe('devoluciones', () => {
     expect(banco.haber).toBe('')
   })
 
-  it('usa ABONO como tipo de documento del banco', () => {
-    expect(res.lines[1].tipo_doc).toBe('ABONO')
-    expect(res.lines[1].nro_doc).toBe('040326')
+  it('usa ABONO en las columnas de movimiento del banco', () => {
+    expect(res.lines[1].tipo_movimiento).toBe('ABONO')
+    expect(res.lines[1].nro_movimiento).toBe('040326')
+    expect(res.lines[1].tipo_doc).toBe('')
+    expect(res.lines[1].nro_doc).toBe('')
   })
 })
 

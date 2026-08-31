@@ -94,6 +94,10 @@ export interface DefontanaRow {
   centro_negocios:  string          // ID del centro (ej: "EMPGESFINADM")
   codigo_legal:     string          // igual a cod_ficha
   nombre:           string          // nombre proveedor o empleado
+  /** Solo en la línea de banco: el CARGO/ABONO y su fecha van en las columnas de
+   *  movimiento, no en las de documento. Las de documento quedan para las facturas. */
+  tipo_movimiento?: string
+  nro_movimiento?:  string
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -254,8 +258,12 @@ function buildBankVoucher(
       debe:             kind === 'advance' ? ''    : total,
       haber:            kind === 'advance' ? total : '',
       cod_ficha:        '',
-      tipo_doc:         docType,
-      nro_doc:          docNo,
+      // El movimiento bancario va en las columnas de movimiento; las de
+      // documento son para el folio de una factura
+      tipo_doc:         '',
+      nro_doc:          '',
+      tipo_movimiento:  docType,
+      nro_movimiento:   docNo,
       centro_negocios:  '',
       codigo_legal:     '',
       nombre:           report.employeeName,
@@ -581,8 +589,8 @@ function rowToArray(l: DefontanaRow): (string | number | '')[] {
     '',                 // 22. Clasificador 2
     '',                 // 23. Moneda referencia
     '',                 // 24. Tasa referencia
-    '',                 // 25. Tipo de movimiento
-    '',                 // 26. Número de movimiento
+    l.tipo_movimiento ?? '', // 25. Tipo de movimiento (CARGO/ABONO del banco)
+    l.nro_movimiento  ?? '', // 26. Número de movimiento (fecha DDMMYY)
     toSheetRut(l.codigo_legal), // 27. Codigo Legal (= Código de Ficha)
     l.nombre,           // 28. Nombre
     '',                 // 29. Giro
