@@ -75,7 +75,12 @@ export function CategoryDonutChart({ data }: Props) {
 
   return (
     <div className="bg-white rounded-card shadow-card p-5 space-y-4">
-      <h2 className="font-display font-bold text-lg text-ink-900">Gastos por categoría</h2>
+      <div>
+        <h2 className="font-display font-bold text-lg text-ink-900">Gastos por categoría</h2>
+        <p className="text-xs text-ink-400 mt-0.5">
+          Año {new Date().getFullYear()} · solo gastos, sin adelantos ni devoluciones
+        </p>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-6 items-start">
         {/* SVG donut */}

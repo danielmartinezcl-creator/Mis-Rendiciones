@@ -2207,12 +2207,18 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
 
   const ids = reportIds.map((r: { id: string }) => r.id)
 
+  // Año en curso: sin este filtro el desglose acumulaba todos los períodos y no
+  // coincidía con el informe, que sí filtra por año
+  const year = new Date().getFullYear()
+
   const { data: items } = await supabase
     .from('expense_items')
     .select('amount_clp, expense_categories (name)')
     .in('report_id', ids)
     .eq('status', 'approved')
     .eq('item_type', 'expense')
+    .gte('date', `${year}-01-01`)
+    .lte('date', `${year}-12-31`)
     .is('deleted_at', null)
 
   if (!items || items.length === 0) return []

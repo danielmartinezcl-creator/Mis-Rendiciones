@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Search, Download, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { getUnifiedReportItems } from '@/actions/reports'
-import { buildPeriodRange, computeUnifiedKpis, SOURCE_LABELS, SOURCE_COLORS } from '@/lib/report-helpers'
+import { buildPeriodRange, computeUnifiedKpis, SOURCE_LABELS, SOURCE_COLORS, MOVEMENT_LABELS } from '@/lib/report-helpers'
 import { formatCLP, formatDate } from '@/lib/utils'
-import type { ReportFilterOptions, UnifiedReportItem, UnifiedReportFilters, UnifiedKpis, PeriodPreset } from '@/lib/report-helpers'
+import type { ReportFilterOptions, UnifiedReportItem, UnifiedReportFilters, UnifiedKpis, PeriodPreset, UnifiedMovement } from '@/lib/report-helpers'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -63,6 +63,7 @@ export function InformesClient({ filterOptions }: Props) {
   const [selectedFondos,  setSelectedFondos]  = useState<string[]>([])
   const [reportStatuses,  setReportStatuses]  = useState<string[]>([])
   const [itemStatuses,    setItemStatuses]    = useState<('pending' | 'approved' | 'rejected')[]>([])
+  const [movements,       setMovements]       = useState<UnifiedMovement[]>([])
   const [reimb,           setReimb]           = useState<'all' | 'pending' | 'reimbursed'>('all')
   const [defontana,       setDefontana]       = useState<'all' | 'notExported' | 'exported'>('all')
 
@@ -100,6 +101,7 @@ export function InformesClient({ filterOptions }: Props) {
         fundIds:        selectedFondos.length ? selectedFondos : undefined,
         reportStatuses: reportStatuses.length ? reportStatuses : undefined,
         itemStatuses:   itemStatuses.length   ? itemStatuses   : undefined,
+        movements:      movements.length      ? movements      : undefined,
         reimb:          reimb     !== 'all' ? reimb     : undefined,
         defontana:      defontana !== 'all' ? defontana : undefined,
       }
@@ -444,8 +446,25 @@ export function InformesClient({ filterOptions }: Props) {
           </div>
         </div>
 
-        {/* Fila 7: Estado ítem + Reembolso + Defontana */}
+        {/* Fila 7: Movimiento + Estado ítem + Reembolso + Defontana */}
         <div className="flex flex-wrap gap-6">
+          <div>
+            <p className="card-meta font-semibold text-ink-500 mb-2">Movimiento</p>
+            <div className="flex gap-2">
+              {(['expense', 'advance', 'return', 'transfer'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setMovements(s => toggle(s, m))}
+                  className={`px-2.5 py-1 rounded-item text-xs font-semibold transition-colors ${
+                    movements.includes(m) ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
+                  }`}
+                >
+                  {MOVEMENT_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <p className="card-meta font-semibold text-ink-500 mb-2">Estado del ítem</p>
             <div className="flex gap-2">
@@ -519,19 +538,37 @@ export function InformesClient({ filterOptions }: Props) {
       {/* Resultados */}
       {hasResults && kpis && (
         <div className="space-y-4">
-          {/* KPI cards */}
+          {/* KPI cards — el gasto es el número principal; adelantos, devoluciones
+              y traspasos son movimientos de fondos y no se suman al gasto */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white rounded-card p-4 shadow-card">
+              <p className="text-xs text-ink-500 font-medium">Gastos aprobados</p>
+              <p className="text-2xl font-mono-amount font-bold text-emerald-600 mt-1">{formatCLP(kpis.byMovement.expense.approvedCLP)}</p>
+              <p className="text-xs text-ink-400 mt-0.5">{kpis.byMovement.expense.count.toLocaleString('es-CL')} ítems de gasto</p>
+            </div>
+            <div className="bg-white rounded-card p-4 shadow-card">
+              <p className="text-xs text-ink-500 font-medium mb-2">Movimientos de fondos</p>
+              <div className="space-y-1">
+                {(['advance', 'return', 'transfer'] as const)
+                  .filter(m => kpis.byMovement[m].count > 0)
+                  .map(m => (
+                    <div key={m} className="flex justify-between text-xs">
+                      <span className="text-ink-500">{MOVEMENT_LABELS[m]}</span>
+                      <span className="font-mono-amount text-ink-600">
+                        {kpis.byMovement[m].count} · {formatCLP(kpis.byMovement[m].totalCLP)}
+                      </span>
+                    </div>
+                  ))}
+                {(['advance', 'return', 'transfer'] as const).every(m => kpis.byMovement[m].count === 0) && (
+                  <p className="text-xs text-ink-400">Sin movimientos en el período</p>
+                )}
+              </div>
+              <p className="text-[11px] text-ink-400 mt-2 leading-tight">No se suman al gasto</p>
+            </div>
             <div className="bg-white rounded-card p-4 shadow-card">
               <p className="text-xs text-ink-500 font-medium">Total ítems</p>
               <p className="text-2xl font-mono-amount font-bold text-ink-900 mt-1">{kpis.totalItems.toLocaleString('es-CL')}</p>
-            </div>
-            <div className="bg-white rounded-card p-4 shadow-card">
-              <p className="text-xs text-ink-500 font-medium">Total CLP</p>
-              <p className="text-2xl font-mono-amount font-bold text-ink-900 mt-1">{formatCLP(kpis.totalCLP)}</p>
-            </div>
-            <div className="bg-white rounded-card p-4 shadow-card">
-              <p className="text-xs text-ink-500 font-medium">Monto aprobado</p>
-              <p className="text-2xl font-mono-amount font-bold text-emerald-600 mt-1">{formatCLP(kpis.approvedCLP)}</p>
+              <p className="text-xs text-ink-400 mt-0.5">{formatCLP(kpis.totalCLP)} en total</p>
             </div>
             <div className="bg-white rounded-card p-4 shadow-card">
               <p className="text-xs text-ink-500 font-medium mb-2">Por fuente</p>

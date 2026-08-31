@@ -228,6 +228,7 @@ export function exportPettyCashToExcel(items: PettyCashItemRow[], filename = 'ca
 // ─── Export Informes Unificados ───────────────────────────────────────────────
 
 import type { UnifiedReportItem, UnifiedKpis } from '@/lib/report-helpers'
+import { MOVEMENT_LABELS } from '@/lib/report-helpers'
 
 const UNIFIED_SOURCE_ES: Record<string, string> = {
   rendicion_new:   'Rendición',
@@ -252,6 +253,7 @@ export function exportUnifiedToExcel(
   // ── Hoja 1: Detalle ──────────────────────────────────────────
   const detailRows = items.map(i => ({
     Fuente:          UNIFIED_SOURCE_ES[i.source] ?? i.source,
+    Movimiento:      MOVEMENT_LABELS[i.item_type] ?? i.item_type,
     Empleado:        i.employee_name,
     Departamento:    i.department ?? '',
     'Fondo/Rendición': i.parent_title,
@@ -272,7 +274,7 @@ export function exportUnifiedToExcel(
 
   const ws1 = XLSX.utils.json_to_sheet(detailRows)
   ws1['!cols'] = [
-    { wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 28 }, { wch: 16 },
+    { wch: 16 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 28 }, { wch: 16 },
     { wch: 18 }, { wch: 30 }, { wch: 20 }, { wch: 12 }, { wch: 12 },
     { wch: 8  }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
     { wch: 30 }, { wch: 30 },
@@ -280,26 +282,37 @@ export function exportUnifiedToExcel(
   XLSX.utils.book_append_sheet(wb, ws1, 'Detalle')
 
   // ── Hoja 2: Por empleado ─────────────────────────────────────
-  const byEmp: Record<string, { name: string; dept: string | null; count: number; totalCLP: number; approvedCLP: number }> = {}
+  // Gastos y movimientos de fondos van en columnas separadas: sumarlos cuenta
+  // dos veces la misma plata (el adelanto financia el gasto)
+  const byEmp: Record<string, {
+    name: string; dept: string | null; count: number
+    gastosCLP: number; gastosAprobCLP: number; fondosCLP: number
+  }> = {}
   for (const i of items) {
     if (!byEmp[i.employee_id]) {
-      byEmp[i.employee_id] = { name: i.employee_name, dept: i.department, count: 0, totalCLP: 0, approvedCLP: 0 }
+      byEmp[i.employee_id] = { name: i.employee_name, dept: i.department, count: 0, gastosCLP: 0, gastosAprobCLP: 0, fondosCLP: 0 }
     }
-    byEmp[i.employee_id].count++
-    byEmp[i.employee_id].totalCLP += i.amount_clp
-    if (i.item_status === 'approved') byEmp[i.employee_id].approvedCLP += i.amount_clp
+    const e = byEmp[i.employee_id]
+    e.count++
+    if (i.item_type === 'expense') {
+      e.gastosCLP += i.amount_clp
+      if (i.item_status === 'approved') e.gastosAprobCLP += i.amount_clp
+    } else {
+      e.fondosCLP += i.amount_clp
+    }
   }
   const empRows = Object.values(byEmp)
-    .sort((a, b) => b.totalCLP - a.totalCLP)
+    .sort((a, b) => b.gastosCLP - a.gastosCLP)
     .map(e => ({
-      Empleado:         e.name,
-      Departamento:     e.dept ?? '',
-      'N° ítems':       e.count,
-      'Total CLP':      e.totalCLP,
-      'Aprobado CLP':   e.approvedCLP,
+      Empleado:            e.name,
+      Departamento:        e.dept ?? '',
+      'N° ítems':          e.count,
+      'Gastos CLP':        e.gastosCLP,
+      'Gastos aprob. CLP': e.gastosAprobCLP,
+      'Fondos CLP':        e.fondosCLP,
     }))
   const ws2 = XLSX.utils.json_to_sheet(empRows)
-  ws2['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
+  ws2['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 14 }]
   XLSX.utils.book_append_sheet(wb, ws2, 'Por Empleado')
 
   // ── Hoja 3: Por categoría ────────────────────────────────────

@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { computeUnifiedKpis } from '@/lib/report-helpers'
+import { computeUnifiedKpis, toUnifiedMovement } from '@/lib/report-helpers'
 import type {
   UnifiedReportItem,
   UnifiedReportFilters,
@@ -106,7 +106,7 @@ async function fetchRendicionItems(
   // Ítems
   let itemsQ = supabase
     .from('expense_items')
-    .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
+    .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason, item_type')
     .in('report_id', reportIds)
     .is('deleted_at', null)
     .order('date', { ascending: true })
@@ -127,6 +127,7 @@ async function fetchRendicionItems(
     const user = userMap[r.submitter_id]
     return {
       source,
+      item_type:             toUnifiedMovement(i.item_type),
       employee_id:           r.submitter_id,
       employee_name:         user?.name          ?? 'Desconocido',
       department:            user?.department     ?? null,
@@ -211,6 +212,7 @@ async function fetchCajaChicaNewItems(
     const user = userMap[fund.employee_id]
     return {
       source:                'caja_chica_new' as const,
+      item_type:             'expense' as const,   // un fondo vivo solo registra gastos
       employee_id:           fund.employee_id,
       employee_name:         user?.name         ?? 'Desconocido',
       department:            user?.department    ?? null,
@@ -278,7 +280,7 @@ async function fetchCajaChicaHistItems(
 
   let itemsQ = supabase
     .from('expense_items')
-    .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
+    .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason, item_type')
     .in('report_id', reportIds)
     .is('deleted_at', null)
     .order('date', { ascending: true })
@@ -299,6 +301,7 @@ async function fetchCajaChicaHistItems(
     const user = userMap[r.submitter_id]
     return {
       source:                'caja_chica_hist' as const,
+      item_type:             toUnifiedMovement(i.item_type),
       employee_id:           r.submitter_id,
       employee_name:         user?.name         ?? 'Desconocido',
       department:            user?.department    ?? null,
@@ -394,23 +397,20 @@ export async function getUnifiedReportItems(
   if (includeCC   && includeHist) promises.push(fetchCajaChicaHistItems(supabase, orgId, filters))
 
   if (!promises.length) {
-    return {
-      items: [],
-      totalItems: 0,
-      totalCLP: 0,
-      approvedCLP: 0,
-      bySource: {
-        rendicion_new:   { count: 0, totalCLP: 0 },
-        rendicion_hist:  { count: 0, totalCLP: 0 },
-        caja_chica_new:  { count: 0, totalCLP: 0 },
-        caja_chica_hist: { count: 0, totalCLP: 0 },
-      },
-    }
+    return { items: [], ...computeUnifiedKpis([]) }
   }
 
   const results = await Promise.all(promises)
-  const items   = results.flat().sort((a, b) => a.date.localeCompare(b.date))
-  const kpis    = computeUnifiedKpis(items)
+  let items = results.flat().sort((a, b) => a.date.localeCompare(b.date))
+
+  // Filtro por movimiento en memoria: los ítems de un fondo vivo no tienen
+  // columna item_type, así que no se puede resolver en la query de cada fuente
+  if (filters.movements?.length) {
+    const wanted = new Set(filters.movements)
+    items = items.filter(i => wanted.has(i.item_type))
+  }
+
+  const kpis = computeUnifiedKpis(items)
 
   return { items, ...kpis }
 }
