@@ -4,6 +4,7 @@
 // Boletas/tickets → agrupadas por (cuenta, centro de negocios).
 
 import * as XLSX from 'xlsx'
+import { formatRutDisplay } from '@/lib/sii-validator'
 
 // ── Interfaces de entrada ───────────────────────────────────────────────────
 
@@ -540,6 +541,13 @@ export function toSheetCostCenter(costCenter: string): string {
   return costCenter ? `${costCenter}000` : ''
 }
 
+/** El importador exige el RUT con puntos y guión: 76247147-7 → 76.247.147-7.
+ *  Los RUT de proveedor vienen del OCR sin puntos y los de empleado a veces con
+ *  el dígito K en minúscula; esto normaliza ambos casos. Vacío queda vacío. */
+export function toSheetRut(rut: string): string {
+  return rut ? formatRutDisplay(rut) : ''
+}
+
 /** Cuántos asientos distintos contiene el resultado. Como la columna Número va
  *  fija en "A", el importador funde en un solo comprobante todo lo que venga en
  *  el archivo: conviene avisar antes de exportar más de uno. */
@@ -562,7 +570,7 @@ function rowToArray(l: DefontanaRow): (string | number | '')[] {
     '',                 // 11. Debe moneda secundaria
     '',                 // 12. Haber moneda secundaria
     '',                 // 13. Tasa cambio
-    l.cod_ficha,        // 14. Código de Ficha (RUT proveedor)
+    toSheetRut(l.cod_ficha), // 14. Código de Ficha (RUT con puntos y guión)
     '',                 // 15. Cancelar Documento
     l.tipo_doc,         // 16. Tipo de Documento
     l.nro_doc,          // 17. Número de Documento
@@ -575,7 +583,7 @@ function rowToArray(l: DefontanaRow): (string | number | '')[] {
     '',                 // 24. Tasa referencia
     '',                 // 25. Tipo de movimiento
     '',                 // 26. Número de movimiento
-    l.codigo_legal,     // 27. Codigo Legal (= RUT proveedor)
+    toSheetRut(l.codigo_legal), // 27. Codigo Legal (= Código de Ficha)
     l.nombre,           // 28. Nombre
     '',                 // 29. Giro
     '',                 // 30. Dirección

@@ -3,6 +3,7 @@ import {
   buildDefontanaEntries,
   buildSheetRows,
   toSheetCostCenter,
+  toSheetRut,
   countVouchers,
   toBankDocNumber,
   type DefontanaItem,
@@ -362,5 +363,60 @@ describe('centro de negocios por tipo de cuenta', () => {
     const rows = buildSheetRows(res.lines)
     const ccCol = rows[0].indexOf('Centro de Negocios')
     expect(rows.slice(1).every(r => r[ccCol] === '')).toBe(true)
+  })
+})
+
+describe('RUT en Código de Ficha (caso fondo 176)', () => {
+  const col = (rows: (string | number | '')[][], name: string) => rows[0].indexOf(name)
+
+  it('agrega los puntos al RUT del proveedor: 76247147-7 → 76.247.147-7', () => {
+    const res = buildDefontanaEntries(
+      [report([item({
+        item_type: 'expense', amount_clp: 50_400, doc_type: 'factura',
+        supplier_rut: '76247147-7', merchant: 'Hillmann Fresno Juan Francisco',
+      })])],
+      settings,
+    )
+    const rows = buildSheetRows(res.lines)
+    expect(rows[1][col(rows, 'Código de Ficha')]).toBe('76.247.147-7')
+    // Codigo Legal va vacío en las líneas de factura: el documento ya está
+    // ingresado en Defontana y este asiento solo rebaja la cuenta del proveedor
+    expect(rows[1][col(rows, 'Codigo Legal')]).toBe('')
+  })
+
+  it('usa la cuenta de proveedor cuando el documento es factura', () => {
+    const res = buildDefontanaEntries(
+      [report([item({ item_type: 'expense', amount_clp: 50_400, doc_type: 'factura', supplier_rut: '76247147-7' })])],
+      settings,
+    )
+    expect(res.lines[0].cuenta).toBe('2110702001')
+  })
+
+  it('deja intacto un RUT que ya viene con puntos', () => {
+    expect(toSheetRut('15.601.823-6')).toBe('15.601.823-6')
+  })
+
+  it('normaliza el dígito verificador K a mayúscula', () => {
+    expect(toSheetRut('18.531.880-k')).toBe('18.531.880-K')
+    expect(toSheetRut('15381452K')).toBe('15.381.452-K')
+  })
+
+  it('deja vacío el código de ficha cuando no hay RUT', () => {
+    expect(toSheetRut('')).toBe('')
+    const res = buildDefontanaEntries(
+      [report([item({ item_type: 'expense', amount_clp: 30_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' })])],
+      settings,
+    )
+    const rows = buildSheetRows(res.lines)
+    expect(rows[1][col(rows, 'Código de Ficha')]).toBe('')
+  })
+
+  it('formatea también la ficha del empleado en la contrapartida', () => {
+    const res = buildDefontanaEntries(
+      [report([item({ item_type: 'expense', amount_clp: 30_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' })])],
+      settings,
+    )
+    const rows = buildSheetRows(res.lines)
+    expect(rows[2][col(rows, 'Código de Ficha')]).toBe('15.381.452-K')
   })
 })
