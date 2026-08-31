@@ -221,7 +221,6 @@ function buildBankVoucher(
       ? `Adelanto de fondos: ${report.reportTitle}`
       : `Devolución de fondos: ${report.reportTitle}`
     const glosa = `${report.reportTitle} — ${report.employeeName}`
-    const cc    = report.employeeCostCenterId ?? settings.costCenter ?? ''
 
     out.push({
       numero,
@@ -237,7 +236,7 @@ function buildBankVoucher(
       cod_ficha:        report.employeeRut ?? '',
       tipo_doc:         '',
       nro_doc:          '',
-      centro_negocios:  cc,
+      centro_negocios:  '',   // cuenta de balance: se imputa por ficha, no por centro
       codigo_legal:     report.employeeRut ?? '',
       nombre:           report.employeeName,
     })
@@ -302,7 +301,6 @@ function buildTransferVouchers(
     const numero     = `TR-${toBankDocNumber(date)}-${report.reportId.slice(-4).toUpperCase()}`
     const serial     = toExcelSerial(date)
     const comentario = `Traspaso de fondos: ${report.reportTitle}`
-    const cc         = report.employeeCostCenterId ?? settings.costCenter ?? ''
     const receptor   = item.counterpart_name ?? 'Destinatario'
 
     out.push({
@@ -319,7 +317,7 @@ function buildTransferVouchers(
       cod_ficha:        item.counterpart_rut ?? '',
       tipo_doc:         '',
       nro_doc:          '',
-      centro_negocios:  cc,
+      centro_negocios:  '',   // cuenta de balance: se imputa por ficha, no por centro
       codigo_legal:     item.counterpart_rut ?? '',
       nombre:           receptor,
     })
@@ -338,7 +336,7 @@ function buildTransferVouchers(
       cod_ficha:        report.employeeRut ?? '',
       tipo_doc:         '',
       nro_doc:          '',
-      centro_negocios:  cc,
+      centro_negocios:  '',   // cuenta de balance: se imputa por ficha, no por centro
       codigo_legal:     report.employeeRut ?? '',
       nombre:           report.employeeName,
     })
@@ -478,7 +476,7 @@ export function buildDefontanaEntries(
         cod_ficha:        report.employeeRut ?? '',
         tipo_doc:         '',
         nro_doc:          '',
-        centro_negocios:  report.employeeCostCenterId ?? settings.costCenter ?? '',
+        centro_negocios:  '',   // cuenta de balance: se imputa por ficha, no por centro
         codigo_legal:     report.employeeRut ?? '',
         nombre:           report.employeeName,
       })
@@ -526,11 +524,34 @@ const HEADERS = [
   '', '',
 ]
 
+// ── Formato exigido por el importador ──────────────────────────────────────
+// Verificado importando el comprobante de gastos del fondo 174.
+
+/** El importador espera la letra "A" en la columna Número, no el id del voucher.
+ *  El `numero` interno se conserva para agrupar las líneas de cada asiento. */
+const SHEET_VOUCHER_NUMBER = 'A'
+
+/** El importador nombra la moneda "PESO", no "CLP". */
+const SHEET_CURRENCY = 'PESO'
+
+/** El centro de negocios va con tres ceros al final: EMPGESINGING → EMPGESINGING000.
+ *  Vacío se deja vacío: "000" solo no es un centro válido. */
+export function toSheetCostCenter(costCenter: string): string {
+  return costCenter ? `${costCenter}000` : ''
+}
+
+/** Cuántos asientos distintos contiene el resultado. Como la columna Número va
+ *  fija en "A", el importador funde en un solo comprobante todo lo que venga en
+ *  el archivo: conviene avisar antes de exportar más de uno. */
+export function countVouchers(result: DefontanaResult): number {
+  return new Set(result.lines.map(l => l.numero)).size
+}
+
 function rowToArray(l: DefontanaRow): (string | number | '')[] {
   return [
-    l.numero,           //  1. Número
+    SHEET_VOUCHER_NUMBER, //  1. Número
     l.tipo_comprobante, //  2. Tipo Comprobante
-    'CLP',              //  3. Moneda comprobante
+    SHEET_CURRENCY,     //  3. Moneda comprobante
     l.fecha,            //  4. Fecha (serial Excel)
     l.linea,            //  5. Línea
     l.cuenta,           //  6. Cuenta (sin puntos)
@@ -547,7 +568,7 @@ function rowToArray(l: DefontanaRow): (string | number | '')[] {
     l.nro_doc,          // 17. Número de Documento
     '',                 // 18. Serie de Documento
     l.fecha,            // 19. Vencimiento de Docto. (= Fecha)
-    l.centro_negocios,  // 20. Centro de Negocios
+    toSheetCostCenter(l.centro_negocios), // 20. Centro de Negocios (+ "000")
     '',                 // 21. Clasificador 1
     '',                 // 22. Clasificador 2
     '',                 // 23. Moneda referencia
@@ -567,6 +588,11 @@ function rowToArray(l: DefontanaRow): (string | number | '')[] {
   ]
 }
 
+/** Encabezados + una fila por línea, en el orden exacto del importador. */
+export function buildSheetRows(lines: DefontanaRow[]): (string | number | '')[][] {
+  return [HEADERS, ...lines.map(rowToArray)]
+}
+
 export function exportDefontanaToExcel(
   result:   DefontanaResult,
   filename = 'asientos-defontana',
@@ -574,11 +600,7 @@ export function exportDefontanaToExcel(
   const wb = XLSX.utils.book_new()
 
   // ── Hoja 1: Asientos (formato exacto del importador Defontana) ─────────────
-  const aoa: (string | number | '')[][] = [HEADERS]
-  for (const line of result.lines) {
-    aoa.push(rowToArray(line))
-  }
-  const ws1 = XLSX.utils.aoa_to_sheet(aoa)
+  const ws1 = XLSX.utils.aoa_to_sheet(buildSheetRows(result.lines))
   ws1['!cols'] = [
     { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 10 }, { wch: 6 },
     { wch: 14 }, { wch: 35 }, { wch: 45 },

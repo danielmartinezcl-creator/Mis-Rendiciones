@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildDefontanaEntries,
+  buildSheetRows,
+  toSheetCostCenter,
+  countVouchers,
   toBankDocNumber,
   type DefontanaItem,
   type DefontanaReportInput,
@@ -259,5 +262,105 @@ describe('reporte con movimientos mezclados', () => {
     for (const { debe, haber } of porVoucher.values()) {
       expect(debe).toBe(haber)
     }
+  })
+})
+
+describe('formato del importador (verificado con el fondo 174)', () => {
+  const res = buildDefontanaEntries(
+    [report([
+      item({ item_type: 'expense', amount_clp: 30_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta', cost_center_id: 'EMPGESINGING' }),
+    ])],
+    settings,
+  )
+  const rows    = buildSheetRows(res.lines)
+  const headers = rows[0]
+  const first   = rows[1]
+
+  const col = (name: string) => headers.indexOf(name)
+
+  it('escribe la letra A en la columna Número, no el id del voucher', () => {
+    expect(rows.slice(1).every(r => r[col('Número')] === 'A')).toBe(true)
+  })
+
+  it('nombra la moneda PESO', () => {
+    expect(first[col('Moneda comprobante')]).toBe('PESO')
+  })
+
+  it('agrega tres ceros al centro de negocios', () => {
+    expect(first[col('Centro de Negocios')]).toBe('EMPGESINGING000')
+  })
+
+  it('deja vacío el centro de negocios cuando no hay, sin poner 000 solo', () => {
+    expect(toSheetCostCenter('')).toBe('')
+  })
+
+  it('conserva las 36 columnas del template', () => {
+    expect(headers).toHaveLength(36)
+    expect(rows.every(r => r.length === 36)).toBe(true)
+  })
+
+  it('mantiene el voucher interno para poder contar los asientos', () => {
+    const mixto = buildDefontanaEntries(
+      [report([
+        item({ item_type: 'expense', amount_clp: 40_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' }),
+        item({ item_type: 'advance', amount_clp: 100_000, date: '2026-02-24' }),
+      ])],
+      settings,
+    )
+    expect(countVouchers(mixto)).toBe(2)
+    // ...aunque en la planilla las dos salgan como "A"
+    expect(new Set(buildSheetRows(mixto.lines).slice(1).map(r => r[0])).size).toBe(1)
+  })
+})
+
+describe('centro de negocios por tipo de cuenta', () => {
+  it('los gastos sí llevan centro de negocios', () => {
+    const res = buildDefontanaEntries(
+      [report([item({ item_type: 'expense', amount_clp: 30_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta', cost_center_id: 'EMPGESINGING' })])],
+      settings,
+    )
+    expect(res.lines[0].centro_negocios).toBe('EMPGESINGING')
+  })
+
+  it('Fondos por Rendir no lleva centro de negocios al cerrar los gastos', () => {
+    const res = buildDefontanaEntries(
+      [report([item({ item_type: 'expense', amount_clp: 30_000, defontana_account_code: '4.5.1030.10.13', doc_type: 'boleta' })])],
+      settings,
+    )
+    const contrapartida = res.lines[res.lines.length - 1]
+    expect(contrapartida.cuenta).toBe('1110101003')
+    expect(contrapartida.centro_negocios).toBe('')
+  })
+
+  it('ninguna línea de adelanto o devolución lleva centro de negocios', () => {
+    const res = buildDefontanaEntries(
+      [report([
+        item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24' }),
+        item({ item_type: 'return',  amount_clp: 50_000,  date: '2026-03-04' }),
+      ])],
+      settings,
+    )
+    expect(res.lines.every(l => l.centro_negocios === '')).toBe(true)
+  })
+
+  it('ninguna línea de traspaso lleva centro de negocios', () => {
+    const res = buildDefontanaEntries(
+      [report([item({
+        item_type: 'transfer', amount_clp: 75_000, date: '2026-03-10',
+        counterpart_rut: '156435414', counterpart_name: 'Carlos Soto', is_transfer_payer: true,
+      })])],
+      settings,
+    )
+    expect(res.lines.every(l => l.centro_negocios === '')).toBe(true)
+  })
+
+  it('en la planilla, sin centro no escribe 000 suelto', () => {
+    const res = buildDefontanaEntries(
+      [report([item({ item_type: 'advance', amount_clp: 200_000, date: '2026-02-24' })])],
+      settings,
+    )
+    const rows = buildSheetRows(res.lines)
+    const ccCol = rows[0].indexOf('Centro de Negocios')
+    expect(rows.slice(1).every(r => r[ccCol] === '')).toBe(true)
   })
 })

@@ -343,8 +343,21 @@ export function AdminReportsClient({ initialReports }: Props) {
         )
         if (!ok) return
       }
-      const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
+      const { buildDefontanaEntries, exportDefontanaToExcel, countVouchers } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries(defReports, settings)
+
+      // La columna Número va fija en "A": Defontana funde en un solo comprobante
+      // todo lo que venga en el archivo
+      const vouchers = countVouchers(result)
+      if (vouchers > 1) {
+        const ok = window.confirm(
+          `Este archivo contiene ${vouchers} asientos distintos.\n\n` +
+          `Defontana los va a importar como un único comprobante, porque la columna Número va fija en "A".\n\n` +
+          `Si necesitás que queden separados, exportá de a una rendición.\n\n` +
+          `¿Generar el Excel igualmente?`
+        )
+        if (!ok) return
+      }
       // Hora local en el ref: distingue dos exportaciones del mismo día al revertir
       const now = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')

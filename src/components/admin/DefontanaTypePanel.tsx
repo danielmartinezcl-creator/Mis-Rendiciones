@@ -93,8 +93,23 @@ export function DefontanaTypePanel({ reportId, onClose, onChanged }: Props) {
         setError('No hay ítems pendientes de contabilizar para los tipos seleccionados.')
         return
       }
-      const { buildDefontanaEntries, exportDefontanaToExcel } = await import('@/lib/export/defontana')
+      const { buildDefontanaEntries, exportDefontanaToExcel, countVouchers } = await import('@/lib/export/defontana')
       const result = buildDefontanaEntries([report], settings)
+
+      // La columna Número va fija en "A": Defontana funde en un solo comprobante
+      // todo lo que venga en el archivo. Marcar gastos y adelantos juntos, o
+      // adelantos de fechas distintas, genera más de un asiento.
+      const vouchers = countVouchers(result)
+      if (vouchers > 1) {
+        const ok = window.confirm(
+          `Los tipos seleccionados generan ${vouchers} asientos distintos.\n\n` +
+          `Defontana los va a importar como un único comprobante, porque la columna Número va fija en "A".\n\n` +
+          `Si necesitás comprobantes separados, exportá un tipo a la vez.\n\n` +
+          `¿Generar el Excel igualmente?`
+        )
+        if (!ok) return
+      }
+
       const slug = types.map(t => LABEL[t].toLowerCase()).join('-')
       exportDefontanaToExcel(result, `defontana-${slug}-${new Date().toISOString().slice(0, 10)}`)
       const w = result.warnings[0]
