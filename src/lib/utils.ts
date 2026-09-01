@@ -99,3 +99,42 @@ export function formatDisplayTitle(raw: string | null | undefined): string {
     })
     .join(' ')
 }
+
+/**
+ * ¿La etiqueta de estado es tan larga que ahoga al título si va en la misma fila?
+ *
+ * La etiqueta lleva `shrink-0` — nunca cede ancho — así que con textos como
+ * "Autorización bancaria pendiente" (244px medidos) al título le quedaban 61px
+ * de los 313px de la tarjeta y se apilaba casi letra por letra.
+ *
+ * Umbral en 16 caracteres: "Revisión nivel 2" y "Aprobada parcial" (16) siguen
+ * cabiendo en línea; los dos estados bancarios (24 y 31) bajan a su propia fila.
+ */
+export function isLongStatusLabel(label: string): boolean {
+  return label.trim().length > 16
+}
+
+/**
+ * Tamaño en px de un monto para que no se salga de su columna.
+ *
+ * Los montos llevan `shrink-0` y se cortaban contra el borde: en el card de
+ * inicio la columna mide 149px y "$ 1.234.567" a 24px mide 156px.
+ * En vez de recortar, la cifra se achica por tramos según su largo.
+ *
+ * Los tramos están calculados para el caso más angosto (celular de 320-375px);
+ * en pantallas grandes sobra espacio, así que achicar de más no molesta.
+ */
+export function fitAmountFontSize(formatted: string, base: 'sm' | 'md' | 'lg' | 'xl'): number {
+  const escalas: Record<typeof base, [number, number, number]> = {
+    // [hasta 9 caracteres, 10-12, 13 o más]
+    sm: [19, 17, 15],
+    md: [24, 20, 18],
+    lg: [28, 24, 20],
+    xl: [40, 34, 28],
+  }
+  const [corto, medio, largo] = escalas[base]
+  const n = formatted.length
+  if (n <= 9)  return corto
+  if (n <= 12) return medio
+  return largo
+}

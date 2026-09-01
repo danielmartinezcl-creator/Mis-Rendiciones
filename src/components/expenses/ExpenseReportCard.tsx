@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ReportStatusBadge } from '@/components/ui/Badge'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
-import { formatDate, formatDisplayTitle } from '@/lib/utils'
+import { formatDate, formatDisplayTitle, getStatusLabel, isLongStatusLabel } from '@/lib/utils'
 import type { ReportStatus } from '@/lib/constants'
 
 interface ExpenseReportCardProps {
@@ -19,6 +19,11 @@ interface ExpenseReportCardProps {
 
 export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
   const isDraft = report.status === 'draft'
+
+  // Los estados bancarios tienen etiquetas de 24 y 31 caracteres. Como el badge
+  // lleva shrink-0, en la misma fila le dejaban 61px al título — se apilaba casi
+  // letra por letra. Cuando la etiqueta es larga, baja a su propia fila.
+  const statusIsLong = isLongStatusLabel(getStatusLabel(report.status))
 
   const dateLabel = report.submitted_at
     ? `Enviada ${formatDate(report.submitted_at.split('T')[0])}`
@@ -50,10 +55,18 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
               <p className="card-meta text-slate-400 mt-0.5">{dateLabel}</p>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <ReportStatusBadge status={report.status} />
-              <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" />
+              {!statusIsLong && <ReportStatusBadge status={report.status} />}
+              <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" fit />
             </div>
           </div>
+
+          {/* Fila propia para las etiquetas largas: el título recupera el ancho
+              completo de la tarjeta (de 61px a 285px en el peor caso) */}
+          {statusIsLong && (
+            <div className="mt-2.5 flex justify-end">
+              <ReportStatusBadge status={report.status} />
+            </div>
+          )}
 
           {report.status === 'partially_approved' && report.approved_amount > 0 && (
             <div className="mt-2 card-meta text-slate-500">
