@@ -50,3 +50,10 @@ Manual de usuario*
 next-env.d.ts
 
 .vercel
+
+# Playwright — línea base visual (etapa 0 Tornasol)
+# e2e/baseline/ SÍ se commitea: es la referencia contra la que compara la etapa 1
+/e2e/reporte/
+/e2e/.auth/
+/test-results/
+/playwright-report/

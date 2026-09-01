@@ -9,7 +9,10 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "baseline:crear": "playwright test --update-snapshots",
+    "baseline:verificar": "playwright test",
+    "baseline:reporte": "playwright show-report e2e/reporte"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
