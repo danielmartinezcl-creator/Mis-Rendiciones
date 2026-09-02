@@ -147,10 +147,10 @@ export function PettyCashClient({
 
       {/* ── Traspasos sin vincular ─────────────────────────────────────────────── */}
       {isManager && pendingTransfers.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-card p-4 space-y-2">
+        <div className="bg-warning-50 border border-warning-200 rounded-card p-4 space-y-2">
           <div className="flex items-center gap-2 mb-1">
-            <Link2 size={14} className="text-amber-600" />
-            <span className="text-sm font-bold text-amber-800">
+            <Link2 size={14} className="text-warning-600" />
+            <span className="text-sm font-bold text-warning-800">
               {pendingTransfers.length === 1
                 ? '1 traspaso sin vincular'
                 : `${pendingTransfers.length} traspasos sin vincular`}
@@ -158,10 +158,10 @@ export function PettyCashClient({
           </div>
           <div className="space-y-1.5">
             {pendingTransfers.map(t => (
-              <div key={t.id} className="flex items-center gap-2 bg-white rounded-item border border-amber-100 px-3 py-2">
+              <div key={t.id} className="flex items-center gap-2 bg-white rounded-item border border-warning-100 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-ink-800">
-                    <span className="text-amber-600 mr-1">↙</span>
+                    <span className="text-warning-600 mr-1">↙</span>
                     {fmtCLP(t.amount)} → <span className="text-ink-600">{t.receiver_employee_name}</span>
                   </p>
                   <p className="text-[11px] text-ink-400 mt-0.5">
@@ -175,7 +175,7 @@ export function PettyCashClient({
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => openLinkModal(t)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 border border-amber-300 rounded-item hover:bg-amber-100 transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-warning-700 border border-warning-300 rounded-item hover:bg-warning-100 transition-colors"
                   >
                     <Link2 size={11} />
                     Vincular
@@ -191,7 +191,7 @@ export function PettyCashClient({
                     onClick={() => handleDeleteTransfer(t)}
                     disabled={deletingTransferId === t.id}
                     title="Eliminar traspaso"
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                    className="p-1.5 text-danger-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
                   >
                     {deletingTransferId === t.id ? <span className="text-xs">…</span> : <Trash2 size={13} />}
                   </button>

@@ -41,7 +41,7 @@ export function RevertDefontanaDialog({ targetLabel, detail, onCancel, onConfirm
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-card shadow-xl p-6 w-full max-w-md space-y-4">
         <div className="flex items-start gap-3">
-          <span className="shrink-0 w-9 h-9 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+          <span className="shrink-0 w-9 h-9 rounded-full bg-warning-50 text-warning-600 flex items-center justify-center">
             <AlertTriangle size={18} />
           </span>
           <div className="min-w-0">
@@ -51,14 +51,14 @@ export function RevertDefontanaDialog({ targetLabel, detail, onCancel, onConfirm
           </div>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-item px-3 py-2 text-xs text-amber-800">
+        <div className="bg-warning-50 border border-warning-200 rounded-item px-3 py-2 text-xs text-warning-800">
           Volverá a quedar como <strong>sin contabilizar</strong> y podrá exportarse de nuevo.
           Si el asiento ya está cargado en Defontana, anúlalo allá para no duplicarlo.
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-ink-600 mb-1">
-            Motivo de la reversa <span className="text-red-500">*</span>
+            Motivo de la reversa <span className="text-danger-500">*</span>
           </label>
           <textarea
             value={reason}
@@ -73,7 +73,7 @@ export function RevertDefontanaDialog({ targetLabel, detail, onCancel, onConfirm
         </div>
 
         {error && (
-          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-item px-3 py-2">{error}</p>
+          <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-item px-3 py-2">{error}</p>
         )}
 
         <div className="flex gap-2 pt-1">
@@ -87,7 +87,7 @@ export function RevertDefontanaDialog({ targetLabel, detail, onCancel, onConfirm
           <button
             onClick={submit}
             disabled={tooShort || saving}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-item text-sm font-semibold disabled:opacity-40 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 bg-warning-600 hover:bg-warning-700 text-white rounded-item text-sm font-semibold disabled:opacity-40 transition-colors"
           >
             <Undo2 size={14} />
             {saving ? 'Revirtiendo...' : 'Revertir'}

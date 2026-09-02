@@ -14,7 +14,7 @@ type EmployeeWithEmail = UserProfile & { email: string }
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   admin:    { label: 'Admin',      cls: 'bg-purple-100 text-purple-700' },
-  approver: { label: 'Aprobador',  cls: 'bg-blue-100 text-blue-700' },
+  approver: { label: 'Aprobador',  cls: 'bg-info-100 text-info-700' },
   employee: { label: 'Empleado',   cls: 'bg-slate-100 text-slate-600' },
 }
 
@@ -296,13 +296,13 @@ export default function AdminEmployeesPage() {
       {inviteResults && (
         <div className={`flex items-start gap-3 p-3 rounded-item border text-sm ${
           inviteResults.fail === 0
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            : 'bg-amber-50 border-amber-200 text-amber-700'
+            ? 'bg-success-50 border-success-200 text-success-700'
+            : 'bg-warning-50 border-warning-200 text-warning-700'
         }`}>
           <div className="flex-1">
             {inviteResults.ok > 0 && <span className="font-semibold">{inviteResults.ok} invitación{inviteResults.ok !== 1 ? 'es' : ''} enviada{inviteResults.ok !== 1 ? 's' : ''}</span>}
-            {inviteResults.fail > 0 && <span className="font-semibold ml-2 text-red-600">{inviteResults.fail} error{inviteResults.fail !== 1 ? 'es' : ''}</span>}
-            {inviteResults.msg && <p className="text-xs mt-0.5 text-red-600">{inviteResults.msg}</p>}
+            {inviteResults.fail > 0 && <span className="font-semibold ml-2 text-danger-600">{inviteResults.fail} error{inviteResults.fail !== 1 ? 'es' : ''}</span>}
+            {inviteResults.msg && <p className="text-xs mt-0.5 text-danger-600">{inviteResults.msg}</p>}
           </div>
           <button onClick={() => setInviteResults(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
         </div>
@@ -330,7 +330,7 @@ export default function AdminEmployeesPage() {
             <button
               onClick={() => handleSendInvitations(notInvited.map(e => e.id))}
               disabled={inviting === 'bulk'}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-item transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-accent-600 hover:bg-accent-700 disabled:opacity-50 rounded-item transition-colors"
             >
               {inviting === 'bulk'
                 ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
@@ -356,7 +356,7 @@ export default function AdminEmployeesPage() {
               <button
                 onClick={handleDeleteSelected}
                 disabled={deletingBulk || !!inviting}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 hover:bg-red-50 disabled:opacity-50 rounded-item transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-danger-600 border border-danger-300 hover:bg-danger-50 disabled:opacity-50 rounded-item transition-colors"
               >
                 {deletingBulk
                   ? <><Loader2 size={12} className="animate-spin" />Eliminando…</>
@@ -428,11 +428,11 @@ export default function AdminEmployeesPage() {
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
                       {/* Badge estado invitación */}
                       {emp.invited_at ? (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent-50 text-accent-700">
                           ✉ invitado {formatDate(emp.invited_at)}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-warning-50 text-warning-700">
                           ⏳ sin invitar
                         </span>
                       )}
@@ -454,8 +454,8 @@ export default function AdminEmployeesPage() {
                       title={emp.invited_at ? `Reenviar invitación (ya enviada el ${formatDate(emp.invited_at)})` : 'Enviar invitación'}
                       className={`inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold disabled:opacity-40 rounded-item transition-colors border ${
                         emp.invited_at
-                          ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200'
-                          : 'text-teal-700 bg-teal-50 hover:bg-teal-100 border-teal-200'
+                          ? 'text-warning-700 bg-warning-50 hover:bg-warning-100 border-warning-200'
+                          : 'text-accent-700 bg-accent-50 hover:bg-accent-100 border-accent-200'
                       }`}
                     >
                       {isInvitingSingle
@@ -578,7 +578,7 @@ export default function AdminEmployeesPage() {
                         onClick={() => handleDeactivate(emp.id, emp.full_name)}
                         disabled={deactivatingId === emp.id || deletingId === emp.id}
                         title="Inactivar empleado"
-                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                        className="p-1.5 text-warning-500 hover:text-warning-700 hover:bg-warning-50 rounded-item transition-colors disabled:opacity-40"
                       >
                         {deactivatingId === emp.id
                           ? <Loader2 size={14} className="animate-spin" />
@@ -589,7 +589,7 @@ export default function AdminEmployeesPage() {
                       onClick={() => handleDelete(emp.id, emp.full_name)}
                       disabled={deletingId === emp.id || deactivatingId === emp.id}
                       title="Eliminar empleado definitivamente"
-                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                      className="p-1.5 text-danger-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
                     >
                       {deletingId === emp.id
                         ? <Loader2 size={14} className="animate-spin" />
@@ -617,8 +617,8 @@ export default function AdminEmployeesPage() {
                       isOpen
                         ? 'bg-brand-100 text-brand-700'
                         : hasApprover
-                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          : 'bg-amber-50 text-amber-700 hover:bg-amber-100',
+                          ? 'bg-success-50 text-success-700 hover:bg-success-100'
+                          : 'bg-warning-50 text-warning-700 hover:bg-warning-100',
                     ].join(' ')}
                   >
                     <span>{isOpen ? '▲' : '▼'}</span>
@@ -699,7 +699,7 @@ export default function AdminEmployeesPage() {
                 <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
                   <p className="card-label font-semibold text-ink-600 mb-3">Establecer contraseña</p>
                   {pwSuccess ? (
-                    <p className="text-sm text-emerald-600 font-medium flex items-center gap-2">
+                    <p className="text-sm text-success-600 font-medium flex items-center gap-2">
                       <Check size={15} /> Contraseña actualizada correctamente
                     </p>
                   ) : (

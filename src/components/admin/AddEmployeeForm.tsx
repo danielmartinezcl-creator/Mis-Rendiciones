@@ -58,9 +58,9 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
 
   if (success) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-card p-4 text-center">
-        <p className="text-emerald-700 font-semibold text-sm">✓ Empleado agregado</p>
-        <p className="text-emerald-600 text-xs mt-1">Podés enviarle la invitación desde la lista de empleados.</p>
+      <div className="bg-success-50 border border-success-200 rounded-card p-4 text-center">
+        <p className="text-success-700 font-semibold text-sm">✓ Empleado agregado</p>
+        <p className="text-success-600 text-xs mt-1">Podés enviarle la invitación desde la lista de empleados.</p>
       </div>
     )
   }
@@ -131,7 +131,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 rounded-item p-2">{error}</p>
+        <p className="text-xs text-danger-600 bg-danger-50 rounded-item p-2">{error}</p>
       )}
 
       <div className="flex gap-2 pt-1">

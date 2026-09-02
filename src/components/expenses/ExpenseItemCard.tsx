@@ -62,9 +62,9 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
 
         {/* Motivo de rechazo */}
         {item.status === 'rejected' && item.rejection_reason && (
-          <div className="bg-red-50 border border-red-200 rounded-item p-2">
-            <p className="card-meta text-red-600 font-semibold">Motivo de rechazo:</p>
-            <p className="card-meta text-red-500 mt-0.5">{item.rejection_reason}</p>
+          <div className="bg-danger-50 border border-danger-200 rounded-item p-2">
+            <p className="card-meta text-danger-600 font-semibold">Motivo de rechazo:</p>
+            <p className="card-meta text-danger-500 mt-0.5">{item.rejection_reason}</p>
           </div>
         )}
 
@@ -78,7 +78,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
           <button
             type="button"
             onClick={() => onDelete(item.id)}
-            className="card-meta text-red-400 hover:text-red-600 transition-colors"
+            className="card-meta text-danger-400 hover:text-danger-600 transition-colors"
           >
             Eliminar ítem
           </button>

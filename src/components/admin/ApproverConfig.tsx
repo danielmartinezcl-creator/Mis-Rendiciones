@@ -52,7 +52,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
   const backupName = options.find(u => u.id === backupId)?.full_name
 
   if (saved) {
-    return <p className="text-xs text-emerald-600 font-medium py-1">✓ Aprobadores actualizados</p>
+    return <p className="text-xs text-success-600 font-medium py-1">✓ Aprobadores actualizados</p>
   }
 
   return (
@@ -103,9 +103,9 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
 
       {/* Aprobador suplente — solo si hay N1 */}
       {l1Id && (
-        <div className="border border-amber-200 bg-amber-50 rounded-item p-3 space-y-2">
-          <p className="text-xs font-semibold text-amber-800">Aprobador suplente de N1</p>
-          <p className="text-xs text-amber-700">
+        <div className="border border-warning-200 bg-warning-50 rounded-item p-3 space-y-2">
+          <p className="text-xs font-semibold text-warning-800">Aprobador suplente de N1</p>
+          <p className="text-xs text-warning-700">
             Si {l1Name ?? 'el N1'} está de vacaciones, otro aprobador puede revisar temporalmente dentro del período indicado.
           </p>
           <select
@@ -114,7 +114,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
               setBackupId(e.target.value)
               if (!e.target.value) { setBackupFrom(''); setBackupUntil('') }
             }}
-            className="w-full border border-amber-300 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full border border-warning-300 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-warning-500"
           >
             <option value="">Sin suplente</option>
             {options.filter(u => u.id !== l1Id).map(u => (
@@ -124,34 +124,34 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
           {backupId && (
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-medium text-amber-800 mb-1">Desde</label>
+                <label className="block text-xs font-medium text-warning-800 mb-1">Desde</label>
                 <input
                   type="date"
                   value={backupFrom}
                   onChange={e => setBackupFrom(e.target.value)}
-                  className="w-full border border-amber-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-warning-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-warning-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-amber-800 mb-1">Hasta</label>
+                <label className="block text-xs font-medium text-warning-800 mb-1">Hasta</label>
                 <input
                   type="date"
                   value={backupUntil}
                   onChange={e => setBackupUntil(e.target.value)}
-                  className="w-full border border-amber-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-warning-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-warning-500"
                 />
               </div>
             </div>
           )}
           {backupId && backupFrom && backupUntil && (
-            <p className="text-xs text-amber-700">
+            <p className="text-xs text-warning-700">
               {backupName} verá las rendiciones de {employee.full_name.split(' ')[0]} del {backupFrom} al {backupUntil}
             </p>
           )}
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600 bg-red-50 rounded p-2">{error}</p>}
+      {error && <p className="text-xs text-danger-600 bg-danger-50 rounded p-2">{error}</p>}
 
       <button
         onClick={handleSave}

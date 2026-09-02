@@ -43,7 +43,7 @@ export default async function MisGastosPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
           <p className="text-xs text-ink-400 mb-1">Total aprobado</p>
-          <p className="font-mono-amount font-bold text-teal-700 text-lg leading-tight">{formatCLP(grandTotal)}</p>
+          <p className="font-mono-amount font-bold text-accent-700 text-lg leading-tight">{formatCLP(grandTotal)}</p>
           <p className="text-[11px] text-ink-300 mt-0.5">12 meses</p>
         </div>
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
@@ -70,7 +70,7 @@ export default async function MisGastosPage() {
       {grandTotal > 0 ? (
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
           <div className="flex items-center gap-2 mb-4">
-            <BarChart3 size={16} className="text-teal-600" />
+            <BarChart3 size={16} className="text-accent-600" />
             <h2 className="text-sm font-semibold text-ink-700">Gastos por mes</h2>
           </div>
           <div className="flex items-end gap-1.5 h-32">
@@ -88,7 +88,7 @@ export default async function MisGastosPage() {
                   <div className="w-full flex items-end" style={{ height: '96px' }}>
                     <div
                       className={`w-full rounded-t transition-all ${
-                        isThisMonth ? 'bg-teal-500' : 'bg-teal-200 group-hover:bg-teal-300'
+                        isThisMonth ? 'bg-accent-500' : 'bg-accent-200 group-hover:bg-accent-300'
                       } ${val === 0 ? 'opacity-30' : ''}`}
                       style={{ height: `${Math.max(pct, val > 0 ? 4 : 0)}%` }}
                     />
@@ -136,7 +136,7 @@ export default async function MisGastosPage() {
             <tfoot>
               <tr className="bg-ink-50/60">
                 <td className="px-5 py-3 font-semibold text-ink-700">Total</td>
-                <td className="px-5 py-3 text-right font-mono-amount font-bold text-teal-700">{formatCLP(grandTotal)}</td>
+                <td className="px-5 py-3 text-right font-mono-amount font-bold text-accent-700">{formatCLP(grandTotal)}</td>
                 <td className="px-5 py-3 text-right text-ink-400 text-xs">100%</td>
               </tr>
             </tfoot>

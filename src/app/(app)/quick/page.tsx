@@ -107,7 +107,7 @@ export default function QuickPage() {
   if (done) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-5 px-4">
-        <CheckCircle2 size={56} className="text-teal-500" />
+        <CheckCircle2 size={56} className="text-accent-500" />
         <h2 className="text-xl font-display font-bold text-ink-800">¡Gasto registrado!</h2>
         <p className="text-ink-500 card-label">El gasto se agregó a tu caja chica.</p>
         <div className="flex gap-3">
@@ -146,7 +146,7 @@ export default function QuickPage() {
         {(['photo', 'confirm', 'fund'] as Step[]).map((s, i) => (
           <div key={s} className="flex-1 flex items-center gap-1">
             <div className={`h-1 rounded-full flex-1 transition-colors ${
-              step === s ? 'bg-brand-600' : i < (['photo','confirm','fund'] as Step[]).indexOf(step) ? 'bg-teal-400' : 'bg-ink-100'
+              step === s ? 'bg-brand-600' : i < (['photo','confirm','fund'] as Step[]).indexOf(step) ? 'bg-accent-400' : 'bg-ink-100'
             }`} />
           </div>
         ))}
@@ -154,9 +154,9 @@ export default function QuickPage() {
       <p className="card-label font-semibold text-ink-500 -mt-3">{STEP_LABELS[step]}</p>
 
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-item px-3 py-2.5">
-          <AlertCircle size={18} className="text-red-500 shrink-0" />
-          <p className="card-label text-red-700">{error}</p>
+        <div className="flex items-center gap-2 bg-danger-50 border border-danger-200 rounded-item px-3 py-2.5">
+          <AlertCircle size={18} className="text-danger-500 shrink-0" />
+          <p className="card-label text-danger-700">{error}</p>
         </div>
       )}
 
@@ -283,7 +283,7 @@ export default function QuickPage() {
         <div className="space-y-4">
           <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-2">
             <p className="card-eyebrow text-ink-700">{description}</p>
-            <p className="font-mono-amount font-bold text-teal-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
+            <p className="font-mono-amount font-bold text-accent-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
           </div>
 
           {readyFunds.length === 0 ? (
@@ -322,7 +322,7 @@ export default function QuickPage() {
             <button
               onClick={handleSubmit}
               disabled={!fundId || submitting}
-              className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white rounded-card font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-3.5 bg-accent-600 hover:bg-accent-700 text-white rounded-card font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
             >
               {submitting ? (
                 <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

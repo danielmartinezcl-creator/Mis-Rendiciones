@@ -51,7 +51,7 @@ export default async function ReimbursementsPage() {
               </p>
             )}
             {(report.status === 'rejected' || report.status === 'partially_approved') && (
-              <p className="card-meta text-red-500 ml-2 mt-1 font-medium">
+              <p className="card-meta text-danger-500 ml-2 mt-1 font-medium">
                 ⚠ Requiere corrección — revisa los motivos en el detalle
               </p>
             )}

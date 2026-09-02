@@ -16,9 +16,9 @@ const CATEGORY_LABELS = {
 }
 
 const STATUS_LABELS = {
-  pending:    { label: 'Nueva',       cls: 'bg-amber-100 text-amber-700' },
-  reviewing:  { label: 'En revisión', cls: 'bg-blue-100 text-blue-700' },
-  done:       { label: 'Aplicada',    cls: 'bg-emerald-100 text-emerald-700' },
+  pending:    { label: 'Nueva',       cls: 'bg-warning-100 text-warning-700' },
+  reviewing:  { label: 'En revisión', cls: 'bg-info-100 text-info-700' },
+  done:       { label: 'Aplicada',    cls: 'bg-success-100 text-success-700' },
   dismissed:  { label: 'Descartada', cls: 'bg-slate-100 text-slate-500' },
 }
 
@@ -88,7 +88,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
       {/* Header */}
       <div>
         <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900 flex items-center gap-2">
-          <Lightbulb size={22} className="text-amber-500" />
+          <Lightbulb size={22} className="text-warning-500" />
           Sugerencias
         </h1>
         <p className="text-sm text-ink-500 mt-1">
@@ -128,7 +128,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
         </div>
 
         {error && <p className="text-xs text-rose-600">{error}</p>}
-        {success && <p className="text-xs text-emerald-600">¡Sugerencia enviada! Gracias por tu aporte.</p>}
+        {success && <p className="text-xs text-success-600">¡Sugerencia enviada! Gracias por tu aporte.</p>}
 
         <button
           type="submit"

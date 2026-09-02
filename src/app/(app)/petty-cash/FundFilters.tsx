@@ -332,7 +332,7 @@ export function FundFilters({
           )}
 
           {reportError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
+            <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">
               {reportError}
             </div>
           )}
@@ -382,9 +382,9 @@ export function FundFilters({
                           <td className="px-3 py-2 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
                           <td className="px-3 py-2">
                             <span className={`px-2 py-0.5 rounded-item font-medium ${
-                              item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                              item.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                              'bg-amber-100 text-amber-700'
+                              item.status === 'approved' ? 'bg-success-100 text-success-700' :
+                              item.status === 'rejected' ? 'bg-danger-100 text-danger-700' :
+                              'bg-warning-100 text-warning-700'
                             }`}>
                               {item.status === 'approved' ? 'Aprobado' : item.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
                             </span>

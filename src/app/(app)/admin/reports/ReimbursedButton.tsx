@@ -29,7 +29,7 @@ export function ReimbursedButton({ reportId }: { reportId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+        className="text-xs font-semibold text-info-600 hover:text-info-700 transition-colors"
       >
         💸 Marcar como reembolsada
       </button>
@@ -38,7 +38,7 @@ export function ReimbursedButton({ reportId }: { reportId: string }) {
 
   return (
     <div className="space-y-2">
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-danger-600">{error}</p>}
       <div className="flex gap-2 items-center">
         <input
           type="text"
@@ -50,7 +50,7 @@ export function ReimbursedButton({ reportId }: { reportId: string }) {
         <button
           onClick={handleConfirm}
           disabled={loading}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
+          className="px-3 py-1.5 bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
         >
           {loading ? '...' : 'Confirmar'}
         </button>

@@ -253,9 +253,9 @@ export default function ExpenseDetailPage() {
   }
   const timelineDotCls: Record<TimelineEvent['type'], string> = {
     neutral: 'border-ink-300 bg-ink-100',
-    success: 'border-emerald-500 bg-emerald-50',
-    warning: 'border-amber-400 bg-amber-50',
-    error:   'border-red-400 bg-red-50',
+    success: 'border-success-500 bg-success-50',
+    warning: 'border-warning-400 bg-warning-50',
+    error:   'border-danger-400 bg-danger-50',
   }
   const allTimelineEvents: (TimelineEvent & { key: string })[] = [
     { key: 'created',   label: 'Borrador creado',      date: report.created_at,   type: 'neutral' },
@@ -306,7 +306,7 @@ export default function ExpenseDetailPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 card-label rounded-item p-3">
           {error}
         </div>
       )}
@@ -345,12 +345,12 @@ export default function ExpenseDetailPage() {
           <div className="flex items-center justify-between">
             <span className="section-title text-ink-700">Resumen de aprobación</span>
             {isCuadrada && (
-              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-success-100 text-success-700 rounded-full">
                 ✓ Cuadrada
               </span>
             )}
             {isParcial && (
-              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-amber-100 text-amber-700 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-warning-100 text-warning-700 rounded-full">
                 ⚠ Parcial
               </span>
             )}
@@ -366,18 +366,18 @@ export default function ExpenseDetailPage() {
               <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" />
             </div>
             <div className="flex justify-between items-center py-2 card-label">
-              <span className="text-emerald-600 font-medium">Aprobado</span>
+              <span className="text-success-600 font-medium">Aprobado</span>
               <CurrencyAmount amount={totalAprobado} currency="CLP" size="sm" />
             </div>
             {totalRechazado > 0 && (
               <div className="flex justify-between items-center py-2 card-label">
-                <span className="text-red-500 font-medium">Rechazado</span>
+                <span className="text-danger-500 font-medium">Rechazado</span>
                 <CurrencyAmount amount={totalRechazado} currency="CLP" size="sm" />
               </div>
             )}
             {hasPending && (
               <div className="flex justify-between items-center py-2 card-label">
-                <span className="text-amber-500 font-medium">Pendiente de revisión</span>
+                <span className="text-warning-500 font-medium">Pendiente de revisión</span>
                 <CurrencyAmount amount={report.total_amount - totalAprobado - totalRechazado} currency="CLP" size="sm" />
               </div>
             )}
@@ -448,7 +448,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleDeleteReport}
               disabled={deleting}
-              className="w-full py-2.5 text-red-500 hover:text-red-700 card-label font-medium border border-red-200 hover:border-red-400 rounded-card transition-colors disabled:opacity-50"
+              className="w-full py-2.5 text-danger-500 hover:text-danger-700 card-label font-medium border border-danger-200 hover:border-danger-400 rounded-card transition-colors disabled:opacity-50"
             >
               {deleting ? 'Eliminando...' : 'Eliminar rendición'}
             </button>
@@ -458,12 +458,12 @@ export default function ExpenseDetailPage() {
 
       {/* Banner de rechazo (para empleado) */}
       {showRejectionBanner && (
-        <div className={`rounded-card p-4 border ${isRejected ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-          <p className={`card-eyebrow ${isRejected ? 'text-red-800' : 'text-amber-800'}`}>
+        <div className={`rounded-card p-4 border ${isRejected ? 'bg-danger-50 border-danger-200' : 'bg-warning-50 border-warning-200'}`}>
+          <p className={`card-eyebrow ${isRejected ? 'text-danger-800' : 'text-warning-800'}`}>
             {isRejected ? 'Tu rendición fue rechazada' : 'Tu rendición fue parcialmente aprobada'}
           </p>
           {rejectedItems.length > 0 && (
-            <p className={`card-label mt-1 ${isRejected ? 'text-red-700' : 'text-amber-700'}`}>
+            <p className={`card-label mt-1 ${isRejected ? 'text-danger-700' : 'text-warning-700'}`}>
               {rejectedItems.length} ítem{rejectedItems.length !== 1 ? 's' : ''} rechazado{rejectedItems.length !== 1 ? 's' : ''} — revisa los motivos debajo de cada ítem.
             </p>
           )}

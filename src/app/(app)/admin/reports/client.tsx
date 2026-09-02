@@ -20,12 +20,12 @@ type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
 type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
 
 const STATUS_OPTS = [
-  { value: 'submitted',          label: 'En revisión',      color: 'bg-blue-100 text-blue-700' },
+  { value: 'submitted',          label: 'En revisión',      color: 'bg-info-100 text-info-700' },
   { value: 'pending_l2',         label: 'Revisión N2',      color: 'bg-purple-100 text-purple-700' },
-  { value: 'approved',           label: 'Aprobada',         color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'approved',           label: 'Aprobada',         color: 'bg-success-100 text-success-700' },
   { value: 'partially_approved', label: 'Aprobada parcial', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'rejected',           label: 'Rechazada',        color: 'bg-red-100 text-red-700' },
-  { value: 'pending_bank_load',  label: 'En banco (carga)', color: 'bg-teal-100 text-teal-700' },
+  { value: 'rejected',           label: 'Rechazada',        color: 'bg-danger-100 text-danger-700' },
+  { value: 'pending_bank_load',  label: 'En banco (carga)', color: 'bg-accent-100 text-accent-700' },
   { value: 'pending_bank_auth',  label: 'En banco (auth)',  color: 'bg-cyan-100 text-cyan-700' },
   { value: 'reimbursed',         label: 'Reembolsada',      color: 'bg-slate-100 text-slate-600' },
 ]
@@ -501,7 +501,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <button
             onClick={handleDeleteAll}
             disabled={!!exporting || deletingAll || reports.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-item disabled:opacity-40 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-danger-600 border border-danger-200 hover:bg-danger-50 rounded-item disabled:opacity-40 transition-colors"
             title="Eliminar todas las rendiciones (solo para pruebas)"
           >
             <Trash2 size={14} />
@@ -512,20 +512,20 @@ export function AdminReportsClient({ initialReports }: Props) {
 
       {/* Advertencias Defontana */}
       {defontanaWarnings.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-card p-4">
+        <div className="bg-warning-50 border border-warning-200 rounded-card p-4">
           <div className="flex items-start gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800 mb-1">Categorías sin código Defontana ({defontanaWarnings.length} {defontanaWarnings.length === 1 ? 'rendición' : 'rendiciones'})</p>
-              <p className="text-xs text-amber-700 mb-2">Los ítems de estas categorías no fueron incluidos en los asientos. Asigna sus códigos en <strong>Configuración → Defontana</strong>.</p>
+              <p className="text-sm font-semibold text-warning-800 mb-1">Categorías sin código Defontana ({defontanaWarnings.length} {defontanaWarnings.length === 1 ? 'rendición' : 'rendiciones'})</p>
+              <p className="text-xs text-warning-700 mb-2">Los ítems de estas categorías no fueron incluidos en los asientos. Asigna sus códigos en <strong>Configuración → Defontana</strong>.</p>
               <ul className="space-y-1">
                 {defontanaWarnings.map((w, i) => (
-                  <li key={i} className="text-xs text-amber-700">
+                  <li key={i} className="text-xs text-warning-700">
                     <span className="font-medium">{w.reportTitle}:</span> {w.categories.join(', ')}
                   </li>
                 ))}
               </ul>
-              <button onClick={() => setDefontanaWarnings([])} className="mt-2 text-xs text-amber-600 hover:underline">Cerrar</button>
+              <button onClick={() => setDefontanaWarnings([])} className="mt-2 text-xs text-warning-600 hover:underline">Cerrar</button>
             </div>
           </div>
         </div>
@@ -533,9 +533,9 @@ export function AdminReportsClient({ initialReports }: Props) {
 
       {/* KPI alerta: rendiciones en espera +5 días */}
       {staleSubmitted > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-card p-3 flex items-center gap-2">
+        <div className="bg-warning-50 border border-warning-200 rounded-card p-3 flex items-center gap-2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <p className="text-xs text-amber-800 font-medium">
+          <p className="text-xs text-warning-800 font-medium">
             <strong>{staleSubmitted} rendición{staleSubmitted !== 1 ? 'es' : ''}</strong> llevan más de 5 días sin revisión — el período contable puede verse afectado.
           </p>
         </div>
@@ -698,14 +698,14 @@ export function AdminReportsClient({ initialReports }: Props) {
             <div className="text-sm">
               <strong>{picked.length}</strong> seleccionada{picked.length !== 1 ? 's' : ''}
               {contabilizadas > 0 && (
-                <span className="text-teal-300 ml-2 text-xs">· {contabilizadas} ya contabilizada{contabilizadas !== 1 ? 's' : ''}</span>
+                <span className="text-accent-300 ml-2 text-xs">· {contabilizadas} ya contabilizada{contabilizadas !== 1 ? 's' : ''}</span>
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => handleExportDefontana(picked.map(r => r.id))}
                 disabled={!!exporting}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-teal-600 hover:bg-teal-500 rounded-item disabled:opacity-40 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-accent-600 hover:bg-accent-500 rounded-item disabled:opacity-40 transition-colors"
               >
                 <FileSpreadsheet size={13} />
                 {exporting === 'defontana' ? 'Exportando…' : `Exportar a Defontana (${picked.length})`}
@@ -714,7 +714,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                 <button
                   onClick={() => openRevertDefontana(picked)}
                   disabled={!!exporting}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-200 border border-amber-400/40 hover:bg-amber-400/10 rounded-item disabled:opacity-40 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-warning-200 border border-warning-400/40 hover:bg-warning-400/10 rounded-item disabled:opacity-40 transition-colors"
                 >
                   <Undo2 size={13} />
                   Revertir contabilización ({contabilizadas})
@@ -752,7 +752,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       checked={selectedIds.has(r.id)}
                       onChange={() => toggleSelected(r.id)}
                       title="Seleccionar para exportar a Defontana"
-                      className="mt-1 w-4 h-4 shrink-0 accent-teal-600 cursor-pointer"
+                      className="mt-1 w-4 h-4 shrink-0 accent-accent-600 cursor-pointer"
                     />
                   )}
                   <div className="flex-1 min-w-0">
@@ -762,7 +762,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                         {statusLabel(r.status)}
                       </span>
                       {r.defontana_exported_at && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 border border-accent-200">
                           ✓ Contabilizado {formatDate(r.defontana_exported_at.split('T')[0])}
                           {r.defontana_export_ref && ` · ${r.defontana_export_ref}`}
                         </span>
@@ -777,17 +777,17 @@ export function AdminReportsClient({ initialReports }: Props) {
                         const diff = r.reimbursed_amount - r.approved_amount
                         const absDiff = Math.abs(diff)
                         if (absDiff < 1) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-success-50 text-success-700 border border-success-200">
                             ✓ Cuadrado
                           </span>
                         )
                         if (diff > 0) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning-50 text-warning-700 border border-warning-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
                             ↑ Exceso de reembolso {formatCLP(absDiff)}
                           </span>
                         )
                         return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-danger-50 text-danger-700 border border-danger-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
                             ↓ Pendiente por reembolsar {formatCLP(absDiff)}
                           </span>
                         )
@@ -817,7 +817,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-800">{formatCLP(r.total_amount)}</p>
                       {r.approved_amount > 0 && r.approved_amount !== r.total_amount && (
-                        <p className="text-xs text-emerald-600">Por reembolsar: {formatCLP(r.approved_amount)}</p>
+                        <p className="text-xs text-success-600">Por reembolsar: {formatCLP(r.approved_amount)}</p>
                       )}
                     </div>
                     <button
@@ -832,8 +832,8 @@ export function AdminReportsClient({ initialReports }: Props) {
                         className={[
                           'p-1.5 rounded-item transition-colors',
                           defPanelId === r.id
-                            ? 'text-teal-700 bg-teal-100'
-                            : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50',
+                            ? 'text-accent-700 bg-accent-100'
+                            : 'text-accent-500 hover:text-accent-700 hover:bg-accent-50',
                         ].join(' ')}
                         title="Defontana por tipo: exportar, confirmar o revertir gastos y adelantos por separado"
                       >
@@ -844,11 +844,11 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <button
                         onClick={() => handleExportDefontana([r.id])}
                         disabled={!!exporting}
-                        className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-item transition-colors disabled:opacity-40"
+                        className="p-1.5 text-accent-500 hover:text-accent-700 hover:bg-accent-50 rounded-item transition-colors disabled:opacity-40"
                         title="Exportar solo esta rendición a Defontana"
                       >
                         {defRowId === r.id
-                          ? <span className="inline-block w-3.5 h-3.5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                          ? <span className="inline-block w-3.5 h-3.5 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
                           : <FileSpreadsheet size={14} />}
                       </button>
                     )}
@@ -856,7 +856,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <button
                         onClick={() => openRevertDefontana([r])}
                         disabled={!!exporting}
-                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                        className="p-1.5 text-warning-500 hover:text-warning-700 hover:bg-warning-50 rounded-item transition-colors disabled:opacity-40"
                         title="Revertir contabilización (vuelve a Sin contabilizar)"
                       >
                         <BookCheck size={14} />
@@ -866,7 +866,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <button
                         onClick={() => handleMoveModule(r.id, r.title)}
                         disabled={movingId === r.id}
-                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                        className="p-1.5 text-warning-500 hover:text-warning-700 hover:bg-warning-50 rounded-item transition-colors disabled:opacity-40"
                         title="Mover a Caja Chica"
                       >
                         <ArrowRightLeft size={14} />
@@ -885,7 +885,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     <button
                       onClick={() => handleDelete(r.id, r.title)}
                       disabled={deletingId === r.id}
-                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                      className="p-1.5 text-danger-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
                       title="Eliminar rendición"
                     >
                       <Trash2 size={14} />
@@ -895,14 +895,14 @@ export function AdminReportsClient({ initialReports }: Props) {
 
                 {/* Borrador: CTA para continuar editando */}
                 {r.status === 'draft' && (
-                  <div className="mt-3 pt-3 border-t border-amber-100 flex items-center justify-between gap-3 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-xs text-amber-700 font-medium">
+                  <div className="mt-3 pt-3 border-t border-warning-100 flex items-center justify-between gap-3 flex-wrap">
+                    <span className="flex items-center gap-1.5 text-xs text-warning-700 font-medium">
                       <FilePen size={13} />
                       Borrador — no enviada al aprobador
                     </span>
                     <Link
                       href={`/expenses/${r.id}`}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-item transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-warning-500 hover:bg-warning-600 text-white px-3 py-1.5 rounded-item transition-colors"
                     >
                       Continuar editando →
                     </Link>
@@ -915,7 +915,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     <button
                       onClick={() => handleBankInit(r.id, r.title)}
                       disabled={bankInitId === r.id}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-item transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-item transition-colors"
                     >
                       <Landmark size={13} />
                       {bankInitId === r.id ? 'Iniciando…' : 'Iniciar proceso bancario'}
@@ -955,15 +955,15 @@ export function AdminReportsClient({ initialReports }: Props) {
                     {reimbAmount && (() => {
                       const paid = parseFloat(reimbAmount)
                       const diff = paid - r.approved_amount
-                      if (Math.abs(diff) < 1) return <p className="text-xs text-emerald-600 font-medium">✓ Cuadra exacto con el monto aprobado</p>
-                      if (diff > 0) return <p className="text-xs text-amber-600">↑ Estás pagando {formatCLP(diff)} de más sobre los {formatCLP(r.approved_amount)} aprobados</p>
-                      return <p className="text-xs text-red-600">↓ Estás pagando {formatCLP(Math.abs(diff))} de menos sobre los {formatCLP(r.approved_amount)} aprobados</p>
+                      if (Math.abs(diff) < 1) return <p className="text-xs text-success-600 font-medium">✓ Cuadra exacto con el monto aprobado</p>
+                      if (diff > 0) return <p className="text-xs text-warning-600">↑ Estás pagando {formatCLP(diff)} de más sobre los {formatCLP(r.approved_amount)} aprobados</p>
+                      return <p className="text-xs text-danger-600">↓ Estás pagando {formatCLP(Math.abs(diff))} de menos sobre los {formatCLP(r.approved_amount)} aprobados</p>
                     })()}
                     <div className="flex gap-2 items-center">
                     <button
                       onClick={() => handleReimburse(r.id)}
                       disabled={reimbSaving}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
+                      className="px-3 py-1.5 bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
                     >
                       {reimbSaving ? '...' : 'Confirmar'}
                     </button>
@@ -1016,7 +1016,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                         </div>
                         <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
                           <p className="text-xs text-slate-400">Reembolsado</p>
-                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-emerald-700' : 'text-slate-400'}`}>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-success-700' : 'text-slate-400'}`}>
                             {r.reimbursed_amount != null ? formatCLP(r.reimbursed_amount) : '—'}
                           </p>
                           {r.reimbursed_at && (
@@ -1046,8 +1046,8 @@ export function AdminReportsClient({ initialReports }: Props) {
                                 {detail.approvals.map((a, i) => (
                                   <div key={i} className={[
                                     'flex items-start gap-2 text-xs rounded-item px-3 py-2',
-                                    a.action === 'approved' ? 'bg-emerald-50 text-emerald-800' :
-                                    a.action === 'rejected' ? 'bg-red-50 text-red-800' :
+                                    a.action === 'approved' ? 'bg-success-50 text-success-800' :
+                                    a.action === 'rejected' ? 'bg-danger-50 text-danger-800' :
                                     'bg-slate-100 text-slate-700',
                                   ].join(' ')}>
                                     <span className="font-medium shrink-0">N{a.level}</span>
@@ -1089,8 +1089,8 @@ export function AdminReportsClient({ initialReports }: Props) {
                                     <tr key={i}>
                                       <td className="py-1.5 pr-3 text-slate-700">{item.description}</td>
                                       <td className="py-1.5 pr-3">
-                                        {item.item_type === 'advance'  && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium">Anticipo</span>}
-                                        {item.item_type === 'return'   && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">Devolución</span>}
+                                        {item.item_type === 'advance'  && <span className="px-1.5 py-0.5 rounded bg-warning-50 text-warning-700 font-medium">Anticipo</span>}
+                                        {item.item_type === 'return'   && <span className="px-1.5 py-0.5 rounded bg-info-50 text-info-700 font-medium">Devolución</span>}
                                         {item.item_type === 'transfer' && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">Traspaso</span>}
                                         {(item.item_type === 'expense' || !item.item_type) && <span className="text-slate-400">—</span>}
                                       </td>
@@ -1131,7 +1131,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                                           {statusLabel(item.status)}
                                         </span>
                                       </td>
-                                      <td className="py-1.5 text-red-600 italic">{item.rejection_reason ?? ''}</td>
+                                      <td className="py-1.5 text-danger-600 italic">{item.rejection_reason ?? ''}</td>
                                     </tr>
                                   ))}
                                 </tbody>

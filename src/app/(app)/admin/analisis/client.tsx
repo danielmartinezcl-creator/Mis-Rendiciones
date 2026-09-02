@@ -45,9 +45,9 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
 
   if (items.length === 0) {
     return (
-      <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-item px-4 py-2.5">
-        <Check size={14} className="text-emerald-600 shrink-0" />
-        <p className="text-sm text-emerald-700 font-medium">
+      <div className="flex items-center gap-2 bg-success-50 border border-success-200 rounded-item px-4 py-2.5">
+        <Check size={14} className="text-success-600 shrink-0" />
+        <p className="text-sm text-success-700 font-medium">
           Todos los gastos tienen centro de costo asignado (directo o por herencia del empleado).
         </p>
       </div>
@@ -73,33 +73,33 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
       {/* Header colapsable */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-50/60 transition-colors text-left"
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-warning-50/60 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
-          <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+          <AlertTriangle size={16} className="text-warning-500 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-sm font-semibold text-warning-800">
               {items.length} gasto{items.length !== 1 ? 's' : ''} sin centro de costo — {formatCLP(totalSinCC)}
             </p>
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-xs text-warning-600 mt-0.5">
               Ítems aprobados donde ni el gasto ni el empleado tienen CC asignado. Asígnalos para que aparezcan en el análisis.
             </p>
           </div>
         </div>
-        {open ? <ChevronUp size={15} className="text-amber-500 shrink-0" /> : <ChevronDown size={15} className="text-amber-500 shrink-0" />}
+        {open ? <ChevronUp size={15} className="text-warning-500 shrink-0" /> : <ChevronDown size={15} className="text-warning-500 shrink-0" />}
       </button>
 
       {open && (
-        <div className="border-t border-amber-100">
+        <div className="border-t border-warning-100">
           {error && (
-            <div className="mx-4 mt-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-item px-3 py-2">
+            <div className="mx-4 mt-3 bg-danger-50 border border-danger-200 text-danger-700 text-xs rounded-item px-3 py-2">
               {error}
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-amber-100 bg-amber-50/40">
+                <tr className="border-b border-warning-100 bg-warning-50/40">
                   <th className="text-left px-4 py-2 font-semibold text-slate-600">Fecha</th>
                   <th className="text-left px-4 py-2 font-semibold text-slate-600">Descripción / Proveedor</th>
                   <th className="text-left px-4 py-2 font-semibold text-slate-600">Empleado</th>
@@ -113,7 +113,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
                 {items.map(item => {
                   const isSaved = saved.has(item.id)
                   return (
-                    <tr key={item.id} className={`border-b border-slate-50 ${isSaved ? 'bg-emerald-50/60' : 'hover:bg-amber-50/30'}`}>
+                    <tr key={item.id} className={`border-b border-slate-50 ${isSaved ? 'bg-success-50/60' : 'hover:bg-warning-50/30'}`}>
                       <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
                         {formatDate(item.date)}
                       </td>
@@ -146,7 +146,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
                       </td>
                       <td className="px-4 py-2">
                         {isSaved ? (
-                          <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                          <span className="flex items-center gap-1 text-success-600 font-medium">
                             <Check size={12} />
                             Guardado
                           </span>
@@ -178,7 +178,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 bg-amber-50/30 text-xs text-amber-700 border-t border-amber-100">
+          <div className="px-4 py-3 bg-warning-50/30 text-xs text-warning-700 border-t border-warning-100">
             Tip: También podés ir a <strong>Admin → Empleados</strong> y asignar un centro de costo por defecto al empleado — todos sus gastos futuros lo heredarán automáticamente.
           </div>
         </div>
@@ -296,7 +296,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
         </div>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-item transition-colors shrink-0"
+          className="flex items-center gap-2 px-4 py-2 bg-accent-600 hover:bg-accent-700 text-white text-sm font-semibold rounded-item transition-colors shrink-0"
         >
           <Download className="w-4 h-4" />
           Exportar Excel
@@ -363,8 +363,8 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
                                     onClick={() => toggleDrill(c.id, m)}
                                     className={`font-mono-amount text-xs px-2 py-1 rounded transition-colors inline-flex items-center gap-1 ${
                                       isDrillOpen
-                                        ? 'bg-teal-100 text-teal-700'
-                                        : 'hover:bg-teal-50 text-slate-700 hover:text-teal-700'
+                                        ? 'bg-accent-100 text-accent-700'
+                                        : 'hover:bg-accent-50 text-slate-700 hover:text-accent-700'
                                     }`}
                                   >
                                     {formatCLP(val)}
@@ -385,9 +385,9 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
                         {months.map(m => {
                           if (drill?.centerId !== c.id || drill?.month !== m) return null
                           return (
-                            <tr key={`drill-${cid}-${m}`} className="bg-teal-50/40 border-b border-teal-100">
+                            <tr key={`drill-${cid}-${m}`} className="bg-accent-50/40 border-b border-accent-100">
                               <td colSpan={months.length + 2} className="px-6 py-3">
-                                <p className="text-xs font-semibold text-teal-700 mb-2">
+                                <p className="text-xs font-semibold text-accent-700 mb-2">
                                   Desglose por categoría — {centerLabel(c.id, c.name)} · {monthLabel(m)}
                                 </p>
                                 <div className="space-y-2">
@@ -406,8 +406,8 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
                                           <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
                                             <div
                                               className={`h-full rounded-full transition-all ${
-                                                r.total_clp > r.monthly_budget_clp ? 'bg-red-500' :
-                                                r.total_clp > r.monthly_budget_clp * 0.8 ? 'bg-amber-500' : 'bg-brand-500'
+                                                r.total_clp > r.monthly_budget_clp ? 'bg-danger-500' :
+                                                r.total_clp > r.monthly_budget_clp * 0.8 ? 'bg-warning-500' : 'bg-brand-500'
                                               }`}
                                               style={{ width: `${Math.min(100, (r.total_clp / r.monthly_budget_clp) * 100)}%` }}
                                             />
@@ -435,7 +435,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
                         {formatCLP(monthTotals[m] ?? 0)}
                       </td>
                     ))}
-                    <td className="px-4 py-3 text-right font-mono-amount font-bold text-teal-700">
+                    <td className="px-4 py-3 text-right font-mono-amount font-bold text-accent-700">
                       {formatCLP(grandTotal)}
                     </td>
                   </tr>

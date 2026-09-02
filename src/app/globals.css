@@ -27,9 +27,106 @@
   --color-brand-800: #2D3278;   /* pressed */
   --color-brand-900: #1E2260;
 
-  /* ── Acento (teal del ícono GP de PENTA) ────────────────────────────── */
-  --color-accent:     #3DBAB5;
-  --color-accent-hover: #2FA8A3;
+  /* ══════════════════════════════════════════════════════════════════════
+     FAMILIAS SEMÁNTICAS — etapa 1 del rediseño Tornasol
+     ══════════════════════════════════════════════════════════════════════
+     Los valores son copias LITERALES de las rampas de Tailwind v4, así el
+     renombre de las clases es idéntico píxel a píxel y la línea base
+     (e2e/baseline/) lo demuestra. La etapa 2 cambia estos valores por los de
+     Tornasol; el resto del código no se toca porque ya no nombra colores.
+
+     Origen de cada familia:
+       warning ← amber   ·  danger ← red     ·  success ← emerald
+       info    ← blue    ·  flare  ← violet  ·  accent  ← teal
+
+     `brand-*` e `ink-*` NO se tocan acá: ya son tokens semánticos con 418 y
+     1.246 usos. La etapa 2 los reancla por valor, en este mismo archivo.
+
+     REGLA: si un componente vuelve a escribir un hexadecimal o una clase de
+     la paleta cruda de Tailwind (amber-500, rose-600…), el sistema se rompe
+     otra vez. Toda la paleta vive acá.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* ── warning — pendiente, atención, requiere revisión (← amber) ──────── */
+  --color-warning-50:  oklch(98.7% 0.022 95.277);
+  --color-warning-100: oklch(96.2% 0.059 95.617);
+  --color-warning-200: oklch(92.4% 0.12 95.746);
+  --color-warning-300: oklch(87.9% 0.169 91.605);
+  --color-warning-400: oklch(82.8% 0.189 84.429);
+  --color-warning-500: oklch(76.9% 0.188 70.08);
+  --color-warning-600: oklch(66.6% 0.179 58.318);
+  --color-warning-700: oklch(55.5% 0.163 48.998);
+  --color-warning-800: oklch(47.3% 0.137 46.201);
+  --color-warning-900: oklch(41.4% 0.112 45.904);
+  --color-warning-950: oklch(27.9% 0.077 45.635);
+
+  /* ── danger — destructivo, error, rechazado (← red) ──────────────────── */
+  --color-danger-50:  oklch(97.1% 0.013 17.38);
+  --color-danger-100: oklch(93.6% 0.032 17.717);
+  --color-danger-200: oklch(88.5% 0.062 18.334);
+  --color-danger-300: oklch(80.8% 0.114 19.571);
+  --color-danger-400: oklch(70.4% 0.191 22.216);
+  --color-danger-500: oklch(63.7% 0.237 25.331);
+  --color-danger-600: oklch(57.7% 0.245 27.325);
+  --color-danger-700: oklch(50.5% 0.213 27.518);
+  --color-danger-800: oklch(44.4% 0.177 26.899);
+  --color-danger-900: oklch(39.6% 0.141 25.723);
+  --color-danger-950: oklch(25.8% 0.092 26.042);
+
+  /* ── success — aprobado, correcto, liquidado (← emerald) ─────────────── */
+  --color-success-50:  oklch(97.9% 0.021 166.113);
+  --color-success-100: oklch(95% 0.052 163.051);
+  --color-success-200: oklch(90.5% 0.093 164.15);
+  --color-success-300: oklch(84.5% 0.143 164.978);
+  --color-success-400: oklch(76.5% 0.177 163.223);
+  --color-success-500: oklch(69.6% 0.17 162.48);
+  --color-success-600: oklch(59.6% 0.145 163.225);
+  --color-success-700: oklch(50.8% 0.118 165.612);
+  --color-success-800: oklch(43.2% 0.095 166.913);
+  --color-success-900: oklch(37.8% 0.077 168.94);
+  --color-success-950: oklch(26.2% 0.051 172.552);
+
+  /* ── info — informativo, en proceso bancario (← blue) ────────────────── */
+  --color-info-50:  oklch(97% 0.014 254.604);
+  --color-info-100: oklch(93.2% 0.032 255.585);
+  --color-info-200: oklch(88.2% 0.059 254.128);
+  --color-info-300: oklch(80.9% 0.105 251.813);
+  --color-info-400: oklch(70.7% 0.165 254.624);
+  --color-info-500: oklch(62.3% 0.214 259.815);
+  --color-info-600: oklch(54.6% 0.245 262.881);
+  --color-info-700: oklch(48.8% 0.243 264.376);
+  --color-info-800: oklch(42.4% 0.199 265.638);
+  --color-info-900: oklch(37.9% 0.146 265.522);
+  --color-info-950: oklch(28.2% 0.091 267.935);
+
+  /* ── flare — caja chica, segundo nivel (← violet) ────────────────────── */
+  --color-flare-50:  oklch(96.9% 0.016 293.756);
+  --color-flare-100: oklch(94.3% 0.029 294.588);
+  --color-flare-200: oklch(89.4% 0.057 293.283);
+  --color-flare-300: oklch(81.1% 0.111 293.571);
+  --color-flare-400: oklch(70.2% 0.183 293.541);
+  --color-flare-500: oklch(60.6% 0.25 292.717);
+  --color-flare-600: oklch(54.1% 0.281 293.009);
+  --color-flare-700: oklch(49.1% 0.27 292.581);
+  --color-flare-800: oklch(43.2% 0.232 292.759);
+  --color-flare-900: oklch(38% 0.189 293.745);
+  --color-flare-950: oklch(28.3% 0.141 291.089);
+
+  /* ── accent — el teal del ícono GP (← teal) ──────────────────────────
+     Reemplaza al viejo `--color-accent: #3DBAB5`, que era un valor suelto
+     sin rampa y tenía CERO usos en la app: el rol de acento se estaba
+     escribiendo con clases teal-* crudas (178 de ellas). */
+  --color-accent-50:  oklch(98.4% 0.014 180.72);
+  --color-accent-100: oklch(95.3% 0.051 180.801);
+  --color-accent-200: oklch(91% 0.096 180.426);
+  --color-accent-300: oklch(85.5% 0.138 181.071);
+  --color-accent-400: oklch(77.7% 0.152 181.912);
+  --color-accent-500: oklch(70.4% 0.14 182.503);
+  --color-accent-600: oklch(60% 0.118 184.704);
+  --color-accent-700: oklch(51.1% 0.096 186.391);
+  --color-accent-800: oklch(43.7% 0.078 188.216);
+  --color-accent-900: oklch(38.6% 0.063 188.416);
+  --color-accent-950: oklch(27.7% 0.046 192.524);
 
   /* ── Ink — neutrales azul-negro fríos (reemplaza slate) ─────────────── */
   --color-ink-950: #080C16;
@@ -170,9 +267,9 @@
 .border-brand-600 { border-color: #4A50A0; }
 .ring-brand { box-shadow: 0 0 0 3px rgba(74,80,160,.28); }
 
-/* Acento / Teal ícono PENTA */
-.bg-accent   { background-color: #3DBAB5; }
-.text-accent { color: #3DBAB5; }
+/* El viejo `.bg-accent` / `.text-accent` con #3DBAB5 se eliminó en la etapa 1a:
+   tenía cero usos y contradecía la rampa `accent-*` nueva. El rol de acento se
+   escribe ahora con `accent-50…950`, que es la rampa teal tokenizada. */
 
 /* Ink neutrals */
 .bg-ink-900 { background-color: #0B1120; }
@@ -252,20 +349,23 @@ html.dark .divide-ink-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334
 /* Sombra de cards (más oscura en dark mode) */
 html.dark .shadow-card { box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25); }
 
-/* Fondos coloreados de footer de paneles */
-html.dark .bg-amber-50   { background-color: rgba(245,158,11,.12);  }
-html.dark .bg-emerald-50 { background-color: rgba(16,185,129,.10);  }
-html.dark .bg-violet-50  { background-color: rgba(167,139,250,.10); }
+/* Fondos coloreados de footer de paneles
+   Renombrados junto con el codemod de la etapa 1a: estos selectores apuntan a
+   clases del JSX, así que si no se renombran acá el modo oscuro deja de pintar
+   esos paneles. (El modo oscuro se elimina en la etapa 2 — ver la spec.) */
+html.dark .bg-warning-50 { background-color: rgba(245,158,11,.12);  }
+html.dark .bg-success-50 { background-color: rgba(16,185,129,.10);  }
+html.dark .bg-flare-50   { background-color: rgba(167,139,250,.10); }
 html.dark .bg-sky-50     { background-color: rgba(56,189,248,.10);  }
-html.dark .bg-teal-50    { background-color: rgba(20,184,166,.10);  }
-html.dark .bg-red-50     { background-color: rgba(239,68,68,.10);   }
+html.dark .bg-accent-50  { background-color: rgba(20,184,166,.10);  }
+html.dark .bg-danger-50  { background-color: rgba(239,68,68,.10);   }
 
 /* Borders coloreados de footers */
-html.dark .border-amber-100   { border-color: rgba(245,158,11,.25);  }
-html.dark .border-emerald-100 { border-color: rgba(16,185,129,.25);  }
-html.dark .border-violet-100  { border-color: rgba(167,139,250,.25); }
+html.dark .border-warning-100 { border-color: rgba(245,158,11,.25);  }
+html.dark .border-success-100 { border-color: rgba(16,185,129,.25);  }
+html.dark .border-flare-100   { border-color: rgba(167,139,250,.25); }
 html.dark .border-sky-100     { border-color: rgba(56,189,248,.25);  }
-html.dark .border-teal-100    { border-color: rgba(20,184,166,.25);  }
+html.dark .border-accent-100  { border-color: rgba(20,184,166,.25);  }
 
 /* Status badges — oscurecer fondos en dark mode */
 html.dark .bg-status-approved   { background-color: rgba(4,120,87,.2); }

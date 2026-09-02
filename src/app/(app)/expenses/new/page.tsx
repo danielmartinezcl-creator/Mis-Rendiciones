@@ -88,38 +88,38 @@ export default function NewExpensePage() {
 
       {/* Banner de borrador guardado */}
       {draft && (
-        <div className="flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-card p-4">
-          <RotateCcw size={16} className="text-teal-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 bg-accent-50 border border-accent-200 rounded-card p-4">
+          <RotateCcw size={16} className="text-accent-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="card-eyebrow text-teal-800">Borrador guardado</p>
-            <p className="card-meta text-teal-600 mt-0.5">
+            <p className="card-eyebrow text-accent-800">Borrador guardado</p>
+            <p className="card-meta text-accent-600 mt-0.5">
               &ldquo;{draft.title}&rdquo; · {draftDate}
             </p>
             <div className="flex gap-2 mt-2">
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="card-meta px-3 py-2 bg-teal-600 text-white rounded-item font-semibold hover:bg-teal-700 transition-colors"
+                className="card-meta px-3 py-2 bg-accent-600 text-white rounded-item font-semibold hover:bg-accent-700 transition-colors"
               >
                 Restaurar
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="card-meta px-3 py-2 border border-teal-300 text-teal-700 rounded-item font-semibold hover:bg-teal-100 transition-colors"
+                className="card-meta px-3 py-2 border border-accent-300 text-accent-700 rounded-item font-semibold hover:bg-accent-100 transition-colors"
               >
                 Descartar
               </button>
             </div>
           </div>
-          <button type="button" onClick={handleDiscardDraft} className="text-teal-400 hover:text-teal-600">
+          <button type="button" onClick={handleDiscardDraft} className="text-accent-400 hover:text-accent-600">
             <X size={14} />
           </button>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 card-label rounded-item p-3">
           {error}
         </div>
       )}

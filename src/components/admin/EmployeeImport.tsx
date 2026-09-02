@@ -254,17 +254,17 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
       <div className="space-y-4">
         {/* Errores primero — más visibles */}
         {err.length > 0 && (
-          <div className="bg-red-50 border-2 border-red-300 rounded-card p-4">
+          <div className="bg-danger-50 border-2 border-danger-300 rounded-card p-4">
             <div className="flex items-center gap-2 mb-3">
-              <XCircle size={18} className="text-red-600 shrink-0" />
-              <p className="font-bold text-red-700">{err.length} empleado{err.length !== 1 ? 's' : ''} no se pudo{err.length !== 1 ? 'ron' : ''} importar</p>
+              <XCircle size={18} className="text-danger-600 shrink-0" />
+              <p className="font-bold text-danger-700">{err.length} empleado{err.length !== 1 ? 's' : ''} no se pudo{err.length !== 1 ? 'ron' : ''} importar</p>
             </div>
             <div className="space-y-2">
               {err.map((r, i) => (
-                <div key={i} className="bg-white border border-red-200 rounded-item px-3 py-2 text-xs">
-                  <span className="font-semibold text-red-700">{r.full_name}</span>
-                  <span className="text-red-500 ml-1">({r.email})</span>
-                  <p className="text-red-600 mt-0.5">{r.error}</p>
+                <div key={i} className="bg-white border border-danger-200 rounded-item px-3 py-2 text-xs">
+                  <span className="font-semibold text-danger-700">{r.full_name}</span>
+                  <span className="text-danger-500 ml-1">({r.email})</span>
+                  <p className="text-danger-600 mt-0.5">{r.error}</p>
                 </div>
               ))}
             </div>
@@ -273,26 +273,26 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
 
         {/* Éxitos */}
         {ok.length > 0 ? (
-          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-card p-4">
-            <CheckCircle size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 bg-success-50 border border-success-200 rounded-card p-4">
+            <CheckCircle size={20} className="text-success-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-emerald-700">
+              <p className="font-semibold text-success-700">
                 {ok.length} empleado{ok.length !== 1 ? 's' : ''} importado{ok.length !== 1 ? 's' : ''} correctamente
               </p>
-              <p className="text-xs text-emerald-600 mt-0.5">
+              <p className="text-xs text-success-600 mt-0.5">
                 Podés enviarles la invitación desde la lista de empleados.
               </p>
               <ul className="mt-2 space-y-0.5">
                 {ok.map((r, i) => (
-                  <li key={i} className="text-xs text-emerald-700">✓ {r.full_name} ({r.email})</li>
+                  <li key={i} className="text-xs text-success-700">✓ {r.full_name} ({r.email})</li>
                 ))}
               </ul>
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-card p-4">
-            <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
-            <p className="font-semibold text-amber-700">No se pudo importar ningún empleado</p>
+          <div className="flex items-start gap-3 bg-warning-50 border border-warning-200 rounded-card p-4">
+            <AlertTriangle size={20} className="text-warning-600 shrink-0 mt-0.5" />
+            <p className="font-semibold text-warning-700">No se pudo importar ningún empleado</p>
           </div>
         )}
 
@@ -320,10 +320,10 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     return (
       <div className="space-y-4">
         {/* Paso 2 / banner verde de detección exitosa */}
-        <div className="flex items-center justify-between gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-item">
+        <div className="flex items-center justify-between gap-3 p-3 bg-success-50 border border-success-200 rounded-item">
           <div className="flex items-center gap-2">
-            <CheckCircle size={16} className="text-emerald-600 shrink-0" />
-            <p className="text-sm font-medium text-emerald-700">
+            <CheckCircle size={16} className="text-success-600 shrink-0" />
+            <p className="text-sm font-medium text-success-700">
               {preview.length} fila{preview.length !== 1 ? 's' : ''} detectada{preview.length !== 1 ? 's' : ''} — revisá y confirmá para importar
             </p>
           </div>
@@ -337,9 +337,9 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
 
         {/* Error de validación — ARRIBA del form */}
         {importError && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-300 rounded-item">
-            <AlertTriangle size={15} className="text-red-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-red-700 whitespace-pre-wrap">{importError}</p>
+          <div className="flex items-start gap-2 p-3 bg-danger-50 border border-danger-300 rounded-item">
+            <AlertTriangle size={15} className="text-danger-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-danger-700 whitespace-pre-wrap">{importError}</p>
           </div>
         )}
 
@@ -365,14 +365,14 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                       <input
                         value={row.full_name}
                         onChange={e => updateRow(row._key, 'full_name', e.target.value)}
-                        className={inputCls + (!row.full_name.trim() ? ' border-red-300 ring-1 ring-red-300' : '')}
+                        className={inputCls + (!row.full_name.trim() ? ' border-danger-300 ring-1 ring-danger-300' : '')}
                       />
                     </td>
                     <td className="py-1.5 pr-2 min-w-[160px]">
                       <input
                         value={row.email}
                         onChange={e => updateRow(row._key, 'email', e.target.value)}
-                        className={inputCls + (!row.email.includes('@') ? ' border-red-300 ring-1 ring-red-300' : '')}
+                        className={inputCls + (!row.email.includes('@') ? ' border-danger-300 ring-1 ring-danger-300' : '')}
                       />
                     </td>
                     <td className="py-1.5 pr-2 min-w-[100px]">
@@ -387,7 +387,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                       <select
                         value={row.cost_center_id ?? ''}
                         onChange={e => updateRow(row._key, 'cost_center_id', e.target.value)}
-                        className={`border rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 w-full ${!ccValid ? 'border-amber-400' : 'border-slate-200'}`}
+                        className={`border rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 w-full ${!ccValid ? 'border-warning-400' : 'border-slate-200'}`}
                       >
                         <option value="">— Sin asignar —</option>
                         {costCenters.filter(cc => cc.imputable).map(cc => (
@@ -395,7 +395,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                         ))}
                       </select>
                       {!ccValid && row.cost_center_id && (
-                        <p className="text-amber-600 text-[10px] mt-0.5">ID no reconocido</p>
+                        <p className="text-warning-600 text-[10px] mt-0.5">ID no reconocido</p>
                       )}
                     </td>
                     <td className="py-1.5 pr-2 min-w-[120px]">
@@ -418,7 +418,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                     <td className="py-1.5">
                       <button
                         onClick={() => removeRow(row._key)}
-                        className="text-red-400 hover:text-red-600 px-1 text-xs"
+                        className="text-danger-400 hover:text-danger-600 px-1 text-xs"
                         title="Eliminar fila"
                       >
                         ✕
@@ -515,11 +515,11 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
 
       {/* Error de parseo — muy visible */}
       {parseError && (
-        <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-300 rounded-item">
-          <XCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-3 bg-danger-50 border border-danger-300 rounded-item">
+          <XCircle size={18} className="text-danger-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-red-700 mb-1">Error al leer el archivo</p>
-            <p className="text-xs text-red-600 whitespace-pre-wrap">{parseError}</p>
+            <p className="text-sm font-semibold text-danger-700 mb-1">Error al leer el archivo</p>
+            <p className="text-xs text-danger-600 whitespace-pre-wrap">{parseError}</p>
           </div>
         </div>
       )}

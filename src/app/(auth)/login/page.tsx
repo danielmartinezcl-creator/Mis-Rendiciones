@@ -48,7 +48,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
       <h2 className="text-lg font-bold text-ink-900 mb-5">Iniciar sesión</h2>
 
       {urlError === 'session_expired' && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-item p-3 mb-4">
+        <div className="bg-warning-50 border border-warning-200 text-warning-700 text-sm rounded-item p-3 mb-4">
           El link expiró. Pedí que te reenvíen la invitación.
         </div>
       )}
@@ -142,7 +142,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
   if (sent) {
     return (
       <div className="bg-white rounded-card shadow-card p-6 text-center space-y-4">
-        <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
+        <CheckCircle2 size={40} className="text-success-500 mx-auto" />
         <div>
           <p className="font-bold text-ink-900">Correo enviado</p>
           <p className="text-sm text-ink-500 mt-1">

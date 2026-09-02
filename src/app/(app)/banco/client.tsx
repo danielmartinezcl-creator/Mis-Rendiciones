@@ -33,10 +33,10 @@ interface Props {
 
 function statusMeta(status: string) {
   switch (status) {
-    case 'approved':           return { label: 'Aprobada',         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-    case 'partially_approved': return { label: 'Aprobada parcial', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
-    case 'pending_bank_load':  return { label: 'Carga bancaria',   cls: 'bg-teal-50 text-teal-700 border-teal-200' }
-    case 'pending_bank_auth':  return { label: 'Autorización',     cls: 'bg-blue-50 text-blue-700 border-blue-200' }
+    case 'approved':           return { label: 'Aprobada',         cls: 'bg-success-50 text-success-700 border-success-200' }
+    case 'partially_approved': return { label: 'Aprobada parcial', cls: 'bg-warning-50 text-warning-700 border-warning-200' }
+    case 'pending_bank_load':  return { label: 'Carga bancaria',   cls: 'bg-accent-50 text-accent-700 border-accent-200' }
+    case 'pending_bank_auth':  return { label: 'Autorización',     cls: 'bg-info-50 text-info-700 border-info-200' }
     default:                   return { label: status,             cls: 'bg-slate-50 text-slate-600 border-slate-200' }
   }
 }
@@ -44,9 +44,9 @@ function statusMeta(status: string) {
 function borderColor(status: string) {
   switch (status) {
     case 'approved':
-    case 'partially_approved': return 'border-l-amber-400'
-    case 'pending_bank_load':  return 'border-l-teal-500'
-    case 'pending_bank_auth':  return 'border-l-blue-500'
+    case 'partially_approved': return 'border-l-warning-400'
+    case 'pending_bank_load':  return 'border-l-accent-500'
+    case 'pending_bank_auth':  return 'border-l-info-500'
     default:                   return 'border-l-slate-300'
   }
 }
@@ -131,8 +131,8 @@ export function BancoClient({ queue }: Props) {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-item bg-teal-50 flex items-center justify-center shrink-0">
-          <Landmark size={20} className="text-teal-600" />
+        <div className="w-10 h-10 rounded-item bg-accent-50 flex items-center justify-center shrink-0">
+          <Landmark size={20} className="text-accent-600" />
         </div>
         <div>
           <h1 className="font-display font-semibold text-xl text-ink-900">Cola Bancaria</h1>
@@ -143,28 +143,28 @@ export function BancoClient({ queue }: Props) {
       {/* KPIs rápidos */}
       <div className="grid grid-cols-3 gap-3">
         {queue.isAdmin && (
-          <div className="bg-amber-50 border border-amber-200 rounded-card p-3 text-center">
-            <p className="text-2xl font-mono-amount font-semibold text-amber-700">{ready.length}</p>
-            <p className="text-xs text-amber-600 mt-0.5">Para enviar</p>
+          <div className="bg-warning-50 border border-warning-200 rounded-card p-3 text-center">
+            <p className="text-2xl font-mono-amount font-semibold text-warning-700">{ready.length}</p>
+            <p className="text-xs text-warning-600 mt-0.5">Para enviar</p>
           </div>
         )}
         {queue.canLoad && (
-          <div className="bg-teal-50 border border-teal-200 rounded-card p-3 text-center">
-            <p className="text-2xl font-mono-amount font-semibold text-teal-700">{loading.length}</p>
-            <p className="text-xs text-teal-600 mt-0.5">Carga pendiente</p>
+          <div className="bg-accent-50 border border-accent-200 rounded-card p-3 text-center">
+            <p className="text-2xl font-mono-amount font-semibold text-accent-700">{loading.length}</p>
+            <p className="text-xs text-accent-600 mt-0.5">Carga pendiente</p>
           </div>
         )}
         {queue.canAuth && (
-          <div className="bg-blue-50 border border-blue-200 rounded-card p-3 text-center">
-            <p className="text-2xl font-mono-amount font-semibold text-blue-700">{authoriz.length}</p>
-            <p className="text-xs text-blue-600 mt-0.5">Por autorizar</p>
+          <div className="bg-info-50 border border-info-200 rounded-card p-3 text-center">
+            <p className="text-2xl font-mono-amount font-semibold text-info-700">{authoriz.length}</p>
+            <p className="text-xs text-info-600 mt-0.5">Por autorizar</p>
           </div>
         )}
       </div>
 
       {isEmpty && (
         <div className="text-center py-16 text-ink-400">
-          <CheckCircle2 size={40} className="mx-auto mb-3 text-teal-300" />
+          <CheckCircle2 size={40} className="mx-auto mb-3 text-accent-300" />
           <p className="font-medium text-ink-600">Todo al día</p>
           <p className="text-sm mt-1">No hay rendiciones pendientes de acción bancaria</p>
         </div>
@@ -173,7 +173,7 @@ export function BancoClient({ queue }: Props) {
       {/* Sección 1: Para enviar al banco (solo admin) */}
       {queue.isAdmin && ready.length > 0 && (
         <section className="space-y-3">
-          <h2 className="flex items-center gap-2 section-title text-amber-700">
+          <h2 className="flex items-center gap-2 section-title text-warning-700">
             <SendHorizonal size={14} />
             Aprobadas — enviar al banco ({ready.length})
           </h2>
@@ -190,7 +190,7 @@ export function BancoClient({ queue }: Props) {
               <button
                 onClick={() => handleSendToBank(r.id)}
                 disabled={!!savingId}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
               >
                 <Landmark size={13} />
                 {savingId === r.id ? 'Enviando…' : 'Enviar al banco'}
@@ -203,7 +203,7 @@ export function BancoClient({ queue }: Props) {
       {/* Sección 2: Confirmación de carga bancaria */}
       {queue.canLoad && loading.length > 0 && (
         <section className="space-y-3">
-          <h2 className="flex items-center gap-2 section-title text-teal-700">
+          <h2 className="flex items-center gap-2 section-title text-accent-700">
             <Upload size={14} />
             Pendientes de confirmación de carga ({loading.length})
           </h2>
@@ -227,25 +227,25 @@ export function BancoClient({ queue }: Props) {
                       value={form.paymentReference}
                       onChange={e => setLoadForms(prev => ({ ...prev, [r.id]: { ...form, paymentReference: e.target.value } }))}
                       placeholder="N° transferencia, orden de pago…"
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-ink-500 mb-1">
-                      Fecha de transferencia <span className="text-red-500">*</span>
+                      Fecha de transferencia <span className="text-danger-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={form.transferredAt}
                       onChange={e => setLoadForms(prev => ({ ...prev, [r.id]: { ...form, transferredAt: e.target.value } }))}
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
                     />
                   </div>
                 </div>
                 <button
                   onClick={() => handleConfirmLoad(r.id)}
                   disabled={!!savingId}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
                 >
                   <Upload size={13} />
                   {savingId === r.id ? 'Guardando…' : 'Confirmar carga bancaria'}
@@ -259,7 +259,7 @@ export function BancoClient({ queue }: Props) {
       {/* Sección 3: Autorización bancaria */}
       {queue.canAuth && authoriz.length > 0 && (
         <section className="space-y-3">
-          <h2 className="flex items-center gap-2 section-title text-blue-700">
+          <h2 className="flex items-center gap-2 section-title text-info-700">
             <ShieldCheck size={14} />
             Pendientes de autorización ({authoriz.length})
           </h2>
@@ -282,13 +282,13 @@ export function BancoClient({ queue }: Props) {
                     value={form.paymentReference}
                     onChange={e => setAuthForms(prev => ({ ...prev, [r.id]: { paymentReference: e.target.value } }))}
                     placeholder="N° de autorización, código de operación…"
-                    className="w-full max-w-sm px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full max-w-sm px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-info-500"
                   />
                 </div>
                 <button
                   onClick={() => handleAuthorize(r.id)}
                   disabled={!!savingId}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
                 >
                   <ShieldCheck size={13} />
                   {savingId === r.id ? 'Autorizando…' : 'Autorizar y marcar reembolsada'}
@@ -353,7 +353,7 @@ function ReportCard({
       </div>
 
       {errorMsg && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-item px-3 py-2 mb-3">{errorMsg}</p>
+        <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-item px-3 py-2 mb-3">{errorMsg}</p>
       )}
 
       {children}

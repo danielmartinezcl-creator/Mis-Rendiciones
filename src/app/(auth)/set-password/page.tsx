@@ -66,7 +66,7 @@ export default function SetPasswordPage() {
   if (done) {
     return (
       <div className="bg-white rounded-card shadow-card p-6 text-center space-y-3">
-        <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
+        <CheckCircle2 size={40} className="text-success-500 mx-auto" />
         <p className="font-bold text-ink-900">¡Contraseña creada!</p>
         <p className="text-sm text-ink-500">Ingresando a la app…</p>
       </div>
@@ -141,8 +141,8 @@ export default function SetPasswordPage() {
                 className={[
                   'h-full rounded-full transition-all duration-300',
                   password.length < 8  ? 'w-1/4 bg-rose-400' :
-                  password.length < 12 ? 'w-2/4 bg-amber-400' :
-                                         'w-full bg-emerald-500',
+                  password.length < 12 ? 'w-2/4 bg-warning-400' :
+                                         'w-full bg-success-500',
                 ].join(' ')}
               />
             </div>

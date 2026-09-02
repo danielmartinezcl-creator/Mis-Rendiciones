@@ -56,17 +56,17 @@ export default async function DashboardPage() {
       {rejected.length > 0 && (
         <Link
           href={`/expenses/${rejected[0].id}`}
-          className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-card p-3 hover:bg-red-100 transition-colors"
+          className="flex items-center justify-between gap-3 bg-danger-50 border border-danger-200 rounded-card p-3 hover:bg-danger-100 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <AlertCircle size={20} className="text-red-500 shrink-0" />
-            <p className="card-label font-medium text-red-700">
+            <AlertCircle size={20} className="text-danger-500 shrink-0" />
+            <p className="card-label font-medium text-danger-700">
               {rejected.length === 1
                 ? 'Una rendición fue rechazada — revisá los motivos'
                 : `${rejected.length} rendiciones fueron rechazadas`}
             </p>
           </div>
-          <span className="card-meta text-red-600 font-semibold shrink-0">Ver →</span>
+          <span className="card-meta text-danger-600 font-semibold shrink-0">Ver →</span>
         </Link>
       )}
 

@@ -16,8 +16,8 @@ function daysLeft(deletedAt: string): number {
 
 function DaysLeftBadge({ deletedAt }: { deletedAt: string }) {
   const days = daysLeft(deletedAt)
-  if (days <= 7)  return <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  if (days <= 30) return <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  if (days <= 7)  return <span className="text-xs font-semibold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  if (days <= 30) return <span className="text-xs font-semibold text-warning-600 bg-warning-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
   return <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{days}d restantes</span>
 }
 
@@ -152,7 +152,7 @@ export function TrashClient({ initialItems }: Props) {
                         onClick={() => handlePermanentDelete('report', r.id, r.title)}
                         disabled={loading === r.id}
                         title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -197,7 +197,7 @@ export function TrashClient({ initialItems }: Props) {
                         onClick={() => handlePermanentDelete('fund', f.id, f.name)}
                         disabled={loading === f.id}
                         title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -211,7 +211,7 @@ export function TrashClient({ initialItems }: Props) {
           {/* Empleados */}
           {tab === 'users' && (
             <div className="space-y-2">
-              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-item text-amber-700 text-sm">
+              <div className="flex items-start gap-2 p-3 bg-warning-50 border border-warning-100 rounded-item text-warning-700 text-sm">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <span>Los empleados eliminados no pueden iniciar sesión. Al restaurar recuperan el acceso automáticamente.</span>
               </div>
@@ -248,7 +248,7 @@ export function TrashClient({ initialItems }: Props) {
                         onClick={() => handlePermanentDelete('user', u.id, u.full_name)}
                         disabled={loading === u.id}
                         title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
                       </button>

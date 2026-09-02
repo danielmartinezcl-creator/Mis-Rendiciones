@@ -89,7 +89,7 @@ export function FundList({
                 <button
                   onClick={() => openTransferModal({ fundId: f.id, defaultAmount: f.amount_approved ?? f.amount_requested, payerEmpId: f.employee_id })}
                   title="Registrar traspaso"
-                  className="px-2.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                  className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
                 >
                   <SendHorizontal size={14} />
                 </button>
@@ -97,7 +97,7 @@ export function FundList({
                   onClick={() => handleDeleteFund(f.id, f.name)}
                   disabled={deletingId === f.id}
                   title="Eliminar fondo"
-                  className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-item"
+                  className="px-3 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-r-item"
                 >
                   {deletingId === f.id ? <span className="text-xs">...</span> : <Trash2 size={15} />}
                 </button>
@@ -153,7 +153,7 @@ export function FundList({
                   payerEmpId:    f.employee_id,
                 })}
                 title="Registrar traspaso a otro empleado"
-                className="px-2.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
               >
                 <SendHorizontal size={14} />
               </button>
@@ -161,7 +161,7 @@ export function FundList({
                 onClick={() => handleDeleteFund(f.id, f.name)}
                 disabled={deletingId === f.id}
                 title="Eliminar fondo"
-                className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-card"
+                className="px-3 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-r-card"
               >
                 {deletingId === f.id
                   ? <span className="text-xs">...</span>

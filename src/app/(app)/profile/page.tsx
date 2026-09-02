@@ -227,10 +227,10 @@ export default function ProfilePage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 card-meta rounded-item p-3">{error}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 card-meta rounded-item p-3">{error}</div>
         )}
         {saved && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 card-meta rounded-item p-3">
+          <div className="bg-success-50 border border-success-200 text-success-700 card-meta rounded-item p-3">
             ✓ Cambios guardados correctamente
           </div>
         )}
@@ -248,7 +248,7 @@ export default function ProfilePage() {
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
         <h2 className="section-title text-slate-700 mb-3">Contraseña</h2>
         {resetSent ? (
-          <p className="card-label text-emerald-600">✓ Email de restablecimiento enviado. Revisa tu bandeja.</p>
+          <p className="card-label text-success-600">✓ Email de restablecimiento enviado. Revisa tu bandeja.</p>
         ) : (
           <button
             onClick={handlePasswordReset}

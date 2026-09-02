@@ -219,14 +219,14 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     const attItem = analysis.attention_items.find(a => a.item_id === itemId)
     if (!attItem) return null
     return (
-      <div className="mt-1.5 px-2 py-1.5 bg-amber-50 rounded-item border border-amber-200">
-        <p className="card-meta font-semibold text-amber-700 mb-0.5">Requiere atención:</p>
+      <div className="mt-1.5 px-2 py-1.5 bg-warning-50 rounded-item border border-warning-200">
+        <p className="card-meta font-semibold text-warning-700 mb-0.5">Requiere atención:</p>
         <ul className="list-disc list-inside space-y-0.5">
           {attItem.reasons.map((r, i) => (
-            <li key={i} className="card-meta text-amber-600">{r}</li>
+            <li key={i} className="card-meta text-warning-600">{r}</li>
           ))}
         </ul>
-        <p className="card-meta font-medium text-amber-700 mt-1">
+        <p className="card-meta font-medium text-warning-700 mt-1">
           Sugerencia IA: {attItem.suggestion === 'aprobar' ? 'Aprobar' :
            attItem.suggestion === 'rechazar' ? 'Rechazar' : 'Revisión manual recomendada'}
         </p>
@@ -268,20 +268,20 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       {analysis && (
         <div className={`rounded-card border p-4 space-y-3 ${
           analysis.risk_level === 'high'   ? 'bg-rose-50 border-rose-200' :
-          analysis.risk_level === 'medium' ? 'bg-amber-50 border-amber-200' :
-                                             'bg-emerald-50 border-emerald-200'
+          analysis.risk_level === 'medium' ? 'bg-warning-50 border-warning-200' :
+                                             'bg-success-50 border-success-200'
         }`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${
                 analysis.risk_level === 'high'   ? 'bg-rose-500' :
-                analysis.risk_level === 'medium' ? 'bg-amber-500' :
-                                                   'bg-emerald-500'
+                analysis.risk_level === 'medium' ? 'bg-warning-500' :
+                                                   'bg-success-500'
               }`} />
               <span className={`card-label font-semibold ${
                 analysis.risk_level === 'high'   ? 'text-rose-600' :
-                analysis.risk_level === 'medium' ? 'text-amber-600' :
-                                                   'text-emerald-600'
+                analysis.risk_level === 'medium' ? 'text-warning-600' :
+                                                   'text-success-600'
               }`}>
                 {analysis.risk_level === 'high' ? 'Riesgo alto' :
                  analysis.risk_level === 'medium' ? 'Riesgo medio' : 'Riesgo bajo'}
@@ -299,12 +299,12 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             <span>${analysis.stats.total_clp.toLocaleString('es-CL')} total</span>
             <span>{analysis.stats.vs_employee_avg} vs su promedio</span>
             {analysis.stats.policy_violations > 0 && (
-              <span className="text-amber-600">
+              <span className="text-warning-600">
                 {analysis.stats.policy_violations} {analysis.stats.policy_violations === 1 ? 'violación' : 'violaciones'} de política
               </span>
             )}
             {analysis.stats.missing_docs > 0 && (
-              <span className="text-amber-600">
+              <span className="text-warning-600">
                 {analysis.stats.missing_docs} doc{analysis.stats.missing_docs !== 1 ? 's' : ''} faltante{analysis.stats.missing_docs !== 1 ? 's' : ''}
               </span>
             )}
@@ -337,7 +337,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             </div>
           )}
           {bulkDone && (
-            <p className="card-meta text-emerald-600 font-medium">Ítems rutinarios aprobados — revisa los de atención abajo</p>
+            <p className="card-meta text-success-600 font-medium">Ítems rutinarios aprobados — revisa los de atención abajo</p>
           )}
         </div>
       )}
@@ -355,10 +355,10 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               key={item.id}
               className={[
                 'bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3 border-l-4',
-                d.action === 'approve' ? 'border-l-emerald-400' :
-                d.action === 'reject'  ? 'border-l-red-400'     :
+                d.action === 'approve' ? 'border-l-success-400' :
+                d.action === 'reject'  ? 'border-l-danger-400'     :
                                          'border-l-slate-200',
-                attentionItemIds.has(item.id) ? 'ring-2 ring-amber-400' : '',
+                attentionItemIds.has(item.id) ? 'ring-2 ring-warning-400' : '',
               ].join(' ')}
             >
               {/* Info del ítem */}
@@ -389,8 +389,8 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               {travelCheck && (
                 <div className={`flex items-center gap-1.5 card-meta font-medium px-2.5 py-1.5 rounded-item border ${
                   travelCheck.exceeds
-                    ? 'bg-amber-50 border-amber-200 text-amber-700'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    ? 'bg-warning-50 border-warning-200 text-warning-700'
+                    : 'bg-success-50 border-success-200 text-success-700'
                 }`}>
                   <span>{travelCheck.exceeds ? '⚠' : '✓'}</span>
                   <span>
@@ -446,8 +446,8 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       className={[
                         'flex-1 py-2.5 rounded-item card-label font-semibold transition-colors',
                         d.action === 'approve'
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+                          ? 'bg-success-500 text-white'
+                          : 'bg-success-50 text-success-700 hover:bg-success-100',
                       ].join(' ')}
                     >
                       ✓ Aprobar
@@ -458,8 +458,8 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       className={[
                         'flex-1 py-2.5 rounded-item card-label font-semibold transition-colors',
                         d.action === 'reject'
-                          ? 'bg-red-500 text-white'
-                          : 'bg-red-50 text-red-600 hover:bg-red-100',
+                          ? 'bg-danger-500 text-white'
+                          : 'bg-danger-50 text-danger-600 hover:bg-danger-100',
                       ].join(' ')}
                     >
                       ✕ Rechazar
@@ -472,7 +472,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       onChange={e => setDecision(item.id, 'reason', e.target.value)}
                       placeholder="Motivo del rechazo (obligatorio)..."
                       rows={2}
-                      className="w-full px-3 py-2 border border-red-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-red-50"
+                      className="w-full px-3 py-2 border border-danger-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-danger-400 bg-danger-50"
                     />
                   )}
                 </div>
@@ -510,7 +510,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
+            <div className="bg-danger-50 border border-danger-200 text-danger-700 card-label rounded-item p-3">
               {error}
             </div>
           )}
@@ -518,7 +518,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
           <button
             onClick={handleApproveAll}
             disabled={submitting}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors card-label flex items-center justify-center gap-2"
+            className="w-full py-3 bg-success-600 hover:bg-success-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors card-label flex items-center justify-center gap-2"
           >
             <CheckCheck size={18} />
             {submitting ? 'Aprobando...' : `Aprobar todos — ${items.length} ítem${items.length !== 1 ? 's' : ''}`}

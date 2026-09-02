@@ -23,7 +23,7 @@ export function ThemeToggle() {
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-item text-white/50 hover:text-white hover:bg-white/6 transition-all duration-150 text-sm font-semibold group"
     >
       {isDark
-        ? <Sun  size={17} className="shrink-0 text-amber-300 group-hover:text-amber-200" />
+        ? <Sun  size={17} className="shrink-0 text-warning-300 group-hover:text-warning-200" />
         : <Moon size={17} className="shrink-0 text-indigo-300 group-hover:text-indigo-200" />
       }
       <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>

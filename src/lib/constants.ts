@@ -50,24 +50,24 @@ export const STATUS_LABELS: Record<ReportStatus, string> = {
 
 export const STATUS_COLORS: Record<ReportStatus, string> = {
   draft:               'bg-slate-100 text-slate-500',
-  submitted:           'bg-amber-100 text-amber-700',
-  pending_l2:          'bg-violet-100 text-violet-700',
-  approved:            'bg-emerald-100 text-emerald-700',
-  partially_approved:  'bg-amber-100 text-amber-700',
+  submitted:           'bg-warning-100 text-warning-700',
+  pending_l2:          'bg-flare-100 text-flare-700',
+  approved:            'bg-success-100 text-success-700',
+  partially_approved:  'bg-warning-100 text-warning-700',
   rejected:            'bg-rose-100 text-rose-600',
-  pending_bank_load:   'bg-blue-100 text-blue-700',
+  pending_bank_load:   'bg-info-100 text-info-700',
   pending_bank_auth:   'bg-indigo-100 text-indigo-700',
   reimbursed:          'bg-sky-100 text-sky-700',
 }
 
 export const STATUS_DOT: Record<ReportStatus, string> = {
   draft:               'bg-slate-400',
-  submitted:           'bg-amber-500',
-  pending_l2:          'bg-violet-500',
-  approved:            'bg-emerald-500',
-  partially_approved:  'bg-amber-500',
+  submitted:           'bg-warning-500',
+  pending_l2:          'bg-flare-500',
+  approved:            'bg-success-500',
+  partially_approved:  'bg-warning-500',
   rejected:            'bg-rose-500',
-  pending_bank_load:   'bg-blue-500',
+  pending_bank_load:   'bg-info-500',
   pending_bank_auth:   'bg-indigo-500',
   reimbursed:          'bg-sky-500',
 }
@@ -110,14 +110,14 @@ export const FUND_STATUS_LABELS: Record<FundStatusConst, string> = {
 
 export const FUND_STATUS_COLORS: Record<FundStatusConst, string> = {
   draft:                        'bg-slate-100 text-slate-500',
-  pending_approval:             'bg-amber-100 text-amber-700',
+  pending_approval:             'bg-warning-100 text-warning-700',
   approved:                     'bg-sky-100 text-sky-700',
-  pending_bank_load:            'bg-blue-100 text-blue-700',
+  pending_bank_load:            'bg-info-100 text-info-700',
   pending_bank_auth:            'bg-indigo-100 text-indigo-700',
-  funds_sent:                   'bg-violet-100 text-violet-700',
-  submitted:                    'bg-amber-100 text-amber-700',
-  pending_liquidation_approval: 'bg-violet-100 text-violet-700',
-  settled:                      'bg-emerald-100 text-emerald-700',
+  funds_sent:                   'bg-flare-100 text-flare-700',
+  submitted:                    'bg-warning-100 text-warning-700',
+  pending_liquidation_approval: 'bg-flare-100 text-flare-700',
+  settled:                      'bg-success-100 text-success-700',
   rejected:                     'bg-rose-100 text-rose-600',
 }
 

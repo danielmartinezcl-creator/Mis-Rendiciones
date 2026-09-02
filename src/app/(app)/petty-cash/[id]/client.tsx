@@ -116,8 +116,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const isApprover = currentUser.can_approve || currentUser.role === 'admin'
 
   const ITEM_STATUS_CLASS: Record<string, string> = {
-    pending:  'text-amber-600 bg-amber-50',
-    approved: 'text-emerald-600 bg-emerald-50',
+    pending:  'text-warning-600 bg-warning-50',
+    approved: 'text-success-600 bg-success-50',
     rejected: 'text-rose-600 bg-rose-50',
   }
 
@@ -153,7 +153,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           },
           { label: 'Transferencias',  value: transfers.reduce((s, t) => s + t.amount, 0), sub: `${transfers.length} registro${transfers.length !== 1 ? 's' : ''}` },
         ].map((k, i) => (
-          <div key={i} className={`bg-white rounded-card shadow-card p-4 ${k.highlight ? 'border-t-2 border-t-amber-400' : ''}`}>
+          <div key={i} className={`bg-white rounded-card shadow-card p-4 ${k.highlight ? 'border-t-2 border-t-warning-400' : ''}`}>
             <p className="text-xs text-ink-500 mb-1">{k.label}</p>
             <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(k.value)}</p>
             {k.sub && <p className="text-xs text-ink-400 mt-0.5">{k.sub}</p>}
@@ -190,12 +190,12 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: enviar a autorización */}
       {fund.status === 'draft' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-amber-400">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-warning-400">
           <p className="text-sm font-semibold text-ink-800 mb-3">Paso 1 — Enviar a autorización</p>
           <button
             disabled={pending}
             onClick={() => act(() => submitFundForApproval(fund.id))}
-            className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+            className="w-full py-2 bg-warning-500 hover:bg-warning-600 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
           >
             {pending ? 'Enviando...' : 'Enviar a autorización'}
           </button>
@@ -208,7 +208,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <p className="text-sm font-semibold text-ink-800">Autorización de fondo</p>
           {!approvingFund && !rejectingFund && (
             <div className="flex gap-2">
-              <button onClick={() => setApprovingFund(true)} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-item transition-colors">
+              <button onClick={() => setApprovingFund(true)} className="flex-1 py-2 bg-success-600 hover:bg-success-700 text-white text-sm font-bold rounded-item transition-colors">
                 Autorizar fondo
               </button>
               <button onClick={() => setRejectingFund(true)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-item transition-colors">
@@ -227,7 +227,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                 className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
               <div className="flex gap-2">
                 <button disabled={pending} onClick={() => act(() => approveFund(fund.id, parseFloat(approvedAmount), approveNotes))}
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
+                  className="flex-1 py-2 bg-success-600 hover:bg-success-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
                   {pending ? 'Autorizando...' : 'Confirmar autorización'}
                 </button>
                 <button onClick={() => setApprovingFund(false)} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>
@@ -252,9 +252,9 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: enviar al banco para carga */}
       {fund.status === 'approved' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-blue-400 space-y-2">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-400 space-y-2">
           <div className="flex items-center gap-2">
-            <Building2 size={15} className="text-blue-600" />
+            <Building2 size={15} className="text-info-600" />
             <p className="text-sm font-semibold text-ink-800">Paso 2 — Enviar al banco</p>
           </div>
           <p className="text-xs text-ink-500">
@@ -263,7 +263,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <button
             disabled={pending}
             onClick={() => act(() => requestBankLoad(fund.id))}
-            className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+            className="w-full py-2 bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
           >
             {pending ? 'Enviando...' : 'Enviar al banco'}
           </button>
@@ -272,14 +272,14 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Banco: confirmar carga bancaria */}
       {fund.status === 'pending_bank_load' && (currentUser.role === 'admin' || currentUser.can_load_bank_transfer) && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-blue-500 space-y-3">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-500 space-y-3">
           <div className="flex items-center gap-2">
-            <Building2 size={15} className="text-blue-600" />
+            <Building2 size={15} className="text-info-600" />
             <p className="text-sm font-semibold text-ink-800">Confirmar carga bancaria</p>
           </div>
           <p className="text-xs text-ink-500">Ingresa los datos de la transferencia realizada en el banco.</p>
           {!bankLoadConfirming ? (
-            <button onClick={() => setBankLoadConfirming(true)} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-item transition-colors">
+            <button onClick={() => setBankLoadConfirming(true)} className="w-full py-2 bg-info-600 hover:bg-info-700 text-white text-sm font-bold rounded-item transition-colors">
               Ingresar datos de transferencia
             </button>
           ) : (
@@ -314,7 +314,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                     reference:      disbRef || undefined,
                     transferred_at: disbDate,
                   }))}
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+                  className="flex-1 py-2 bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
                 >
                   {pending ? 'Confirmando...' : 'Confirmar carga bancaria'}
                 </button>
@@ -413,7 +413,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'approved' }))}
-                                  className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'approved' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}
+                                  className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'approved' ? 'bg-success-600 text-white border-success-600' : 'border-success-300 text-success-700 hover:bg-success-50'}`}
                                 >✓ Aprobar</button>
                                 <button
                                   onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'rejected' }))}
@@ -479,7 +479,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Empleado: enviar liquidación */}
       {canEmployeeSubmitLiquidation(fund.status, items) && isEmployee && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-amber-400">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-warning-400">
           <p className="text-sm font-semibold text-ink-800 mb-1">Cerrar y enviar liquidación</p>
           <p className="text-xs text-ink-500 mb-3">
             Total gastado: {fmtCLP(balance.spent)} de {fmtCLP(fund.amount_approved ?? fund.amount_requested)} aprobados.
@@ -489,7 +489,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <button
             disabled={pending}
             onClick={() => act(() => submitLiquidation(fund.id))}
-            className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+            className="w-full py-2 bg-warning-500 hover:bg-warning-600 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
           >
             {pending ? 'Enviando...' : 'Enviar liquidación'}
           </button>
@@ -498,12 +498,12 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: elevar liquidación */}
       {fund.status === 'submitted' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-violet-400">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-flare-400">
           <p className="text-sm font-semibold text-ink-800 mb-3">Elevar liquidación a aprobadores</p>
           <button
             disabled={pending}
             onClick={() => act(() => elevateLiquidation(fund.id))}
-            className="w-full py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+            className="w-full py-2 bg-flare-600 hover:bg-flare-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
           >
             {pending ? 'Elevando...' : 'Elevar a aprobadores'}
           </button>
@@ -528,7 +528,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               })),
               approveNotes,
             ))}
-            className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+            className="w-full py-2 bg-success-600 hover:bg-success-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
           >
             {pending ? 'Aprobando...' : 'Finalizar revisión y aprobar'}
           </button>
@@ -537,7 +537,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: registrar diferencia */}
       {fund.status === 'settled' && isManager && Math.abs(balance.difference) > 0 && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-emerald-400 space-y-3">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-success-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Registrar transferencia de diferencia</p>
           <p className="text-xs text-ink-500">
             Diferencia: {fmtCLP(Math.abs(balance.difference))}{' '}
@@ -548,7 +548,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               setSettleType(balance.hasRefund ? 'refund_to_employee' : 'reimbursement_from_employee')
               setSettleAmount(String(Math.round(Math.abs(balance.difference))))
               setSettling(true)
-            }} className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-item transition-colors">
+            }} className="w-full py-2 bg-success-600 hover:bg-success-700 text-white text-sm font-bold rounded-item transition-colors">
               Registrar transferencia de diferencia
             </button>
           ) : (
@@ -567,7 +567,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               </div>
               <div className="flex gap-2">
                 <button disabled={pending} onClick={() => act(() => recordSettlement(fund.id, { type: settleType, amount: parseFloat(settleAmount), reference: settleRef, transferred_at: settleDate }))}
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
+                  className="flex-1 py-2 bg-success-600 hover:bg-success-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
                   {pending ? 'Registrando...' : 'Confirmar'}
                 </button>
                 <button onClick={() => setSettling(false)} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>

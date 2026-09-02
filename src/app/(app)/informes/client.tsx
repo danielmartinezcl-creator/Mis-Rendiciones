@@ -13,23 +13,23 @@ const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3]
 
 const REPORT_STATUS_OPTS = [
-  { value: 'submitted',                  label: 'En revisión',      color: 'bg-blue-100 text-blue-700' },
+  { value: 'submitted',                  label: 'En revisión',      color: 'bg-info-100 text-info-700' },
   { value: 'pending_l2',                 label: 'Revisión N2',       color: 'bg-purple-100 text-purple-700' },
-  { value: 'approved',                   label: 'Aprobada',          color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'approved',                   label: 'Aprobada',          color: 'bg-success-100 text-success-700' },
   { value: 'partially_approved',         label: 'Aprobada parcial',  color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'rejected',                   label: 'Rechazada',         color: 'bg-red-100 text-red-700' },
+  { value: 'rejected',                   label: 'Rechazada',         color: 'bg-danger-100 text-danger-700' },
   { value: 'reimbursed',                 label: 'Reembolsada',       color: 'bg-slate-100 text-slate-600' },
-  { value: 'pending_approval',           label: 'En revisión (CC)',  color: 'bg-blue-100 text-blue-700' },
+  { value: 'pending_approval',           label: 'En revisión (CC)',  color: 'bg-info-100 text-info-700' },
   { value: 'funds_sent',                 label: 'Fondos enviados',   color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'active',                     label: 'Activo',            color: 'bg-teal-100 text-teal-700' },
+  { value: 'active',                     label: 'Activo',            color: 'bg-accent-100 text-accent-700' },
   { value: 'pending_liquidation_approval', label: 'Liquidación',    color: 'bg-orange-100 text-orange-700' },
   { value: 'settled',                    label: 'Liquidado',         color: 'bg-slate-100 text-slate-600' },
 ]
 
 const ITEM_STATUS_OPTS = [
-  { value: 'pending',  label: 'Pendiente', color: 'bg-amber-100 text-amber-700'   },
-  { value: 'approved', label: 'Aprobado',  color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'rejected', label: 'Rechazado', color: 'bg-red-100 text-red-700'       },
+  { value: 'pending',  label: 'Pendiente', color: 'bg-warning-100 text-warning-700'   },
+  { value: 'approved', label: 'Aprobado',  color: 'bg-success-100 text-success-700' },
+  { value: 'rejected', label: 'Rechazado', color: 'bg-danger-100 text-danger-700'       },
 ]
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -532,7 +532,7 @@ export function InformesClient({ filterOptions }: Props) {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-card p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-danger-50 border border-danger-200 rounded-card p-4 text-sm text-danger-700">{error}</div>
       )}
 
       {/* Resultados */}
@@ -543,7 +543,7 @@ export function InformesClient({ filterOptions }: Props) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white rounded-card p-4 shadow-card">
               <p className="text-xs text-ink-500 font-medium">Gastos aprobados</p>
-              <p className="text-2xl font-mono-amount font-bold text-emerald-600 mt-1">{formatCLP(kpis.byMovement.expense.approvedCLP)}</p>
+              <p className="text-2xl font-mono-amount font-bold text-success-600 mt-1">{formatCLP(kpis.byMovement.expense.approvedCLP)}</p>
               <p className="text-xs text-ink-400 mt-0.5">{kpis.byMovement.expense.count.toLocaleString('es-CL')} ítems de gasto</p>
             </div>
             <div className="bg-white rounded-card p-4 shadow-card">
@@ -656,9 +656,9 @@ export function InformesClient({ filterOptions }: Props) {
                         <td className="px-4 py-2.5 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
                         <td className="px-4 py-2.5">
                           <span className={`px-2 py-0.5 rounded-item text-xs font-medium ${
-                            item.item_status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                            item.item_status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            'bg-amber-100 text-amber-700'
+                            item.item_status === 'approved' ? 'bg-success-100 text-success-700' :
+                            item.item_status === 'rejected' ? 'bg-danger-100 text-danger-700' :
+                            'bg-warning-100 text-warning-700'
                           }`}>
                             {item.item_status === 'approved' ? 'Aprobado' : item.item_status === 'rejected' ? 'Rechazado' : 'Pendiente'}
                           </span>

@@ -173,7 +173,7 @@ export function EditFundItemForm({ item, categories, onDone }: Props) {
             className={inputCls}
           />
           {!form.supplier_rut && (
-            <div className="mt-1.5 flex items-center gap-1.5 card-meta text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-item border border-amber-200">
+            <div className="mt-1.5 flex items-center gap-1.5 card-meta text-warning-700 bg-warning-50 px-2.5 py-1.5 rounded-item border border-warning-200">
               <AlertTriangle size={12} className="shrink-0" />
               Sin RUT el crédito fiscal IVA no puede acreditarse ante el SII
             </div>

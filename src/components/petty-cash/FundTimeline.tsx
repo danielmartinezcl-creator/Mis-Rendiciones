@@ -18,14 +18,14 @@ const ACTION_ICON: Record<string, React.ElementType> = {
 
 const ACTION_COLOR: Record<string, string> = {
   created:                 'bg-slate-100 text-slate-500',
-  submitted_for_approval:  'bg-amber-100 text-amber-600',
-  approved:                'bg-emerald-100 text-emerald-600',
+  submitted_for_approval:  'bg-warning-100 text-warning-600',
+  approved:                'bg-success-100 text-success-600',
   rejected:                'bg-rose-100 text-rose-600',
-  funds_sent:              'bg-violet-100 text-violet-600',
-  liquidation_submitted:   'bg-amber-100 text-amber-600',
-  liquidation_elevated:    'bg-violet-100 text-violet-600',
-  liquidation_approved:    'bg-emerald-100 text-emerald-600',
-  settled:                 'bg-emerald-100 text-emerald-700',
+  funds_sent:              'bg-flare-100 text-flare-600',
+  liquidation_submitted:   'bg-warning-100 text-warning-600',
+  liquidation_elevated:    'bg-flare-100 text-flare-600',
+  liquidation_approved:    'bg-success-100 text-success-600',
+  settled:                 'bg-success-100 text-success-700',
 }
 
 type AuditEntry = {

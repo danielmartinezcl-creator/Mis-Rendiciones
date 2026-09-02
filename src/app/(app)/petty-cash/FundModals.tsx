@@ -119,7 +119,7 @@ export function FundModals({
           <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
-                <SendHorizontal size={18} className="text-violet-600" />
+                <SendHorizontal size={18} className="text-flare-600" />
                 Registrar traspaso
               </h2>
               <button onClick={() => setTransferSource(null)} className="text-ink-400 hover:text-ink-700">
@@ -378,14 +378,14 @@ export function FundModals({
           <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
-                <ArrowRightLeft size={18} className="text-violet-600" />
+                <ArrowRightLeft size={18} className="text-flare-600" />
                 Editar traspaso vinculado
               </h2>
               <button onClick={() => setEditingLinkedTransfer(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            <div className="bg-violet-50 border border-violet-100 rounded-item px-3 py-2 text-xs text-violet-800">
+            <div className="bg-flare-50 border border-flare-100 rounded-item px-3 py-2 text-xs text-flare-800">
               Los cambios se aplicarán en ambos lados del traspaso (fondo pagador y fondo receptor).
             </div>
             <div className="space-y-3">
@@ -397,7 +397,7 @@ export function FundModals({
                     value={editLinkedAmount}
                     onChange={e => setEditLinkedAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-flare-500"
                   />
                 </div>
                 <div>
@@ -406,7 +406,7 @@ export function FundModals({
                     type="date"
                     value={editLinkedDate}
                     onChange={e => setEditLinkedDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-flare-500"
                   />
                 </div>
               </div>
@@ -417,7 +417,7 @@ export function FundModals({
                   value={editLinkedDesc}
                   onChange={e => setEditLinkedDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-flare-500"
                 />
               </div>
             </div>
@@ -450,21 +450,21 @@ export function FundModals({
           <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
-                <Link2 size={18} className="text-amber-600" />
+                <Link2 size={18} className="text-warning-600" />
                 Vincular traspaso
               </h2>
               <button onClick={() => setLinkingTransfer(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-item px-3 py-2 text-xs text-amber-800 space-y-0.5">
+            <div className="bg-warning-50 border border-warning-100 rounded-item px-3 py-2 text-xs text-warning-800 space-y-0.5">
               <p><span className="font-semibold">De:</span> {linkingTransfer.payer_employee_name}
                 {linkingTransfer.payer_fund_name && ` · ${linkingTransfer.payer_fund_name}`}
                 {linkingTransfer.payer_report_title && ` · ${linkingTransfer.payer_report_title}`}
               </p>
               <p><span className="font-semibold">Para:</span> {linkingTransfer.receiver_employee_name}</p>
               <p><span className="font-semibold">Monto:</span> {fmtCLP(linkingTransfer.amount)} · {linkingTransfer.date}</p>
-              {linkingTransfer.description && <p className="text-amber-600 italic">{linkingTransfer.description}</p>}
+              {linkingTransfer.description && <p className="text-warning-600 italic">{linkingTransfer.description}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">
