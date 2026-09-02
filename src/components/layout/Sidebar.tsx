@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
-import { ThemeToggle } from './ThemeToggle'
 import type { UserProfile } from '@/lib/supabase/types'
 import { BRAND } from '@/lib/design-tokens'
 
@@ -240,9 +239,6 @@ export function Sidebar({ user }: SidebarProps) {
             <p className="text-white/40 text-xs group-hover:text-white/60 transition-colors">Mi perfil</p>
           </div>
         </Link>
-        <div className="mt-1 border-t border-white/8 pt-2">
-          <ThemeToggle />
-        </div>
         <LogoutButton />
       </div>
     </aside>

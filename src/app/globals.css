@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* ── Dark mode: class-based (next-themes añade .dark en <html>) ── */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Sin modo oscuro: se eliminó en la etapa 2 del rediseño Tornasol, cuyo chasis
+   ya es oscuro. Ver docs/Rediseño/tornasol-spec.md */
 
 @theme {
   /* ── Fuentes ────────────────────────────────────────────────────────────
@@ -345,79 +345,31 @@
 .font-bricolage { font-family: var(--font-bricolage), system-ui, sans-serif; }
 .font-hanken   { font-family: var(--font-hanken), system-ui, sans-serif; }
 
-/* ═══════════════════════════════════════════════════════════════
-   DARK MODE — Overrides globales
-   El sidebar ya es oscuro, estas reglas solo aplican al área de contenido
-   ═══════════════════════════════════════════════════════════════ */
 
 /* Fondo del área de contenido principal */
 .content-area {
   background: linear-gradient(160deg, #BFDBFE 0%, #E0F2FE 45%, #D1FAE5 100%);
   transition: background 0.3s ease;
 }
-html.dark .content-area {
-  background: #1E293B;
-}
-html.dark body {
-  background-color: #1E293B;
-  color: #F1F5F9;
-}
 
 /* Cards y superficies blancas */
-html.dark .bg-white        { background-color: #273548; }
-html.dark .bg-ink-50       { background-color: #1E293B; }
-html.dark .bg-ink-100      { background-color: #273548; }
-html.dark .hover\:bg-ink-50:hover { background-color: #2F3E55; }
 
 /* Texto */
-html.dark .text-ink-900,
-html.dark .text-ink-800    { color: #F1F5F9; }
-html.dark .text-ink-700,
-html.dark .text-ink-600,
-html.dark .text-ink-500    { color: #94A3B8; }
-html.dark .text-ink-400,
-html.dark .text-ink-300    { color: #64748B; }
 
 /* Bordes */
-html.dark .border-ink-100,
-html.dark .border-t-ink-100 { border-color: #334155; }
-html.dark .border-ink-50    { border-color: #273548; }
-html.dark .border-ink-200   { border-color: #334155; }
 
 /* Dividers */
-html.dark .divide-ink-50 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
-html.dark .divide-ink-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
 
 /* Sombra de cards (más oscura en dark mode) */
-html.dark .shadow-card { box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25); }
 
 /* Fondos coloreados de footer de paneles
    Renombrados junto con el codemod de la etapa 1a: estos selectores apuntan a
    clases del JSX, así que si no se renombran acá el modo oscuro deja de pintar
    esos paneles. (El modo oscuro se elimina en la etapa 2 — ver la spec.) */
-html.dark .bg-warning-50 { background-color: rgba(245,158,11,.12);  }
-html.dark .bg-success-50 { background-color: rgba(16,185,129,.10);  }
-html.dark .bg-flare-50   { background-color: rgba(167,139,250,.10); }
-html.dark .bg-info-50    { background-color: rgba(56,189,248,.10);  }
-html.dark .bg-accent-50  { background-color: rgba(20,184,166,.10);  }
-html.dark .bg-danger-50  { background-color: rgba(239,68,68,.10);   }
 
 /* Borders coloreados de footers */
-html.dark .border-warning-100 { border-color: rgba(245,158,11,.25);  }
-html.dark .border-success-100 { border-color: rgba(16,185,129,.25);  }
-html.dark .border-flare-100   { border-color: rgba(167,139,250,.25); }
-html.dark .border-info-100    { border-color: rgba(56,189,248,.25);  }
-html.dark .border-accent-100  { border-color: rgba(20,184,166,.25);  }
 
 /* Status badges — oscurecer fondos en dark mode */
-html.dark .bg-status-approved   { background-color: rgba(4,120,87,.2); }
-html.dark .bg-status-pending    { background-color: rgba(180,83,9,.2); }
-html.dark .bg-status-rejected   { background-color: rgba(190,18,60,.2); }
-html.dark .bg-status-reimbursed { background-color: rgba(3,105,161,.2); }
-html.dark .text-status-approved  { color: #34D399; }
-html.dark .text-status-pending   { color: #FCD34D; }
-html.dark .text-status-rejected  { color: #FB7185; }
-html.dark .text-status-reimbursed { color: #38BDF8; }
 
 /* Status badges */
 .bg-status-approved   { background-color: #ECFDF5; }
