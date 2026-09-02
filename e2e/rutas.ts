@@ -68,6 +68,12 @@ export type RutaDetalle = {
   prefijo: string
   /** Hrefs a ignorar (páginas de creación, etc.) */
   ignorar: string[]
+  /**
+   * `false` cuando la pantalla no es determinista y compararla píxel a píxel
+   * solo produce falsos rojos. Se captura igual, en `e2e/referencia/`, para
+   * poder mirarla a ojo — pero no se compara.
+   */
+  comparar?: boolean
 }
 
 export const RUTAS_DETALLE: RutaDetalle[] = [
@@ -89,6 +95,21 @@ export const RUTAS_DETALLE: RutaDetalle[] = [
     listas: ['/approvals', '/admin'],
     prefijo: '/approvals/',
     ignorar: [],
+    /**
+     * NO se compara. Esta pantalla muestra el análisis IA de la rendición, y
+     * el texto sale distinto en cada carga: frases diferentes, y con ellas un
+     * alto de bloque diferente que corre todo lo que está debajo. Medido: dos
+     * corridas seguidas dan 8-9% de píxeles distintos sin que nadie toque
+     * código.
+     *
+     * Enmascarar el bloque no alcanza — una máscara tapa, pero no evita el
+     * desplazamiento vertical de lo que sigue.
+     *
+     * (Que el texto cambie en cada carga es en sí un problema: existe un caché
+     *  en `expense_reports.ai_analysis` justamente para evitarlo. Ver
+     *  `generateApprovalAnalysis` en src/actions/approvals.ts.)
+     */
+    comparar: false,
   },
   {
     slug: 'caja-chica-detalle',

@@ -113,6 +113,19 @@ for (const detalle of RUTAS_DETALLE) {
     expect(page.url(), 'el detalle redirigió al login').not.toContain('/login')
 
     await estabilizar(page)
+
+    if (detalle.comparar === false) {
+      /* Pantalla no determinista: se guarda para poder mirarla, pero no se
+         compara. Compararla solo produciría rojos que no significan nada, y
+         un rojo que no significa nada entrena a ignorar los rojos. */
+      const nombre = test.info().project.name
+      await page.screenshot({
+        path: `e2e/referencia/${nombre}/${detalle.slug}.png`,
+        fullPage: true,
+      })
+      return
+    }
+
     await capturar(page, detalle.slug)
   })
 }

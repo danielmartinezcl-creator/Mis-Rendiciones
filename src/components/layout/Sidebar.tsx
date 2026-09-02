@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
 import { ThemeToggle } from './ThemeToggle'
 import type { UserProfile } from '@/lib/supabase/types'
+import { BRAND } from '@/lib/design-tokens'
 
 import {
   LayoutDashboard,
@@ -154,12 +155,12 @@ export function Sidebar({ user }: SidebarProps) {
       <div className="p-5 border-b border-white/8">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
-               style={{ background: 'linear-gradient(135deg, #12152E, #3B4090)' }}>
+               style={{ background: 'var(--cta-brand)' }}>
             <ReceiptText size={18} className="text-white" />
           </div>
           <span className="font-display font-extrabold tracking-tight leading-none"
                 style={{ fontSize: 17 }}>
-            <span style={{ color: '#3DBAB5' }}>Penta</span>
+            <span style={{ color: BRAND.accentBright }}>Penta</span>
             <span className="text-white"> Rend</span>
           </span>
         </div>

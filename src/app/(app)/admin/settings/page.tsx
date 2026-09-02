@@ -24,6 +24,7 @@ import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier, Expen
 import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deletePolicy, getTravelPolicies, createTravelPolicy, updateTravelPolicy, deleteTravelPolicy } from '@/actions/policies'
 import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
 import type { TravelPolicy } from '@/lib/supabase/types'
+import { NEUTRAL, BRAND } from '@/lib/design-tokens'
 
 type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks'
 type EmployeeWithEmail = UserProfile & { email: string }
@@ -61,7 +62,7 @@ function getIconByKey(key: string | null | undefined): LucideIcon {
 
 function CategoryIcon({ icon, color }: { icon?: string | null; color?: string | null }) {
   const Icon = getIconByKey(icon)
-  const bg   = color ?? '#8A95AD'
+  const bg   = color ?? NEUTRAL.muted
   return (
     <span className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
           style={{ backgroundColor: bg + '22', color: bg }}>
@@ -162,7 +163,7 @@ function CategoriesTab() {
 
   // Form nueva categoría
   const [catName,   setCatName]   = useState('')
-  const [catColor,  setCatColor]  = useState('#4A50A0')
+  const [catColor,  setCatColor]  = useState<string>(BRAND.primary)
   const [catIcon,   setCatIcon]   = useState('tag')
   const [catSaving, setCatSaving] = useState(false)
 
@@ -186,7 +187,7 @@ function CategoriesTab() {
     setCatSaving(true)
     try {
       await addCategory({ name: catName, color: catColor, icon: catIcon })
-      setCatName(''); setCatColor('#4A50A0'); setCatIcon('tag')
+      setCatName(''); setCatColor(BRAND.primary); setCatIcon('tag')
       await load()
     } finally { setCatSaving(false) }
   }
@@ -352,7 +353,7 @@ function CategoriesTab() {
                       </button>
                     )}
                     <button
-                      onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? '#4A50A0', icon: cat.icon ?? 'tag', monthly_budget_clp: cat.monthly_budget_clp ?? null })}
+                      onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? BRAND.primary, icon: cat.icon ?? 'tag', monthly_budget_clp: cat.monthly_budget_clp ?? null })}
                       title="Editar categoría"
                       className="p-1.5 text-ink-300 hover:text-brand-600 rounded-item hover:bg-brand-50 transition-colors">
                       <Pencil size={14} />
@@ -1028,7 +1029,7 @@ function DefontanaTab() {
           <div className="space-y-2">
             {categories.map(cat => {
               const Icon = getIconByKey(cat.icon)
-              const bg   = cat.color ?? '#8A95AD'
+              const bg   = cat.color ?? NEUTRAL.muted
               return (
                 <div key={cat.id} className="flex items-center gap-3 py-2 border-b border-ink-50 last:border-0">
                   <span className="w-8 h-8 rounded-item flex items-center justify-center shrink-0"

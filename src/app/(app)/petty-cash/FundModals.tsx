@@ -273,7 +273,7 @@ export function FundModals({
                 onClick={handleCreateTransfer}
                 disabled={trSaving}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #7c3aed 100%)' }}
+                style={{ background: 'var(--cta-flare)' }}
               >
                 {trSaving ? 'Registrando…' : 'Registrar traspaso'}
               </button>
@@ -357,7 +357,7 @@ export function FundModals({
                 onClick={handleSaveEditTransfer}
                 disabled={editSaving}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #0D9488 100%)' }}
+                style={{ background: 'var(--cta-accent)' }}
               >
                 {editSaving ? 'Guardando…' : 'Guardar cambios'}
               </button>
@@ -429,7 +429,7 @@ export function FundModals({
                 onClick={handleSaveEditLinked}
                 disabled={editLinkedSaving}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #7C3AED 100%)' }}
+                style={{ background: 'var(--cta-flare)' }}
               >
                 {editLinkedSaving ? 'Guardando…' : 'Guardar cambios'}
               </button>
@@ -503,7 +503,7 @@ export function FundModals({
                 onClick={handleLinkTransfer}
                 disabled={linkSaving || !linkTargetId || loadingTargets}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #92400e 0%, #d97706 100%)' }}
+                style={{ background: 'var(--cta-warning)' }}
               >
                 {linkSaving ? 'Vinculando…' : 'Vincular traspaso'}
               </button>

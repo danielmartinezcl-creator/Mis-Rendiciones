@@ -342,7 +342,7 @@ export function FundFilters({
               onClick={fetchReportItems}
               disabled={loadingSearch}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97] shadow-sm"
-              style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
+              style={{ background: 'var(--cta-accent)' }}
             >
               <Search size={14} />
               {loadingSearch ? 'Buscando…' : 'Buscar'}

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, Hanken_Grotesk } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
+import { PWA_THEME_COLOR } from '@/lib/design-tokens'
 import './globals.css'
 
 /**
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#4A50A0',   /* violeta PENTA */
+  themeColor: PWA_THEME_COLOR,   /* violeta PENTA */
   width: 'device-width',
   initialScale: 1,
 }

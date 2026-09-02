@@ -159,8 +159,50 @@
   --shadow-lg:   0 24px 56px -16px rgba(11,17,32,.22), 0 6px 16px rgba(11,17,32,.08);
   --shadow-brand: 0 8px 24px -6px rgba(74,80,160,.4);
 
-  /* ── Degradé hero (violeta PENTA oscuro → violeta medio) ────────────── */
+  /* ══════════════════════════════════════════════════════════════════════
+     DEGRADADOS — etapa 1c
+     ══════════════════════════════════════════════════════════════════════
+     Antes vivían como `style={{background:'linear-gradient(…)'}}` inline en
+     nueve archivos. Eran seis degradados semánticos escritos de diez maneras:
+     el mismo verde con dos oscuros distintos (#12152E y #0B1120), el mismo
+     teal igual, el rol «peligro» con dos rojos Y dos oscuros, y un 135deg
+     suelto donde el resto usa 130deg.
+
+     Ahora todos arrancan en `#12152E` (el oscuro del riel, que era el más
+     usado) y cambian solo en el extremo claro, que es el que porta el
+     significado. La etapa 2 reescribe estos seis valores y con eso cambian
+     todos los botones de la app.
+     ══════════════════════════════════════════════════════════════════════ */
   --background-image-card-hero: linear-gradient(130deg, #12152E 0%, #3B4090 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEGRADADOS DE CTA — etapa 1c
+   ══════════════════════════════════════════════════════════════════════════
+   Van en un `:root` plano y NO en `@theme` a propósito: se consumen desde
+   `style={{ background: 'var(--cta-brand)' }}` en el JSX, y Tailwind v4 solo
+   emite las variables de `@theme` cuya utilidad detecta en uso. Una variable
+   referenciada únicamente desde un `var()` inline no la detecta, y el
+   degradado saldría vacío.
+
+   Antes vivían como literales inline en nueve archivos: seis degradados
+   semánticos escritos de diez maneras. El mismo verde con dos oscuros
+   distintos (#12152E y #0B1120), el mismo teal igual, el rol «peligro» con
+   dos rojos Y dos oscuros, y un 135deg suelto donde el resto usa 130deg.
+
+   Ahora todos arrancan en #12152E —el oscuro del riel, que era el más usado—
+   y cambian solo en el extremo claro, que es el que porta el significado.
+   La etapa 2 reescribe estos seis valores y con eso cambian todos los CTA.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --cta-brand:   linear-gradient(130deg, #12152E 0%, #3B4090 100%);
+  --cta-success: linear-gradient(130deg, #12152E 0%, #059669 100%);
+  --cta-danger:  linear-gradient(130deg, #12152E 0%, #BE123C 100%);
+  --cta-accent:  linear-gradient(130deg, #12152E 0%, #0D9488 100%);
+  --cta-flare:   linear-gradient(130deg, #12152E 0%, #7C3AED 100%);
+  /* El único que no arranca en el oscuro del riel: es ámbar sobre ámbar, para
+     el aviso de carga histórica, que debe leerse entero como advertencia. */
+  --cta-warning: linear-gradient(130deg, #92400E 0%, #D97706 100%);
 }
 
 @layer base {

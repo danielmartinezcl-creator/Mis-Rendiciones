@@ -156,7 +156,7 @@ export default function NewPettyCashFundPage() {
           type="submit"
           disabled={pending}
           className="w-full py-2.5 text-sm font-bold text-white rounded-item transition-all active:scale-[.98] disabled:opacity-50"
-          style={{ background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' }}
+          style={{ background: 'var(--cta-brand)' }}
         >
           {pending ? 'Creando fondo...' : 'Crear fondo'}
         </button>

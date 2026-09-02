@@ -57,3 +57,5 @@ next-env.d.ts
 /e2e/.auth/
 /test-results/
 /playwright-report/
+# Capturas de referencia de pantallas no deterministas: se miran, no se comparan
+/e2e/referencia/

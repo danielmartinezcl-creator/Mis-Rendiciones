@@ -15,6 +15,7 @@ import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
+import { SEMANTIC } from '@/lib/design-tokens'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
 type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
@@ -474,7 +475,7 @@ export function AdminReportsClient({ initialReports }: Props) {
             onClick={() => handleExport('xlsx')}
             disabled={!!exporting || filtered.length === 0}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
-            style={{ background: 'linear-gradient(130deg, #0B1120 0%, #059669 100%)' }}
+            style={{ background: 'var(--cta-success)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             {exporting === 'xlsx' ? 'Exportando…' : 'Excel'}
@@ -483,7 +484,7 @@ export function AdminReportsClient({ initialReports }: Props) {
             onClick={() => handleExport('pdf')}
             disabled={!!exporting || filtered.length === 0}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
-            style={{ background: 'linear-gradient(130deg, #0B1120 0%, #BE123C 100%)' }}
+            style={{ background: 'var(--cta-danger)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             {exporting === 'pdf' ? 'Exportando…' : 'PDF'}
@@ -493,7 +494,7 @@ export function AdminReportsClient({ initialReports }: Props) {
             disabled={!!exporting || filtered.length === 0}
             title={`Exportar las ${filtered.length} rendiciones del filtro actual`}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md"
-            style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
+            style={{ background: 'var(--cta-accent)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             {exporting === 'defontana' && !defRowId ? 'Exportando…' : `Defontana (${filtered.length})`}
@@ -514,7 +515,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       {defontanaWarnings.length > 0 && (
         <div className="bg-warning-50 border border-warning-200 rounded-card p-4">
           <div className="flex items-start gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SEMANTIC.warning} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <div className="flex-1">
               <p className="text-sm font-semibold text-warning-800 mb-1">Categorías sin código Defontana ({defontanaWarnings.length} {defontanaWarnings.length === 1 ? 'rendición' : 'rendiciones'})</p>
               <p className="text-xs text-warning-700 mb-2">Los ítems de estas categorías no fueron incluidos en los asientos. Asigna sus códigos en <strong>Configuración → Defontana</strong>.</p>
@@ -534,7 +535,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       {/* KPI alerta: rendiciones en espera +5 días */}
       {staleSubmitted > 0 && (
         <div className="bg-warning-50 border border-warning-200 rounded-card p-3 flex items-center gap-2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={SEMANTIC.warning} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <p className="text-xs text-warning-800 font-medium">
             <strong>{staleSubmitted} rendición{staleSubmitted !== 1 ? 'es' : ''}</strong> llevan más de 5 días sin revisión — el período contable puede verse afectado.
           </p>

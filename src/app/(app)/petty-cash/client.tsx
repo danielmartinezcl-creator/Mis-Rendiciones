@@ -80,7 +80,7 @@ export function PettyCashClient({
                 onClick={() => handleExport('excel')}
                 disabled={!!generating || !reportData?.items.length}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-40 transition-all shadow-sm hover:shadow-md active:scale-[.97]"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #059669 100%)' }}
+                style={{ background: 'var(--cta-success)' }}
               >
                 <FileSpreadsheet size={14} />
                 {generating ? 'Exportando…' : 'Excel'}
@@ -89,7 +89,7 @@ export function PettyCashClient({
                 onClick={() => handleExport('pdf')}
                 disabled={!!generating || !reportData?.items.length}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-40 transition-all shadow-sm hover:shadow-md active:scale-[.97]"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #e11d48 100%)' }}
+                style={{ background: 'var(--cta-danger)' }}
               >
                 <Download size={14} />
                 {generating ? 'Exportando…' : 'PDF'}
@@ -99,7 +99,7 @@ export function PettyCashClient({
           <Link
             href="/petty-cash/new"
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item transition-all shadow-sm hover:shadow-md active:scale-[.97]"
-            style={{ background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' }}
+            style={{ background: 'var(--cta-brand)' }}
           >
             <Plus size={14} />
             Nuevo fondo

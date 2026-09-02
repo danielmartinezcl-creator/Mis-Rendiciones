@@ -1,4 +1,6 @@
 'use client'
+
+import { BRAND } from '@/lib/design-tokens'
 import { useCallback } from 'react'
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications'
 
@@ -19,7 +21,7 @@ export function RealtimeProvider({ userId, children }: Props) {
       'bottom:24px',
       'right:24px',
       'z-index:9999',
-      'background:#0D9488',
+      `background:${BRAND.accent}`,
       'color:white',
       'padding:12px 16px',
       'border-radius:12px',
