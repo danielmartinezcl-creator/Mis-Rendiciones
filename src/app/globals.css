@@ -14,18 +14,53 @@
   --font-ui:      var(--font-hanken), system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
 
-  /* ── Paleta brand (VIOLETA PENTA) ───────────────────────────────────── */
-  --color-brand-50:  #F1F1FB;
-  --color-brand-100: #E3E3F6;
-  --color-brand-200: #C5C6ED;
-  --color-brand-300: #9EA0DF;
-  --color-brand-400: #7678CE;
-  --color-brand-500: #5D5FBE;
-  --color-brand:     #4A50A0;   /* primary — violeta PENTA */
-  --color-brand-600: #4A50A0;
-  --color-brand-700: #3B4090;   /* hover */
-  --color-brand-800: #2D3278;   /* pressed */
-  --color-brand-900: #1E2260;
+  /* ══════════════════════════════════════════════════════════════════════
+     ZONA 1 · IDENTIDAD — reemplazable por cliente
+     ══════════════════════════════════════════════════════════════════════
+     Todo lo de este bloque es "el color de la empresa". La app apunta a ser
+     usada por otras organizaciones que traigan su propio logo e identidad, así
+     que esto es lo ÚNICO que cambia en ese caso. Nada de la zona 2 se toca.
+
+     Por eso `success` NO comparte color con `brand`, aunque la spec de Tornasol
+     (§9) diga que «correcto y marca son el mismo color». Eso solo funciona si
+     el teal es para siempre: el día que un cliente traiga naranja, «aprobado»
+     se volvería naranja y la semántica quedaría atada a una identidad ajena.
+
+     Rampa derivada de los anclajes de Tornasol, que caen solos en la escala:
+     tor-4 aqua = 400 · tor-3 teal = 600 · tor-2 petróleo = 800 · tor-1 = 950.
+     ══════════════════════════════════════════════════════════════════════ */
+  --color-brand-50:   oklch(97.5% 0.015 182); /* #EDFAF7 */
+  --color-brand-100:  oklch(94.5% 0.042 185); /* #CFF7F0 */
+  --color-brand-200:  oklch(89.5% 0.075 187); /* #A2EDE5 */
+  --color-brand-300:  oklch(83% 0.105 190);   /* #6BDDD6 */
+  --color-brand-400:  oklch(75.5% 0.125 192); /* #20C8C4 — tor-4 aqua */
+  --color-brand-500:  oklch(64.5% 0.115 195); /* #00A3A3 */
+  --color-brand-600:  oklch(54.3% 0.090 197); /* #0D7F81 — tor-3, color de acción */
+  --color-brand-700:  oklch(44% 0.078 200);   /* #005F63 */
+  --color-brand-800:  oklch(35.4% 0.058 202); /* #054448 — tor-2 petróleo */
+  --color-brand-900:  oklch(27% 0.042 205);   /* #052C30 */
+  --color-brand-950:  oklch(19.7% 0.029 207); /* #03191C — tor-1 abismo */
+  --color-brand:      oklch(54.3% 0.090 197);
+
+  /* `accent` repite los valores de `brand`: en Tornasol el acento ES el teal de
+     marca. Se mantiene el nombre porque 181 usos del código expresan ese rol —
+     si un cliente quisiera un acento distinto del primario, se cambia acá.
+
+     Los valores van LITERALES y no como `var(--color-brand-N)`: Tailwind v4
+     solo emite las variables de @theme cuya utilidad detecta en uso, así que si
+     ninguna clase `bg-brand-50` apareciera en el código, la referencia quedaría
+     sin resolver. Si cambiás brand, cambiá también este bloque. */
+  --color-accent-50:  oklch(97.5% 0.015 182);
+  --color-accent-100: oklch(94.5% 0.042 185);
+  --color-accent-200: oklch(89.5% 0.075 187);
+  --color-accent-300: oklch(83% 0.105 190);
+  --color-accent-400: oklch(75.5% 0.125 192);
+  --color-accent-500: oklch(64.5% 0.115 195);
+  --color-accent-600: oklch(54.3% 0.090 197);
+  --color-accent-700: oklch(44% 0.078 200);
+  --color-accent-800: oklch(35.4% 0.058 202);
+  --color-accent-900: oklch(27% 0.042 205);
+  --color-accent-950: oklch(19.7% 0.029 207);
 
   /* ══════════════════════════════════════════════════════════════════════
      FAMILIAS SEMÁNTICAS — etapa 1 del rediseño Tornasol
@@ -48,69 +83,69 @@
      ══════════════════════════════════════════════════════════════════════ */
 
   /* ── warning — pendiente, atención, requiere revisión (← amber) ──────── */
-  --color-warning-50:  oklch(98.7% 0.022 95.277);
-  --color-warning-100: oklch(96.2% 0.059 95.617);
-  --color-warning-200: oklch(92.4% 0.12 95.746);
-  --color-warning-300: oklch(87.9% 0.169 91.605);
-  --color-warning-400: oklch(82.8% 0.189 84.429);
-  --color-warning-500: oklch(76.9% 0.188 70.08);
-  --color-warning-600: oklch(66.6% 0.179 58.318);
-  --color-warning-700: oklch(55.5% 0.163 48.998);
-  --color-warning-800: oklch(47.3% 0.137 46.201);
-  --color-warning-900: oklch(41.4% 0.112 45.904);
-  --color-warning-950: oklch(27.9% 0.077 45.635);
+  --color-warning-50:  oklch(97.5% 0.020 52);
+  --color-warning-100: oklch(94.5% 0.057 50);
+  --color-warning-200: oklch(89.5% 0.101 48);
+  --color-warning-300: oklch(83% 0.142 46);
+  --color-warning-400: oklch(75.5% 0.169 44);
+  --color-warning-500: oklch(64.5% 0.155 42);
+  --color-warning-600: oklch(54.3% 0.121 40);
+  --color-warning-700: oklch(44% 0.105 38);
+  --color-warning-800: oklch(35.4% 0.078 36);
+  --color-warning-900: oklch(27% 0.057 34);
+  --color-warning-950: oklch(19.7% 0.039 32);
 
   /* ── danger — destructivo, error, rechazado (← red) ──────────────────── */
-  --color-danger-50:  oklch(97.1% 0.013 17.38);
-  --color-danger-100: oklch(93.6% 0.032 17.717);
-  --color-danger-200: oklch(88.5% 0.062 18.334);
-  --color-danger-300: oklch(80.8% 0.114 19.571);
-  --color-danger-400: oklch(70.4% 0.191 22.216);
-  --color-danger-500: oklch(63.7% 0.237 25.331);
-  --color-danger-600: oklch(57.7% 0.245 27.325);
-  --color-danger-700: oklch(50.5% 0.213 27.518);
-  --color-danger-800: oklch(44.4% 0.177 26.899);
-  --color-danger-900: oklch(39.6% 0.141 25.723);
-  --color-danger-950: oklch(25.8% 0.092 26.042);
+  --color-danger-50:  oklch(97.5% 0.022 32);
+  --color-danger-100: oklch(94.5% 0.061 31);
+  --color-danger-200: oklch(89.5% 0.109 30);
+  --color-danger-300: oklch(83% 0.152 28);
+  --color-danger-400: oklch(75.5% 0.181 27);
+  --color-danger-500: oklch(64.5% 0.167 26);
+  --color-danger-600: oklch(54.3% 0.131 25);
+  --color-danger-700: oklch(44% 0.113 24);
+  --color-danger-800: oklch(35.4% 0.084 22);
+  --color-danger-900: oklch(27% 0.061 21);
+  --color-danger-950: oklch(19.7% 0.042 20);
 
   /* ── success — aprobado, correcto, liquidado (← emerald) ─────────────── */
-  --color-success-50:  oklch(97.9% 0.021 166.113);
-  --color-success-100: oklch(95% 0.052 163.051);
-  --color-success-200: oklch(90.5% 0.093 164.15);
-  --color-success-300: oklch(84.5% 0.143 164.978);
-  --color-success-400: oklch(76.5% 0.177 163.223);
-  --color-success-500: oklch(69.6% 0.17 162.48);
-  --color-success-600: oklch(59.6% 0.145 163.225);
-  --color-success-700: oklch(50.8% 0.118 165.612);
-  --color-success-800: oklch(43.2% 0.095 166.913);
-  --color-success-900: oklch(37.8% 0.077 168.94);
-  --color-success-950: oklch(26.2% 0.051 172.552);
+  --color-success-50:  oklch(97.5% 0.014 158);
+  --color-success-100: oklch(94.5% 0.040 159);
+  --color-success-200: oklch(89.5% 0.071 160);
+  --color-success-300: oklch(83% 0.100 161);
+  --color-success-400: oklch(75.5% 0.119 162);
+  --color-success-500: oklch(64.5% 0.109 163);
+  --color-success-600: oklch(54.3% 0.085 164);
+  --color-success-700: oklch(44% 0.074 165);
+  --color-success-800: oklch(35.4% 0.055 166);
+  --color-success-900: oklch(27% 0.040 167);
+  --color-success-950: oklch(19.7% 0.028 168);
 
   /* ── info — informativo, en proceso bancario (← blue) ────────────────── */
-  --color-info-50:  oklch(97% 0.014 254.604);
-  --color-info-100: oklch(93.2% 0.032 255.585);
-  --color-info-200: oklch(88.2% 0.059 254.128);
-  --color-info-300: oklch(80.9% 0.105 251.813);
-  --color-info-400: oklch(70.7% 0.165 254.624);
-  --color-info-500: oklch(62.3% 0.214 259.815);
-  --color-info-600: oklch(54.6% 0.245 262.881);
-  --color-info-700: oklch(48.8% 0.243 264.376);
-  --color-info-800: oklch(42.4% 0.199 265.638);
-  --color-info-900: oklch(37.9% 0.146 265.522);
-  --color-info-950: oklch(28.2% 0.091 267.935);
+  --color-info-50:  oklch(97.5% 0.019 288);
+  --color-info-100: oklch(94.5% 0.053 287);
+  --color-info-200: oklch(89.5% 0.094 286);
+  --color-info-300: oklch(83% 0.131 285);
+  --color-info-400: oklch(75.5% 0.156 284);
+  --color-info-500: oklch(64.5% 0.144 283);
+  --color-info-600: oklch(54.3% 0.112 282);
+  --color-info-700: oklch(44% 0.098 281);
+  --color-info-800: oklch(35.4% 0.073 280);
+  --color-info-900: oklch(27% 0.053 279);
+  --color-info-950: oklch(19.7% 0.036 278);
 
   /* ── flare — caja chica, segundo nivel (← violet) ────────────────────── */
-  --color-flare-50:  oklch(96.9% 0.016 293.756);
-  --color-flare-100: oklch(94.3% 0.029 294.588);
-  --color-flare-200: oklch(89.4% 0.057 293.283);
-  --color-flare-300: oklch(81.1% 0.111 293.571);
-  --color-flare-400: oklch(70.2% 0.183 293.541);
-  --color-flare-500: oklch(60.6% 0.25 292.717);
-  --color-flare-600: oklch(54.1% 0.281 293.009);
-  --color-flare-700: oklch(49.1% 0.27 292.581);
-  --color-flare-800: oklch(43.2% 0.232 292.759);
-  --color-flare-900: oklch(38% 0.189 293.745);
-  --color-flare-950: oklch(28.3% 0.141 291.089);
+  --color-flare-50:  oklch(97.5% 0.019 288);
+  --color-flare-100: oklch(94.5% 0.053 287);
+  --color-flare-200: oklch(89.5% 0.094 286);
+  --color-flare-300: oklch(83% 0.131 285);
+  --color-flare-400: oklch(75.5% 0.156 284);
+  --color-flare-500: oklch(64.5% 0.144 283);
+  --color-flare-600: oklch(54.3% 0.112 282);
+  --color-flare-700: oklch(44% 0.098 281);
+  --color-flare-800: oklch(35.4% 0.073 280);
+  --color-flare-900: oklch(27% 0.053 279);
+  --color-flare-950: oklch(19.7% 0.036 278);
 
   /* ── accent — el teal del ícono GP (← teal) ──────────────────────────
      Reemplaza al viejo `--color-accent: #3DBAB5`, que era un valor suelto
@@ -129,21 +164,21 @@
   --color-accent-950: oklch(27.7% 0.046 192.524);
 
   /* ── Ink — neutrales azul-negro fríos (reemplaza slate) ─────────────── */
-  --color-ink-950: #080C16;
-  --color-ink-900: #0B1120;
-  --color-ink-800: #16203A;
-  --color-ink-700: #243049;
-  --color-ink-600: #3A4763;
-  --color-ink-500: #5B6883;
-  --color-ink-400: #8A95AD;
-  --color-ink-300: #B9C1D4;
-  --color-ink-200: #DDE2EC;
-  --color-ink-150: #E7EBF2;
-  --color-ink-100: #EEF1F7;
-  --color-ink-50:  #F6F8FB;
+  --color-ink-950: oklch(15.6% 0.022 206);
+  --color-ink-900: oklch(18% 0.024 206);
+  --color-ink-800: oklch(24.9% 0.026 206);
+  --color-ink-700: oklch(31.1% 0.028 206);
+  --color-ink-600: oklch(39.9% 0.03 206);
+  --color-ink-500: oklch(51.7% 0.032 206);
+  --color-ink-400: oklch(66% 0.03 206);
+  --color-ink-300: oklch(81.1% 0.022 206);
+  --color-ink-200: oklch(91.2% 0.014 206);
+  --color-ink-150: oklch(93.9% 0.01 206);
+  --color-ink-100: oklch(95.8% 0.008 206);
+  --color-ink-50:  oklch(97.8% 0.004 206);
 
   /* ── Sidebar / superficies oscuras ──────────────────────────────────── */
-  --color-sidebar: #12152E;     /* azul-violeta oscuro — deriva del violeta PENTA */
+  --color-sidebar: #03191C;    /* tor-1 abismo — el oscuro de Tornasol */
 
   /* ── Radios ──────────────────────────────────────────────────────────── */
   --radius-xs:   6px;
@@ -157,7 +192,7 @@
   --shadow-card: 0 2px 8px rgba(11,17,32,.07), 0 1px 2px rgba(11,17,32,.04);
   --shadow-md:   0 10px 28px -8px rgba(11,17,32,.14), 0 3px 8px rgba(11,17,32,.06);
   --shadow-lg:   0 24px 56px -16px rgba(11,17,32,.22), 0 6px 16px rgba(11,17,32,.08);
-  --shadow-brand: 0 8px 24px -6px rgba(74,80,160,.4);
+  --shadow-brand: 0 8px 24px -6px rgba(13,127,129,.4);
 
   /* ══════════════════════════════════════════════════════════════════════
      DEGRADADOS — etapa 1c
@@ -173,7 +208,7 @@
      significado. La etapa 2 reescribe estos seis valores y con eso cambian
      todos los botones de la app.
      ══════════════════════════════════════════════════════════════════════ */
-  --background-image-card-hero: linear-gradient(130deg, #12152E 0%, #3B4090 100%);
+  --background-image-card-hero: linear-gradient(130deg, #03191C 0%, #0D7F81 100%);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -195,14 +230,14 @@
    La etapa 2 reescribe estos seis valores y con eso cambian todos los CTA.
    ══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --cta-brand:   linear-gradient(130deg, #12152E 0%, #3B4090 100%);
-  --cta-success: linear-gradient(130deg, #12152E 0%, #059669 100%);
-  --cta-danger:  linear-gradient(130deg, #12152E 0%, #BE123C 100%);
-  --cta-accent:  linear-gradient(130deg, #12152E 0%, #0D9488 100%);
-  --cta-flare:   linear-gradient(130deg, #12152E 0%, #7C3AED 100%);
+  --cta-brand:   linear-gradient(130deg, #03191C 0%, #0D7F81 100%);
+  --cta-success: linear-gradient(130deg, #03191C 0%, #387F62 100%);
+  --cta-danger:  linear-gradient(130deg, #03191C 0%, #AF4C47 100%);
+  --cta-accent:  linear-gradient(130deg, #03191C 0%, #00A3A3 100%);
+  --cta-flare:   linear-gradient(130deg, #03191C 0%, #6666AF 100%);
   /* El único que no arranca en el oscuro del riel: es ámbar sobre ámbar, para
      el aviso de carga histórica, que debe leerse entero como advertencia. */
-  --cta-warning: linear-gradient(130deg, #92400E 0%, #D97706 100%);
+  --cta-warning: linear-gradient(130deg, #5D2B1D 0%, #A95334 100%);
 }
 
 @layer base {
@@ -285,47 +320,27 @@
   }
 
   /* Acentos laterales por estado de ítem (3px) */
-  .item-accent-approved  { border-left: 3px solid #10B981; }
-  .item-accent-pending   { border-left: 3px solid #F59E0B; }
-  .item-accent-rejected  { border-left: 3px solid #F43F5E; }
+  .item-accent-approved  { border-left: 3px solid #43A27A; }
+  .item-accent-pending   { border-left: 3px solid #D96838; }
+  .item-accent-rejected  { border-left: 3px solid #E15D55; }
 }
 
-/* ── Clases utilitarias manuales (fallback si @theme no genera las clases) ── */
+/* ── Clases utilitarias manuales ─────────────────────────────────────────────
+   Acá vivían 24 clases de color «de respaldo por si @theme no genera las
+   clases» (bg-brand-600, text-ink-500, bg-sidebar…). Se eliminaron en la
+   etapa 2 y el motivo importa:
 
-/* Brand / Violeta PENTA */
-.bg-brand-50  { background-color: #F1F1FB; }
-.bg-brand-100 { background-color: #E3E3F6; }
-.bg-brand-500 { background-color: #5D5FBE; }
-.bg-brand-600 { background-color: #4A50A0; }
-.bg-brand-700 { background-color: #3B4090; }
-.bg-brand-800 { background-color: #2D3278; }
-.hover\:bg-brand-700:hover { background-color: #3B4090; }
-.text-brand-50  { color: #F1F1FB; }
-.text-brand-100 { color: #E3E3F6; }
-.text-brand-300 { color: #9EA0DF; }
-.text-brand-400 { color: #7678CE; }
-.text-brand-600 { color: #4A50A0; }
-.text-brand-700 { color: #3B4090; }
-.border-brand-600 { border-color: #4A50A0; }
-.ring-brand { box-shadow: 0 0 0 3px rgba(74,80,160,.28); }
+   **No eran un respaldo, eran un override.** Son CSS plano, fuera de
+   `@layer`, y en la cascada el CSS sin capa le gana al que está en una capa
+   — que es donde Tailwind pone sus utilidades. O sea que ganaban siempre.
 
-/* El viejo `.bg-accent` / `.text-accent` con #3DBAB5 se eliminó en la etapa 1a:
-   tenía cero usos y contradecía la rampa `accent-*` nueva. El rol de acento se
-   escribe ahora con `accent-50…950`, que es la rampa teal tokenizada. */
+   Consecuencia: cambiar los valores en `@theme` no habría cambiado nada en
+   los botones primarios ni en medio texto de la app. Seguirían violetas,
+   silenciosamente, mientras el resto se volvía teal.
 
-/* Ink neutrals */
-.bg-ink-900 { background-color: #0B1120; }
-.bg-ink-800 { background-color: #16203A; }
-.bg-ink-100 { background-color: #EEF1F7; }
-.bg-ink-50  { background-color: #F6F8FB; }
-.text-ink-900 { color: #0B1120; }
-.text-ink-800 { color: #16203A; }
-.text-ink-500 { color: #5B6883; }
-.text-ink-400 { color: #8A95AD; }
-.border-ink-200 { border-color: #DDE2EC; }
-
-/* Sidebar */
-.bg-sidebar { background-color: #12152E; }
+   Lo que queda debajo NO es color: radios, sombras y alias de fuente. Eso
+   puede seguir acá sin riesgo de divergir de la paleta.
+   ──────────────────────────────────────────────────────────────────────── */
 
 /* Radios */
 .rounded-card { border-radius: 18px; }
@@ -334,10 +349,10 @@
 
 /* Sombras */
 .shadow-card  { box-shadow: 0 2px 8px rgba(11,17,32,.07), 0 1px 2px rgba(11,17,32,.04); }
-.shadow-brand { box-shadow: 0 8px 24px -6px rgba(13,148,136,.4); }
+.shadow-brand { box-shadow: 0 8px 24px -6px rgba(13,127,129,.4); }
 
 /* Hero degradé violeta PENTA */
-.bg-card-hero { background-image: linear-gradient(130deg, #12152E 0%, #3B4090 100%); }
+.bg-card-hero { background-image: linear-gradient(130deg, #03191C 0%, #0D7F81 100%); }
 
 /* Font helpers */
 .font-jakarta  { font-family: var(--font-bricolage), system-ui, sans-serif; }   /* compatibilidad */
@@ -372,11 +387,11 @@
 /* Status badges — oscurecer fondos en dark mode */
 
 /* Status badges */
-.bg-status-approved   { background-color: #ECFDF5; }
-.text-status-approved { color: #047857; }
-.bg-status-pending    { background-color: #FFFBEB; }
-.text-status-pending  { color: #B45309; }
-.bg-status-rejected   { background-color: #FFF1F2; }
-.text-status-rejected { color: #BE123C; }
-.bg-status-reimbursed { background-color: #F0F9FF; }
-.text-status-reimbursed { color: #0369A1; }
+.bg-status-approved   { background-color: #EFFAF3; }
+.text-status-approved { color: #225F48; }
+.bg-status-pending    { background-color: #FFF3EB; }
+.text-status-pending  { color: #823A23; }
+.bg-status-rejected   { background-color: #FFF2EE; }
+.text-status-rejected { color: #863433; }
+.bg-status-reimbursed { background-color: #F6F5FF; }
+.text-status-reimbursed { color: #4A4B87; }

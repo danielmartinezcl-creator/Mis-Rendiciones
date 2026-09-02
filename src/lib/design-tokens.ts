@@ -17,46 +17,49 @@
  * quedan de un color y la interfaz de otro — que es exactamente el síntoma que
  * este archivo existe para evitar.
  *
- * Etapa 1c del rediseño Tornasol. Los valores son los ACTUALES (violeta PENTA);
- * la etapa 2 los reemplaza por los de Tornasol.
+ * Los valores son los de Tornasol (etapa 2). La zona de identidad es lo único
+ * que cambia si otra organización trae su propia marca.
  */
 
-/* ── Marca y superficies ──────────────────────────────────────────────── */
+/* ── ZONA 1 · IDENTIDAD — reemplazable por cliente ────────────────────────
+   Espeja la zona de identidad de globals.css. Si otra organización trae su
+   propia marca, este bloque y el de allá son los dos únicos que cambian. */
 export const BRAND = {
-  /** brand-600 · violeta PENTA — color primario */
-  primary:   '#4A50A0',
-  /** brand-700 — hover y extremo claro de los degradados */
-  primaryDeep: '#3B4090',
+  /** brand-600 · tor-3, el color de acción de Tornasol */
+  primary:      '#0D7F81',
+  /** brand-700 — hover y estados presionados */
+  primaryDeep:  '#005F63',
   /** brand-300 — texto secundario sobre superficies oscuras */
-  primarySoft: '#9EA0DF',
-  /** sidebar — el azul-violeta oscuro del riel */
-  surfaceDark: '#12152E',
-  /** ink-900 — el otro oscuro que usan los degradados de CTA */
-  inkDeep:     '#0B1120',
-  /** accent-600 · el teal del ícono GP */
-  accent:      '#0D9488',
-  /** el teal claro del logotipo en el sidebar */
-  accentBright: '#3DBAB5',
+  primarySoft:  '#6BDDD6',
+  /** brand-950 · tor-1 abismo — el oscuro del riel y de los degradados */
+  surfaceDark:  '#03191C',
+  /** brand-800 · tor-2 petróleo */
+  inkDeep:      '#054448',
+  /** accent-600 — en Tornasol el acento es el mismo teal de marca */
+  accent:       '#0D7F81',
+  /** brand-400 · tor-4 aqua — el brillo del logotipo */
+  accentBright: '#20C8C4',
 } as const
 
-/* ── Semánticos, en su versión "sólida" para SVG y email ──────────────── */
+/* ── ZONA 2 · SEMÁNTICOS — fijos, no cambian con el cliente ───────────────
+   Versión "sólida" (tono 600/700) para SVG y email, donde no hay tokens CSS. */
 export const SEMANTIC = {
-  success: '#059669',   // success-600
-  danger:  '#BE123C',   // danger-700 (era rose-700)
-  dangerBright: '#E11D48',
-  warning: '#D97706',   // warning-600
-  warningDeep: '#92400E',
-  flare:   '#7C3AED',   // flare-600
+  success:      '#387F62',   // success-600
+  danger:       '#863433',   // danger-700
+  dangerBright: '#E15D55',   // danger-500
+  warning:      '#A95334',   // warning-600
+  warningDeep:  '#5D2B1D',   // warning-800
+  flare:        '#6666AF',   // flare-600
 } as const
 
 /* ── Neutros que consume JavaScript ───────────────────────────────────── */
 export const NEUTRAL = {
   /** ink-400 — color por defecto de una categoría sin color propio */
-  muted:   '#8A95AD',
+  muted:   '#809B9E',
   /** ink-500 — etiquetas de los ejes en los gráficos */
-  axis:    '#5B6883',
+  axis:    '#536E71',
   /** ink-900 — cifras dentro de los gráficos */
-  figure:  '#0B1120',
+  figure:  '#041517',
 } as const
 
 /**
@@ -70,16 +73,16 @@ export const NEUTRAL = {
  * identifica, no ordena.
  */
 export const CHART_SERIES = [
-  '#4A50A0', // violeta — marca
-  '#3DBAB5', // teal
-  '#F59E0B', // ámbar
-  '#EF4444', // rojo
-  '#8B5CF6', // violeta claro
-  '#10B981', // esmeralda
-  '#F97316', // naranja
-  '#EC4899', // rosa
-  '#06B6D4', // cyan
-  '#84CC16', // lima
+  '#009196', // teal — el de marca, para la categoría principal
+  '#726DC7', // lila
+  '#BB5A37', // coral
+  '#009264', // verde
+  '#BC5365', // rojo
+  '#9D5DAB', // magenta
+  '#2F7EC6', // azul
+  '#8A7A15', // oliva
+  '#0089B6', // acero
+  '#B36303', // ocre
 ] as const
 
 /**
@@ -88,12 +91,12 @@ export const CHART_SERIES = [
  * `surfaceDark` los tonos -600 no tienen contraste suficiente.
  */
 export const ON_DARK = {
-  teal:    '#5EEAD4',
-  amber:   '#FCD34D',
-  emerald: '#6EE7B7',
-  sky:     '#7DD3FC',
-  rose:    '#FDA4AF',
-  violet:  '#C4B5FD',
+  teal:    '#6BDDD6', // brand-300
+  amber:   '#FFA875', // warning-300
+  emerald: '#8ADCB2', // success-300
+  sky:     '#BFBBFF', // info-300 — en Tornasol no hay azul, se pliega a lila
+  rose:    '#FF9E8F', // danger-300
+  violet:  '#BFBBFF', // flare-300
   white:   '#FFFFFF',
 } as const
 
@@ -102,6 +105,6 @@ export const ON_DARK = {
  * instalada. Debe coincidir con `theme_color` de `public/manifest.json`:
  * son dos archivos distintos que describen la misma barra.
  *
- * La spec de Tornasol (§8.5) lo cambia a `#03191C` en la etapa 2.
+ * Es el abismo de Tornasol (#03191C), como pide la spec §8.5.
  */
-export const PWA_THEME_COLOR = BRAND.primary
+export const PWA_THEME_COLOR = BRAND.surfaceDark

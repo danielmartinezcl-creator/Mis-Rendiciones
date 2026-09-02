@@ -117,6 +117,31 @@ tolerancia **no** absorbe:
    build. `estabilizar()` espera a `document.fonts.ready` por esto: sin esa espera se
    captura el fallback del sistema en una corrida y la fuente real en la otra.
 
+## ⚠ `--update-snapshots` actualiza de menos — por eso `baseline:crear` borra primero
+
+Observado en la etapa 2: tras cambiar la paleta entera de violeta a teal,
+`baseline:verificar` reportó **7 diferencias de 50**, y `--update-snapshots`
+reescribió solo esas 7. Al borrar `e2e/baseline/` y regenerar de cero, resultó
+que **las 48 capturas diferían del commit**. O sea que la comparación devolvía
+"iguales" para 43 pantallas que sí habían cambiado.
+
+No pude explicar la causa. Lo que sí está verificado:
+
+- **El arnés detecta cambios reales.** Prueba deliberada: se pintó
+  `--color-brand-600` de magenta puro (`#FF00FF`) y la verificación falló como
+  corresponde. No está muerto.
+- **Borrar y regenerar da el resultado correcto**, siempre.
+
+Por eso `baseline:crear` ahora hace `rm -rf e2e/baseline` antes de correr. Cuesta
+lo mismo y no depende de que Playwright decida bien qué cambió.
+
+**Prueba de cordura del arnés** — si alguna vez dudás de un verde, pintá un token
+de magenta, corré `baseline:verificar` y confirmá que falla:
+
+```bash
+npm run baseline:verificar
+```
+
 ## ⚠ El punto ciego: solo se captura el estado de reposo
 
 **Un run verde no significa «nada cambió». Significa «no vi que cambiara algo».**

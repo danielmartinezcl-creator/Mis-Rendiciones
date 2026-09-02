@@ -4,8 +4,8 @@
   "description": "Gestión de rendiciones de gastos — Penta Ingenieros Asociados",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#12152E",
-  "theme_color": "#4A50A0",
+  "background_color": "#03191C",
+  "theme_color": "#03191C",
   "orientation": "portrait",
   "icons": [
     {
