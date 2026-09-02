@@ -24,7 +24,7 @@ export function ThemeToggle() {
     >
       {isDark
         ? <Sun  size={17} className="shrink-0 text-warning-300 group-hover:text-warning-200" />
-        : <Moon size={17} className="shrink-0 text-indigo-300 group-hover:text-indigo-200" />
+        : <Moon size={17} className="shrink-0 text-info-300 group-hover:text-info-200" />
       }
       <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>
     </button>

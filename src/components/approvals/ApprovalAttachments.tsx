@@ -100,7 +100,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
             <button
               onClick={() => handleDelete(att.id, att.storage_path)}
               disabled={deleting === att.id}
-              className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-item transition-colors disabled:opacity-40"
+              className="p-1.5 text-ink-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 size={14} />
@@ -137,7 +137,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
         </label>
       </div>
 
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {error && <p className="text-xs text-danger-600">{error}</p>}
       <p className="text-xs text-ink-400">
         Formatos aceptados: PDF, imágenes, correos (.eml, .msg) · Máx. 10 MB
       </p>

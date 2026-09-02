@@ -127,7 +127,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
           />
         </div>
 
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        {error && <p className="text-xs text-danger-600">{error}</p>}
         {success && <p className="text-xs text-success-600">¡Sugerencia enviada! Gracias por tu aporte.</p>}
 
         <button

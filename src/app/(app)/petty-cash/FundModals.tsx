@@ -266,7 +266,7 @@ export function FundModals({
               </div>
             </div>
             {trError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{trError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{trError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
@@ -350,7 +350,7 @@ export function FundModals({
               </div>
             </div>
             {editError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{editError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{editError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
@@ -422,7 +422,7 @@ export function FundModals({
               </div>
             </div>
             {editLinkedError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{editLinkedError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{editLinkedError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
@@ -473,7 +473,7 @@ export function FundModals({
               {loadingTargets ? (
                 <p className="text-xs text-ink-400 py-2">Cargando fondos…</p>
               ) : linkTargets.length === 0 ? (
-                <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">
+                <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">
                   No hay fondos ni rendiciones disponibles para este empleado.
                 </p>
               ) : (
@@ -496,7 +496,7 @@ export function FundModals({
               )}
             </div>
             {linkError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{linkError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{linkError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button

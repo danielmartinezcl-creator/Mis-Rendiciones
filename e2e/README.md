@@ -117,7 +117,25 @@ tolerancia **no** absorbe:
    build. `estabilizar()` espera a `document.fonts.ready` por esto: sin esa espera se
    captura el fallback del sistema en una corrida y la fuente real en la otra.
 
-## Cobertura que falta
+## ⚠ El punto ciego: solo se captura el estado de reposo
+
+**Un run verde no significa «nada cambió». Significa «no vi que cambiara algo».**
+
+Las 48 capturas son de páginas en reposo, recién cargadas. Lo que NO se captura:
+
+- **Estados de error** — `{emailError && <p className="text-danger-600">…}` solo
+  existe en el DOM cuando hay un error.
+- **Estados hover** — `hover:bg-danger-50` nunca se dispara sin un mouse encima.
+- **Modales y diálogos** — `FundModals.tsx` son 522 líneas que arrancan cerradas.
+- **Pestañas secundarias** — `/admin/settings` tiene cuatro y se captura la primera.
+
+Esto se descubrió en la etapa 1b: se consolidaron 161 clases de color (rose→danger,
+sky/cyan/indigo→info, purple→flare, orange/yellow→warning, green→success), cambios
+que **sí alteran el color**, y la línea base dio 49 verdes y cero diffs. No porque
+fueran inocuos, sino porque todos vivían en estados que no se capturan.
+
+**Regla práctica:** si un cambio toca colores de error, hover o modal, el run verde
+no es evidencia. Hay que mirarlo a mano o extender la cobertura.
 
 - **`Aprobación · detalle` se salta** si no hay ninguna rendición esperando aprobación
   para la cuenta configurada. `/approvals/[id]` es de las pantallas más densas del

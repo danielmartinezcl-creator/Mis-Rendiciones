@@ -20,15 +20,15 @@ const PAGE_SIZE = 50
 const ACTION_COLORS: Record<string, string> = {
   deleted:             'bg-danger-100 text-danger-700',
   permanently_deleted: 'bg-danger-200 text-danger-800',
-  restored:            'bg-green-100 text-green-700',
+  restored:            'bg-success-100 text-success-700',
   created:             'bg-accent-100 text-accent-700',
   updated:             'bg-info-100 text-info-700',
-  bulk_updated:        'bg-purple-100 text-purple-700',
+  bulk_updated:        'bg-flare-100 text-flare-700',
   config_changed:      'bg-warning-100 text-warning-700',
   exported:            'bg-gray-100 text-gray-700',
   reverted:            'bg-warning-100 text-warning-800',
   submitted:           'bg-info-100 text-info-800',
-  approved:            'bg-green-100 text-green-700',
+  approved:            'bg-success-100 text-success-700',
   rejected:            'bg-danger-100 text-danger-700',
 }
 

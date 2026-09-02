@@ -118,7 +118,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const ITEM_STATUS_CLASS: Record<string, string> = {
     pending:  'text-warning-600 bg-warning-50',
     approved: 'text-success-600 bg-success-50',
-    rejected: 'text-rose-600 bg-rose-50',
+    rejected: 'text-danger-600 bg-danger-50',
   }
 
   return (
@@ -183,7 +183,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       />
 
       {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item border border-rose-100">{error}</p>
+        <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item border border-danger-100">{error}</p>
       )}
 
       {/* ── ACCIONES POR ESTADO ─────────────────────────────────── */}
@@ -204,14 +204,14 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Aprobador: autorizar o rechazar fondo */}
       {fund.status === 'pending_approval' && isApprover && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-sky-400 space-y-3">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Autorización de fondo</p>
           {!approvingFund && !rejectingFund && (
             <div className="flex gap-2">
               <button onClick={() => setApprovingFund(true)} className="flex-1 py-2 bg-success-600 hover:bg-success-700 text-white text-sm font-bold rounded-item transition-colors">
                 Autorizar fondo
               </button>
-              <button onClick={() => setRejectingFund(true)} className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-item transition-colors">
+              <button onClick={() => setRejectingFund(true)} className="flex-1 py-2 bg-danger-600 hover:bg-danger-700 text-white text-sm font-bold rounded-item transition-colors">
                 Rechazar
               </button>
             </div>
@@ -240,7 +240,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                 className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none" />
               <div className="flex gap-2">
                 <button disabled={pending || !rejectNotes.trim()} onClick={() => act(() => rejectFund(fund.id, rejectNotes))}
-                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
+                  className="flex-1 py-2 bg-danger-600 hover:bg-danger-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
                   {pending ? 'Rechazando...' : 'Confirmar rechazo'}
                 </button>
                 <button onClick={() => setRejectingFund(false)} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>
@@ -327,9 +327,9 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Autorizador: autorizar transferencia */}
       {fund.status === 'pending_bank_auth' && (currentUser.role === 'admin' || currentUser.can_authorize_bank_transfer) && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-indigo-500 space-y-2">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-500 space-y-2">
           <div className="flex items-center gap-2">
-            <ShieldCheck size={15} className="text-indigo-600" />
+            <ShieldCheck size={15} className="text-info-600" />
             <p className="text-sm font-semibold text-ink-800">Autorizar transferencia</p>
           </div>
           <p className="text-xs text-ink-500">
@@ -338,7 +338,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <button
             disabled={pending}
             onClick={() => act(() => authorizeBank(fund.id))}
-            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+            className="w-full py-2 bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
           >
             {pending ? 'Autorizando...' : 'Autorizar transferencia'}
           </button>
@@ -405,7 +405,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                             {item.doc_type && ` · ${item.doc_type}`}
                           </p>
                           {item.rejection_reason && (
-                            <p className="text-xs text-rose-600 mt-1 bg-rose-50 px-2 py-1 rounded-item">Rechazo: {item.rejection_reason}</p>
+                            <p className="text-xs text-danger-600 mt-1 bg-danger-50 px-2 py-1 rounded-item">Rechazo: {item.rejection_reason}</p>
                           )}
                           {item.notes && <p className="text-xs text-ink-500 mt-0.5 italic">{item.notes}</p>}
                           {deciding && (
@@ -417,7 +417,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                                 >✓ Aprobar</button>
                                 <button
                                   onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'rejected' }))}
-                                  className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'rejected' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-300 text-rose-700 hover:bg-rose-50'}`}
+                                  className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'rejected' ? 'bg-danger-600 text-white border-danger-600' : 'border-danger-300 text-danger-700 hover:bg-danger-50'}`}
                                 >✗ Rechazar</button>
                               </div>
                               {decidingItems[item.id] === 'rejected' && (
@@ -425,7 +425,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                                   value={rejectionReasons[item.id] ?? ''}
                                   onChange={e => setRejReasons(r => ({ ...r, [item.id]: e.target.value }))}
                                   placeholder="Motivo de rechazo"
-                                  className="w-full px-2 py-1 text-xs border border-rose-200 rounded-item focus:outline-none focus:ring-1 focus:ring-rose-400"
+                                  className="w-full px-2 py-1 text-xs border border-danger-200 rounded-item focus:outline-none focus:ring-1 focus:ring-danger-400"
                                 />
                               )}
                             </div>
@@ -456,7 +456,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                                 if (window.confirm(`¿Eliminar "${item.description}"? Esta acción no se puede deshacer.`))
                                   act(() => removeFundItem(item.id))
                               }}
-                              className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors"
+                              className="p-1 text-ink-300 hover:text-danger-500 rounded transition-colors"
                               title="Eliminar ítem"
                             >
                               <Trash2 size={13} />
@@ -512,7 +512,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Aprobador: aprobar liquidación */}
       {fund.status === 'pending_liquidation_approval' && isApprover && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-sky-400 space-y-3">
+        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Revisar y aprobar liquidación</p>
           <p className="text-xs text-ink-500">Revisá cada ítem arriba y marcalo como aprobado o rechazado antes de finalizar.</p>
           <input value={approveNotes} onChange={e => setApproveNotes(e.target.value)} placeholder="Notas de la liquidación (opcional)"

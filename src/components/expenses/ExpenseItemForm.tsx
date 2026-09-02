@@ -450,7 +450,7 @@ export function ExpenseItemForm({
             value={form.amount}
             onChange={e => handleAmountChange(e.target.value)}
             placeholder="15000"
-            className={`${inputCls} font-[Manrope] tabular-nums ${policyResult?.hasBlock ? 'border-rose-400 bg-rose-50' : ''}`}
+            className={`${inputCls} font-[Manrope] tabular-nums ${policyResult?.hasBlock ? 'border-danger-400 bg-danger-50' : ''}`}
           />
         </div>
         <div>
@@ -649,11 +649,11 @@ export function ExpenseItemForm({
       {!policyLoading && policyResult && policyResult.violations.length > 0 && (
         <div className={`rounded-item p-3 space-y-1.5 ${
           policyResult.hasBlock
-            ? 'bg-rose-50 border border-rose-200'
+            ? 'bg-danger-50 border border-danger-200'
             : 'bg-warning-50 border border-warning-200'
         }`}>
           <div className={`flex items-start gap-2 card-label font-semibold ${
-            policyResult.hasBlock ? 'text-rose-700' : 'text-warning-700'
+            policyResult.hasBlock ? 'text-danger-700' : 'text-warning-700'
           }`}>
             <AlertTriangle size={18} className="shrink-0 mt-0.5" />
             <span>
@@ -662,7 +662,7 @@ export function ExpenseItemForm({
           </div>
           {policyResult.violations.map((v, i) => (
             <p key={i} className={`card-meta ml-6 ${
-              policyResult.hasBlock ? 'text-rose-600' : 'text-warning-600'
+              policyResult.hasBlock ? 'text-danger-600' : 'text-warning-600'
             }`}>
               {formatViolationMessage(v)}
             </p>

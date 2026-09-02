@@ -20,7 +20,7 @@ const ACTION_COLOR: Record<string, string> = {
   created:                 'bg-slate-100 text-slate-500',
   submitted_for_approval:  'bg-warning-100 text-warning-600',
   approved:                'bg-success-100 text-success-600',
-  rejected:                'bg-rose-100 text-rose-600',
+  rejected:                'bg-danger-100 text-danger-600',
   funds_sent:              'bg-flare-100 text-flare-600',
   liquidation_submitted:   'bg-warning-100 text-warning-600',
   liquidation_elevated:    'bg-flare-100 text-flare-600',

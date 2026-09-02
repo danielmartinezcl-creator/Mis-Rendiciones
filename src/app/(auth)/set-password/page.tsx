@@ -90,7 +90,7 @@ export default function SetPasswordPage() {
       </p>
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-item p-3">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">
           {error}
         </div>
       )}
@@ -140,7 +140,7 @@ export default function SetPasswordPage() {
               <div
                 className={[
                   'h-full rounded-full transition-all duration-300',
-                  password.length < 8  ? 'w-1/4 bg-rose-400' :
+                  password.length < 8  ? 'w-1/4 bg-danger-400' :
                   password.length < 12 ? 'w-2/4 bg-warning-400' :
                                          'w-full bg-success-500',
                 ].join(' ')}

@@ -261,7 +261,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                                   (item as { transfer_id: string }).transfer_id,
                                 )}
                                 title="Eliminar traspaso"
-                                className="p-1 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-colors"
+                                className="p-1 text-danger-300 hover:text-danger-500 hover:bg-danger-50 rounded transition-colors"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -279,7 +279,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                           onClick={() => deleteItem(item)}
                           disabled={deletingItemId === item.id}
                           title="Eliminar ítem"
-                          className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors disabled:opacity-40"
+                          className="p-1 text-ink-300 hover:text-danger-500 rounded transition-colors disabled:opacity-40"
                         >
                           {deletingItemId === item.id
                             ? <span className="text-[10px]">…</span>
@@ -307,7 +307,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
         </tbody>
       </table>
       {saveError && (
-        <p className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-item">{saveError}</p>
+        <p className="text-xs text-danger-600 bg-danger-50 px-2 py-1 rounded-item">{saveError}</p>
       )}
     </div>
   )
@@ -513,7 +513,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                     </span>
                   )}
                   {groupTransferOut > 0 && (
-                    <span className="text-orange-500 font-mono-amount">
+                    <span className="text-warning-500 font-mono-amount">
                       <ArrowRightLeft size={10} className="inline mr-0.5" />
                       ({formatCLP(groupTransferOut)})
                     </span>
@@ -528,7 +528,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                     <span className="font-bold text-info-600">↑ Reembolsar al empleado {formatCLP(Math.abs(groupDiff))}</span>
                   )}
                   {isOweComp && (
-                    <span className="font-bold text-orange-500">↓ Devolver a empresa {formatCLP(groupDiff)}</span>
+                    <span className="font-bold text-warning-500">↓ Devolver a empresa {formatCLP(groupDiff)}</span>
                   )}
                 </div>
               </button>
@@ -578,7 +578,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                 className="p-0.5 text-ink-400 hover:bg-ink-100 rounded">
                                 <X size={13} />
                               </button>
-                              {titleError && <span className="text-xs text-rose-500">{titleError}</span>}
+                              {titleError && <span className="text-xs text-danger-500">{titleError}</span>}
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 group/title min-w-0">

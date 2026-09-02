@@ -356,7 +356,7 @@ html.dark .shadow-card { box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 3px rgba(
 html.dark .bg-warning-50 { background-color: rgba(245,158,11,.12);  }
 html.dark .bg-success-50 { background-color: rgba(16,185,129,.10);  }
 html.dark .bg-flare-50   { background-color: rgba(167,139,250,.10); }
-html.dark .bg-sky-50     { background-color: rgba(56,189,248,.10);  }
+html.dark .bg-info-50    { background-color: rgba(56,189,248,.10);  }
 html.dark .bg-accent-50  { background-color: rgba(20,184,166,.10);  }
 html.dark .bg-danger-50  { background-color: rgba(239,68,68,.10);   }
 
@@ -364,7 +364,7 @@ html.dark .bg-danger-50  { background-color: rgba(239,68,68,.10);   }
 html.dark .border-warning-100 { border-color: rgba(245,158,11,.25);  }
 html.dark .border-success-100 { border-color: rgba(16,185,129,.25);  }
 html.dark .border-flare-100   { border-color: rgba(167,139,250,.25); }
-html.dark .border-sky-100     { border-color: rgba(56,189,248,.25);  }
+html.dark .border-info-100    { border-color: rgba(56,189,248,.25);  }
 html.dark .border-accent-100  { border-color: rgba(20,184,166,.25);  }
 
 /* Status badges — oscurecer fondos en dark mode */

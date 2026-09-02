@@ -175,7 +175,7 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
       {isFactura && (
         <div>
           <label className="block card-label font-semibold text-ink-600 mb-1">
-            RUT Proveedor <span className="text-rose-500">*</span>
+            RUT Proveedor <span className="text-danger-500">*</span>
             <span className="font-normal text-ink-400 ml-1">(requerido para crédito fiscal IVA)</span>
           </label>
           <input
@@ -240,7 +240,7 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
         />
       </div>
 
-      {error && <p className="card-label text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{error}</p>}
+      {error && <p className="card-label text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{error}</p>}
 
       {!dupWarning && (
         <div className="flex gap-2 pt-1">

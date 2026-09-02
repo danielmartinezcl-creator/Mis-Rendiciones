@@ -145,7 +145,7 @@ export function ItemAttachmentZone({
                     type="button"
                     onClick={() => handleDelete(att)}
                     disabled={deletingId === att.id}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 text-ink-300 hover:text-rose-500 transition-all disabled:opacity-40"
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-ink-300 hover:text-danger-500 transition-all disabled:opacity-40"
                     title="Eliminar adjunto"
                   >
                     <Trash2 size={11} />
@@ -177,7 +177,7 @@ export function ItemAttachmentZone({
             </label>
           )}
 
-          {error && <p className="text-xs text-rose-600">{error}</p>}
+          {error && <p className="text-xs text-danger-600">{error}</p>}
         </div>
       )}
     </div>

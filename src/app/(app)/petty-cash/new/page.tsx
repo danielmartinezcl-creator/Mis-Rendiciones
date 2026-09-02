@@ -149,7 +149,7 @@ export default function NewPettyCashFundPage() {
         </div>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item border border-rose-100">{error}</p>
+          <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item border border-danger-100">{error}</p>
         )}
 
         <button

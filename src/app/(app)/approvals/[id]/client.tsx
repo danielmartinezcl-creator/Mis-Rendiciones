@@ -267,19 +267,19 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       {/* Tarjeta de análisis IA */}
       {analysis && (
         <div className={`rounded-card border p-4 space-y-3 ${
-          analysis.risk_level === 'high'   ? 'bg-rose-50 border-rose-200' :
+          analysis.risk_level === 'high'   ? 'bg-danger-50 border-danger-200' :
           analysis.risk_level === 'medium' ? 'bg-warning-50 border-warning-200' :
                                              'bg-success-50 border-success-200'
         }`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${
-                analysis.risk_level === 'high'   ? 'bg-rose-500' :
+                analysis.risk_level === 'high'   ? 'bg-danger-500' :
                 analysis.risk_level === 'medium' ? 'bg-warning-500' :
                                                    'bg-success-500'
               }`} />
               <span className={`card-label font-semibold ${
-                analysis.risk_level === 'high'   ? 'text-rose-600' :
+                analysis.risk_level === 'high'   ? 'text-danger-600' :
                 analysis.risk_level === 'medium' ? 'text-warning-600' :
                                                    'text-success-600'
               }`}>

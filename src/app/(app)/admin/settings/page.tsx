@@ -103,7 +103,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin', approver: 'Aprobador', employee: 'Empleado',
 }
 const ROLE_CLS: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
+  admin: 'bg-flare-100 text-flare-700',
   approver: 'bg-info-100 text-info-700',
   employee: 'bg-slate-100 text-slate-600',
 }
@@ -360,7 +360,7 @@ function CategoriesTab() {
                     <button
                       onClick={() => setDeleteCat(cat.id)}
                       title="Eliminar categoría"
-                      className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors">
+                      className="p-1.5 text-ink-300 hover:text-danger-600 rounded-item hover:bg-danger-50 transition-colors">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -369,16 +369,16 @@ function CategoriesTab() {
 
               {/* Confirmación de eliminación */}
               {isDeleting && (
-                <div className="border-t border-rose-100 bg-rose-50 px-4 py-3 space-y-2">
+                <div className="border-t border-danger-100 bg-danger-50 px-4 py-3 space-y-2">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-rose-700 font-semibold">
+                    <AlertTriangle size={14} className="text-danger-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-danger-700 font-semibold">
                       ¿Eliminar &quot;{cat.name}&quot;? Las rendiciones existentes que usan esta categoría no se verán afectadas.
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleDelete(cat.id)} disabled={deleteLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-danger-600 hover:bg-danger-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
                       <Trash2 size={11} />{deleteLoading ? 'Eliminando…' : 'Confirmar'}
                     </button>
                     <button onClick={() => setDeleteCat(null)}
@@ -559,7 +559,7 @@ function EmployeesTab() {
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${ROLE_CLS[emp.role] ?? ROLE_CLS.employee}`}>
                         {ROLE_LABEL[emp.role] ?? 'Empleado'}
                       </span>
-                      {!emp.is_active && <span className="text-xs text-rose-500 font-medium">Inactivo</span>}
+                      {!emp.is_active && <span className="text-xs text-danger-500 font-medium">Inactivo</span>}
                     </div>
                     {emp.department && <p className="text-xs text-ink-400 mt-0.5">{emp.department}</p>}
                     {emp.cost_center_id && (
@@ -597,7 +597,7 @@ function EmployeesTab() {
                     <button
                       onClick={() => setDeleteConfirm(emp.id)}
                       title="Eliminar empleado"
-                      className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors"
+                      className="p-1.5 text-ink-300 hover:text-danger-600 rounded-item hover:bg-danger-50 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -630,7 +630,7 @@ function EmployeesTab() {
                           <X size={13} />
                         </button>
                       </div>
-                      {emailError && <p className="w-full text-xs text-rose-600">{emailError}</p>}
+                      {emailError && <p className="w-full text-xs text-danger-600">{emailError}</p>}
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -651,17 +651,17 @@ function EmployeesTab() {
 
               {/* ── Confirmación de eliminación ── */}
               {isDeleting && (
-                <div className="bg-rose-50 border border-rose-200 rounded-item p-3 space-y-2">
+                <div className="bg-danger-50 border border-danger-200 rounded-item p-3 space-y-2">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle size={15} className="text-rose-500 shrink-0 mt-0.5" />
+                    <AlertTriangle size={15} className="text-danger-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-semibold text-rose-700">¿Eliminar a {emp.full_name}?</p>
-                      <p className="text-xs text-rose-600 mt-0.5">Se revoca el acceso a la app. Las rendiciones históricas se conservan.</p>
+                      <p className="text-xs font-semibold text-danger-700">¿Eliminar a {emp.full_name}?</p>
+                      <p className="text-xs text-danger-600 mt-0.5">Se revoca el acceso a la app. Las rendiciones históricas se conservan.</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleDelete(emp.id)} disabled={deleting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-danger-600 hover:bg-danger-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
                       <Trash2 size={11} />{deleting ? 'Eliminando…' : 'Confirmar eliminación'}
                     </button>
                     <button onClick={() => setDeleteConfirm(null)}
@@ -982,10 +982,10 @@ function DefontanaTab() {
                   <button
                     onClick={() => handleDeleteSupplier(s.id)}
                     disabled={suppDeleting === s.id}
-                    className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors disabled:opacity-50"
+                    className="p-1.5 text-ink-300 hover:text-danger-600 rounded-item hover:bg-danger-50 transition-colors disabled:opacity-50"
                   >
                     {suppDeleting === s.id
-                      ? <div className="w-3.5 h-3.5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                      ? <div className="w-3.5 h-3.5 border-2 border-danger-400 border-t-transparent rounded-full animate-spin" />
                       : <Trash2 size={14} />}
                   </button>
                 </div>
@@ -1206,8 +1206,8 @@ function enforcementBadge(e: string | null) {
     e === 'require_justification' ? 'Justif.' : 'Bloqueo'
   const cls =
     e === 'warn'                  ? 'bg-warning-100 text-warning-700' :
-    e === 'require_justification' ? 'bg-orange-100 text-orange-700' :
-                                    'bg-rose-100 text-rose-600'
+    e === 'require_justification' ? 'bg-warning-100 text-warning-700' :
+                                    'bg-danger-100 text-danger-600'
   return <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cls}`}>{label}</span>
 }
 
@@ -1373,7 +1373,7 @@ function PoliciesTab() {
       {showForm && (
         <form onSubmit={handleSave} className="bg-white rounded-card shadow-sm p-5 space-y-4 border border-ink-100 border-t-[3px] border-t-brand-600">
           <h3 className="font-semibold text-ink-900 text-sm">{editingId ? 'Editar política' : 'Nueva política'}</h3>
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {error && <p className="text-sm text-danger-600">{error}</p>}
 
           <div>
             <label className="block text-xs font-semibold text-ink-600 mb-1">Nombre *</label>
@@ -1498,7 +1498,7 @@ function PoliciesTab() {
                   <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors">
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-danger-600 transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -1738,7 +1738,7 @@ function ViaticosTab() {
                   <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors">
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-danger-600 transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -1847,7 +1847,7 @@ function WebhooksTab() {
               </div>
               <button
                 onClick={() => handleDelete(hook.id)}
-                className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors shrink-0"
+                className="p-1.5 text-ink-400 hover:text-danger-600 transition-colors shrink-0"
                 title="Eliminar webhook"
               >
                 <Trash2 size={14} />
@@ -1873,7 +1873,7 @@ function WebhooksTab() {
           <h4 className="font-semibold text-sm text-ink-900">Nuevo webhook</h4>
 
           {error && (
-            <div className="flex items-center gap-2 text-rose-600 text-sm bg-rose-50 p-3 rounded-item">
+            <div className="flex items-center gap-2 text-danger-600 text-sm bg-danger-50 p-3 rounded-item">
               <AlertTriangle size={14} />
               {error}
             </div>

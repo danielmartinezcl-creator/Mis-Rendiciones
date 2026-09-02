@@ -54,7 +54,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
       )}
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-item p-3 mb-4">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3 mb-4">
           {error}
         </div>
       )}
@@ -167,7 +167,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
       </p>
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-item p-3 mb-4">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3 mb-4">
           {error}
         </div>
       )}

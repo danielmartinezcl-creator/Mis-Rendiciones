@@ -81,11 +81,11 @@ export default async function AdminPage() {
         {/* Reembolsadas — rendiciones pagadas + cajas chicas liquidadas */}
         <Link
           href="/admin/reports?status=reimbursed"
-          className="bg-white rounded-card shadow-card border-t-[3px] border-t-sky-400 p-5 hover:shadow-md transition-shadow"
+          className="bg-white rounded-card shadow-card border-t-[3px] border-t-info-400 p-5 hover:shadow-md transition-shadow"
         >
           <p className="text-base font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
           <p className="text-3xl font-bold text-ink-900 mb-0.5">{completedCount}</p>
-          <p className="text-base font-mono-amount font-semibold text-sky-600">
+          <p className="text-base font-mono-amount font-semibold text-info-600">
             {'$ ' + Math.round(completedAmount).toLocaleString('es-CL')}
           </p>
         </Link>

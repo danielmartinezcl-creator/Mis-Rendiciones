@@ -21,12 +21,12 @@ type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
 
 const STATUS_OPTS = [
   { value: 'submitted',          label: 'En revisión',      color: 'bg-info-100 text-info-700' },
-  { value: 'pending_l2',         label: 'Revisión N2',      color: 'bg-purple-100 text-purple-700' },
+  { value: 'pending_l2',         label: 'Revisión N2',      color: 'bg-flare-100 text-flare-700' },
   { value: 'approved',           label: 'Aprobada',         color: 'bg-success-100 text-success-700' },
-  { value: 'partially_approved', label: 'Aprobada parcial', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'partially_approved', label: 'Aprobada parcial', color: 'bg-warning-100 text-warning-700' },
   { value: 'rejected',           label: 'Rechazada',        color: 'bg-danger-100 text-danger-700' },
   { value: 'pending_bank_load',  label: 'En banco (carga)', color: 'bg-accent-100 text-accent-700' },
-  { value: 'pending_bank_auth',  label: 'En banco (auth)',  color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'pending_bank_auth',  label: 'En banco (auth)',  color: 'bg-info-100 text-info-700' },
   { value: 'reimbursed',         label: 'Reembolsada',      color: 'bg-slate-100 text-slate-600' },
 ]
 
