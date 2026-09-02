@@ -65,7 +65,7 @@ export function PettyCashClient({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Caja Chica</h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <p className="text-sm tor-on-gradient-soft mt-1">
             {reportData
               ? `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} encontrado${reportData.items.length !== 1 ? 's' : ''}`
               : filtered.length !== initialFunds.length

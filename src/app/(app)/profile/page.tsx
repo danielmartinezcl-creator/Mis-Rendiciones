@@ -115,7 +115,7 @@ export default function ProfilePage() {
     <div className="max-w-lg mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold tor-on-gradient">Mi perfil</h1>
-        <p className="card-label text-ink-500 mt-1">Actualiza tu información personal y bancaria</p>
+        <p className="card-label tor-on-gradient-soft mt-1">Actualiza tu información personal y bancaria</p>
       </div>
 
       {/* Avatar + rol */}

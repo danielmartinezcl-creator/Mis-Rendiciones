@@ -51,7 +51,7 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display font-extrabold text-3xl tracking-tight tor-on-gradient">Dashboard Admin</h1>
-        <p className="text-base text-ink-500 mt-1">Vista general de rendiciones y caja chica</p>
+        <p className="text-base tor-on-gradient-soft mt-1">Vista general de rendiciones y caja chica</p>
       </div>
 
       {/* Hero KPI — saldo neto: cuánto debe la empresa a empleados menos lo pendiente de rendir */}

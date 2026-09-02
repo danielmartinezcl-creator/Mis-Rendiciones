@@ -91,7 +91,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
           <Lightbulb size={22} className="text-warning-500" />
           Sugerencias
         </h1>
-        <p className="text-sm text-ink-500 mt-1">
+        <p className="text-sm tor-on-gradient-soft mt-1">
           Compartí ideas, mejoras o errores que encontraste en el sistema.
         </p>
       </div>

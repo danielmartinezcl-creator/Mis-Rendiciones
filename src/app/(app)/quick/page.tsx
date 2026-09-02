@@ -134,7 +134,7 @@ export default function QuickPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-display font-bold tor-on-gradient">Gasto rápido</h1>
-          <p className="card-meta text-ink-400 mt-0.5">3 pasos, solo lo esencial</p>
+          <p className="card-meta tor-on-gradient-soft mt-0.5">3 pasos, solo lo esencial</p>
         </div>
         <button onClick={() => router.push('/')} className="card-label text-ink-400 hover:text-ink-600">
           Cancelar

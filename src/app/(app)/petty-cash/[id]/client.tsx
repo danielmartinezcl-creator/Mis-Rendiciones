@@ -133,7 +133,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">{fund.name}</h1>
             <FundStatusBadge status={fund.status} />
           </div>
-          <p className="text-xs text-ink-500 mt-1">
+          <p className="text-xs tor-on-gradient-soft mt-1">
             Empleado: <span className="font-medium text-ink-700">{employee_name}</span>
             {' · '}EFF: <span className="font-medium text-ink-700">{manager_name}</span>
             {' · '}{formatPeriod(fund.period_start, fund.period_end)}

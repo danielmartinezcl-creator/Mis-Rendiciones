@@ -241,7 +241,7 @@ export default function AdminEmployeesPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Empleados</h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <p className="text-sm tor-on-gradient-soft mt-1">
             {employees.length} persona{employees.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
           </p>
         </div>
@@ -323,7 +323,7 @@ export default function AdminEmployeesPage() {
             {selected.size > 0 ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}` : 'Seleccionar todos'}
           </label>
 
-          <span className="text-ink-200">|</span>
+          <span className="text-white/30">|</span>
 
           {/* Invitar a todos sin invitar */}
           {notInvited.length > 0 && (

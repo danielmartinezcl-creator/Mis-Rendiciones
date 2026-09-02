@@ -248,7 +248,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
           <div>
             <h1 className="text-xl font-bold tor-on-gradient">{formatDisplayTitle(report.title)}</h1>
             {report.submitter_name && (
-              <p className="card-label text-ink-500 mt-0.5">
+              <p className="card-label tor-on-gradient-soft mt-0.5">
                 Enviado por <strong>{report.submitter_name}</strong>
                 {report.submitted_at && ` el ${formatDate(report.submitted_at.split('T')[0])}`}
               </p>

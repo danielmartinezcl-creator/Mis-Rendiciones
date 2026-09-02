@@ -278,7 +278,7 @@ export default function ExpenseDetailPage() {
           </button>
           <h1 className="text-xl font-bold tor-on-gradient">{formatDisplayTitle(report.title)}</h1>
           {report.description && (
-            <p className="card-label text-ink-500 mt-1">{report.description}</p>
+            <p className="card-label tor-on-gradient-soft mt-1">{report.description}</p>
           )}
         </div>
         <div className="flex items-center gap-2">

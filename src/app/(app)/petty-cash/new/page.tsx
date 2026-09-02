@@ -68,7 +68,7 @@ export default function NewPettyCashFundPage() {
         </Link>
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Nuevo fondo</h1>
-          <p className="text-sm text-ink-500">Creá un fondo de caja chica para un empleado</p>
+          <p className="text-sm tor-on-gradient-soft">Creá un fondo de caja chica para un empleado</p>
         </div>
       </div>
 

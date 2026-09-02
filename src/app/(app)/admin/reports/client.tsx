@@ -468,7 +468,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold tor-on-gradient">Rendiciones</h1>
-          <p className="text-sm text-ink-500 mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm tor-on-gradient-soft mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
           <button

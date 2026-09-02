@@ -290,7 +290,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
           <h1 className="text-2xl font-display font-bold tor-on-gradient">
             Análisis por Centro de Costo
           </h1>
-          <p className="text-ink-500 text-sm mt-1">
+          <p className="tor-on-gradient-soft text-sm mt-1">
             Últimos 6 meses · solo gastos reales (excluye adelantos y devoluciones) · con herencia de CC del empleado
           </p>
         </div>

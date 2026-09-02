@@ -136,7 +136,7 @@ export function BancoClient({ queue }: Props) {
         </div>
         <div>
           <h1 className="font-display font-semibold text-xl tor-on-gradient">Cola Bancaria</h1>
-          <p className="text-sm text-ink-500">Gestión de pagos y reembolsos pendientes</p>
+          <p className="text-sm tor-on-gradient-soft">Gestión de pagos y reembolsos pendientes</p>
         </div>
       </div>
 

@@ -28,7 +28,7 @@ export default async function ReimbursementsPage() {
       {/* KPI total reembolsado */}
       {reimbursed.length > 0 && (
         <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
-          <p className="card-label text-ink-500">Total reembolsado</p>
+          <p className="card-label tor-on-gradient-soft">Total reembolsado</p>
           <CurrencyAmount amount={totalReimbursed} currency="CLP" size="lg" />
         </div>
       )}

@@ -24,7 +24,7 @@ export default async function FondosPage() {
       {/* Cabecera */}
       <div>
         <h1 className="text-2xl font-display font-bold tor-on-gradient">Saldos de Caja Chica</h1>
-        <p className="text-ink-500 text-sm mt-1">Fondos activos con dinero en circulación</p>
+        <p className="tor-on-gradient-soft text-sm mt-1">Fondos activos con dinero en circulación</p>
       </div>
 
       {/* KPI cards */}

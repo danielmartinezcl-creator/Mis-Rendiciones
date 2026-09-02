@@ -171,7 +171,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
           </div>
           <div>
             <h1 className="text-2xl font-display font-bold tor-on-gradient">Auditoría</h1>
-            <p className="text-sm text-ink-500">
+            <p className="text-sm tor-on-gradient-soft">
               {loading ? 'Cargando…' : `${total} registro${total !== 1 ? 's' : ''}`}
             </p>
           </div>

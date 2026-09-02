@@ -336,7 +336,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             Carga Histórica
           </h1>
         </div>
-        <p className="text-sm text-ink-500">
+        <p className="text-sm tor-on-gradient-soft">
           Importá rendiciones y cajas chicas de períodos anteriores para exportarlas a Defontana.
         </p>
       </div>

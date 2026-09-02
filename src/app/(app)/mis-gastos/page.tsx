@@ -36,7 +36,7 @@ export default async function MisGastosPage() {
       {/* Cabecera */}
       <div>
         <h1 className="text-2xl font-display font-bold tor-on-gradient">Mis gastos</h1>
-        <p className="text-ink-500 text-sm mt-1">Ítems aprobados de los últimos 12 meses</p>
+        <p className="tor-on-gradient-soft text-sm mt-1">Ítems aprobados de los últimos 12 meses</p>
       </div>
 
       {/* KPI cards */}
