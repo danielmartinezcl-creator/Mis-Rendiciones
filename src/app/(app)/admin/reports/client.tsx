@@ -467,7 +467,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-ink-800">Rendiciones</h1>
+          <h1 className="text-xl font-bold tor-on-gradient">Rendiciones</h1>
           <p className="text-sm text-ink-500 mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">

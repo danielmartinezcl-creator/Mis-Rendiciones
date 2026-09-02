@@ -109,7 +109,7 @@ export function MobileNav({ user }: MobileNavProps) {
   return (
     <>
       {/* ── Barra inferior ── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-ink-200"
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 tor-glass-bar"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* h-16 = 64px, la altura original: la barra no debe crecer. Lo que crece
             es el contenido — ícono 28 (antes 21) y rótulo 13px (antes 10). Entran
@@ -125,7 +125,7 @@ export function MobileNav({ user }: MobileNavProps) {
                 href={item.href}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center gap-1 transition-colors',
-                  active ? 'text-brand-600' : 'text-ink-400'
+                  active ? 'text-brand-300' : 'text-white/55'
                 )}
               >
                 <item.Icon size={28} />
@@ -139,7 +139,7 @@ export function MobileNav({ user }: MobileNavProps) {
             onClick={() => setOpen(v => !v)}
             className={cn(
               'flex-1 flex flex-col items-center justify-center gap-1.5 transition-colors',
-              open || moreIsActive ? 'text-brand-600' : 'text-ink-400'
+              open || moreIsActive ? 'text-brand-300' : 'text-white/55'
             )}
           >
             <MoreHorizontal size={28} />

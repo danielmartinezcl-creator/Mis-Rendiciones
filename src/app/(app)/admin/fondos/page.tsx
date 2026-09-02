@@ -23,7 +23,7 @@ export default async function FondosPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Cabecera */}
       <div>
-        <h1 className="text-2xl font-display font-bold text-ink-800">Saldos de Caja Chica</h1>
+        <h1 className="text-2xl font-display font-bold tor-on-gradient">Saldos de Caja Chica</h1>
         <p className="text-ink-500 text-sm mt-1">Fondos activos con dinero en circulación</p>
       </div>
 

@@ -87,7 +87,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900 flex items-center gap-2">
+        <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient flex items-center gap-2">
           <Lightbulb size={22} className="text-warning-500" />
           Sugerencias
         </h1>

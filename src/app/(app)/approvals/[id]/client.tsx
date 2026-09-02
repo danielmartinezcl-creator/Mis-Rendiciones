@@ -246,7 +246,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
         </button>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-xl font-bold text-ink-800">{formatDisplayTitle(report.title)}</h1>
+            <h1 className="text-xl font-bold tor-on-gradient">{formatDisplayTitle(report.title)}</h1>
             {report.submitter_name && (
               <p className="card-label text-ink-500 mt-0.5">
                 Enviado por <strong>{report.submitter_name}</strong>

@@ -115,7 +115,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Configuración</h1>
+      <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Configuración</h1>
 
       {/* ── Tabs ── */}
       <div className="flex gap-1 bg-ink-100 p-1 rounded-item w-fit">

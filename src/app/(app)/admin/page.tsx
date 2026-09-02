@@ -50,7 +50,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display font-extrabold text-3xl tracking-tight text-ink-900">Dashboard Admin</h1>
+        <h1 className="font-display font-extrabold text-3xl tracking-tight tor-on-gradient">Dashboard Admin</h1>
         <p className="text-base text-ink-500 mt-1">Vista general de rendiciones y caja chica</p>
       </div>
 

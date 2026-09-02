@@ -35,7 +35,7 @@ export default async function MisGastosPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Cabecera */}
       <div>
-        <h1 className="text-2xl font-display font-bold text-ink-800">Mis gastos</h1>
+        <h1 className="text-2xl font-display font-bold tor-on-gradient">Mis gastos</h1>
         <p className="text-ink-500 text-sm mt-1">Ítems aprobados de los últimos 12 meses</p>
       </div>
 

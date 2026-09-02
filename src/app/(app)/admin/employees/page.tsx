@@ -240,7 +240,7 @@ export default function AdminEmployeesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Empleados</h1>
+          <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Empleados</h1>
           <p className="text-sm text-ink-500 mt-1">
             {employees.length} persona{employees.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
           </p>

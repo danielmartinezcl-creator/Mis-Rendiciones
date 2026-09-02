@@ -130,7 +130,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">{fund.name}</h1>
+            <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">{fund.name}</h1>
             <FundStatusBadge status={fund.status} />
           </div>
           <p className="text-xs text-ink-500 mt-1">

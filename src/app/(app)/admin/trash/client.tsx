@@ -78,7 +78,7 @@ export function TrashClient({ initialItems }: Props) {
           <Trash2 size={20} />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-ink-800">Papelera</h1>
+          <h1 className="text-xl font-bold tor-on-gradient">Papelera</h1>
           <p className="text-sm text-ink-500 mt-0.5">
             Los ítems eliminados se guardan aquí durante 90 días y luego se borran automáticamente.
           </p>

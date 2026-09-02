@@ -80,7 +80,7 @@ export default function NewExpensePage() {
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-ink-800">Nueva rendición</h1>
+        <h1 className="text-xl font-bold tor-on-gradient">Nueva rendición</h1>
         <p className="text-sm text-ink-500 mt-1">
           Primero dale un nombre, después vas a agregar los ítems con fotos
         </p>

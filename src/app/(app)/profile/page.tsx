@@ -114,7 +114,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-lg mx-auto space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-ink-800">Mi perfil</h1>
+        <h1 className="text-xl font-bold tor-on-gradient">Mi perfil</h1>
         <p className="card-label text-ink-500 mt-1">Actualiza tu información personal y bancaria</p>
       </div>
 

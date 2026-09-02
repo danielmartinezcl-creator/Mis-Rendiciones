@@ -156,7 +156,7 @@ export function InformesClient({ filterOptions }: Props) {
     <div className="space-y-5">
       {/* Encabezado */}
       <div>
-        <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Informes</h1>
+        <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Informes</h1>
         <p className="text-sm text-ink-500 mt-1">Vista unificada de gastos: rendiciones, caja chica, históricos</p>
       </div>
 

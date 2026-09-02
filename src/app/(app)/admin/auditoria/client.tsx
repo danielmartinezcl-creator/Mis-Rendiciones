@@ -170,7 +170,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             <Shield size={20} className="text-accent-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold text-ink-900">Auditoría</h1>
+            <h1 className="text-2xl font-display font-bold tor-on-gradient">Auditoría</h1>
             <p className="text-sm text-ink-500">
               {loading ? 'Cargando…' : `${total} registro${total !== 1 ? 's' : ''}`}
             </p>

@@ -332,7 +332,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
       <div>
         <div className="flex items-center gap-2 mb-1">
           <History size={20} className="text-brand-600" />
-          <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">
+          <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">
             Carga Histórica
           </h1>
         </div>

@@ -287,7 +287,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
       {/* Cabecera */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-ink-800">
+          <h1 className="text-2xl font-display font-bold tor-on-gradient">
             Análisis por Centro de Costo
           </h1>
           <p className="text-ink-500 text-sm mt-1">

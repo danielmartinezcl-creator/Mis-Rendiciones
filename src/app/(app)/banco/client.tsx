@@ -135,7 +135,7 @@ export function BancoClient({ queue }: Props) {
           <Landmark size={20} className="text-accent-600" />
         </div>
         <div>
-          <h1 className="font-display font-semibold text-xl text-ink-900">Cola Bancaria</h1>
+          <h1 className="font-display font-semibold text-xl tor-on-gradient">Cola Bancaria</h1>
           <p className="text-sm text-ink-500">Gestión de pagos y reembolsos pendientes</p>
         </div>
       </div>

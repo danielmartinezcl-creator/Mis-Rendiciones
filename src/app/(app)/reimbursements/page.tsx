@@ -23,7 +23,7 @@ export default async function ReimbursementsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-ink-800">Mis rendiciones</h1>
+      <h1 className="text-xl font-bold tor-on-gradient">Mis rendiciones</h1>
 
       {/* KPI total reembolsado */}
       {reimbursed.length > 0 && (

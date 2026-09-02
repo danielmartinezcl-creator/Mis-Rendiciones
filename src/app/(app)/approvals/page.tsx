@@ -11,7 +11,7 @@ export default async function ApprovalsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div>
-        <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Bandeja de aprobaciones</h1>
+        <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Bandeja de aprobaciones</h1>
         <p className="card-label text-ink-500 mt-1">
           {reports.length > 0
             ? `${reports.length} rendición${reports.length !== 1 ? 'es' : ''} esperando tu decisión`

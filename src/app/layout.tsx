@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="es"
       className={`${bricolage.variable} ${hanken.variable} ${GeistMono.variable}`}
     >
-      <body className="font-hanken bg-ink-50 text-ink-800 antialiased">
+      <body className="font-hanken text-ink-800 antialiased">
         {children}
       </body>
     </html>

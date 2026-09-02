@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-h-screen">
         <Sidebar user={profile} />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="md:hidden bg-sidebar px-4 py-3 flex items-center gap-3">
+          <header className="md:hidden tor-glass-bar px-4 py-3 flex items-center gap-3">
             <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center text-white text-[15px] font-bold">
               P
             </div>
