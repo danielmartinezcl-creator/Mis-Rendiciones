@@ -1,7 +1,7 @@
 {
-  "name": "Penta Rend",
-  "short_name": "Penta Rend",
-  "description": "Gestión de rendiciones de gastos — Penta Ingenieros Asociados",
+  "name": "Mi Rendición",
+  "short_name": "Mi Rendición",
+  "description": "Gestión de rendiciones de gastos — PENTA Ingenieros Asociados",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#03191C",

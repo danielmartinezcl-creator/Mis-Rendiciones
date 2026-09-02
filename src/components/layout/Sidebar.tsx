@@ -159,8 +159,8 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           <span className="font-display font-extrabold tracking-tight leading-none"
                 style={{ fontSize: 17 }}>
-            <span style={{ color: BRAND.accentBright }}>Penta</span>
-            <span className="text-white"> Rend</span>
+            <span style={{ color: BRAND.accentBright }}>Mi</span>
+            <span className="text-white"> Rendición</span>
           </span>
         </div>
       </div>

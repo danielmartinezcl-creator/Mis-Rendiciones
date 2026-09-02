@@ -5,14 +5,13 @@
 
 @theme {
   /* ── Fuentes ────────────────────────────────────────────────────────────
-     Reforma: Bricolage Grotesque (display) · Hanken Grotesk (UI) · Geist Mono (cifras)
-     Instalación: npm install geist
-     En layout.tsx: importar Bricolage_Grotesque y Hanken_Grotesk de next/font/google
-                    importar GeistMono de geist/font/mono
+     Bricolage Grotesque (títulos) · Hanken Grotesk (cuerpo) · Manrope (montos).
+     Las tres son variables y LOCALES: viven en src/app/fonts/ y se declaran con
+     next/font/local en layout.tsx. No dependen de Google en tiempo de build.
   ──────────────────────────────────────────────────────────────────────── */
   --font-display: var(--font-bricolage), system-ui, sans-serif;
   --font-ui:      var(--font-hanken), system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
+  --font-amount:  var(--font-manrope), system-ui, sans-serif;
 
   /* ══════════════════════════════════════════════════════════════════════
      ZONA 1 · IDENTIDAD — reemplazable por cliente
@@ -267,12 +266,14 @@
 }
 
 @layer utilities {
-  /* Cifras monetarias — siempre Geist Mono + tabular-nums */
+  /* Cifras monetarias — Manrope + tabular-nums.
+     El tracking negativo es lo que les da densidad de cifra financiera: sin él
+     los montos se leen como texto corrido. */
   .font-mono-amount {
-    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-family: var(--font-amount), system-ui, sans-serif;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.035em;
   }
 
   /* Títulos — Bricolage Grotesque */
@@ -361,7 +362,7 @@
 
 /* Font helpers */
 .font-jakarta  { font-family: var(--font-bricolage), system-ui, sans-serif; }   /* compatibilidad */
-.font-manrope  { font-family: var(--font-geist-mono), monospace; }              /* compatibilidad */
+.font-manrope  { font-family: var(--font-amount), system-ui, sans-serif; }     /* compatibilidad */
 .font-bricolage { font-family: var(--font-bricolage), system-ui, sans-serif; }
 .font-hanken   { font-family: var(--font-hanken), system-ui, sans-serif; }
 
