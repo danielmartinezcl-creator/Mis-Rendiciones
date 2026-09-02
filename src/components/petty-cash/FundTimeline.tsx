@@ -17,7 +17,7 @@ const ACTION_ICON: Record<string, React.ElementType> = {
 }
 
 const ACTION_COLOR: Record<string, string> = {
-  created:                 'bg-slate-100 text-slate-500',
+  created:                 'bg-ink-100 text-ink-500',
   submitted_for_approval:  'bg-warning-100 text-warning-600',
   approved:                'bg-success-100 text-success-600',
   rejected:                'bg-danger-100 text-danger-600',
@@ -59,7 +59,7 @@ export function FundTimeline({ entries }: { entries: AuditEntry[] }) {
       <ul className="space-y-4">
         {entries.map((e, idx) => {
           const Icon  = ACTION_ICON[e.action] ?? FilePlus
-          const color = ACTION_COLOR[e.action] ?? 'bg-slate-100 text-slate-500'
+          const color = ACTION_COLOR[e.action] ?? 'bg-ink-100 text-ink-500'
           const isLast = idx === entries.length - 1
 
           return (

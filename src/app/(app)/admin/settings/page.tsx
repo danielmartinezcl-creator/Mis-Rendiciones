@@ -105,7 +105,7 @@ const ROLE_LABEL: Record<string, string> = {
 const ROLE_CLS: Record<string, string> = {
   admin: 'bg-flare-100 text-flare-700',
   approver: 'bg-info-100 text-info-700',
-  employee: 'bg-slate-100 text-slate-600',
+  employee: 'bg-ink-100 text-ink-600',
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */

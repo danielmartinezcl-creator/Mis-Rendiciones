@@ -43,7 +43,7 @@ export function CurrencyAmount({
         'font-manrope font-bold tabular-nums leading-none',
         // con fit el tamaño va por style; sin fit, la clase de siempre
         !fit && sizes[size],
-        muted ? 'text-slate-400' : 'text-slate-900',
+        muted ? 'text-ink-400' : 'text-ink-900',
         className
       )}
       style={fit ? { fontSize: fitAmountFontSize(formatted, size) } : undefined}

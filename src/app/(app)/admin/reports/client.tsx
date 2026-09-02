@@ -27,11 +27,11 @@ const STATUS_OPTS = [
   { value: 'rejected',           label: 'Rechazada',        color: 'bg-danger-100 text-danger-700' },
   { value: 'pending_bank_load',  label: 'En banco (carga)', color: 'bg-accent-100 text-accent-700' },
   { value: 'pending_bank_auth',  label: 'En banco (auth)',  color: 'bg-info-100 text-info-700' },
-  { value: 'reimbursed',         label: 'Reembolsada',      color: 'bg-slate-100 text-slate-600' },
+  { value: 'reimbursed',         label: 'Reembolsada',      color: 'bg-ink-100 text-ink-600' },
 ]
 
 function statusLabel(s: string) { return STATUS_OPTS.find(o => o.value === s)?.label ?? s }
-function statusCls(s: string)   { return STATUS_OPTS.find(o => o.value === s)?.color ?? 'bg-slate-100 text-slate-600' }
+function statusCls(s: string)   { return STATUS_OPTS.find(o => o.value === s)?.color ?? 'bg-ink-100 text-ink-600' }
 
 interface Props { initialReports: Report[] }
 
@@ -466,8 +466,8 @@ export function AdminReportsClient({ initialReports }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Rendiciones</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-bold text-ink-800">Rendiciones</h1>
+          <p className="text-sm text-ink-500 mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
           <button
@@ -554,7 +554,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       {/* Filtros */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="card-meta font-semibold text-slate-600">Filtros</p>
+          <p className="card-meta font-semibold text-ink-600">Filtros</p>
           {hasFilters && (
             <button
               onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter([]); setDeptFilter(''); setReimb('all'); setDefFilter('all') }}
@@ -568,20 +568,20 @@ export function AdminReportsClient({ initialReports }: Props) {
         {/* Fecha */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Desde (fecha envío)</label>
+            <label className="block text-xs text-ink-500 mb-1">Desde (fecha envío)</label>
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Hasta</label>
+            <label className="block text-xs text-ink-500 mb-1">Hasta</label>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
           </div>
         </div>
 
         {/* Estado */}
         <div>
-          <p className="text-xs text-slate-500 mb-2">Estado</p>
+          <p className="text-xs text-ink-500 mb-2">Estado</p>
           <div className="flex flex-wrap gap-1.5">
             {STATUS_OPTS.map(s => (
               <button
@@ -589,7 +589,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                 onClick={() => toggleStatus(s.value)}
                 className={[
                   'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
-                  statusSel.includes(s.value) ? s.color + ' ring-2 ring-offset-1 ring-brand-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                  statusSel.includes(s.value) ? s.color + ' ring-2 ring-offset-1 ring-brand-600' : 'bg-ink-100 text-ink-600 hover:bg-ink-200',
                 ].join(' ')}
               >
                 {s.label}
@@ -601,49 +601,49 @@ export function AdminReportsClient({ initialReports }: Props) {
         {/* Empleado / Depto / Reembolso / Defontana */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <div ref={empDropRef}>
-            <label className="block text-xs text-slate-500 mb-1">Empleado</label>
+            <label className="block text-xs text-ink-500 mb-1">Empleado</label>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setEmpDropdownOpen(o => !o)}
-                className="w-full flex items-center justify-between border border-slate-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-colors"
+                className="w-full flex items-center justify-between border border-ink-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-colors"
               >
-                <span className={empFilter.length ? 'text-slate-800' : 'text-slate-400'}>
+                <span className={empFilter.length ? 'text-ink-800' : 'text-ink-400'}>
                   {empFilter.length === 0 ? 'Todos' : `${empFilter.length} seleccionado${empFilter.length !== 1 ? 's' : ''}`}
                 </span>
-                <ChevronDown size={13} className={`text-slate-400 transition-transform ${empDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={13} className={`text-ink-400 transition-transform ${empDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {empDropdownOpen && (
-                <div className="absolute z-50 top-full mt-1 w-full min-w-[220px] bg-white border border-slate-200 rounded-item shadow-lg">
-                  <div className="p-2 border-b border-slate-100">
+                <div className="absolute z-50 top-full mt-1 w-full min-w-[220px] bg-white border border-ink-200 rounded-item shadow-lg">
+                  <div className="p-2 border-b border-ink-100">
                     <input
                       type="text"
                       placeholder="Buscar empleado…"
                       value={empSearch}
                       onChange={e => setEmpSearch(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-2.5 py-1.5 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-500"
                       autoFocus
                     />
                   </div>
                   <div className="max-h-52 overflow-y-auto p-1">
                     {empOptions.map(e => (
-                      <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer rounded-item">
+                      <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-ink-50 cursor-pointer rounded-item">
                         <input
                           type="checkbox"
                           checked={empFilter.includes(e.id)}
                           onChange={() => setEmpFilter(ids => ids.includes(e.id) ? ids.filter(x => x !== e.id) : [...ids, e.id])}
                           className="accent-brand-600 w-3.5 h-3.5 shrink-0"
                         />
-                        <span className="text-sm text-slate-700">{e.name}</span>
+                        <span className="text-sm text-ink-700">{e.name}</span>
                       </label>
                     ))}
                     {empOptions.length === 0 && (
-                      <p className="text-xs text-slate-400 text-center py-3">Sin resultados</p>
+                      <p className="text-xs text-ink-400 text-center py-3">Sin resultados</p>
                     )}
                   </div>
                   {empFilter.length > 0 && (
-                    <div className="border-t border-slate-100 px-3 py-2">
-                      <button type="button" onClick={() => setEmpFilter([])} className="text-xs text-slate-400 hover:text-slate-600">
+                    <div className="border-t border-ink-100 px-3 py-2">
+                      <button type="button" onClick={() => setEmpFilter([])} className="text-xs text-ink-400 hover:text-ink-600">
                         Limpiar selección
                       </button>
                     </div>
@@ -653,26 +653,26 @@ export function AdminReportsClient({ initialReports }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Departamento</label>
+            <label className="block text-xs text-ink-500 mb-1">Departamento</label>
             <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="">Todos</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Reembolso</label>
+            <label className="block text-xs text-ink-500 mb-1">Reembolso</label>
             <select value={reimb} onChange={e => setReimb(e.target.value as typeof reimb)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="all">Todos</option>
               <option value="pending">Pendiente de reembolso</option>
               <option value="reimbursed">Reembolsadas</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Contabilización</label>
+            <label className="block text-xs text-ink-500 mb-1">Contabilización</label>
             <select value={defFilter} onChange={e => setDefFilter(e.target.value as typeof defFilter)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
               <option value="all">Todas</option>
               <option value="notExported">Sin contabilizar</option>
               <option value="exported">Contabilizadas</option>
@@ -757,7 +757,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[16px] leading-snug font-semibold text-slate-800">{formatDisplayTitle(r.title)}</p>
+                      <p className="text-[16px] leading-snug font-semibold text-ink-800">{formatDisplayTitle(r.title)}</p>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusCls(r.status)}`}>
                         {statusLabel(r.status)}
                       </span>
@@ -770,7 +770,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       {/* Badge cuadre de reembolso */}
                       {r.status === 'reimbursed' && (() => {
                         if (r.reimbursed_amount == null) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="No se registró el monto pagado">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 border border-ink-200" title="No se registró el monto pagado">
                             — Sin registro
                           </span>
                         )
@@ -793,11 +793,11 @@ export function AdminReportsClient({ initialReports }: Props) {
                         )
                       })()}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-ink-500 mt-0.5">
                       <strong>{r.submitter_name}</strong>
                       {r.department && ` · ${r.department}`}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-400 mt-0.5">
                       {r.submitted_at && `Enviada ${formatDate(r.submitted_at.split('T')[0])}`}
                       {r.approved_at  && ` · Aprobada ${formatDate(r.approved_at.split('T')[0])}`}
                       {r.reimbursed_at && ` · Reembolsada ${formatDate(r.reimbursed_at.split('T')[0])}`}
@@ -815,7 +815,7 @@ export function AdminReportsClient({ initialReports }: Props) {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="text-right">
-                      <p className="text-sm font-bold text-slate-800">{formatCLP(r.total_amount)}</p>
+                      <p className="text-sm font-bold text-ink-800">{formatCLP(r.total_amount)}</p>
                       {r.approved_amount > 0 && r.approved_amount !== r.total_amount && (
                         <p className="text-xs text-success-600">Por reembolsar: {formatCLP(r.approved_amount)}</p>
                       )}
@@ -876,7 +876,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <button
                         onClick={() => handleRevert(r.id, r.title)}
                         disabled={revertingId === r.id}
-                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-item transition-colors disabled:opacity-40"
+                        className="p-1.5 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-item transition-colors disabled:opacity-40"
                         title="Revertir reembolso (vuelve a Aprobada)"
                       >
                         <Undo2 size={14} />
@@ -911,7 +911,7 @@ export function AdminReportsClient({ initialReports }: Props) {
 
                 {/* Acciones de reembolso */}
                 {canReimb && !isReopened && (
-                  <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3">
+                  <div className="mt-3 pt-3 border-t border-ink-100 flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => handleBankInit(r.id, r.title)}
                       disabled={bankInitId === r.id}
@@ -922,33 +922,33 @@ export function AdminReportsClient({ initialReports }: Props) {
                     </button>
                     <button
                       onClick={() => { setReimbOpen(r.id); setReimbRef(''); setReimbAmount(r.approved_amount > 0 ? String(r.approved_amount) : '') }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-ink-700 transition-colors"
                     >
                       <Banknote size={13} />Marcar reembolsada directamente
                     </button>
                   </div>
                 )}
                 {isReopened && (
-                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                  <div className="mt-3 pt-3 border-t border-ink-100 space-y-2">
                     <div className="flex gap-2 items-center">
                       <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs text-slate-500">Monto reembolsado (CLP)</label>
+                        <label className="text-xs text-ink-500">Monto reembolsado (CLP)</label>
                         <input
                           type="number"
                           value={reimbAmount}
                           onChange={e => setReimbAmount(e.target.value)}
                           placeholder={`Por reembolsar: ${formatCLP(r.approved_amount)}`}
-                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-600"
+                          className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-600"
                         />
                       </div>
                       <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs text-slate-500">Referencia (opcional)</label>
+                        <label className="text-xs text-ink-500">Referencia (opcional)</label>
                         <input
                           type="text"
                           value={reimbRef}
                           onChange={e => setReimbRef(e.target.value)}
                           placeholder="N° transferencia, cheque…"
-                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
+                          className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
                         />
                       </div>
                     </div>
@@ -967,7 +967,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     >
                       {reimbSaving ? '...' : 'Confirmar'}
                     </button>
-                    <button onClick={() => setReimbOpen(null)} className="text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
+                    <button onClick={() => setReimbOpen(null)} className="text-xs text-ink-400 hover:text-ink-600">Cancelar</button>
                     </div>
                   </div>
                 )}
@@ -985,42 +985,42 @@ export function AdminReportsClient({ initialReports }: Props) {
 
               {/* Detalle expandido */}
               {isOpen && (
-                <div className="border-t border-slate-100 bg-slate-50/60">
+                <div className="border-t border-ink-100 bg-ink-50/60">
                   {!detail && (
                     <div className="flex items-center justify-center py-6">
-                      <span className="text-xs text-slate-400">Cargando...</span>
+                      <span className="text-xs text-ink-400">Cargando...</span>
                     </div>
                   )}
                   {detail && (
                     <>
                       {/* KPI mini-cards */}
                       <div className="p-4 pb-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
-                          <p className="text-xs text-slate-400">Total rendición</p>
-                          <p className="text-sm font-bold text-slate-800 font-mono-amount mt-0.5">{formatCLP(r.total_amount)}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{detail.items.length} ítem{detail.items.length !== 1 ? 's' : ''}</p>
+                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                          <p className="text-xs text-ink-400">Total rendición</p>
+                          <p className="text-sm font-bold text-ink-800 font-mono-amount mt-0.5">{formatCLP(r.total_amount)}</p>
+                          <p className="text-xs text-ink-400 mt-0.5">{detail.items.length} ítem{detail.items.length !== 1 ? 's' : ''}</p>
                         </div>
-                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
-                          <p className="text-xs text-slate-400">Gastos aprobados</p>
-                          <p className="text-sm font-bold text-slate-800 font-mono-amount mt-0.5">
+                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                          <p className="text-xs text-ink-400">Gastos aprobados</p>
+                          <p className="text-sm font-bold text-ink-800 font-mono-amount mt-0.5">
                             {formatCLP(detail.items.filter(i => i.status === 'approved' && i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0))}
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">{detail.items.filter(i => i.status === 'approved').length} aprobados</p>
+                          <p className="text-xs text-ink-400 mt-0.5">{detail.items.filter(i => i.status === 'approved').length} aprobados</p>
                         </div>
-                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
-                          <p className="text-xs text-slate-400">Por reembolsar</p>
-                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.approved_amount > 0 ? 'text-brand-700' : 'text-slate-400'}`}>
+                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                          <p className="text-xs text-ink-400">Por reembolsar</p>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.approved_amount > 0 ? 'text-brand-700' : 'text-ink-400'}`}>
                             {r.approved_amount > 0 ? formatCLP(r.approved_amount) : '—'}
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">neto aprobado</p>
+                          <p className="text-xs text-ink-400 mt-0.5">neto aprobado</p>
                         </div>
-                        <div className="bg-white rounded-card border border-slate-100 shadow-sm p-3">
-                          <p className="text-xs text-slate-400">Reembolsado</p>
-                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-success-700' : 'text-slate-400'}`}>
+                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                          <p className="text-xs text-ink-400">Reembolsado</p>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-success-700' : 'text-ink-400'}`}>
                             {r.reimbursed_amount != null ? formatCLP(r.reimbursed_amount) : '—'}
                           </p>
                           {r.reimbursed_at && (
-                            <p className="text-xs text-slate-400 mt-0.5">{formatDate(r.reimbursed_at.split('T')[0])}</p>
+                            <p className="text-xs text-ink-400 mt-0.5">{formatDate(r.reimbursed_at.split('T')[0])}</p>
                           )}
                         </div>
                       </div>
@@ -1029,7 +1029,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       <div className="p-4 grid grid-cols-1 md:grid-cols-[160px_1fr] gap-6">
                         {/* Columna izquierda: timeline vertical */}
                         <div>
-                          <p className="card-label font-semibold text-slate-500 mb-3">Progreso</p>
+                          <p className="card-label font-semibold text-ink-500 mb-3">Progreso</p>
                           <VerticalTimeline
                             steps={REPORT_STEPS}
                             currentStatus={r.status === 'partially_approved' ? 'approved' : r.status}
@@ -1041,20 +1041,20 @@ export function AdminReportsClient({ initialReports }: Props) {
                           {/* Historial de aprobaciones */}
                           {detail.approvals.length > 0 && (
                             <div>
-                              <p className="card-label font-semibold text-slate-500 mb-2">Historial de aprobaciones</p>
+                              <p className="card-label font-semibold text-ink-500 mb-2">Historial de aprobaciones</p>
                               <div className="space-y-1.5">
                                 {detail.approvals.map((a, i) => (
                                   <div key={i} className={[
                                     'flex items-start gap-2 text-xs rounded-item px-3 py-2',
                                     a.action === 'approved' ? 'bg-success-50 text-success-800' :
                                     a.action === 'rejected' ? 'bg-danger-50 text-danger-800' :
-                                    'bg-slate-100 text-slate-700',
+                                    'bg-ink-100 text-ink-700',
                                   ].join(' ')}>
                                     <span className="font-medium shrink-0">N{a.level}</span>
                                     <span className="font-semibold shrink-0">{a.approver_name}</span>
                                     <span className="shrink-0">→ {statusLabel(a.action)}</span>
-                                    {a.notes && <span className="text-slate-500 italic">"{a.notes}"</span>}
-                                    <span className="ml-auto text-slate-400 shrink-0">{formatDate(a.created_at.split('T')[0])}</span>
+                                    {a.notes && <span className="text-ink-500 italic">"{a.notes}"</span>}
+                                    <span className="ml-auto text-ink-400 shrink-0">{formatDate(a.created_at.split('T')[0])}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1064,7 +1064,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           {/* Ítems */}
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <p className="card-label font-semibold text-slate-500">Ítems ({detail.items.length})</p>
+                              <p className="card-label font-semibold text-ink-500">Ítems ({detail.items.length})</p>
                               <button
                                 onClick={() => openBulkCC(r.id)}
                                 className="text-xs text-brand-600 border border-brand-200 hover:bg-brand-50 px-2.5 py-1 rounded-item font-semibold transition-colors"
@@ -1075,7 +1075,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs border-collapse">
                                 <thead>
-                                  <tr className="text-left text-slate-400 border-b border-slate-200">
+                                  <tr className="text-left text-ink-400 border-b border-ink-200">
                                     <th className="pb-1.5 pr-3 font-medium">Descripción</th>
                                     <th className="pb-1.5 pr-3 font-medium">Tipo</th>
                                     <th className="pb-1.5 pr-3 font-medium">Categoría</th>
@@ -1084,17 +1084,17 @@ export function AdminReportsClient({ initialReports }: Props) {
                                     <th className="pb-1.5 font-medium">Motivo rechazo</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-ink-100">
                                   {detail.items.map((item, i) => (
                                     <tr key={i}>
-                                      <td className="py-1.5 pr-3 text-slate-700">{item.description}</td>
+                                      <td className="py-1.5 pr-3 text-ink-700">{item.description}</td>
                                       <td className="py-1.5 pr-3">
                                         {item.item_type === 'advance'  && <span className="px-1.5 py-0.5 rounded bg-warning-50 text-warning-700 font-medium">Anticipo</span>}
                                         {item.item_type === 'return'   && <span className="px-1.5 py-0.5 rounded bg-info-50 text-info-700 font-medium">Devolución</span>}
-                                        {item.item_type === 'transfer' && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">Traspaso</span>}
-                                        {(item.item_type === 'expense' || !item.item_type) && <span className="text-slate-400">—</span>}
+                                        {item.item_type === 'transfer' && <span className="px-1.5 py-0.5 rounded bg-ink-100 text-ink-600 font-medium">Traspaso</span>}
+                                        {(item.item_type === 'expense' || !item.item_type) && <span className="text-ink-400">—</span>}
                                       </td>
-                                      <td className="py-1.5 pr-3 text-slate-500">
+                                      <td className="py-1.5 pr-3 text-ink-500">
                                         {reclassifyingItem === item.id ? (
                                           <select
                                             autoFocus
@@ -1105,7 +1105,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                                               else setReclassifyingItem(null)
                                             }}
                                             onBlur={() => !reclassifySaving && setReclassifyingItem(null)}
-                                            className="text-xs border border-slate-300 rounded px-1 py-0.5 bg-white max-w-[160px]"
+                                            className="text-xs border border-ink-300 rounded px-1 py-0.5 bg-white max-w-[160px]"
                                           >
                                             <option value="">— cancelar —</option>
                                             {categories.map(c => (
@@ -1117,7 +1117,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                                             <span>{item.category_name ?? '—'}</span>
                                             <button
                                               onClick={() => startReclassify(item.id)}
-                                              className="opacity-0 group-hover/cat:opacity-100 transition-opacity text-slate-400 hover:text-brand-600 shrink-0"
+                                              className="opacity-0 group-hover/cat:opacity-100 transition-opacity text-ink-400 hover:text-brand-600 shrink-0"
                                               title="Reclasificar categoría"
                                             >
                                               <FilePen size={10} />
@@ -1125,7 +1125,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                                           </span>
                                         )}
                                       </td>
-                                      <td className="py-1.5 pr-3 text-right font-mono text-slate-800">{formatCLP(item.amount_clp)}</td>
+                                      <td className="py-1.5 pr-3 text-right font-mono text-ink-800">{formatCLP(item.amount_clp)}</td>
                                       <td className="py-1.5 pr-3">
                                         <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${statusCls(item.status)}`}>
                                           {statusLabel(item.status)}
@@ -1168,16 +1168,16 @@ export function AdminReportsClient({ initialReports }: Props) {
       {bulkCCReportId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-card shadow-xl p-6 w-full max-w-sm space-y-4 mx-4">
-            <h3 className="font-semibold text-slate-800">Reasignar Centro de Costo</h3>
-            <p className="text-sm text-slate-500">
+            <h3 className="font-semibold text-ink-800">Reasignar Centro de Costo</h3>
+            <p className="text-sm text-ink-500">
               Aplicará el centro de costo seleccionado a <strong>todos los ítems</strong> de esta rendición.
             </p>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Centro de costo</label>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Centro de costo</label>
               <select
                 value={bulkCCSelected}
                 onChange={e => setBulkCCSelected(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="w-full px-3 py-2 border border-ink-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
               >
                 <option value="">Sin centro asignado (quitar override)</option>
                 {costCenters.map(cc => (
@@ -1189,7 +1189,7 @@ export function AdminReportsClient({ initialReports }: Props) {
               <button
                 onClick={() => setBulkCCReportId(null)}
                 disabled={bulkCCSaving}
-                className="flex-1 py-2 border border-slate-200 rounded-item text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
               >
                 Cancelar
               </button>

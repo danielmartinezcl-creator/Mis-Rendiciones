@@ -45,7 +45,7 @@ export function ReimbursedButton({ reportId }: { reportId: string }) {
           value={ref}
           onChange={e => setRef(e.target.value)}
           placeholder="Referencia de pago (opcional)"
-          className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="flex-1 px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
         />
         <button
           onClick={handleConfirm}
@@ -56,7 +56,7 @@ export function ReimbursedButton({ reportId }: { reportId: string }) {
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="text-xs text-slate-400 hover:text-slate-600"
+          className="text-xs text-ink-400 hover:text-ink-600"
         >
           Cancelar
         </button>

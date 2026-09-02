@@ -49,7 +49,7 @@ export const STATUS_LABELS: Record<ReportStatus, string> = {
 }
 
 export const STATUS_COLORS: Record<ReportStatus, string> = {
-  draft:               'bg-slate-100 text-slate-500',
+  draft:               'bg-ink-100 text-ink-500',
   submitted:           'bg-warning-100 text-warning-700',
   pending_l2:          'bg-flare-100 text-flare-700',
   approved:            'bg-success-100 text-success-700',
@@ -61,7 +61,7 @@ export const STATUS_COLORS: Record<ReportStatus, string> = {
 }
 
 export const STATUS_DOT: Record<ReportStatus, string> = {
-  draft:               'bg-slate-400',
+  draft:               'bg-ink-400',
   submitted:           'bg-warning-500',
   pending_l2:          'bg-flare-500',
   approved:            'bg-success-500',
@@ -109,7 +109,7 @@ export const FUND_STATUS_LABELS: Record<FundStatusConst, string> = {
 }
 
 export const FUND_STATUS_COLORS: Record<FundStatusConst, string> = {
-  draft:                        'bg-slate-100 text-slate-500',
+  draft:                        'bg-ink-100 text-ink-500',
   pending_approval:             'bg-warning-100 text-warning-700',
   approved:                     'bg-info-100 text-info-700',
   pending_bank_load:            'bg-info-100 text-info-700',

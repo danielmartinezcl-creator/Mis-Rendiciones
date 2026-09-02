@@ -90,7 +90,7 @@ function formatDate(s: string) {
 
 function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: number; reimbursedAmount: number | null }) {
   if (reimbursedAmount == null) return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="No se registró el monto pagado">
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 border border-ink-200" title="No se registró el monto pagado">
       — Sin registro
     </span>
   )

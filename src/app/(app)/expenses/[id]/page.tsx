@@ -217,7 +217,7 @@ export default function ExpenseDetailPage() {
 
   if (!report) {
     return (
-      <div className="text-center py-12 text-slate-400">
+      <div className="text-center py-12 text-ink-400">
         <p>Rendición no encontrada</p>
         <button onClick={() => router.push('/')} className="text-brand-600 text-sm mt-2 hover:underline">
           Volver al inicio
@@ -272,13 +272,13 @@ export default function ExpenseDetailPage() {
         <div>
           <button
             onClick={() => router.push('/')}
-            className="card-meta text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
+            className="card-meta text-ink-400 hover:text-ink-600 mb-1 flex items-center gap-1"
           >
             ← Inicio
           </button>
-          <h1 className="text-xl font-bold text-slate-800">{formatDisplayTitle(report.title)}</h1>
+          <h1 className="text-xl font-bold text-ink-800">{formatDisplayTitle(report.title)}</h1>
           {report.description && (
-            <p className="card-label text-slate-500 mt-1">{report.description}</p>
+            <p className="card-label text-ink-500 mt-1">{report.description}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export default function ExpenseDetailPage() {
 
       {/* Total */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
-        <span className="card-label text-slate-500">Total rendición</span>
+        <span className="card-label text-ink-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
@@ -355,7 +355,7 @@ export default function ExpenseDetailPage() {
               </span>
             )}
             {hasPending && (
-              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-slate-100 text-slate-500 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-ink-100 text-ink-500 rounded-full">
                 En revisión
               </span>
             )}
@@ -472,7 +472,7 @@ export default function ExpenseDetailPage() {
 
       {/* Estado informativo (no borrador, sin rechazo) */}
       {!isDraft && !showRejectionBanner && (
-        <div className="bg-slate-50 rounded-card p-4 text-center card-label text-slate-500">
+        <div className="bg-ink-50 rounded-card p-4 text-center card-label text-ink-500">
           Esta rendición está en estado <strong>{report.status}</strong> y no puede editarse.
         </div>
       )}

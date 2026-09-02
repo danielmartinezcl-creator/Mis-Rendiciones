@@ -37,7 +37,7 @@ function statusMeta(status: string) {
     case 'partially_approved': return { label: 'Aprobada parcial', cls: 'bg-warning-50 text-warning-700 border-warning-200' }
     case 'pending_bank_load':  return { label: 'Carga bancaria',   cls: 'bg-accent-50 text-accent-700 border-accent-200' }
     case 'pending_bank_auth':  return { label: 'Autorización',     cls: 'bg-info-50 text-info-700 border-info-200' }
-    default:                   return { label: status,             cls: 'bg-slate-50 text-slate-600 border-slate-200' }
+    default:                   return { label: status,             cls: 'bg-ink-50 text-ink-600 border-ink-200' }
   }
 }
 
@@ -47,7 +47,7 @@ function borderColor(status: string) {
     case 'partially_approved': return 'border-l-warning-400'
     case 'pending_bank_load':  return 'border-l-accent-500'
     case 'pending_bank_auth':  return 'border-l-info-500'
-    default:                   return 'border-l-slate-300'
+    default:                   return 'border-l-ink-300'
   }
 }
 
@@ -227,7 +227,7 @@ export function BancoClient({ queue }: Props) {
                       value={form.paymentReference}
                       onChange={e => setLoadForms(prev => ({ ...prev, [r.id]: { ...form, paymentReference: e.target.value } }))}
                       placeholder="N° transferencia, orden de pago…"
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
+                      className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
                     />
                   </div>
                   <div>
@@ -238,7 +238,7 @@ export function BancoClient({ queue }: Props) {
                       type="date"
                       value={form.transferredAt}
                       onChange={e => setLoadForms(prev => ({ ...prev, [r.id]: { ...form, transferredAt: e.target.value } }))}
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
+                      className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
                     />
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export function BancoClient({ queue }: Props) {
                     value={form.paymentReference}
                     onChange={e => setAuthForms(prev => ({ ...prev, [r.id]: { paymentReference: e.target.value } }))}
                     placeholder="N° de autorización, código de operación…"
-                    className="w-full max-w-sm px-2.5 py-1.5 border border-slate-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-info-500"
+                    className="w-full max-w-sm px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-info-500"
                   />
                 </div>
                 <button
@@ -319,7 +319,7 @@ function ReportCard({
   const border = borderColor(report.status)
 
   return (
-    <div className={`bg-white border border-slate-200 border-l-4 ${border} rounded-card p-4 shadow-sm ${isSaving ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`bg-white border border-ink-200 border-l-4 ${border} rounded-card p-4 shadow-sm ${isSaving ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <p className="font-medium text-sm text-ink-900 truncate">{report.title}</p>

@@ -26,15 +26,15 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {/* Sin truncate: la descripción del gasto se lee entera */}
-            <p className="text-[16px] leading-snug font-semibold text-slate-800">{item.description}</p>
+            <p className="text-[16px] leading-snug font-semibold text-ink-800">{item.description}</p>
             {item.merchant && (
-              <p className="card-meta text-slate-400 mt-0.5">{item.merchant}</p>
+              <p className="card-meta text-ink-400 mt-0.5">{item.merchant}</p>
             )}
           </div>
           <div className="text-right shrink-0">
             <CurrencyAmount amount={item.amount_clp} currency="CLP" size="md" />
             {item.currency !== 'CLP' && (
-              <p className="card-meta text-slate-400 mt-0.5">
+              <p className="card-meta text-ink-400 mt-0.5">
                 {item.currency} {item.amount.toLocaleString('es-CL')}
               </p>
             )}
@@ -42,7 +42,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
         </div>
 
         {/* Metadatos */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-slate-500">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-ink-500">
           <span>{formatDate(item.date)}</span>
           {item.expense_categories && (
             <span className="flex items-center gap-1">
@@ -70,7 +70,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
 
         {/* Notas */}
         {item.notes && (
-          <p className="card-meta text-slate-400 italic">{item.notes}</p>
+          <p className="card-meta text-ink-400 italic">{item.notes}</p>
         )}
 
         {/* Eliminar */}

@@ -37,7 +37,7 @@ export function ExportButton({ type, getData, filename = 'export', label, classN
       disabled={loading}
       className={
         className ??
-        'px-3 py-1.5 bg-white border border-slate-200 rounded-[8px] text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors flex items-center gap-1.5'
+        'px-3 py-1.5 bg-white border border-ink-200 rounded-[8px] text-sm font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-50 transition-colors flex items-center gap-1.5'
       }
     >
       {loading ? (

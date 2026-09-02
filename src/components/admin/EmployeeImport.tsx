@@ -243,7 +243,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     }
   }
 
-  const inputCls = 'w-full border border-slate-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600'
+  const inputCls = 'w-full border border-ink-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600'
 
   // ── Resultados ──────────────────────────────────────────────────────────────
   if (step === 'results') {
@@ -306,7 +306,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           <button
             onClick={onDone}
             disabled={!canClose}
-            className="ml-auto text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 px-5 py-2 rounded-item transition-colors"
+            className="ml-auto text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-ink-300 px-5 py-2 rounded-item transition-colors"
           >
             {canClose ? 'Cerrar' : `Cerrar (${closeCountdown}s)`}
           </button>
@@ -329,7 +329,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           </div>
           <button
             onClick={() => { setStep('upload'); setPreview([]); setParseError(null) }}
-            className="text-xs text-slate-400 hover:text-slate-600 shrink-0"
+            className="text-xs text-ink-400 hover:text-ink-600 shrink-0"
           >
             Cancelar
           </button>
@@ -346,7 +346,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse min-w-[700px]">
             <thead>
-              <tr className="text-left text-slate-500 border-b border-slate-100">
+              <tr className="text-left text-ink-500 border-b border-ink-100">
                 <th className="pb-2 pr-2 font-medium">Nombre *</th>
                 <th className="pb-2 pr-2 font-medium">Email *</th>
                 <th className="pb-2 pr-2 font-medium">RUT</th>
@@ -356,7 +356,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                 <th className="pb-2 font-medium"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {preview.map(row => {
                 const ccValid = !row.cost_center_id || costCenters.some(cc => cc.id === row.cost_center_id)
                 return (
@@ -387,7 +387,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                       <select
                         value={row.cost_center_id ?? ''}
                         onChange={e => updateRow(row._key, 'cost_center_id', e.target.value)}
-                        className={`border rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 w-full ${!ccValid ? 'border-warning-400' : 'border-slate-200'}`}
+                        className={`border rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 w-full ${!ccValid ? 'border-warning-400' : 'border-ink-200'}`}
                       >
                         <option value="">— Sin asignar —</option>
                         {costCenters.filter(cc => cc.imputable).map(cc => (
@@ -410,7 +410,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                       <select
                         value={row.role}
                         onChange={e => updateRow(row._key, 'role', e.target.value)}
-                        className="border border-slate-200 rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600"
+                        className="border border-ink-200 rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600"
                       >
                         {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
@@ -442,7 +442,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
             <>✓ Confirmar e importar {preview.length} empleado{preview.length !== 1 ? 's' : ''}</>
           )}
         </button>
-        <p className="text-center text-xs text-slate-400">
+        <p className="text-center text-xs text-ink-400">
           Se enviará un email de activación a cada empleado.
         </p>
       </div>
@@ -484,7 +484,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         className={`border-2 border-dashed rounded-card p-8 text-center transition-colors ${
           isParsing
             ? 'border-brand-400 bg-brand-50/50 cursor-wait'
-            : 'border-slate-200 cursor-pointer hover:border-brand-500 hover:bg-brand-50/30'
+            : 'border-ink-200 cursor-pointer hover:border-brand-500 hover:bg-brand-50/30'
         }`}
       >
         {isParsing ? (
@@ -495,8 +495,8 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         ) : (
           <>
             <p className="text-2xl mb-2">📊</p>
-            <p className="text-sm font-medium text-slate-700">Subí tu nómina en Excel</p>
-            <p className="text-xs text-slate-400 mt-1">Arrastrá un .xlsx o hacé clic para seleccionar</p>
+            <p className="text-sm font-medium text-ink-700">Subí tu nómina en Excel</p>
+            <p className="text-xs text-ink-400 mt-1">Arrastrá un .xlsx o hacé clic para seleccionar</p>
           </>
         )}
         <input
@@ -525,15 +525,15 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
       )}
 
       {/* Descripción de columnas */}
-      <div className="bg-slate-50 rounded-item p-3 text-xs text-slate-500 space-y-1.5">
-        <p className="font-medium text-slate-600">Columnas del Excel (encabezados exactos):</p>
+      <div className="bg-ink-50 rounded-item p-3 text-xs text-ink-500 space-y-1.5">
+        <p className="font-medium text-ink-600">Columnas del Excel (encabezados exactos):</p>
         <div className="flex flex-wrap gap-1.5">
           {['Nombre', 'Email', 'RUT', 'Centro de Costo', 'Cargo', 'Rol'].map(col => (
-            <span key={col} className="font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-600">{col}</span>
+            <span key={col} className="font-mono bg-white border border-ink-200 px-1.5 py-0.5 rounded text-ink-600">{col}</span>
           ))}
         </div>
-        <p className="text-slate-400">
-          Solo <strong className="text-slate-600">Nombre</strong> y <strong className="text-slate-600">Email</strong> son obligatorios.
+        <p className="text-ink-400">
+          Solo <strong className="text-ink-600">Nombre</strong> y <strong className="text-ink-600">Email</strong> son obligatorios.
           Roles: <em>empleado</em> (defecto), <em>aprobador</em>, <em>administrador</em>.
         </p>
       </div>

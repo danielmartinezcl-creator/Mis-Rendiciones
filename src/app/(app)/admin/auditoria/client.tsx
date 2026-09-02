@@ -25,7 +25,7 @@ const ACTION_COLORS: Record<string, string> = {
   updated:             'bg-info-100 text-info-700',
   bulk_updated:        'bg-flare-100 text-flare-700',
   config_changed:      'bg-warning-100 text-warning-700',
-  exported:            'bg-gray-100 text-gray-700',
+  exported:            'bg-ink-100 text-ink-700',
   reverted:            'bg-warning-100 text-warning-800',
   submitted:           'bg-info-100 text-info-800',
   approved:            'bg-success-100 text-success-700',
@@ -278,7 +278,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
               <tbody className="divide-y divide-ink-100">
                 {items.map(item => {
                   const isExpanded = expanded.has(item.id)
-                  const badgeClass = ACTION_COLORS[item.action] ?? 'bg-gray-100 text-gray-700'
+                  const badgeClass = ACTION_COLORS[item.action] ?? 'bg-ink-100 text-ink-700'
                   const hasDetail  = item.old_value !== null || item.new_value !== null
 
                   return (

@@ -114,8 +114,8 @@ export default function ProfilePage() {
   return (
     <div className="max-w-lg mx-auto space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Mi perfil</h1>
-        <p className="card-label text-slate-500 mt-1">Actualiza tu información personal y bancaria</p>
+        <h1 className="text-xl font-bold text-ink-800">Mi perfil</h1>
+        <p className="card-label text-ink-500 mt-1">Actualiza tu información personal y bancaria</p>
       </div>
 
       {/* Avatar + rol */}
@@ -124,7 +124,7 @@ export default function ProfilePage() {
           {profile.full_name[0].toUpperCase()}
         </div>
         <div>
-          <p className="font-semibold text-slate-800">{profile.full_name}</p>
+          <p className="font-semibold text-ink-800">{profile.full_name}</p>
           <span className="inline-block mt-1 text-[14px] font-medium bg-brand-100 text-brand-700 px-3 py-1 rounded-full">
             {ROLE_LABELS[profile.role] ?? profile.role}
           </span>
@@ -134,68 +134,68 @@ export default function ProfilePage() {
       <form onSubmit={handleSave} className="space-y-4">
         {/* ── Información personal ─────────────────────────────── */}
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
-          <h2 className="section-title text-slate-700 border-b border-slate-100 pb-2">
+          <h2 className="section-title text-ink-700 border-b border-ink-100 pb-2">
             Información personal
           </h2>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">Nombre completo</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">Nombre completo</label>
             <input
               type="text"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">RUT</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">RUT</label>
             <input
               type="text"
               value={rut}
               onChange={e => setRut(e.target.value)}
               placeholder="Ej: 12.345.678-9"
-              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">Correo electrónico</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">Correo electrónico</label>
             <input
               type="email"
               value={profile.email}
               disabled
-              className="w-full border border-slate-100 rounded-item px-3 py-2.5 text-[16px] bg-slate-50 text-slate-400 cursor-not-allowed"
+              className="w-full border border-ink-100 rounded-item px-3 py-2.5 text-[16px] bg-ink-50 text-ink-400 cursor-not-allowed"
             />
-            <p className="card-meta text-slate-400 mt-1">El correo se gestiona desde la cuenta de acceso</p>
+            <p className="card-meta text-ink-400 mt-1">El correo se gestiona desde la cuenta de acceso</p>
           </div>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">Departamento</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">Departamento</label>
             <input
               type="text"
               value={department}
               onChange={e => setDepartment(e.target.value)}
               placeholder="Ej: Operaciones, Administración..."
-              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
         </div>
 
         {/* ── Información bancaria ──────────────────────────────── */}
         <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
-          <h2 className="section-title text-slate-700 border-b border-slate-100 pb-2">
+          <h2 className="section-title text-ink-700 border-b border-ink-100 pb-2">
             Información bancaria
           </h2>
-          <p className="card-meta text-slate-400 -mt-2">Usada por el administrador para procesar reembolsos</p>
+          <p className="card-meta text-ink-400 -mt-2">Usada por el administrador para procesar reembolsos</p>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">Institución bancaria</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">Institución bancaria</label>
             <select
               value={bankName}
               onChange={e => setBankName(e.target.value)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-[16px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
             >
               <option value="">Selecciona un banco...</option>
               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -203,11 +203,11 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">Tipo de cuenta</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">Tipo de cuenta</label>
             <select
               value={bankAccountType}
               onChange={e => setBankAccountType(e.target.value)}
-              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-[16px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
             >
               <option value="">Selecciona tipo de cuenta...</option>
               {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -215,13 +215,13 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block card-label font-medium text-slate-600 mb-1">Número de cuenta</label>
+            <label className="block card-label font-medium text-ink-600 mb-1">Número de cuenta</label>
             <input
               type="text"
               value={bankAccount}
               onChange={e => setBankAccount(e.target.value)}
               placeholder="Ej: 00123456789"
-              className="w-full border border-slate-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
         </div>
@@ -246,7 +246,7 @@ export default function ProfilePage() {
 
       {/* Contraseña */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
-        <h2 className="section-title text-slate-700 mb-3">Contraseña</h2>
+        <h2 className="section-title text-ink-700 mb-3">Contraseña</h2>
         {resetSent ? (
           <p className="card-label text-success-600">✓ Email de restablecimiento enviado. Revisa tu bandeja.</p>
         ) : (

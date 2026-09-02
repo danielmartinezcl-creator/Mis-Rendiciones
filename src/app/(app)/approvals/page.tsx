@@ -36,11 +36,11 @@ export default async function ApprovalsPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-[16px] leading-snug font-semibold text-slate-800">
+                <p className="text-[16px] leading-snug font-semibold text-ink-800">
                   {formatDisplayTitle(report.title)}
                 </p>
                 {report.submitted_at && (
-                  <p className="card-meta text-slate-400 mt-0.5">
+                  <p className="card-meta text-ink-400 mt-0.5">
                     Enviada el {formatDate(report.submitted_at.split('T')[0])}
                   </p>
                 )}

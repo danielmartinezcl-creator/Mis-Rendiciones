@@ -42,7 +42,7 @@ export function getStatusLabel(status: ReportStatus): string {
 }
 
 export function getStatusColor(status: ReportStatus): string {
-  return STATUS_COLORS[status] ?? 'bg-slate-100 text-slate-600'
+  return STATUS_COLORS[status] ?? 'bg-ink-100 text-ink-600'
 }
 
 export function cn(...classes: (string | undefined | false | null)[]): string {

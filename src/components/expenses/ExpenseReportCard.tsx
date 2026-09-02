@@ -49,10 +49,10 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
                   fecha (15px) y del badge de estado (14px) — la jerarquía se mantiene.
                   formatDisplayTitle saca el TODO EN MAYÚSCULAS, que era lo que le
                   daba el protagonismo visual. */}
-              <p className="text-[16px] leading-snug font-semibold text-slate-800">
+              <p className="text-[16px] leading-snug font-semibold text-ink-800">
                 {formatDisplayTitle(report.title)}
               </p>
-              <p className="card-meta text-slate-400 mt-0.5">{dateLabel}</p>
+              <p className="card-meta text-ink-400 mt-0.5">{dateLabel}</p>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
               {!statusIsLong && <ReportStatusBadge status={report.status} />}
@@ -69,7 +69,7 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
           )}
 
           {report.status === 'partially_approved' && report.approved_amount > 0 && (
-            <div className="mt-2 card-meta text-slate-500">
+            <div className="mt-2 card-meta text-ink-500">
               Aprobado:{' '}
               <span className="font-[Manrope] tabular-nums font-bold text-success-600">
                 $ {report.approved_amount.toLocaleString('es-CL')}

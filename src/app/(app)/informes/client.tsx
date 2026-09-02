@@ -18,12 +18,12 @@ const REPORT_STATUS_OPTS = [
   { value: 'approved',                   label: 'Aprobada',          color: 'bg-success-100 text-success-700' },
   { value: 'partially_approved',         label: 'Aprobada parcial',  color: 'bg-warning-100 text-warning-700' },
   { value: 'rejected',                   label: 'Rechazada',         color: 'bg-danger-100 text-danger-700' },
-  { value: 'reimbursed',                 label: 'Reembolsada',       color: 'bg-slate-100 text-slate-600' },
+  { value: 'reimbursed',                 label: 'Reembolsada',       color: 'bg-ink-100 text-ink-600' },
   { value: 'pending_approval',           label: 'En revisión (CC)',  color: 'bg-info-100 text-info-700' },
   { value: 'funds_sent',                 label: 'Fondos enviados',   color: 'bg-info-100 text-info-700' },
   { value: 'active',                     label: 'Activo',            color: 'bg-accent-100 text-accent-700' },
   { value: 'pending_liquidation_approval', label: 'Liquidación',    color: 'bg-warning-100 text-warning-700' },
-  { value: 'settled',                    label: 'Liquidado',         color: 'bg-slate-100 text-slate-600' },
+  { value: 'settled',                    label: 'Liquidado',         color: 'bg-ink-100 text-ink-600' },
 ]
 
 const ITEM_STATUS_OPTS = [

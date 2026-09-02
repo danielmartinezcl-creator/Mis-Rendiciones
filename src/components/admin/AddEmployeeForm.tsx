@@ -69,63 +69,63 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Nombre completo *</label>
+          <label className="block text-xs font-medium text-ink-600 mb-1">Nombre completo *</label>
           <input
             type="text"
             value={fullName}
             onChange={e => setFullName(e.target.value)}
             required
             placeholder="Ej: María González"
-            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Correo electrónico *</label>
+          <label className="block text-xs font-medium text-ink-600 mb-1">Correo electrónico *</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
             placeholder="correo@empresa.cl"
-            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Rol</label>
+          <label className="block text-xs font-medium text-ink-600 mb-1">Rol</label>
           <select
             value={role}
             onChange={e => setRole(e.target.value as typeof role)}
-            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
           >
             {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Departamento</label>
+          <label className="block text-xs font-medium text-ink-600 mb-1">Departamento</label>
           <input
             type="text"
             value={department}
             onChange={e => setDepartment(e.target.value)}
             placeholder="Ej: Operaciones (opcional)"
-            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
           />
         </div>
       </div>
 
       {/* ── Centro de costo ── */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Centro de costo</label>
+        <label className="block text-xs font-medium text-ink-600 mb-1">Centro de costo</label>
         <select
           value={costCenterId}
           onChange={e => setCostCenterId(e.target.value)}
-          className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
         >
           <option value="">— Sin asignar —</option>
           {costCenters.map(cc => (
             <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
           ))}
         </select>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-ink-400 mt-1">
           Los gastos de este empleado irán por defecto a este centro de costo.
         </p>
       </div>
@@ -145,7 +145,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={onDone}
-          className="px-4 py-2.5 border border-slate-200 text-slate-600 text-sm rounded-card hover:bg-slate-50 transition-colors"
+          className="px-4 py-2.5 border border-ink-200 text-ink-600 text-sm rounded-card hover:bg-ink-50 transition-colors"
         >
           Cancelar
         </button>

@@ -59,9 +59,9 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
     <div className="space-y-3 pt-1">
       {/* Aprobador N1 */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">
+        <label className="block text-xs font-medium text-ink-600 mb-1">
           Aprobador Nivel 1
-          <span className="text-slate-400 font-normal ml-1">— quien aprueba las rendiciones de {employee.full_name.split(' ')[0]}</span>
+          <span className="text-ink-400 font-normal ml-1">— quien aprueba las rendiciones de {employee.full_name.split(' ')[0]}</span>
         </label>
         <select
           value={l1Id}
@@ -69,7 +69,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
             setL1Id(e.target.value)
             if (!e.target.value) { setL2Id(''); setBackupId(''); setBackupFrom(''); setBackupUntil('') }
           }}
-          className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
         >
           <option value="">Sin aprobador asignado</option>
           {options.map(u => (
@@ -81,21 +81,21 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
       {/* Aprobador N2 — solo si hay N1 */}
       {l1Id && (
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-ink-600 mb-1">
             Aprobador Nivel 2
-            <span className="text-slate-400 font-normal ml-1">— opcional, confirma lo que aprueba {l1Name ?? 'el N1'}</span>
+            <span className="text-ink-400 font-normal ml-1">— opcional, confirma lo que aprueba {l1Name ?? 'el N1'}</span>
           </label>
           <select
             value={l2Id}
             onChange={e => setL2Id(e.target.value)}
-            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
           >
             <option value="">Sin segundo nivel</option>
             {options.filter(u => u.id !== l1Id).map(u => (
               <option key={u.id} value={u.id}>{u.full_name} ({roleLabel(u.role)})</option>
             ))}
           </select>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ink-400 mt-1">
             Flujo: {employee.full_name.split(' ')[0]} → {l1Name}{l2Id ? ` → ${l2Name}` : ''} → Aprobado
           </p>
         </div>

@@ -192,7 +192,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
 
   if (!report) {
     return (
-      <div className="text-center py-12 text-slate-400">
+      <div className="text-center py-12 text-ink-400">
         <p>Rendición no encontrada</p>
         <button onClick={() => router.push('/approvals')} className="text-brand-600 text-sm mt-2 hover:underline">
           Volver
@@ -240,15 +240,15 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       <div>
         <button
           onClick={() => router.push('/approvals')}
-          className="card-meta text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
+          className="card-meta text-ink-400 hover:text-ink-600 mb-1 flex items-center gap-1"
         >
           ← Bandeja de aprobaciones
         </button>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">{formatDisplayTitle(report.title)}</h1>
+            <h1 className="text-xl font-bold text-ink-800">{formatDisplayTitle(report.title)}</h1>
             {report.submitter_name && (
-              <p className="card-label text-slate-500 mt-0.5">
+              <p className="card-label text-ink-500 mt-0.5">
                 Enviado por <strong>{report.submitter_name}</strong>
                 {report.submitted_at && ` el ${formatDate(report.submitted_at.split('T')[0])}`}
               </p>
@@ -260,7 +260,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
 
       {/* Total */}
       <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
-        <span className="card-label text-slate-500">Total rendición</span>
+        <span className="card-label text-ink-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
@@ -357,26 +357,26 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                 'bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3 border-l-4',
                 d.action === 'approve' ? 'border-l-success-400' :
                 d.action === 'reject'  ? 'border-l-danger-400'     :
-                                         'border-l-slate-200',
+                                         'border-l-ink-200',
                 attentionItemIds.has(item.id) ? 'ring-2 ring-warning-400' : '',
               ].join(' ')}
             >
               {/* Info del ítem */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] leading-snug font-semibold text-slate-800">{item.description}</p>
-                  {item.merchant && <p className="card-meta text-slate-400 mt-0.5">{item.merchant}</p>}
+                  <p className="text-[16px] leading-snug font-semibold text-ink-800">{item.description}</p>
+                  {item.merchant && <p className="card-meta text-ink-400 mt-0.5">{item.merchant}</p>}
                 </div>
                 <div className="text-right shrink-0">
                   <CurrencyAmount amount={item.amount_clp} currency="CLP" size="md" />
                   {item.currency !== 'CLP' && (
-                    <p className="card-meta text-slate-400 mt-0.5">{item.currency} {item.amount.toLocaleString('es-CL')}</p>
+                    <p className="card-meta text-ink-400 mt-0.5">{item.currency} {item.amount.toLocaleString('es-CL')}</p>
                   )}
                 </div>
               </div>
 
               {/* Metadatos */}
-              <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-slate-500">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-ink-500">
                 <span>{formatDate(item.date)}</span>
                 {item.expense_categories && (
                   <span>{item.expense_categories.icon} {item.expense_categories.name}</span>
@@ -403,7 +403,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               )}
 
               {item.notes && (
-                <p className="card-meta text-slate-400 italic bg-slate-50 rounded p-2">{item.notes}</p>
+                <p className="card-meta text-ink-400 italic bg-ink-50 rounded p-2">{item.notes}</p>
               )}
 
               {/* Razones de atención IA */}
@@ -424,11 +424,11 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                         <img
                           src={signedUrls[att.id]}
                           alt="Adjunto"
-                          className="w-24 h-24 object-cover rounded-item border border-slate-200 hover:opacity-80 transition-opacity"
+                          className="w-24 h-24 object-cover rounded-item border border-ink-200 hover:opacity-80 transition-opacity"
                         />
                       </a>
                     ) : (
-                      <span key={att.id} className="card-meta text-slate-400 flex items-center gap-1">
+                      <span key={att.id} className="card-meta text-ink-400 flex items-center gap-1">
                         📎 {att.file_type === 'pdf' ? 'PDF' : 'Adjunto'}
                       </span>
                     )
@@ -438,7 +438,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
 
               {/* Decisión */}
               {isActionable && (
-                <div className="space-y-2 pt-1 border-t border-slate-100">
+                <div className="space-y-2 pt-1 border-t border-ink-100">
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -495,7 +495,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       {isActionable && (
         <div className="space-y-3 pt-2">
           <div>
-            <label className="block card-label font-medium text-slate-700 mb-1">
+            <label className="block card-label font-medium text-ink-700 mb-1">
               Nota general (opcional)
             </label>
             {/* text-[16px] en los campos: por debajo de 16px, Safari en iPhone
@@ -505,7 +505,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               onChange={e => setNotes(e.target.value)}
               placeholder="Comentario para el rendidor..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
@@ -524,9 +524,9 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             {submitting ? 'Aprobando...' : `Aprobar todos — ${items.length} ítem${items.length !== 1 ? 's' : ''}`}
           </button>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="card-meta text-slate-400">o decide ítem por ítem</span>
-            <div className="flex-1 h-px bg-slate-200" />
+            <div className="flex-1 h-px bg-ink-200" />
+            <span className="card-meta text-ink-400">o decide ítem por ítem</span>
+            <div className="flex-1 h-px bg-ink-200" />
           </div>
           <button
             onClick={handleSubmit}
@@ -536,7 +536,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             {submitting ? 'Enviando decisión...' : 'Enviar decisión'}
           </button>
           {!allDecided() && (
-            <p className="card-meta text-slate-400 text-center">
+            <p className="card-meta text-ink-400 text-center">
               Decide todos los ítems para poder enviar
             </p>
           )}
@@ -544,7 +544,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       )}
 
       {!isActionable && (
-        <div className="bg-slate-50 rounded-card p-4 text-center card-label text-slate-500">
+        <div className="bg-ink-50 rounded-card p-4 text-center card-label text-ink-500">
           Esta rendición ya fue procesada (estado: <strong>{report.status}</strong>).
         </div>
       )}

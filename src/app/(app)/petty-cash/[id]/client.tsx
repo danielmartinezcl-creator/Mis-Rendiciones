@@ -376,7 +376,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           ) : (
             <div className="divide-y divide-ink-50">
               {items.map(item => {
-                const cls = ITEM_STATUS_CLASS[item.status] ?? 'text-slate-500 bg-slate-50'
+                const cls = ITEM_STATUS_CLASS[item.status] ?? 'text-ink-500 bg-ink-50'
                 const canDelete = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
                 const canEdit   = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
                 const deciding  = fund.status === 'pending_liquidation_approval' && isApprover

@@ -15,7 +15,7 @@ type EmployeeWithEmail = UserProfile & { email: string }
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   admin:    { label: 'Admin',      cls: 'bg-flare-100 text-flare-700' },
   approver: { label: 'Aprobador',  cls: 'bg-info-100 text-info-700' },
-  employee: { label: 'Empleado',   cls: 'bg-slate-100 text-slate-600' },
+  employee: { label: 'Empleado',   cls: 'bg-ink-100 text-ink-600' },
 }
 
 function approverSummary(emp: UserProfile, all: UserProfile[]): string {
@@ -304,7 +304,7 @@ export default function AdminEmployeesPage() {
             {inviteResults.fail > 0 && <span className="font-semibold ml-2 text-danger-600">{inviteResults.fail} error{inviteResults.fail !== 1 ? 'es' : ''}</span>}
             {inviteResults.msg && <p className="text-xs mt-0.5 text-danger-600">{inviteResults.msg}</p>}
           </div>
-          <button onClick={() => setInviteResults(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+          <button onClick={() => setInviteResults(null)} className="text-ink-400 hover:text-ink-600"><X size={14} /></button>
         </div>
       )}
 
@@ -318,7 +318,7 @@ export default function AdminEmployeesPage() {
               checked={selected.size === employees.length && employees.length > 0}
               ref={el => { if (el) el.indeterminate = selected.size > 0 && selected.size < employees.length }}
               onChange={toggleSelectAll}
-              className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500"
+              className="w-4 h-4 rounded text-brand-600 border-ink-300 focus:ring-brand-500"
             />
             {selected.size > 0 ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}` : 'Seleccionar todos'}
           </label>
@@ -414,7 +414,7 @@ export default function AdminEmployeesPage() {
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelect(emp.id)}
-                    className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500 shrink-0"
+                    className="w-4 h-4 rounded text-brand-600 border-ink-300 focus:ring-brand-500 shrink-0"
                     title="Seleccionar empleado"
                   />
 
@@ -603,7 +603,7 @@ export default function AdminEmployeesPage() {
                     }}
                     className={[
                       'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
-                      isEditOpen ? 'bg-ink-100 text-ink-500' : 'bg-slate-50 text-slate-600 hover:bg-slate-100',
+                      isEditOpen ? 'bg-ink-100 text-ink-500' : 'bg-ink-50 text-ink-600 hover:bg-ink-100',
                     ].join(' ')}
                   >
                     <Pencil size={11} />

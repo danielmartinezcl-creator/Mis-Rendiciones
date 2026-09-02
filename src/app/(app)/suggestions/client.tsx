@@ -19,7 +19,7 @@ const STATUS_LABELS = {
   pending:    { label: 'Nueva',       cls: 'bg-warning-100 text-warning-700' },
   reviewing:  { label: 'En revisión', cls: 'bg-info-100 text-info-700' },
   done:       { label: 'Aplicada',    cls: 'bg-success-100 text-success-700' },
-  dismissed:  { label: 'Descartada', cls: 'bg-slate-100 text-slate-500' },
+  dismissed:  { label: 'Descartada', cls: 'bg-ink-100 text-ink-500' },
 }
 
 interface Props {

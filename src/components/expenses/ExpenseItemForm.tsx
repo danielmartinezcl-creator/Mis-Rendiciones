@@ -314,7 +314,7 @@ export function ExpenseItemForm({
 
   // text-[16px] y no text-sm: por debajo de 16px, Safari en iPhone hace zoom
   // automático al enfocar un campo y descoloca la pantalla. Además se lee mejor.
-  const inputCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600'
 
   const isSaveDisabled =
     saving ||
@@ -325,7 +325,7 @@ export function ExpenseItemForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="section-title text-slate-800">Agregar ítem</h3>
+        <h3 className="section-title text-ink-800">Agregar ítem</h3>
         <button
           type="button"
           onClick={toggleMileage}
@@ -361,7 +361,7 @@ export function ExpenseItemForm({
                 <strong>{duplicateWarning.source}</strong>
                 {duplicateWarning.context ? ` "${duplicateWarning.context}"` : ''}.
               </p>
-              <div className="mt-2 bg-white border border-warning-200 rounded px-3 py-2 card-meta text-slate-600 space-y-0.5">
+              <div className="mt-2 bg-white border border-warning-200 rounded px-3 py-2 card-meta text-ink-600 space-y-0.5">
                 <p><span className="font-medium">Descripción:</span> {duplicateWarning.description}</p>
                 <p><span className="font-medium">Monto CLP:</span> {formatCLP(duplicateWarning.amount_clp)}</p>
                 <p><span className="font-medium">Fecha:</span> {formatDate(duplicateWarning.date)}</p>
@@ -396,7 +396,7 @@ export function ExpenseItemForm({
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block card-label font-medium text-slate-700 mb-1">Kilómetros *</label>
+              <label className="block card-label font-medium text-ink-700 mb-1">Kilómetros *</label>
               <input
                 type="number"
                 min="0"
@@ -408,14 +408,14 @@ export function ExpenseItemForm({
               />
             </div>
             <div>
-              <label className="block card-label font-medium text-slate-700 mb-1">Total CLP</label>
-              <p className="px-3 py-2.5 bg-white border border-slate-200 rounded-item text-[16px] font-[Manrope] tabular-nums text-slate-800">
+              <label className="block card-label font-medium text-ink-700 mb-1">Total CLP</label>
+              <p className="px-3 py-2.5 bg-white border border-ink-200 rounded-item text-[16px] font-[Manrope] tabular-nums text-ink-800">
                 {form.amount_clp > 0 ? form.amount_clp.toLocaleString('es-CL') : '—'}
               </p>
             </div>
           </div>
           <div>
-            <label className="block card-label font-medium text-slate-700 mb-1">Tramo (origen → destino)</label>
+            <label className="block card-label font-medium text-ink-700 mb-1">Tramo (origen → destino)</label>
             <input
               type="text"
               value={form.notes}
@@ -429,7 +429,7 @@ export function ExpenseItemForm({
 
       {/* Descripción */}
       <div>
-        <label className="block card-label font-medium text-slate-700 mb-1">Descripción *</label>
+        <label className="block card-label font-medium text-ink-700 mb-1">Descripción *</label>
         <input
           type="text"
           value={form.description}
@@ -443,7 +443,7 @@ export function ExpenseItemForm({
       {!isMileage && (
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block card-label font-medium text-slate-700 mb-1">Monto *</label>
+          <label className="block card-label font-medium text-ink-700 mb-1">Monto *</label>
           <input
             type="text"
             inputMode="decimal"
@@ -454,7 +454,7 @@ export function ExpenseItemForm({
           />
         </div>
         <div>
-          <label className="block card-label font-medium text-slate-700 mb-1">Moneda</label>
+          <label className="block card-label font-medium text-ink-700 mb-1">Moneda</label>
           <select
             value={form.currency}
             onChange={e => set('currency', e.target.value as Currency)}
@@ -481,17 +481,17 @@ export function ExpenseItemForm({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="card-meta text-slate-500">1 {form.currency} =</span>
+            <span className="card-meta text-ink-500">1 {form.currency} =</span>
             <input
               type="text"
               value={formatExchangeRate(form.exchange_rate)}
               onChange={e => handleRateChange(e.target.value)}
               className="w-32 px-2 py-1.5 border border-warning-300 rounded text-[16px] font-[Manrope] tabular-nums focus:outline-none focus:ring-2 focus:ring-warning-400"
             />
-            <span className="card-meta text-slate-500">CLP</span>
+            <span className="card-meta text-ink-500">CLP</span>
           </div>
           {form.amount_clp > 0 && (
-            <p className="card-label font-[Manrope] font-bold tabular-nums text-slate-800">
+            <p className="card-label font-[Manrope] font-bold tabular-nums text-ink-800">
               ≈ {formatCLP(form.amount_clp)} CLP
             </p>
           )}
@@ -500,7 +500,7 @@ export function ExpenseItemForm({
 
       {/* Fecha del gasto */}
       <div>
-        <label className="block card-label font-medium text-slate-700 mb-1">Fecha del gasto *</label>
+        <label className="block card-label font-medium text-ink-700 mb-1">Fecha del gasto *</label>
         <input
           type="date"
           value={form.date}
@@ -512,7 +512,7 @@ export function ExpenseItemForm({
 
       {/* Categoría + warning cuenta Defontana */}
       <div>
-        <label className="block card-label font-medium text-slate-700 mb-1">Categoría</label>
+        <label className="block card-label font-medium text-ink-700 mb-1">Categoría</label>
         <select
           value={form.category_id}
           onChange={e => {
@@ -537,7 +537,7 @@ export function ExpenseItemForm({
       {/* Centro de costo (override por ítem) */}
       {costCenters.length > 0 && (
         <div>
-          <label className="block card-label font-medium text-slate-700 mb-1">Centro de costo</label>
+          <label className="block card-label font-medium text-ink-700 mb-1">Centro de costo</label>
           <select
             value={form.cost_center_id}
             onChange={e => set('cost_center_id', e.target.value)}
@@ -548,7 +548,7 @@ export function ExpenseItemForm({
               <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
             ))}
           </select>
-          <p className="card-meta text-slate-400 mt-1">
+          <p className="card-meta text-ink-400 mt-1">
             Cambia solo si el gasto corresponde a otro centro o proyecto.
           </p>
         </div>
@@ -559,7 +559,7 @@ export function ExpenseItemForm({
       <>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block card-label font-medium text-slate-700 mb-1">Proveedor</label>
+            <label className="block card-label font-medium text-ink-700 mb-1">Proveedor</label>
             <input
               type="text"
               value={form.merchant}
@@ -569,7 +569,7 @@ export function ExpenseItemForm({
             />
           </div>
           <div>
-            <label className="block card-label font-medium text-slate-700 mb-1">Tipo documento</label>
+            <label className="block card-label font-medium text-ink-700 mb-1">Tipo documento</label>
             <select
               value={form.doc_type}
               onChange={e => set('doc_type', e.target.value)}
@@ -586,9 +586,9 @@ export function ExpenseItemForm({
         {/* RUT Proveedor — solo visible para facturas (crédito fiscal IVA) */}
         {isFactura && (
           <div>
-            <label className="block card-label font-medium text-slate-700 mb-1">
+            <label className="block card-label font-medium text-ink-700 mb-1">
               RUT Proveedor
-              <span className="ml-1.5 card-meta font-normal text-slate-400">(requerido para crédito fiscal IVA)</span>
+              <span className="ml-1.5 card-meta font-normal text-ink-400">(requerido para crédito fiscal IVA)</span>
             </label>
             <input
               type="text"
@@ -614,7 +614,7 @@ export function ExpenseItemForm({
 
         {/* N° documento */}
         <div>
-          <label className="block card-label font-medium text-slate-700 mb-1">N° documento</label>
+          <label className="block card-label font-medium text-ink-700 mb-1">N° documento</label>
           <input
             type="text"
             value={form.doc_number}
@@ -626,7 +626,7 @@ export function ExpenseItemForm({
 
         {/* Notas */}
         <div>
-          <label className="block card-label font-medium text-slate-700 mb-1">Nota interna</label>
+          <label className="block card-label font-medium text-ink-700 mb-1">Nota interna</label>
           <textarea
             value={form.notes}
             onChange={e => set('notes', e.target.value)}
@@ -709,7 +709,7 @@ export function ExpenseItemForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 py-3 px-4 border border-slate-200 rounded-item card-label font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          className="flex-1 py-3 px-4 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
         >
           Cancelar
         </button>
