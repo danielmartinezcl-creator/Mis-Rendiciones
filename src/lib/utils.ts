@@ -1,3 +1,4 @@
+import { twMerge } from 'tailwind-merge'
 import { type ReportStatus, type Currency, CURRENCY_SYMBOLS, STATUS_COLORS } from './constants'
 
 export function formatCLP(amount: number): string {
@@ -45,8 +46,25 @@ export function getStatusColor(status: ReportStatus): string {
   return STATUS_COLORS[status] ?? 'bg-ink-100 text-ink-600'
 }
 
+/**
+ * Une clases de Tailwind resolviendo conflictos: la última gana.
+ *
+ * Antes era un `join(' ')` a secas, y eso hacía inservible la biblioteca de
+ * componentes. Un `<Card className="p-6">` dejaba `p-4 p-6` en el DOM y ganaba
+ * la que Tailwind hubiera emitido después — o sea, un resultado que no depende
+ * de quien escribe el componente sino del orden interno del CSS generado.
+ *
+ * El síntoma se veía en los números: la hoja blanca aparecía **46 veces escrita
+ * a mano** mientras `ui/Card` se importaba en 2 archivos. No era desconocimiento:
+ * un componente que no se puede ajustar no sirve en el segundo lugar donde lo
+ * necesitás, así que se copian las clases.
+ *
+ * `twMerge` no conoce nuestras clases propias (`rounded-card`, `shadow-card`,
+ * `tor-glass`…) y las deja pasar tal cual, que es el comportamiento anterior.
+ * Solo cambia el caso que importa: dos utilidades del mismo grupo.
+ */
 export function cn(...classes: (string | undefined | false | null)[]): string {
-  return classes.filter(Boolean).join(' ')
+  return twMerge(classes.filter(Boolean).join(' '))
 }
 
 /** Conectores que quedan en minúscula salvo que abran el título. */
