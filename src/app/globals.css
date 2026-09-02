@@ -425,6 +425,28 @@ body::after {
   background: transparent;
 }
 
+/* ── HOJA ─────────────────────────────────────────────────────────────────
+   El segundo material del sistema: blanco sólido con sombra profunda, para lo
+   que se LEE, se COMPARA o se DECIDE. Tablas, listas, formularios, detalle.
+
+   Es una clase CSS y no un componente de React a propósito. Las 46 apariciones
+   del patrón en el código llevaban todas un padding distinto y extras propios
+   (`p-5 space-y-4`, `p-4 border-t-2 border-t-warning-400`, `overflow-hidden`…),
+   así que un componente habría sido un wrapper de tres clases con passthrough
+   de `className` — o sea, la misma clase con más ceremonia. La hoja no tiene
+   comportamiento ni estructura: es un material.
+
+   Va en `@layer components` para que las utilidades de Tailwind le ganen. Sin
+   la capa sería CSS plano, que gana siempre — el mismo error que tenían las 24
+   «clases de respaldo» que se eliminaron en la etapa 2. */
+@layer components {
+  .hoja {
+    background-color: #fff;
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+}
+
 /* ── VIDRIO ───────────────────────────────────────────────────────────────
    OSCURO, no blanco. La spec pedía blanco translúcido, pero superponer blanco
    sobre un fondo claro lo aclara todavía más: sobre el tramo teal el contraste
@@ -467,12 +489,19 @@ body::after {
    varía de página a página— pero sí sirve la regla material: si el elemento no
    está dentro de una superficie blanca, entonces está sobre el degradado.
 
-   `:not(.bg-white *)` es un :not() complejo, soportado desde Chrome 88.
-   Gana por especificidad a las utilidades `text-ink-*` (0,1,0). */
-.content-area :is(h2, h3, .section-title):not(.bg-white *):not(.tor-glass *) {
+   Es un `:not()` complejo, soportado desde Chrome 88, y gana por especificidad
+   a las utilidades `text-ink-*` (0,1,0).
+
+   OJO con la lista de exclusiones: nombra las clases de las superficies, así
+   que está acoplada a ellas. Cuando el patrón `bg-white rounded-card
+   shadow-card` se unificó en `.hoja`, esta regla dejó de excluir las hojas y
+   pintó de blanco sobre blanco los encabezados que viven dentro — «Progreso»,
+   «Gastos registrados», «Historial del fondo» desaparecieron. Si aparece una
+   superficie nueva, hay que agregarla acá. */
+.content-area :is(h2, h3, .section-title):not(.hoja *):not(.bg-white *):not(.tor-glass *) {
   color: #fff;
 }
-.content-area :is(.card-eyebrow, .card-label, .card-meta):not(.bg-white *):not(.tor-glass *) {
+.content-area :is(.card-eyebrow, .card-label, .card-meta):not(.hoja *):not(.bg-white *):not(.tor-glass *) {
   color: rgba(255, 255, 255, .74);
 }
 

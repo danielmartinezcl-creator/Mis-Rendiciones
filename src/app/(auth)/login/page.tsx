@@ -44,7 +44,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
   }
 
   return (
-    <div className="bg-white rounded-card shadow-card p-6">
+    <div className="hoja p-6">
       <h2 className="text-lg font-bold text-ink-900 mb-5">Iniciar sesión</h2>
 
       {urlError === 'session_expired' && (
@@ -141,7 +141,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
 
   if (sent) {
     return (
-      <div className="bg-white rounded-card shadow-card p-6 text-center space-y-4">
+      <div className="hoja p-6 text-center space-y-4">
         <CheckCircle2 size={40} className="text-success-500 mx-auto" />
         <div>
           <p className="font-bold text-ink-900">Correo enviado</p>
@@ -160,7 +160,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="bg-white rounded-card shadow-card p-6">
+    <div className="hoja p-6">
       <h2 className="text-lg font-bold text-ink-900 mb-1">Recuperar contraseña</h2>
       <p className="text-sm text-ink-500 mb-5">
         Ingresá tu correo y te enviaremos un link para crear una nueva contraseña.
@@ -210,7 +210,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="bg-white rounded-card shadow-card p-6 text-center text-ink-500">
+      <div className="hoja p-6 text-center text-ink-500">
         Cargando...
       </div>
     }>

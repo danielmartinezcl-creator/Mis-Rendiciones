@@ -97,7 +97,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
       </div>
 
       {/* Formulario */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600 space-y-4">
+      <form onSubmit={handleSubmit} className="hoja p-5 border-t-4 border-t-brand-600 space-y-4">
         <div className="flex gap-3">
           <div className="flex-1">
             <label className="block text-xs font-semibold text-ink-600 mb-1">Tipo</label>
@@ -168,7 +168,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
           items.map(item => {
             const st = STATUS_LABELS[item.status]
             return (
-              <div key={item.id} className="bg-white rounded-card shadow-card p-4">
+              <div key={item.id} className="hoja p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2 text-xs text-ink-400">
                     <span className="font-medium text-ink-600">{CATEGORY_LABELS[item.category]}</span>

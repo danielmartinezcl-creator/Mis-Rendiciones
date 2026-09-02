@@ -615,7 +615,7 @@ export function InformesClient({ filterOptions }: Props) {
               No hay ítems que coincidan con los filtros seleccionados.
             </div>
           ) : (
-            <div className="bg-white rounded-card shadow-card overflow-hidden">
+            <div className="hoja overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

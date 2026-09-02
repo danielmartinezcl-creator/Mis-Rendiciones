@@ -153,7 +153,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           },
           { label: 'Transferencias',  value: transfers.reduce((s, t) => s + t.amount, 0), sub: `${transfers.length} registro${transfers.length !== 1 ? 's' : ''}` },
         ].map((k, i) => (
-          <div key={i} className={`bg-white rounded-card shadow-card p-4 ${k.highlight ? 'border-t-2 border-t-warning-400' : ''}`}>
+          <div key={i} className={`hoja p-4 ${k.highlight ? 'border-t-2 border-t-warning-400' : ''}`}>
             <p className="text-xs text-ink-500 mb-1">{k.label}</p>
             <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(k.value)}</p>
             {k.sub && <p className="text-xs text-ink-400 mt-0.5">{k.sub}</p>}
@@ -163,7 +163,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Progreso del fondo */}
       {fund.status !== 'rejected' && (
-        <div className="bg-white rounded-card shadow-card px-5 py-4">
+        <div className="hoja px-5 py-4">
           <p className="section-title text-ink-500 mb-4">Progreso</p>
           <VerticalTimeline steps={FUND_STEPS} currentStatus={fund.status} />
         </div>
@@ -190,7 +190,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: enviar a autorización */}
       {fund.status === 'draft' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-warning-400">
+        <div className="hoja p-4 border-t-2 border-t-warning-400">
           <p className="text-sm font-semibold text-ink-800 mb-3">Paso 1 — Enviar a autorización</p>
           <button
             disabled={pending}
@@ -204,7 +204,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Aprobador: autorizar o rechazar fondo */}
       {fund.status === 'pending_approval' && isApprover && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-400 space-y-3">
+        <div className="hoja p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Autorización de fondo</p>
           {!approvingFund && !rejectingFund && (
             <div className="flex gap-2">
@@ -252,7 +252,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: enviar al banco para carga */}
       {fund.status === 'approved' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-400 space-y-2">
+        <div className="hoja p-4 border-t-2 border-t-info-400 space-y-2">
           <div className="flex items-center gap-2">
             <Building2 size={15} className="text-info-600" />
             <p className="text-sm font-semibold text-ink-800">Paso 2 — Enviar al banco</p>
@@ -272,7 +272,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Banco: confirmar carga bancaria */}
       {fund.status === 'pending_bank_load' && (currentUser.role === 'admin' || currentUser.can_load_bank_transfer) && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-500 space-y-3">
+        <div className="hoja p-4 border-t-2 border-t-info-500 space-y-3">
           <div className="flex items-center gap-2">
             <Building2 size={15} className="text-info-600" />
             <p className="text-sm font-semibold text-ink-800">Confirmar carga bancaria</p>
@@ -327,7 +327,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Autorizador: autorizar transferencia */}
       {fund.status === 'pending_bank_auth' && (currentUser.role === 'admin' || currentUser.can_authorize_bank_transfer) && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-500 space-y-2">
+        <div className="hoja p-4 border-t-2 border-t-info-500 space-y-2">
           <div className="flex items-center gap-2">
             <ShieldCheck size={15} className="text-info-600" />
             <p className="text-sm font-semibold text-ink-800">Autorizar transferencia</p>
@@ -347,7 +347,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* ── ÍTEMS DE GASTO ─────────────────────────────────────── */}
       {['funds_sent','submitted','pending_liquidation_approval','settled'].includes(fund.status) && (
-        <div className="bg-white rounded-card shadow-card overflow-hidden">
+        <div className="hoja overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink-100">
             <h2 className="text-sm font-semibold text-ink-800">
               Gastos registrados
@@ -479,7 +479,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Empleado: enviar liquidación */}
       {canEmployeeSubmitLiquidation(fund.status, items) && isEmployee && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-warning-400">
+        <div className="hoja p-4 border-t-2 border-t-warning-400">
           <p className="text-sm font-semibold text-ink-800 mb-1">Cerrar y enviar liquidación</p>
           <p className="text-xs text-ink-500 mb-3">
             Total gastado: {fmtCLP(balance.spent)} de {fmtCLP(fund.amount_approved ?? fund.amount_requested)} aprobados.
@@ -498,7 +498,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: elevar liquidación */}
       {fund.status === 'submitted' && isManager && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-flare-400">
+        <div className="hoja p-4 border-t-2 border-t-flare-400">
           <p className="text-sm font-semibold text-ink-800 mb-3">Elevar liquidación a aprobadores</p>
           <button
             disabled={pending}
@@ -512,7 +512,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Aprobador: aprobar liquidación */}
       {fund.status === 'pending_liquidation_approval' && isApprover && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-info-400 space-y-3">
+        <div className="hoja p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Revisar y aprobar liquidación</p>
           <p className="text-xs text-ink-500">Revisá cada ítem arriba y marcalo como aprobado o rechazado antes de finalizar.</p>
           <input value={approveNotes} onChange={e => setApproveNotes(e.target.value)} placeholder="Notas de la liquidación (opcional)"
@@ -537,7 +537,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* EFF: registrar diferencia */}
       {fund.status === 'settled' && isManager && Math.abs(balance.difference) > 0 && (
-        <div className="bg-white rounded-card shadow-card p-4 border-t-2 border-t-success-400 space-y-3">
+        <div className="hoja p-4 border-t-2 border-t-success-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Registrar transferencia de diferencia</p>
           <p className="text-xs text-ink-500">
             Diferencia: {fmtCLP(Math.abs(balance.difference))}{' '}
@@ -579,7 +579,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* Transferencias bancarias registradas */}
       {transfers.length > 0 && (
-        <div className="bg-white rounded-card shadow-card overflow-hidden">
+        <div className="hoja overflow-hidden">
           <h2 className="text-sm font-semibold text-ink-800 px-4 py-3 border-b border-ink-100">Transferencias bancarias</h2>
           <div className="divide-y divide-ink-50">
             {transfers.map(t => (
@@ -610,7 +610,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       )}
 
       {/* Timeline de auditoría */}
-      <div className="bg-white rounded-card shadow-card p-5">
+      <div className="hoja p-5">
         <h2 className="text-sm font-semibold text-ink-800 mb-4">Historial del fondo</h2>
         <FundTimeline entries={audits} />
       </div>

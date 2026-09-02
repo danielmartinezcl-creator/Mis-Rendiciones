@@ -278,7 +278,7 @@ export default function AdminEmployeesPage() {
 
       {/* Panel: agregar uno */}
       {panel === 'add' && (
-        <div className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600">
+        <div className="hoja p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-ink-800 mb-4">Agregar empleado</h2>
           <AddEmployeeForm onDone={() => { setPanel('none'); load() }} />
         </div>
@@ -286,7 +286,7 @@ export default function AdminEmployeesPage() {
 
       {/* Panel: importar Excel */}
       {panel === 'import' && (
-        <div className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600">
+        <div className="hoja p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-ink-800 mb-4">Importar empleados desde Excel</h2>
           <EmployeeImport onDone={() => { setPanel('none'); load() }} />
         </div>
@@ -401,7 +401,7 @@ export default function AdminEmployeesPage() {
             <div
               key={emp.id}
               className={[
-                'bg-white rounded-card shadow-card overflow-hidden transition-all',
+                'hoja overflow-hidden transition-all',
                 !emp.is_active && 'opacity-60',
                 isSelected && 'ring-2 ring-brand-400',
               ].filter(Boolean).join(' ')}

@@ -22,7 +22,7 @@ export function PendingToRenderPanel({ list }: Props) {
   const isEmpty = count === 0
 
   return (
-    <div className="bg-white rounded-card shadow-card border-t-[3px] border-t-flare-400 overflow-hidden">
+    <div className="hoja border-t-[3px] border-t-flare-400 overflow-hidden">
       {/* Cabecera — clickeable */}
       <button
         onClick={() => setExpanded(e => !e)}

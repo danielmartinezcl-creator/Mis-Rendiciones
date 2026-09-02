@@ -81,7 +81,7 @@ export default async function AdminPage() {
         {/* Reembolsadas — rendiciones pagadas + cajas chicas liquidadas */}
         <Link
           href="/admin/reports?status=reimbursed"
-          className="bg-white rounded-card shadow-card border-t-[3px] border-t-info-400 p-5 hover:shadow-md transition-shadow"
+          className="hoja border-t-[3px] border-t-info-400 p-5 hover:shadow-md transition-shadow"
         >
           <p className="text-base font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
           <p className="text-3xl font-bold text-ink-900 mb-0.5">{completedCount}</p>
@@ -159,7 +159,7 @@ export default async function AdminPage() {
           <Link
             key={link.href}
             href={link.href}
-            className="flex items-center gap-3 bg-white rounded-card shadow-card p-5 hover:bg-ink-50 transition-colors"
+            className="flex items-center gap-3 hoja p-5 hover:bg-ink-50 transition-colors"
           >
             <link.Icon size={20} className="text-brand-600 shrink-0" />
             <span className="text-base font-medium text-ink-800">{link.label}</span>

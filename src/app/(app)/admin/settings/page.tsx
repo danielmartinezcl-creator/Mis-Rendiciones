@@ -221,7 +221,7 @@ function CategoriesTab() {
       <p className="text-xs text-ink-400">Las categorías globales están disponibles para todas las organizaciones. Podés agregar y modificar categorías propias de tu empresa.</p>
 
       {/* ── Formulario nueva categoría ── */}
-      <form onSubmit={handleAdd} className="bg-white rounded-card shadow-card p-4 space-y-3">
+      <form onSubmit={handleAdd} className="hoja p-4 space-y-3">
         <h3 className="font-semibold text-ink-800 text-sm">Nueva categoría</h3>
 
         {/* Nombre + color */}
@@ -264,7 +264,7 @@ function CategoriesTab() {
           if (isEditing) {
             return (
               <form key={cat.id} onSubmit={handleEdit}
-                className="bg-white rounded-card shadow-card p-4 space-y-3 border-t-2 border-t-brand-600">
+                className="hoja p-4 space-y-3 border-t-2 border-t-brand-600">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-ink-600">Editar categoría</p>
                   <button type="button" onClick={() => setEditCat(null)}
@@ -331,7 +331,7 @@ function CategoriesTab() {
           // ── Vista normal ──
           return (
             <div key={cat.id}
-              className={['bg-white rounded-card shadow-card overflow-hidden transition-opacity',
+              className={['hoja overflow-hidden transition-opacity',
                 !cat.is_active && 'opacity-40'].filter(Boolean).join(' ')}>
 
               <div className="p-3 flex items-center gap-3">
@@ -496,7 +496,7 @@ function EmployeesTab() {
 
         return (
           <div key={emp.id}
-            className={['bg-white rounded-card shadow-card overflow-hidden transition-opacity',
+            className={['hoja overflow-hidden transition-opacity',
               !emp.is_active && 'opacity-50'].filter(Boolean).join(' ')}>
 
             <div className="p-4 space-y-3">
@@ -825,7 +825,7 @@ function DefontanaTab() {
 
       {/* ── Configuración general ── */}
       {cfgLoading ? <Spinner /> : (
-        <form onSubmit={handleSaveConfig} className="bg-white rounded-card shadow-card p-5 space-y-4">
+        <form onSubmit={handleSaveConfig} className="hoja p-5 space-y-4">
           <h3 className="text-sm font-bold text-ink-800">Configuración general</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -963,7 +963,7 @@ function DefontanaTab() {
 
       {/* ── Mapeo de proveedores (merchant → cuenta) ── */}
       {suppLoading ? <Spinner /> : (
-        <div className="bg-white rounded-card shadow-card p-5 space-y-4">
+        <div className="hoja p-5 space-y-4">
           <div>
             <h3 className="text-sm font-bold text-ink-800">Mapeo de proveedores</h3>
             <p className="text-xs text-ink-400 mt-0.5">
@@ -1017,7 +1017,7 @@ function DefontanaTab() {
 
       {/* ── Mapeo de cuentas por categoría ── */}
       {catLoading ? <Spinner /> : (
-        <div className="bg-white rounded-card shadow-card p-5 space-y-3">
+        <div className="hoja p-5 space-y-3">
           <div>
             <h3 className="text-sm font-bold text-ink-800">Cuentas por categoría de gasto</h3>
             <p className="text-xs text-ink-400 mt-0.5">
@@ -1117,7 +1117,7 @@ function LimitsTab() {
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="bg-white rounded-card shadow-card p-5 space-y-5">
+      <form onSubmit={handleSave} className="hoja p-5 space-y-5">
         <div>
           <label className="block text-sm font-semibold text-ink-700 mb-1">
             Monto máximo por ítem (CLP)
@@ -1614,7 +1614,7 @@ function ViaticosTab() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-card p-4 space-y-3 border border-ink-100">
+        <form onSubmit={handleSubmit} className="hoja p-4 space-y-3 border border-ink-100">
           <h3 className="font-semibold text-ink-800 text-sm">
             {editingId ? 'Editar política' : 'Nueva política de viáticos'}
           </h3>

@@ -65,7 +65,7 @@ export default function SetPasswordPage() {
 
   if (done) {
     return (
-      <div className="bg-white rounded-card shadow-card p-6 text-center space-y-3">
+      <div className="hoja p-6 text-center space-y-3">
         <CheckCircle2 size={40} className="text-success-500 mx-auto" />
         <p className="font-bold text-ink-900">¡Contraseña creada!</p>
         <p className="text-sm text-ink-500">Ingresando a la app…</p>
@@ -74,7 +74,7 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="bg-white rounded-card shadow-card p-6 space-y-5">
+    <div className="hoja p-6 space-y-5">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 bg-brand-50 rounded-item flex items-center justify-center shrink-0">
           <KeyRound size={18} className="text-brand-600" />

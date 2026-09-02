@@ -143,7 +143,7 @@ export function FundDefontanaPanel({ fundId, onChanged }: Props) {
   const hasPending = !!data?.byMovement.some(m => selected.has(m.movement) && m.pendingCount > 0)
 
   return (
-    <div className="bg-white rounded-card shadow-card p-4 space-y-3">
+    <div className="hoja p-4 space-y-3">
       <div className="flex items-center gap-2">
         <FileSpreadsheet size={16} className="text-accent-600" />
         <p className="text-sm font-semibold text-ink-800">Contabilidad Defontana</p>

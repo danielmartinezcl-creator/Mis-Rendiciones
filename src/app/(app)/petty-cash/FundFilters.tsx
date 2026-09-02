@@ -89,7 +89,7 @@ export function FundFilters({
   fetchReportItems,
 }: FundFiltersProps) {
   return (
-    <div className="bg-white rounded-card shadow-card overflow-hidden">
+    <div className="hoja overflow-hidden">
       {/* ── Sección 1: Filtros de lista (siempre visible) ── */}
       <div className="p-5 space-y-4">
         <div className="flex items-center justify-between">

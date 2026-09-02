@@ -20,7 +20,7 @@ export function PendingApprovalPanel({ count, amount, list }: Props) {
   const isEmpty = list.reports.length === 0 && list.pettyCashFunds.length === 0
 
   return (
-    <div className="bg-white rounded-card shadow-card border-t-[3px] border-t-warning-400 overflow-hidden">
+    <div className="hoja border-t-[3px] border-t-warning-400 overflow-hidden">
       <button
         onClick={() => setExpanded(e => !e)}
         className="w-full p-5 text-left hover:bg-ink-50 transition-colors"

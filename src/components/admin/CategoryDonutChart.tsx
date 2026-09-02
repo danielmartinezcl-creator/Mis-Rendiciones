@@ -32,7 +32,7 @@ export function CategoryDonutChart({ data }: Props) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-card shadow-card p-6 flex flex-col items-center justify-center min-h-[200px] text-ink-400">
+      <div className="hoja p-6 flex flex-col items-center justify-center min-h-[200px] text-ink-400">
         <p className="text-sm">No hay gastos aprobados para mostrar</p>
       </div>
     )
@@ -65,7 +65,7 @@ export function CategoryDonutChart({ data }: Props) {
   const cx = 90, cy = 90, rOuter = 78, rInner = 50
 
   return (
-    <div className="bg-white rounded-card shadow-card p-5 space-y-4">
+    <div className="hoja p-5 space-y-4">
       <div>
         <h2 className="font-display font-bold text-lg text-ink-900">Gastos por categoría</h2>
         <p className="text-xs text-ink-400 mt-0.5">

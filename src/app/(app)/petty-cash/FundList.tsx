@@ -113,7 +113,7 @@ export function FundList({
   return (
     <div className="space-y-2">
       {filtered.map(f => (
-        <div key={f.id} className="bg-white rounded-card shadow-card border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex items-stretch">
+        <div key={f.id} className="hoja border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex items-stretch">
           <Link
             href={`/petty-cash/${f.id}`}
             className="flex-1 block p-4"
