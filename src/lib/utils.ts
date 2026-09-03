@@ -1,5 +1,5 @@
 import { twMerge } from 'tailwind-merge'
-import { type ReportStatus, type Currency, CURRENCY_SYMBOLS, STATUS_COLORS } from './constants'
+import { type ReportStatus, type Currency, CURRENCY_SYMBOLS } from './constants'
 
 export function formatCLP(amount: number): string {
   const abs = Math.abs(Math.round(amount))
@@ -42,9 +42,6 @@ export function getStatusLabel(status: ReportStatus): string {
   return labels[status] ?? status
 }
 
-export function getStatusColor(status: ReportStatus): string {
-  return STATUS_COLORS[status] ?? 'bg-ink-100 text-ink-600'
-}
 
 /**
  * Une clases de Tailwind resolviendo conflictos: la última gana.

@@ -48,29 +48,43 @@ export const STATUS_LABELS: Record<ReportStatus, string> = {
   reimbursed:          'Reembolsada',
 }
 
-export const STATUS_COLORS: Record<ReportStatus, string> = {
-  draft:               'bg-ink-100 text-ink-500',
-  submitted:           'bg-warning-100 text-warning-700',
-  pending_l2:          'bg-flare-100 text-flare-700',
-  approved:            'bg-success-100 text-success-700',
-  partially_approved:  'bg-warning-100 text-warning-700',
-  rejected:            'bg-danger-100 text-danger-600',
-  pending_bank_load:   'bg-info-100 text-info-700',
-  pending_bank_auth:   'bg-info-100 text-info-700',
-  reimbursed:          'bg-info-100 text-info-700',
+/**
+ * Familias visuales de estado — sección 6 de la spec de Tornasol.
+ *
+ * La app tiene 9 estados de rendición y 10 de fondo. Antes eran 19 entradas
+ * repartidas en tres mapas de color. Ahora son CUATRO familias.
+ *
+ * El argumento de la spec: siete estados «en curso» con siete colores son
+ * imposibles de memorizar. El color dice la CATEGORÍA —esto avanza, esto
+ * requiere atención, esto terminó— y la etiqueta dice el estado exacto
+ * («Carga bancaria pendiente», «Fondos enviados»). En la pantalla de detalle,
+ * la línea de tiempo muestra además el paso concreto.
+ *
+ * Contrapartida asumida: en un listado, ocho estados de fondo comparten color.
+ * Se acepta porque la etiqueta los distingue y porque un listado se escanea
+ * buscando «¿qué necesita algo de mí?», no el paso exacto del trámite.
+ */
+export type FamiliaEstado = 'neutro' | 'en-curso' | 'atencion' | 'resuelto'
+
+export const FAMILIA_CLASES: Record<FamiliaEstado, { pildora: string; punto: string }> = {
+  neutro:     { pildora: 'bg-ink-100 text-ink-500',         punto: 'bg-ink-400' },
+  'en-curso': { pildora: 'bg-flare-100 text-flare-700',     punto: 'bg-flare-500' },
+  atencion:   { pildora: 'bg-warning-100 text-warning-700', punto: 'bg-warning-500' },
+  resuelto:   { pildora: 'bg-success-100 text-success-700', punto: 'bg-success-500' },
 }
 
-export const STATUS_DOT: Record<ReportStatus, string> = {
-  draft:               'bg-ink-400',
-  submitted:           'bg-warning-500',
-  pending_l2:          'bg-flare-500',
-  approved:            'bg-success-500',
-  partially_approved:  'bg-warning-500',
-  rejected:            'bg-danger-500',
-  pending_bank_load:   'bg-info-500',
-  pending_bank_auth:   'bg-info-500',
-  reimbursed:          'bg-info-500',
+export const FAMILIA_REPORTE: Record<ReportStatus, FamiliaEstado> = {
+  draft:               'neutro',
+  submitted:           'en-curso',
+  pending_l2:          'en-curso',
+  pending_bank_load:   'en-curso',
+  pending_bank_auth:   'en-curso',
+  approved:            'resuelto',
+  reimbursed:          'resuelto',
+  partially_approved:  'atencion',
+  rejected:            'atencion',
 }
+
 
 export const ITEM_STATUS_ACCENT: Record<ItemStatus, string> = {
   pending:  'item-accent-pending',    /* amarillo — definido en globals.css */
@@ -108,17 +122,17 @@ export const FUND_STATUS_LABELS: Record<FundStatusConst, string> = {
   rejected:                     'Rechazado',
 }
 
-export const FUND_STATUS_COLORS: Record<FundStatusConst, string> = {
-  draft:                        'bg-ink-100 text-ink-500',
-  pending_approval:             'bg-warning-100 text-warning-700',
-  approved:                     'bg-info-100 text-info-700',
-  pending_bank_load:            'bg-info-100 text-info-700',
-  pending_bank_auth:            'bg-info-100 text-info-700',
-  funds_sent:                   'bg-flare-100 text-flare-700',
-  submitted:                    'bg-warning-100 text-warning-700',
-  pending_liquidation_approval: 'bg-flare-100 text-flare-700',
-  settled:                      'bg-success-100 text-success-700',
-  rejected:                     'bg-danger-100 text-danger-600',
+export const FAMILIA_FONDO: Record<FundStatusConst, FamiliaEstado> = {
+  draft:                        'neutro',
+  pending_approval:             'en-curso',
+  approved:                     'en-curso',   // autorizado, pero la plata no salió
+  pending_bank_load:            'en-curso',
+  pending_bank_auth:            'en-curso',
+  funds_sent:                   'en-curso',
+  submitted:                    'en-curso',
+  pending_liquidation_approval: 'en-curso',
+  settled:                      'resuelto',
+  rejected:                     'atencion',
 }
 
 export const FUND_AUDIT_LABELS: Record<string, string> = {

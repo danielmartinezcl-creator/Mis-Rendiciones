@@ -97,8 +97,8 @@ verificado nada — el peor fallo posible en una red de seguridad.
 
 ## Determinismo — leer antes de confiar en un diff
 
-Tolerancia de **0,2% de píxeles**, que absorbe el antialiasing del texto. Lo que la
-tolerancia **no** absorbe:
+Tolerancia de **0,05% de píxeles** con un umbral por píxel de 0.001 — ver la
+sección anterior. Lo que la tolerancia **no** absorbe:
 
 1. **Datos que cambian.** Corren contra la base real. Si entre el "antes" y el
    "después" alguien crea una rendición, esa pantalla va a diferir de verdad.
@@ -113,34 +113,40 @@ tolerancia **no** absorbe:
    `/admin/employees` con 844 px de alto y otra con **28.880 px** — el mismo listado,
    antes y después de que llegaran los datos.
 
-4. **Fuentes.** Bricolage, Hanken y Geist Mono llegan de Google Fonts en tiempo de
-   build. `estabilizar()` espera a `document.fonts.ready` por esto: sin esa espera se
-   captura el fallback del sistema en una corrida y la fuente real en la otra.
+4. **Fuentes.** Bricolage, Hanken y Manrope ya son LOCALES (`src/app/fonts/`), así
+   que no dependen de la red. `estabilizar()` igual espera a `document.fonts.ready`:
+   una fuente que todavía no se aplicó cambia todas las métricas de la página.
 
-## ⚠ `--update-snapshots` actualiza de menos — por eso `baseline:crear` borra primero
+## El umbral por píxel: el ajuste que hace o rompe esta línea base
 
-Observado en la etapa 2: tras cambiar la paleta entera de violeta a teal,
-`baseline:verificar` reportó **7 diferencias de 50**, y `--update-snapshots`
-reescribió solo esas 7. Al borrar `e2e/baseline/` y regenerar de cero, resultó
-que **las 48 capturas diferían del commit**. O sea que la comparación devolvía
-"iguales" para 43 pantallas que sí habían cambiado.
+`threshold` es la distancia de color **por píxel** a partir de la cual Playwright
+considera que un píxel cambió. Su valor por defecto es **0.2**, medido en espacio
+YIQ, que pondera fuertemente la luminancia.
 
-No pude explicar la causa. Lo que sí está verificado:
+**Ese default deja ciega la comparación justo al tipo de cambio que hace un
+sistema de diseño**: mover el matiz dejando la luminancia parecida. Medido en
+esta app:
 
-- **El arnés detecta cambios reales.** Prueba deliberada: se pintó
-  `--color-brand-600` de magenta puro (`#FF00FF`) y la verificación falló como
-  corresponde. No está muerto.
-- **Borrar y regenerar da el resultado correcto**, siempre.
+| Cambio | Distancia YIQ |
+|---|---|
+| relleno de insignia `warning-100` → `flare-100` | 0.0083 |
+| relleno de insignia `info-100` → `success-100` | 0.0026 |
+| texto de insignia `warning-700` → `flare-700` | 0.0428 |
 
-Por eso `baseline:crear` ahora hace `rm -rf e2e/baseline` antes de correr. Cuesta
-lo mismo y no depende de que Playwright decida bien qué cambió.
+Entre 15 y 75 veces por debajo del umbral. Por eso la etapa 2 cambió la paleta
+**entera** de violeta a teal y `baseline:verificar` reportó **7 diferencias de
+50**; borrando la base y regenerando, diferían **48**. Nunca fue un bug del
+arnés: era este número.
 
-**Prueba de cordura del arnés** — si alguna vez dudás de un verde, pintá un token
-de magenta, corré `baseline:verificar` y confirmá que falla:
+Ahora `threshold: 0.001` y `maxDiffPixelRatio: 0.0005`. Verificado en las dos
+direcciones, que es lo que hay que exigirle a un detector:
 
-```bash
-npm run baseline:verificar
-```
+- **No da falsos positivos** — tres corridas seguidas sin cambios, 51 verdes.
+- **Detecta lo mínimo** — un `success-100` → `success-200` (distancia 0.0066,
+  imperceptible a ojo) falla como corresponde.
+
+Si alguna vez subís `threshold` para «que deje de molestar», estás apagando
+exactamente la señal para la que existe esta línea base.
 
 ## ⚠ El punto ciego: solo se captura el estado de reposo
 
@@ -156,8 +162,13 @@ Las 48 capturas son de páginas en reposo, recién cargadas. Lo que NO se captur
 
 Esto se descubrió en la etapa 1b: se consolidaron 161 clases de color (rose→danger,
 sky/cyan/indigo→info, purple→flare, orange/yellow→warning, green→success), cambios
-que **sí alteran el color**, y la línea base dio 49 verdes y cero diffs. No porque
-fueran inocuos, sino porque todos vivían en estados que no se capturan.
+que **sí alteran el color**, y la línea base dio 49 verdes y cero diffs.
+
+En su momento se atribuyó todo al punto ciego. **Era la explicación incompleta**:
+después se encontró que el `threshold` por defecto también estaba enmascarando
+esos cambios, porque son desplazamientos de matiz a luminancia parecida. Las dos
+causas eran reales y actuaban a la vez. Con `threshold: 0.001` la segunda está
+resuelta; el punto ciego de abajo sigue vigente.
 
 **Regla práctica:** si un cambio toca colores de error, hover o modal, el run verde
 no es evidencia. Hay que mirarlo a mano o extender la cobertura.

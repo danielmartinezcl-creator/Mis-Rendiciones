@@ -8,7 +8,7 @@ import { getReportForApproval, submitApprovalDecision, bulkApproveItems } from '
 import { notifySubmitterOfDecision } from '@/actions/notifications'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
-import { ReportStatusBadge } from '@/components/ui/Badge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDate, formatDisplayTitle } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
@@ -254,7 +254,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               </p>
             )}
           </div>
-          <ReportStatusBadge status={report.status as any} />
+          <InsigniaEstado tipo="reporte" estado={report.status as any} />
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { formatCLP, formatDate, getStatusLabel, getStatusColor, formatExchangeRate, formatDisplayTitle, isLongStatusLabel, fitAmountFontSize } from '@/lib/utils'
+import { formatCLP, formatDate, getStatusLabel, formatExchangeRate, formatDisplayTitle, isLongStatusLabel, fitAmountFontSize } from '@/lib/utils'
+import { FAMILIA_REPORTE, FAMILIA_FONDO, FAMILIA_CLASES, REPORT_STATUSES, FUND_STATUSES } from '@/lib/constants'
 
 describe('formatDisplayTitle', () => {
   it('convierte un título en mayúsculas dejando los nombres capitalizados', () => {
@@ -112,5 +113,41 @@ describe('fitAmountFontSize', () => {
   it('usa el tramo más chico para cifras muy largas', () => {
     expect(fitAmountFontSize('$ 123.456.789', 'xl')).toBe(28)
     expect(fitAmountFontSize('$ 123.456.789', 'md')).toBe(18)
+  })
+})
+
+describe('familias visuales de estado', () => {
+  it('cada estado de rendición tiene familia', () => {
+    for (const s of REPORT_STATUSES) {
+      expect(FAMILIA_REPORTE[s], `falta familia para "${s}"`).toBeDefined()
+      expect(FAMILIA_CLASES[FAMILIA_REPORTE[s]]).toBeDefined()
+    }
+  })
+
+  it('cada estado de fondo tiene familia', () => {
+    for (const s of FUND_STATUSES) {
+      expect(FAMILIA_FONDO[s], `falta familia para "${s}"`).toBeDefined()
+      expect(FAMILIA_CLASES[FAMILIA_FONDO[s]]).toBeDefined()
+    }
+  })
+
+  /* La spec de Tornasol define CUATRO familias. Si alguien agrega una quinta
+     para un caso puntual, el sistema vuelve a la deriva que tenía antes: 19
+     estados con 19 colores. Este test es el que lo impide. */
+  it('no hay más de cuatro familias', () => {
+    expect(Object.keys(FAMILIA_CLASES).sort()).toEqual(
+      ['atencion', 'en-curso', 'neutro', 'resuelto']
+    )
+  })
+
+  it('los estados terminales positivos son «resuelto»', () => {
+    expect(FAMILIA_REPORTE.approved).toBe('resuelto')
+    expect(FAMILIA_REPORTE.reimbursed).toBe('resuelto')
+    expect(FAMILIA_FONDO.settled).toBe('resuelto')
+  })
+
+  it('lo rechazado pide atención, no se pierde entre lo neutro', () => {
+    expect(FAMILIA_REPORTE.rejected).toBe('atencion')
+    expect(FAMILIA_FONDO.rejected).toBe('atencion')
   })
 })

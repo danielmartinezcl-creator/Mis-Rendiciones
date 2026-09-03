@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Wallet, Plus, Filter, Trash2, SendHorizontal } from 'lucide-react'
-import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { FUND_STEPS } from '@/lib/constants'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
@@ -70,7 +70,7 @@ export function FundList({
         {filtered.map(f => (
           <div key={f.id} className="bg-white rounded-item border border-ink-100 hover:border-brand-200 transition-colors flex items-center">
             <Link href={`/petty-cash/${f.id}`} className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
-              <FundStatusBadge status={f.status} />
+              <InsigniaEstado tipo="fondo" estado={f.status} />
               <div className="flex-1 min-w-0">
                 <p className="text-[16px] leading-snug font-semibold text-ink-800">{f.name}</p>
                 <p className="card-meta text-ink-400">
@@ -122,7 +122,7 @@ export function FundList({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-ink-900 truncate">{f.name}</p>
-                  <FundStatusBadge status={f.status} />
+                  <InsigniaEstado tipo="fondo" estado={f.status} />
                 </div>
                 <p className="card-meta text-ink-500 mt-1">
                   Empleado: <span className="font-medium text-ink-700">{f.employee_name}</span>

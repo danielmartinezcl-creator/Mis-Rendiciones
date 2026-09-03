@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ExpenseItemForm, type ItemFormData } from '@/components/expenses/ExpenseItemForm'
 import { ExpenseItemCard } from '@/components/expenses/ExpenseItemCard'
-import { ReportStatusBadge } from '@/components/ui/Badge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
@@ -282,7 +282,7 @@ export default function ExpenseDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <ReportStatusBadge status={report.status as any} />
+          <InsigniaEstado tipo="reporte" estado={report.status as any} />
           {report.status !== 'draft' && (
             <button
               onClick={() => exportEmployeeReportPdf(

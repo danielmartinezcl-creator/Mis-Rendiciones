@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ReportStatusBadge } from '@/components/ui/Badge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { formatDate, formatDisplayTitle, getStatusLabel, isLongStatusLabel } from '@/lib/utils'
 import type { ReportStatus } from '@/lib/constants'
@@ -55,7 +55,7 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
               <p className="card-meta text-ink-400 mt-0.5">{dateLabel}</p>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
-              {!statusIsLong && <ReportStatusBadge status={report.status} />}
+              {!statusIsLong && <InsigniaEstado tipo="reporte" estado={report.status} />}
               <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" fit />
             </div>
           </div>
@@ -64,7 +64,7 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
               completo de la tarjeta (de 61px a 285px en el peor caso) */}
           {statusIsLong && (
             <div className="mt-2.5 flex justify-end">
-              <ReportStatusBadge status={report.status} />
+              <InsigniaEstado tipo="reporte" estado={report.status} />
             </div>
           )}
 

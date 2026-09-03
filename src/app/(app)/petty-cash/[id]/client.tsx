@@ -16,7 +16,7 @@ import {
   removeFundItem,
 } from '@/actions/petty-cash'
 import type { FundDetail } from '@/actions/petty-cash'
-import { FundStatusBadge }   from '@/components/petty-cash/FundStatusBadge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
@@ -131,7 +131,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">{fund.name}</h1>
-            <FundStatusBadge status={fund.status} />
+            <InsigniaEstado tipo="fondo" estado={fund.status} />
           </div>
           <p className="text-xs tor-on-gradient-soft mt-1">
             Empleado: <span className="font-medium text-ink-700">{employee_name}</span>

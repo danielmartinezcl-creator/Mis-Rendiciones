@@ -83,9 +83,32 @@ export default defineConfig({
        y /admin/employees— cinco segundos no alcanzan. */
     timeout: 15_000,
     toHaveScreenshot: {
-      /* 0,2% de píxeles de tolerancia: absorbe el antialiasing del render de
-         texto entre corridas sin dejar pasar un cambio de color real. */
-      maxDiffPixelRatio: 0.002,
+      /* ═══ EL AJUSTE MÁS IMPORTANTE DE ESTE ARCHIVO ═══════════════════════
+         `threshold` es la distancia de color POR PÍXEL a partir de la cual un
+         píxel se considera distinto. El valor por defecto de Playwright es
+         **0.2**, medido en espacio YIQ — que pondera fuertemente la luminancia.
+
+         Ese default hace la comparación ciega justo al tipo de cambio que hace
+         un sistema de diseño: mover el MATIZ dejando la luminancia parecida.
+         Medido en esta app:
+
+           relleno de insignia  warning-100 → flare-100    0.0083
+           relleno de insignia  info-100    → success-100   0.0026
+           texto de insignia    warning-700 → flare-700     0.0428
+
+         Todos entre 15 y 75 veces por debajo del umbral. Resultado: la etapa 2
+         cambió la paleta ENTERA de violeta a teal y `baseline:verificar` reportó
+         7 diferencias de 50. Borrando la base y regenerando, diferían 48.
+         No era un bug del arnés: era este número.
+
+         Con 0.001 se detecta el cambio de color más chico que produjimos. Es
+         seguro porque el render es determinista —mismo build, misma máquina—:
+         dos corridas sin cambios dan cero píxeles distintos, no «casi cero».
+         ════════════════════════════════════════════════════════════════════ */
+      threshold: 0.001,
+      /* Y una vez que los píxeles SÍ se cuentan, la tolerancia de cuántos
+         pueden diferir baja también: ya no hace falta absorber ruido. */
+      maxDiffPixelRatio: 0.0005,
       animations: 'disabled',
       caret: 'hide',
       scale: 'css',
