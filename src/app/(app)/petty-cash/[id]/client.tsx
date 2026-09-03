@@ -20,13 +20,16 @@ import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
-import { VerticalTimeline }  from '@/components/ui/VerticalTimeline'
+import { TarjetaFondo }      from '@/components/petty-cash/TarjetaFondo'
+import { RecorridoFondo }    from '@/components/petty-cash/RecorridoFondo'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { FundDefontanaPanel } from '@/components/petty-cash/FundDefontanaPanel'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
-import { calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation } from '@/lib/petty-cash-helpers'
-import { FUND_STEPS } from '@/lib/constants'
+import {
+  calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation,
+  construirRecorrido,
+} from '@/lib/petty-cash-helpers'
 import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 
@@ -111,6 +114,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
   const { fund, items, audits, transfers, categories, employee_name, manager_name, currentUser } = detail
   const balance   = calculateFundBalance(fund.amount_approved, items)
+  const recorrido = construirRecorrido(fund.status, audits)
   const isManager  = fund.manager_id === currentUser.id || currentUser.role === 'admin'
   const isEmployee = fund.employee_id === currentUser.id
   const isApprover = currentUser.can_approve || currentUser.role === 'admin'
@@ -122,65 +126,61 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
-      {/* Header */}
+    /* Dos columnas desde `lg`. El ORDEN DEL DOM es el orden del móvil, y por eso
+       el recorrido abre la columna derecha en vez de ir pegado al héroe: en los
+       tramos previos al dinero no hay lista de gastos, así que en el teléfono
+       queda igual justo debajo del héroe; con el fondo ya operando, la lista es
+       el trabajo y el recorrido cede el lugar. Izquierda: el fondo y lo que se
+       hace con él. Derecha: el registro. */
+    <div className="max-w-2xl lg:max-w-6xl mx-auto space-y-5">
+      {/* Header — el diseño de Tornasol pone a la PERSONA como título: es lo que
+          identifica la pantalla. El nombre del fondo pasa al antetítulo, junto
+          con el período y el encargado. El título envuelve y nunca trunca: un
+          nombre propio cortado a la mitad no se reconoce. */}
       <div className="flex items-start gap-3">
-        <Link href="/petty-cash" className="p-2 text-ink-400 hover:text-ink-700 rounded-item hover:bg-ink-100 transition-colors mt-0.5">
+        <Link href="/petty-cash" className="p-2 rounded-item text-white/70 hover:text-white hover:bg-white/10 transition-colors mt-0.5">
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">{fund.name}</h1>
+          <p className="text-xs font-semibold uppercase tracking-[.16em] leading-snug tor-on-gradient-soft">
+            {fund.name}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+            <h1 className="font-display font-extrabold text-2xl leading-tight tracking-tight text-balance max-w-[24ch] tor-on-gradient">
+              {employee_name}
+            </h1>
             <InsigniaEstado tipo="fondo" estado={fund.status} />
           </div>
-          <p className="text-xs tor-on-gradient-soft mt-1">
-            Empleado: <span className="font-medium text-ink-700">{employee_name}</span>
-            {' · '}EFF: <span className="font-medium text-ink-700">{manager_name}</span>
-            {' · '}{formatPeriod(fund.period_start, fund.period_end)}
+          {/* El período y el encargado ceden por PRIORIDAD, no por tamaño: van
+              en una línea liviana debajo, no apretados en el antetítulo. En
+              versalitas con tracking, un rango de fechas y un nombre completo
+              ocupaban tres renglones y pesaban más que el título. */}
+          <p className="text-xs mt-1 tor-on-gradient-soft">
+            {formatPeriod(fund.period_start, fund.period_end)} · EFF {manager_name}
           </p>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Monto aprobado',  value: fund.amount_approved ?? fund.amount_requested, sub: fund.amount_approved == null ? 'Pendiente de aprobación' : null },
-          { label: 'Total gastado',   value: balance.spent,  sub: `${items.filter(i => i.status !== 'rejected').length} gasto${items.length !== 1 ? 's' : ''}` },
-          { label: balance.difference >= 0 ? 'Pendiente de devolver' : 'A reembolsar a empresa',
-            value: Math.abs(balance.difference),
-            sub: balance.isBalanced ? 'Exacto' : null,
-            highlight: Math.abs(balance.difference) > 0,
-          },
-          { label: 'Transferencias',  value: transfers.reduce((s, t) => s + t.amount, 0), sub: `${transfers.length} registro${transfers.length !== 1 ? 's' : ''}` },
-        ].map((k, i) => (
-          <div key={i} className={`hoja p-4 ${k.highlight ? 'border-t-2 border-t-warning-400' : ''}`}>
-            <p className="text-xs text-ink-500 mb-1">{k.label}</p>
-            <p className="font-mono-amount font-bold text-ink-900">{fmtCLP(k.value)}</p>
-            {k.sub && <p className="text-xs text-ink-400 mt-0.5">{k.sub}</p>}
-          </div>
-        ))}
-      </div>
+      <div className="grid gap-5 items-start lg:grid-cols-[1.25fr_.95fr]">
+      <div className="space-y-5 min-w-0">
 
-      {/* Progreso del fondo */}
-      {fund.status !== 'rejected' && (
-        <div className="hoja px-5 py-4">
-          <p className="section-title text-ink-500 mb-4">Progreso</p>
-          <VerticalTimeline steps={FUND_STEPS} currentStatus={fund.status} />
-        </div>
-      )}
+      {/* La tarjeta héroe — sección 7. Reemplaza a las cuatro tarjetas KPI: las
+          mismas cifras, pero diciendo cuál importa en este tramo del fondo. */}
+      <TarjetaFondo
+        status={fund.status}
+        montoSolicitado={fund.amount_requested}
+        montoAprobado={fund.amount_approved}
+        rendido={balance.spent}
+        desde={recorrido.find(p => p.key === 'funds_sent')?.fecha ?? null}
+        cerradoEl={fund.settled_at}
+        motivoRechazo={audits.find(a => a.action === 'rejected')?.notes ?? null}
+      />
 
       {fund.description && (
         <div className="bg-ink-50 rounded-card px-4 py-3 text-sm text-ink-600 border border-ink-100">
           {fund.description}
         </div>
       )}
-
-      {/* Adjuntos del fondo (correos de aprobación, respaldos) */}
-      <ApprovalAttachments
-        attachments={approvalAtts}
-        target={{ fundId: id }}
-        onRefresh={loadApprovalAtts}
-      />
 
       {error && (
         <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item border border-danger-100">{error}</p>
@@ -391,18 +391,24 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                         onDone={() => { setEditingItemId(null); load() }}
                       />
                     ) : (
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-ink-800 truncate">{item.description}</p>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cls}`}>
-                              {item.status === 'pending' ? 'Pendiente' : item.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                          {/* El comercio trunca en UNA línea y nunca envuelve: si
+                              envolviera, cada fila mediría distinto y la lista
+                              dejaría de escanearse. El nombre completo vive en el
+                              detalle. (Regla 2 del piloto.) */}
+                          <p className="text-sm font-semibold text-ink-800 truncate">{item.description}</p>
+                          {/* Regla 3 — el subtítulo cede por PRIORIDAD, no por
+                              tamaño: el comercio trunca, el tipo de documento
+                              desaparece en pantalla angosta (ya está en el
+                              detalle) y la fecha nunca se encoge. */}
+                          <p className="flex gap-1.5 text-xs text-ink-400 mt-0.5 min-w-0">
+                            {item.merchant && <span className="truncate">{item.merchant}</span>}
+                            {item.doc_type && <span className="hidden sm:inline shrink-0">· {item.doc_type}</span>}
+                            <span className="shrink-0">
+                              {item.merchant || item.doc_type ? '· ' : ''}
+                              {new Date(item.date + 'T00:00:00').toLocaleDateString('es-CL')}
                             </span>
-                          </div>
-                          <p className="text-xs text-ink-400 mt-0.5">
-                            {new Date(item.date + 'T00:00:00').toLocaleDateString('es-CL')}
-                            {item.merchant && ` · ${item.merchant}`}
-                            {item.doc_type && ` · ${item.doc_type}`}
                           </p>
                           {item.rejection_reason && (
                             <p className="text-xs text-danger-600 mt-1 bg-danger-50 px-2 py-1 rounded-item">Rechazo: {item.rejection_reason}</p>
@@ -438,6 +444,11 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                             />
                           )}
                         </div>
+                        {/* Solo se marca la EXCEPCIÓN. Mientras el fondo opera
+                            todos los ítems están pendientes: cinco insignias
+                            idénticas no informan nada y le roban el ancho al
+                            monto, que es el dato que el aprobador compara. */}
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="font-mono-amount text-sm font-bold text-ink-800">{fmtCLP(item.amount_clp)}</span>
                           {canEdit && (
@@ -462,6 +473,12 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                               <Trash2 size={13} />
                             </button>
                           )}
+                        </div>
+                        {item.status !== 'pending' && (
+                          <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${cls}`}>
+                            {item.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                          </span>
+                        )}
                         </div>
                       </div>
                     )}
@@ -609,10 +626,40 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         <FundDefontanaPanel fundId={id} onChanged={load} />
       )}
 
-      {/* Timeline de auditoría */}
-      <div className="hoja p-5">
-        <h2 className="text-sm font-semibold text-ink-800 mb-4">Historial del fondo</h2>
-        <FundTimeline entries={audits} />
+      </div>
+
+      {/* ── COLUMNA DERECHA · el registro ───────────────────────────────── */}
+      <div className="space-y-5 min-w-0">
+
+        {/* El recorrido — reemplaza al panel «Progreso», que tenía los pasos sin
+            fechas. Ahora los pasos traen la fecha real del registro de auditoría
+            y los que faltan quedan a la vista. */}
+        <div className="tor-glass rounded-card px-5 py-[18px]">
+          <p className="text-xs font-semibold uppercase tracking-[.16em] text-white/75 mb-3.5">
+            Recorrido del fondo
+          </p>
+          <RecorridoFondo pasos={recorrido} />
+        </div>
+
+        {/* Adjuntos del fondo (correos de aprobación, respaldos).
+            Va envuelto en hoja: el componente no trae superficie propia y venía
+            apoyado directo sobre el degradado, con el texto de ayuda ilegible.
+            Es un formulario — se llena, así que es hoja, no vidrio. */}
+        <div className="hoja p-4">
+          <ApprovalAttachments
+            attachments={approvalAtts}
+            target={{ fundId: id }}
+            onRefresh={loadApprovalAtts}
+          />
+        </div>
+
+        {/* El historial completo: acá siguen el actor, las notas y los montos de
+            cada movimiento. El recorrido de arriba orienta; esto es el registro. */}
+        <div className="hoja p-5">
+          <h2 className="text-sm font-semibold text-ink-800 mb-4">Historial del fondo</h2>
+          <FundTimeline entries={audits} />
+        </div>
+      </div>
       </div>
     </div>
   )
