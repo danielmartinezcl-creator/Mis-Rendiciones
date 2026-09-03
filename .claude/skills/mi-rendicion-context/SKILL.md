@@ -64,12 +64,22 @@ description: >
 - **Admin client**: `src/lib/supabase/admin.ts` → `createAdminClient()` con `SUPABASE_SERVICE_ROLE_KEY` — usar solo en Server Actions para operaciones que requieren bypass de RLS (crear usuarios, operaciones cross-org)
 - **Variables de entorno requeridas**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (sin NEXT_PUBLIC — nunca exponer al browser)
 
-### Tipografía (reforma visual 2026-06-04)
+### Tipografía (rediseño Tornasol, 2026-09-02)
 - **Display / títulos:** `Bricolage Grotesque` — variable `--font-bricolage`, clases `font-display` / `font-bricolage`
 - **UI / body / labels:** `Hanken Grotesk` — variable `--font-hanken`, clase `font-hanken` (default del `<body>`)
-- **Montos y cifras:** `Geist Mono` (paquete npm `geist`) — variable `--font-geist-mono`, clase `font-mono-amount`
+- **Montos y cifras:** `Manrope` — token `--font-amount`, clase `font-mono-amount`
 - **Nunca** usar JetBrains Mono ni fuentes con cero marcado con barra (confunde a adultos mayores)
-- Compatibilidad: `.font-jakarta` → alias de Bricolage, `.font-manrope` → alias de Geist Mono (no romper código viejo)
+- **Las tres son LOCALES**: `.woff2` variables en `src/app/fonts/`, con `next/font/local`.
+  No dependen de Google en tiempo de build — era la causa de deploys caídos
+- Compatibilidad: `.font-jakarta` → alias de Bricolage, `.font-manrope` → alias de Manrope
+
+> **Geist Mono ya no existe acá.** Manrope lo reemplazó en montos y el paquete npm
+> `geist` se desinstaló. Si ves `--font-geist-mono` en algún lado, es residuo.
+
+**Trampa de `next/font`:** nombrar la variable de la fuente igual que el token de
+`@theme` deja `--font-amount: var(--font-amount)`, autorreferente e inválido, y la
+fuente cae al fallback del sistema **en silencio**. `next/font` expone
+`--font-manrope`; `@theme` define `--font-amount` en base a él.
 
 ### Lógica sensible
 - OCR, emails y tipo de cambio histórico van en **Server Actions** — nunca en Client Components
@@ -193,12 +203,15 @@ src/
 │   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones
 ├── components/
 │   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
-│   ├── ui/                 ← Button, Card, Badge, CurrencyAmount, RevertDefontanaDialog
+│   ├── ui/                 ← InsigniaEstado, Button, CurrencyAmount, MedidorArco,
+│   │                         VerticalTimeline, CompactStepper, AdminKpiHero, Badge, Card
 │   ├── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig, DefontanaTypePanel
-│   ├── petty-cash/         ← FundStatusBadge, FundTimeline, AddFundItemForm, FundDefontanaPanel
+│   ├── petty-cash/         ← TarjetaFondo, RecorridoFondo, FundTimeline, AddFundItemForm,
+│   │                         EditFundItemForm, FundDefontanaPanel
 │   └── expenses/           ← ExpenseItemForm (OCR, km, viáticos, políticas), PhotoUpload, ExportButton
 ├── lib/
-│   ├── constants.ts        ← CURRENCIES, DOC_TYPES, STATUS_COLORS, STATUS_DOT
+│   ├── constants.ts        ← CURRENCIES, DOC_TYPES, FAMILIA_REPORTE, FAMILIA_FONDO,
+│   │                         FUND_STEPS, FUND_AUDIT_LABELS
 │   ├── utils.ts            ← formatCLP, formatAmount, formatDate, cn
 │   ├── auth.ts             ← helpers de autenticación
 │   ├── approval-helpers.ts    ← computeReportStatus, computeApprovedAmount
@@ -253,11 +266,44 @@ references/
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
 - 32+ tests Vitest pasando · build TypeScript limpio
 
-### ✅ Reforma visual — "Mi rendición" (2026-06-04)
-- Nombre: **"Mi rendición"**; color brand: teal `#0D9488`; paleta: ink (`#080C16`…`#F6F8FB`)
+### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
+
+**La regla que sostiene todo: el degradado es el contenedor, nunca la superficie de
+trabajo.** Hay dos materiales y solo dos, los dos como clase CSS en `@layer components`
+(así cualquier utilidad del markup les gana):
+
+| | Clase | Para qué |
+|---|---|---|
+| **Vidrio** | `.tor-glass` (+ `-rail`, `-bar`) | Resúmenes, KPIs, encabezados. Cosas que se **miran** |
+| **Hoja** | `.hoja` | Tablas, listas, formularios. Cosas que se **leen o deciden** |
+
+Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
+**Un dato apoyado directo sobre el degradado está mal.**
+
+- **No hay modo oscuro.** Se eliminó: Tornasol ya es el chasis oscuro
+- **Los materiales son clases, no componentes de React.** Un componente sería un wrapper
+  con passthrough de `className` — y encima habría que sumarlo al `:not()` del selector
+  de legibilidad de `globals.css`. Solo es componente lo que tiene lógica o estructura
+- Otras clases de material: `.campo` / `.campo-compacto`, `.btn-primario`
+- **Toda la paleta vive en `globals.css` + `src/lib/design-tokens.ts`** (este segundo,
+  para SVG, emails y metadata de la PWA, que no leen variables CSS). Los dos se mueven
+  en paralelo. Escribir un hexadecimal en un componente rompe el sistema
+- `globals.css` está partido en **ZONA 1 identidad** (brand, accent, sidebar, degradados
+  de CTA — lo único que cambia si otro cliente trae su marca) y **ZONA 2 semánticos**
+- Color de acción: `brand-600` = `#0D7F81`; `accent` repite brand; el lila es `flare`
 - `rounded-item` (14px) · `rounded-card` (18px) — usar siempre, no valores hardcodeados
-- Íconos: Lucide React (no emoji en UI); fuentes: Bricolage + Hanken + Geist Mono
-- `STATUS_DOT` export en `constants.ts`; `"Mi rendición — Design System"` en `tsconfig.json` `exclude`
+- Íconos: Lucide React, nunca emoji en UI
+- Cuatro familias de estado en `constants.ts` (`FAMILIA_REPORTE` / `FAMILIA_FONDO`):
+  `neutro` · `en-curso` · `atencion` · `resuelto`. **Hay un test que impide una quinta**
+- `"Mi rendición — Design System"` en `tsconfig.json` `exclude`
+
+**Antes de tocar estilos, leer `docs/Rediseño/tornasol-spec.md` — empezando por su fe de
+erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
+
+**Hay una línea base visual de 50 capturas** (`e2e/`, `npm run baseline:verificar`). Un
+cambio de estilo que la deje en verde no tocó nada visible; si la ensucia, el reporte
+dice dónde. Leer `e2e/README.md` antes de confiar en un resultado: solo captura el
+estado de reposo, así que errores, hover y modales no se ven.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -577,3 +623,7 @@ la liquidación (`FundDefontanaPanel`).
 | Sumar adelantos y gastos en un KPI de "total" | Es la misma plata contada dos veces | `byMovement` — el gasto es `expense`, el resto es flujo de fondos |
 | Buscar los adelantos de un fondo vivo en `petty_cash_items` | Ahí solo hay gastos; adelantos y reembolsos son `petty_cash_transfers` | Mapear por sentido del dinero: `disbursement`/`refund_to_employee` → adelanto, `reimbursement_from_employee` → devolución |
 | Heredoc largo con TSX/TS en el Bash tool | El comando falla con "unexpected EOF while looking for matching `''" | Usar el tool Write (o Write a un temporal + `cat >>`) para bloques grandes |
+| `stroke="var(--color-brand-300)"` en un SVG sale sin color | Tailwind v4 solo emite las variables de `@theme` cuya **utilidad** detecta en uso; un `var()` inline no cuenta. Falla en silencio | Usar la clase (`className="stroke-brand-300"`), que sí es una utilidad. Mismo motivo por el que los degradados de CTA viven en un `:root` plano |
+| Texto tenue dentro de un contenedor con `opacity` | El contraste se **multiplica**: `text-white/70` dentro de una tarjeta al 60% da 42% efectivo, ilegible | Al bajar la opacidad de un contenedor, subir la de su texto para compensar |
+| `strokeLinecap="round"` con un arco de largo cero | Igual pinta el redondeo de las puntas: un punto que se lee como un 1% inexistente | No renderizar el trazo cuando el valor es 0 |
+| Crear un componente de React para una superficie visual nueva | El selector de legibilidad de `globals.css` excluye superficies **por nombre de clase**; una clase nueva no excluida vuelve blancos sobre blanco los encabezados de adentro | Preferir la clase de material existente (`.hoja`, `.tor-glass`). Si de verdad hace falta una clase nueva, agregarla al `:not()` |

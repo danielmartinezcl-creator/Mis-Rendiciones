@@ -1,7 +1,43 @@
 # Sistema de diseño "Tornasol" — especificación
 
 Documento de referencia para implementar la identidad visual de **Mi Rendición**.
-Va en `docs/rediseno/`. Es la fuente de verdad de la etapa 2 del rediseño.
+
+---
+
+## ⛔ FE DE ERRATAS — leer antes que el resto
+
+**Esta spec está implementada, pero no al pie de la letra.** Ocho puntos se
+decidieron distinto *después* de escribirla, y varios de ellos siguen escritos acá
+como si fueran la guía a seguir. Son decisiones cerradas: no se reabren.
+
+| Dice la spec | Se hizo | Por qué |
+|---|---|---|
+| §1 y §5 · vidrio **blanco** translúcido | **Oscuro**: `rgba(3,25,28,.42)`, con el destello en el borde superior | Medido: blanco sobre el tramo teal tumba el contraste de 4.77:1 a 3.72:1, bajo el mínimo AA. Oscuro lo sube a 8.12:1 |
+| §3 · «toda la interfaz» en Bricolage | Bricolage en **títulos**, Hanken en **cuerpo**, Manrope en montos | El carácter de Bricolage es personalidad a 26px y textura a 14px repetida cuarenta veces |
+| §3 · antetítulo 9,5px, cuerpo 12–13px | **Piso de 11px** | Público con adultos mayores. Costo medido en teléfono de 390px: una fila menos por pantalla y ~7 caracteres de razón social. En escritorio, cero |
+| §9 · `success` = teal = la marca | `success` **no** comparte color con `brand` | La marca es reemplazable: el día que un cliente traiga naranja, «aprobado» se volvería naranja |
+| §9 · `accent` = lila | `accent` **es el teal de marca**; el lila es `flare` | El rol de acento en esta app siempre fue el teal; el lila es el destello, un segundo nivel |
+| §9 · `brand-600` = `#12807C` | `#0D7F81` | Reanclaje de la rampa entera en oklch, para que `ink` conserve su curva de luminosidad |
+| §9 · «toda la paleta en un solo archivo» | **Dos**: `globals.css` y `src/lib/design-tokens.ts` | Gráficos SVG, plantillas de email y la metadata de la PWA no pueden leer variables CSS |
+| — | **El modo oscuro se eliminó** | Tornasol ya es el chasis oscuro. Mantener dos temas obligaba a decidir qué le pasa a la hoja blanca, que es la pieza que sostiene el sistema |
+
+**Dónde está lo que esta spec no puede decir:**
+
+- **Qué se construyó y por qué** → los mensajes de commit, que son largos a propósito:
+  `git log --oneline 7235fb1..HEAD`.
+- **Los materiales, con su razonamiento** → los comentarios de `src/app/globals.css`
+  (`.hoja`, `.campo`, `.btn-primario`, `.tor-glass` y el selector de legibilidad).
+- **Qué verifica y qué NO verifica la línea base visual** → `e2e/README.md`, sobre todo
+  la sección del punto ciego.
+- **El diseño aprobado de la pantalla piloto** →
+  https://claude.ai/code/artifact/4e0b71b1-72ce-4b3e-8091-fc21f5290dee
+
+> **Al tocar el selector de legibilidad, ojo:** `globals.css` aclara los encabezados que
+> NO están dentro de una superficie, y excluye las superficies **por nombre de clase**
+> (`:not(.hoja *):not(.bg-white *):not(.tor-glass *)`). Si creás una superficie nueva,
+> agregala a esa lista o los encabezados de adentro se vuelven blancos sobre blanco.
+> Ya pasó una vez. Es la razón principal para preferir una clase de material antes que
+> un componente de React con clase propia.
 
 ---
 
