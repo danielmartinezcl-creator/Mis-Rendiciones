@@ -156,7 +156,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
+        className="btn-primario px-4 py-1.5 text-xs"
       >
         {saving ? 'Guardando...' : 'Guardar aprobadores'}
       </button>

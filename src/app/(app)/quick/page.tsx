@@ -119,7 +119,7 @@ export default function QuickPage() {
           </button>
           <button
             onClick={() => router.push('/petty-cash/' + fundId)}
-            className="px-4 py-3 bg-brand-600 text-white rounded-item card-label font-semibold hover:bg-brand-700"
+            className="btn-primario px-4 py-3 card-label"
           >
             Ver fondo →
           </button>
@@ -197,7 +197,7 @@ export default function QuickPage() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={ocrRunning}
-            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-card font-bold text-[19px] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+            className="btn-primario w-full py-3.5 text-[19px] flex items-center justify-center gap-2"
           >
             <Camera size={24} />
             {ocrRunning ? 'Analizando...' : 'Abrir cámara'}
@@ -271,7 +271,7 @@ export default function QuickPage() {
               setError(null)
               setStep('fund')
             }}
-            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-card font-bold text-base flex items-center justify-center gap-2 transition-colors"
+            className="btn-primario w-full py-3.5 text-base flex items-center justify-center gap-2"
           >
             Siguiente <ArrowRight size={18} />
           </button>

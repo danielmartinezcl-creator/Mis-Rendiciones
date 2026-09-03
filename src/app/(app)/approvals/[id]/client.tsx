@@ -320,7 +320,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproving}
-                className="flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item card-meta font-semibold transition-colors"
+                className="btn-primario flex items-center gap-1.5 px-3 py-2 card-meta"
               >
                 <CheckCheck size={16} />
                 {bulkApproving
@@ -531,7 +531,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
           <button
             onClick={handleSubmit}
             disabled={submitting || !allDecided()}
-            className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-card transition-colors card-label"
+            className="btn-primario w-full py-3 card-label"
           >
             {submitting ? 'Enviando decisión...' : 'Enviar decisión'}
           </button>

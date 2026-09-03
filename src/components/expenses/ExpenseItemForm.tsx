@@ -716,7 +716,7 @@ export function ExpenseItemForm({
         <button
           type="submit"
           disabled={isSaveDisabled}
-          className="flex-1 py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item card-label font-semibold disabled:opacity-50 transition-colors"
+          className="btn-primario flex-1 py-3 px-4 card-label"
         >
           {saving ? 'Guardando...' : 'Agregar ítem'}
         </button>

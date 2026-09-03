@@ -133,7 +133,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
         <button
           type="submit"
           disabled={isPending || !content.trim()}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors active:scale-[.97]"
+          className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm"
         >
           <Send size={14} />
           {isPending ? 'Enviando…' : 'Enviar sugerencia'}

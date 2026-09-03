@@ -436,7 +436,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors card-label"
+              className="btn-primario w-full py-3 card-label"
             >
               {submitting
                 ? 'Enviando...'

@@ -522,7 +522,7 @@ export function InformesClient({ filterOptions }: Props) {
           <button
             onClick={handleSearch}
             disabled={searching || sourceTypes.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors"
+            className="btn-primario flex items-center gap-2 px-5 py-2.5 text-sm"
           >
             <Search size={16} />
             {searching ? 'Buscando…' : 'Generar informe'}

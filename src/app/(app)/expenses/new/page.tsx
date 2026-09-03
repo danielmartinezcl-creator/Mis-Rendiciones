@@ -176,7 +176,7 @@ export default function NewExpensePage() {
           <button
             type="submit"
             disabled={loading || !title.trim()}
-            className="flex-1 py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item card-label font-semibold disabled:opacity-50 transition-colors"
+            className="btn-primario flex-1 py-3 px-4 card-label"
           >
             {loading ? 'Creando...' : 'Crear rendición →'}
           </button>

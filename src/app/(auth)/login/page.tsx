@@ -102,7 +102,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-item transition-all duration-[180ms] active:scale-[.98]"
+          className="btn-primario w-full py-2.5 px-4"
         >
           {loading ? 'Ingresando…' : 'Ingresar'}
         </button>
@@ -190,7 +190,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
         <button
           type="submit"
           disabled={loading || !email}
-          className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-item transition-all duration-[180ms] active:scale-[.98]"
+          className="btn-primario w-full py-2.5 px-4"
         >
           {loading ? 'Enviando…' : 'Enviar link de recuperación'}
         </button>

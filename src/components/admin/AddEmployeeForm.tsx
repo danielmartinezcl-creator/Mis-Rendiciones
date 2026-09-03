@@ -138,7 +138,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-card transition-colors"
+          className="btn-primario flex-1 py-2.5 text-sm"
         >
           {saving ? 'Creando...' : 'Agregar empleado (sin email)'}
         </button>

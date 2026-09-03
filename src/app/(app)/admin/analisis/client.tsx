@@ -165,7 +165,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
                             <button
                               onClick={() => handleAssign(item.id, selected[item.id] ?? '')}
                               disabled={!selected[item.id] || pending}
-                              className="px-2 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white rounded text-xs font-semibold transition-colors whitespace-nowrap"
+                              className="btn-primario px-2 py-1 text-xs whitespace-nowrap"
                             >
                               Asignar
                             </button>

@@ -306,7 +306,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           <button
             onClick={onDone}
             disabled={!canClose}
-            className="ml-auto text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-ink-300 px-5 py-2 rounded-item transition-colors"
+            className="btn-primario ml-auto text-sm disabled:bg-ink-300 px-5 py-2"
           >
             {canClose ? 'Cerrar' : `Cerrar (${closeCountdown}s)`}
           </button>
@@ -434,7 +434,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         <button
           onClick={handleImport}
           disabled={isImporting || preview.length === 0}
-          className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-card transition-colors flex items-center justify-center gap-2"
+          className="btn-primario w-full py-3 text-sm flex items-center justify-center gap-2"
         >
           {isImporting ? (
             <><Loader2 size={16} className="animate-spin" /> Importando {preview.length} empleado{preview.length !== 1 ? 's' : ''}…</>

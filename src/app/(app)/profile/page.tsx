@@ -238,7 +238,7 @@ export default function ProfilePage() {
         <button
           type="submit"
           disabled={saving}
-          className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white card-label font-semibold rounded-card transition-colors"
+          className="btn-primario w-full py-3 card-label"
         >
           {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>

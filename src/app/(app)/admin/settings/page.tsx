@@ -248,7 +248,7 @@ function CategoriesTab() {
         </div>
 
         <button type="submit" disabled={catSaving || !catName.trim()}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-all duration-[180ms] active:scale-[.97]">
+          className="btn-primario px-4 py-2 text-sm">
           {catSaving ? 'Guardando…' : '+ Agregar'}
         </button>
       </form>
@@ -316,7 +316,7 @@ function CategoriesTab() {
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" disabled={editSaving || !editCat.name.trim()}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                    className="btn-primario inline-flex items-center gap-1.5 px-3 py-2 text-xs">
                     <Check size={12} />{editSaving ? 'Guardando…' : 'Guardar cambios'}
                   </button>
                   <button type="button" onClick={() => setEditCat(null)}
@@ -544,7 +544,7 @@ function EmployeesTab() {
                     </select>
                     <div className="flex gap-2">
                       <button onClick={handleSaveEdit} disabled={editSaving}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                        className="btn-primario inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
                         <Check size={11} />{editSaving ? 'Guardando…' : 'Guardar'}
                       </button>
                       <button onClick={() => setEditFull(null)}
@@ -623,7 +623,7 @@ function EmployeesTab() {
                       />
                       <div className="flex gap-1 shrink-0">
                         <button onClick={() => handleSaveEmail(emp.id)} disabled={emailSaving}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                          className="btn-primario inline-flex items-center gap-1 px-2.5 py-1 text-xs">
                           <Check size={11} />{emailSaving ? '…' : 'Guardar'}
                         </button>
                         <button onClick={() => { setEmailEdit(null); setEmailError(null) }}
@@ -954,7 +954,7 @@ function DefontanaTab() {
           {cfgSaved && <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">✓ Configuración guardada</div>}
 
           <button type="submit" disabled={cfgSaving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
+            className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm">
             <Check size={14} />
             {cfgSaving ? 'Guardando…' : 'Guardar configuración'}
           </button>
@@ -1008,7 +1008,7 @@ function DefontanaTab() {
                 className="campo w-full px-2.5 font-mono-amount" />
             </div>
             <button type="submit" disabled={suppSaving || !newMerchant.trim() || !newCode.trim()}
-              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors shrink-0">
+              className="btn-primario px-4 py-2 text-sm shrink-0">
               {suppSaving ? '…' : '+ Agregar'}
             </button>
           </form>
@@ -1180,7 +1180,7 @@ function LimitsTab() {
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+          className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm"
         >
           <Check size={14} />
           {saving ? 'Guardando…' : 'Guardar límites'}
@@ -1364,7 +1364,7 @@ function PoliciesTab() {
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold transition-colors"
+            className="btn-primario shrink-0 px-4 py-2 text-sm"
           >
             Nueva política
           </button>
@@ -1456,7 +1456,7 @@ function PoliciesTab() {
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors">
+              className="btn-primario flex-1 py-2 text-sm">
               {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear política'}
             </button>
           </div>
@@ -1606,7 +1606,7 @@ function ViaticosTab() {
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-item transition-all active:scale-[.97]"
+            className="btn-primario shrink-0 px-4 py-2 text-sm"
           >
             + Nueva política
           </button>
@@ -1704,7 +1704,7 @@ function ViaticosTab() {
               Cancelar
             </button>
             <button type="submit" disabled={saving || !form.name.trim() || form.max_amount <= 0}
-              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors">
+              className="btn-primario flex-1 py-2 text-sm">
               {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear política'}
             </button>
           </div>
@@ -1862,7 +1862,7 @@ function WebhooksTab() {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold transition-colors"
+          className="btn-primario px-4 py-2 text-sm"
         >
           + Agregar webhook
         </button>
@@ -1933,7 +1933,7 @@ function WebhooksTab() {
             <button
               type="submit"
               disabled={saving || !url.trim() || !secret.trim() || events.length === 0}
-              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors"
+              className="btn-primario flex-1 py-2 text-sm"
             >
               {saving ? 'Guardando...' : 'Crear webhook'}
             </button>

@@ -197,7 +197,7 @@ export function EditFundItemForm({ item, categories, onDone }: Props) {
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white card-label font-bold rounded-item transition-colors"
+          className="btn-primario flex-1 py-3 card-label"
         >
           {pending ? 'Guardando...' : 'Guardar cambios'}
         </button>

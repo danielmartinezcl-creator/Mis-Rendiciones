@@ -1197,7 +1197,7 @@ export function AdminReportsClient({ initialReports }: Props) {
               <button
                 onClick={handleBulkCC}
                 disabled={bulkCCSaving}
-                className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold disabled:opacity-50 transition-colors"
+                className="btn-primario flex-1 py-2 text-sm"
               >
                 {bulkCCSaving ? 'Guardando...' : 'Aplicar a todos los ítems'}
               </button>

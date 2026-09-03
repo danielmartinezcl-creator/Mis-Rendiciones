@@ -508,6 +508,29 @@ body::after {
     color: var(--color-ink-400);
     cursor: not-allowed;
   }
+
+  /* ── BOTÓN PRIMARIO ─────────────────────────────────────────────────────
+     31 apariciones con la firma completa. El núcleo era idéntico en las 31;
+     lo que variaba sin criterio era el PESO —17 en `font-bold` contra 14 en
+     `font-semibold`— y el tamaño. Se unifica en bold: es la acción principal
+     de su pantalla y tiene que leerse como tal.
+
+     NO fija `display` a propósito. Ocho de los 31 son `flex-1` y otros
+     `w-full`: imponerles `inline-flex` les cambiaría el layout. El botón
+     aporta color, radio, peso y estados; la disposición sigue en el markup.
+
+     El `active:scale` viene del design system del proyecto —la respuesta al
+     toque— y es invisible para la línea base, que captura el estado en reposo. */
+  .btn-primario {
+    border-radius: var(--radius-item);
+    background-color: var(--color-brand-600);
+    color: #fff;
+    font-weight: 700;
+    transition: background-color .15s ease, transform .18s ease;
+  }
+  .btn-primario:hover:not(:disabled)  { background-color: var(--color-brand-700); }
+  .btn-primario:active:not(:disabled) { transform: scale(.98); }
+  .btn-primario:disabled              { opacity: .5; cursor: not-allowed; }
 }
 
 /* ── VIDRIO ───────────────────────────────────────────────────────────────
