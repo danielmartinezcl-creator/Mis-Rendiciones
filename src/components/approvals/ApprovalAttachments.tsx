@@ -116,7 +116,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Descripción del adjunto (ej: Email de autorización)"
-          className="flex-1 border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="campo flex-1"
         />
         <label className={[
           'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-item cursor-pointer transition-colors active:scale-[.97]',

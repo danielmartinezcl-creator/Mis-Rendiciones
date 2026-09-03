@@ -129,7 +129,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
     }
   }
 
-  const inputCls = 'px-2 py-1 text-xs border border-ink-200 rounded-item focus:outline-none focus:ring-1 focus:ring-brand-600'
+  const inputCls = 'campo-compacto'
 
   return (
     <div className="bg-ink-50 border-t border-ink-100 px-4 py-3 space-y-2">
@@ -806,7 +806,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                     value={defComprobante}
                                     onChange={e => setDefComprobante(e.target.value)}
                                     disabled={defExporting || defConfirming}
-                                    className="flex-1 border border-ink-200 rounded-item px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent-500 disabled:opacity-50"
+                                    className="campo flex-1 text-xs focus:ring-1 disabled:opacity-50"
                                   />
                                 </div>
                                 <button

@@ -513,7 +513,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <input
               type="text" value={fundNumber} onChange={e => setFundNumber(e.target.value)}
               placeholder="ej: 173"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -522,7 +522,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <input
               type="text" value={title} onChange={e => setTitle(e.target.value)}
               placeholder="ej: Caja Chica N°173 — OFICINA DE INGENIERÍA"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -530,7 +530,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <label className="block text-xs font-medium text-ink-600 mb-1">Responsable</label>
             <select
               value={responsibleId} onChange={e => setResponsibleId(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             >
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.full_name}</option>
@@ -542,7 +542,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <label className="block text-xs font-medium text-ink-600 mb-1">Fecha de rendición</label>
             <input
               type="date" value={approvedDate} onChange={e => setApprovedDate(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
         </div>
@@ -763,7 +763,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
         <select
           value={row.employeeId ?? (row.employeeName ? '__ext__' : '')}
           onChange={e => handleEmployeeSelect(e.target.value)}
-          className="w-36 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="campo-compacto w-36"
         >
           <option value="">— Seleccionar —</option>
           {employees.map(emp => (
@@ -787,7 +787,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
             row.itemType === 'return'  ? 'ej: Devolución saldo' :
             'Descripción'
           }
-          className="w-44 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="campo-compacto w-44"
         />
       </td>
 
@@ -797,7 +797,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           type="date"
           value={row.date}
           onChange={e => onChange({ date: e.target.value })}
-          className="border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="campo-compacto"
         />
       </td>
 
@@ -842,7 +842,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           <select
             value={row.costCenterId}
             onChange={e => onChange({ costCenterId: e.target.value })}
-            className="w-36 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+            className="campo-compacto w-36"
           >
             {costCenters.filter(c => c.imputable).map(c => (
               <option key={c.id} value={c.id}>{c.id} — {c.descripcion}</option>
@@ -860,7 +860,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
             <select
               value={row.docType}
               onChange={e => onChange({ docType: e.target.value as GridRow['docType'] })}
-              className="w-28 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+              className="campo-compacto w-28"
             >
               {DOC_TYPES.map(d => (
                 <option key={d.value} value={d.value}>{d.label}</option>
@@ -873,7 +873,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
                   value={row.docNumber ?? ''}
                   onChange={e => onChange({ docNumber: e.target.value || null })}
                   placeholder="Nro. doc"
-                  className="w-28 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  className="campo-compacto w-28"
                 />
                 <input
                   type="text"

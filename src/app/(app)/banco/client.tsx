@@ -227,7 +227,7 @@ export function BancoClient({ queue }: Props) {
                       value={form.paymentReference}
                       onChange={e => setLoadForms(prev => ({ ...prev, [r.id]: { ...form, paymentReference: e.target.value } }))}
                       placeholder="N° transferencia, orden de pago…"
-                      className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
+                      className="campo w-full px-2.5 py-1.5 text-xs"
                     />
                   </div>
                   <div>
@@ -238,7 +238,7 @@ export function BancoClient({ queue }: Props) {
                       type="date"
                       value={form.transferredAt}
                       onChange={e => setLoadForms(prev => ({ ...prev, [r.id]: { ...form, transferredAt: e.target.value } }))}
-                      className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-accent-500"
+                      className="campo w-full px-2.5 py-1.5 text-xs"
                     />
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export function BancoClient({ queue }: Props) {
                     value={form.paymentReference}
                     onChange={e => setAuthForms(prev => ({ ...prev, [r.id]: { paymentReference: e.target.value } }))}
                     placeholder="N° de autorización, código de operación…"
-                    className="w-full max-w-sm px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-info-500"
+                    className="campo w-full max-w-sm px-2.5 py-1.5 text-xs focus:ring-info-500"
                   />
                 </div>
                 <button

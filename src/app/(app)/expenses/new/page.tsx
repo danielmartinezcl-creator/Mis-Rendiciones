@@ -142,7 +142,7 @@ export default function NewExpensePage() {
             // mayúscula. Ataca el problema en el origen, en vez de corregir
             // después con formatDisplayTitle.
             autoCapitalize="sentences"
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full py-2.5 text-[16px]"
           />
           <p className="card-meta text-ink-400 mt-1">
             Escribilo como una frase normal — evitá las mayúsculas completas
@@ -160,7 +160,7 @@ export default function NewExpensePage() {
             value={description}
             onChange={e => setDesc(e.target.value)}
             placeholder="Contexto adicional para quien aprueba..."
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+            className="campo w-full py-2.5 text-[16px] resize-none"
           />
         </div>
 

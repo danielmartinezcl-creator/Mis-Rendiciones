@@ -76,7 +76,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             onChange={e => setFullName(e.target.value)}
             required
             placeholder="Ej: María González"
-            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           />
         </div>
         <div>
@@ -87,7 +87,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             onChange={e => setEmail(e.target.value)}
             required
             placeholder="correo@empresa.cl"
-            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           />
         </div>
         <div>
@@ -95,7 +95,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           <select
             value={role}
             onChange={e => setRole(e.target.value as typeof role)}
-            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           >
             {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -107,7 +107,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
             value={department}
             onChange={e => setDepartment(e.target.value)}
             placeholder="Ej: Operaciones (opcional)"
-            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           />
         </div>
       </div>
@@ -118,7 +118,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         <select
           value={costCenterId}
           onChange={e => setCostCenterId(e.target.value)}
-          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="campo w-full"
         >
           <option value="">— Sin asignar —</option>
           {costCenters.map(cc => (

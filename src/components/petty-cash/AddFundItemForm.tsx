@@ -22,7 +22,7 @@ const EMPTY = {
 }
 
 // text-[16px]: por debajo de 16px Safari en iPhone hace zoom al enfocar el campo
-const inputCls = 'w-full px-3 py-2.5 text-[16px] border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600'
+const inputCls = 'campo w-full py-2.5 text-[16px]'
 
 export function AddFundItemForm({ fundId, categories, onDone }: Props) {
   const [form, setForm]           = useState(EMPTY)

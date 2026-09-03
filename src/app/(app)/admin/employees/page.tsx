@@ -469,7 +469,7 @@ export default function AdminEmployeesPage() {
                       value={emp.role}
                       disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { role: e.target.value as UserProfile['role'] })}
-                      className="text-xs border border-ink-200 rounded-item px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo text-xs px-2 py-1.5"
                     >
                       <option value="employee">Empleado</option>
                       <option value="approver">Aprobador</option>
@@ -638,7 +638,7 @@ export default function AdminEmployeesPage() {
                         type="text"
                         value={editForm.full_name}
                         onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                         placeholder="Apellido Nombre"
                       />
                     </div>
@@ -648,7 +648,7 @@ export default function AdminEmployeesPage() {
                         type="text"
                         value={editForm.rut}
                         onChange={e => setEditForm(f => ({ ...f, rut: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                         placeholder="12.345.678-9"
                       />
                     </div>
@@ -658,7 +658,7 @@ export default function AdminEmployeesPage() {
                         type="text"
                         value={editForm.department}
                         onChange={e => setEditForm(f => ({ ...f, department: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                         placeholder="Ej: Ingeniería, Gerencia..."
                       />
                     </div>
@@ -667,7 +667,7 @@ export default function AdminEmployeesPage() {
                       <select
                         value={editForm.cost_center_id}
                         onChange={e => setEditForm(f => ({ ...f, cost_center_id: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                       >
                         <option value="">— Sin asignar —</option>
                         {costCenters.map(cc => (
@@ -711,7 +711,7 @@ export default function AdminEmployeesPage() {
                           onChange={e => { setPwValue(e.target.value); setPwError(null) }}
                           placeholder="Nueva contraseña (mínimo 8 caracteres)"
                           autoComplete="new-password"
-                          className="w-full px-3 py-2 pr-9 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          className="campo w-full pr-9"
                         />
                         <button
                           type="button"
@@ -729,7 +729,7 @@ export default function AdminEmployeesPage() {
                         placeholder="Confirmar contraseña"
                         autoComplete="new-password"
                         onKeyDown={e => { if (e.key === 'Enter') handleSetPassword(emp.id) }}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                       />
                       {pwError && <p className="text-xs text-danger-600">{pwError}</p>}
                       <div className="flex gap-2">

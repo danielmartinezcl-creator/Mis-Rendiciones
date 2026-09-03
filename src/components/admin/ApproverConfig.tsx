@@ -69,7 +69,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
             setL1Id(e.target.value)
             if (!e.target.value) { setL2Id(''); setBackupId(''); setBackupFrom(''); setBackupUntil('') }
           }}
-          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="campo w-full"
         >
           <option value="">Sin aprobador asignado</option>
           {options.map(u => (
@@ -88,7 +88,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
           <select
             value={l2Id}
             onChange={e => setL2Id(e.target.value)}
-            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           >
             <option value="">Sin segundo nivel</option>
             {options.filter(u => u.id !== l1Id).map(u => (

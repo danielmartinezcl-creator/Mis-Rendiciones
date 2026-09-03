@@ -107,7 +107,7 @@ export default function SetPasswordPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Mínimo 8 caracteres"
-              className="w-full px-3 py-2.5 pr-10 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 pr-10"
             />
             <button
               type="button"
@@ -129,7 +129,7 @@ export default function SetPasswordPage() {
             value={confirm}
             onChange={e => setConfirm(e.target.value)}
             placeholder="Repetí la contraseña"
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full py-2.5"
           />
         </div>
 

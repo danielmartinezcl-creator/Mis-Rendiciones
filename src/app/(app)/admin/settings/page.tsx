@@ -212,7 +212,7 @@ function CategoriesTab() {
     } finally { setDeleteLoading(false) }
   }
 
-  const inputCls = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls = 'campo w-full py-2.5'
 
   if (loading) return <Spinner />
 
@@ -519,7 +519,7 @@ function EmployeesTab() {
                       <select
                         value={editFull.role}
                         onChange={e => setEditFull(f => f && ({ ...f, role: e.target.value as UserProfile['role'] }))}
-                        className="flex-1 border border-ink-200 rounded-item px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        className="campo flex-1 px-2.5 py-1.5 text-xs"
                       >
                         <option value="employee">Empleado</option>
                         <option value="approver">Aprobador</option>
@@ -528,14 +528,14 @@ function EmployeesTab() {
                       <input
                         value={editFull.dept}
                         onChange={e => setEditFull(f => f && ({ ...f, dept: e.target.value }))}
-                        className="flex-1 px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        className="campo flex-1 px-2.5 py-1.5 text-xs"
                         placeholder="Departamento"
                       />
                     </div>
                     <select
                       value={editFull.costCenterId}
                       onChange={e => setEditFull(f => f && ({ ...f, costCenterId: e.target.value }))}
-                      className="w-full border border-ink-200 rounded-item px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo w-full px-2.5 py-1.5 text-xs"
                     >
                       <option value="">— Sin centro de costo —</option>
                       {costCenters.map(cc => (
@@ -812,7 +812,7 @@ function DefontanaTab() {
     } finally { setSuppDeleting(null) }
   }
 
-  const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount'
+  const inputCls = 'campo w-full font-mono-amount'
 
   return (
     <section className="space-y-6">
@@ -861,7 +861,7 @@ function DefontanaTab() {
               <label className="block text-xs font-semibold text-ink-600 mb-1">Centro de costo por defecto</label>
               <p className="text-xs text-ink-400 mb-1.5">Fallback cuando el empleado o ítem no tienen centro asignado</p>
               <select value={costCenter} onChange={e => setCostCenter(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+                className="campo w-full">
                 <option value="">— Sin centro por defecto —</option>
                 {costCenters.map(cc => (
                   <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
@@ -999,13 +999,13 @@ function DefontanaTab() {
               <label className="block text-xs font-semibold text-ink-500 mb-1">Proveedor / Comercio</label>
               <input type="text" value={newMerchant} onChange={e => setNewMerchant(e.target.value)}
                 placeholder="COPEC" required
-                className="w-full border border-ink-200 rounded-item px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                className="campo w-full px-2.5" />
             </div>
             <div className="w-36">
               <label className="block text-xs font-semibold text-ink-500 mb-1">Cuenta Defontana</label>
               <input type="text" value={newCode} onChange={e => setNewCode(e.target.value)}
                 placeholder="4.5.1030.10.13" required
-                className="w-full border border-ink-200 rounded-item px-2.5 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                className="campo w-full px-2.5 font-mono-amount" />
             </div>
             <button type="submit" disabled={suppSaving || !newMerchant.trim() || !newCode.trim()}
               className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors shrink-0">
@@ -1047,7 +1047,7 @@ function DefontanaTab() {
                       onChange={e => setCatCodes(prev => ({ ...prev, [cat.id]: e.target.value }))}
                       onBlur={() => handleSaveCatCode(cat.id)}
                       placeholder="4.x.xxx"
-                      className="w-28 border border-ink-200 rounded-item px-2.5 py-1.5 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo w-28 px-2.5 py-1.5 font-mono-amount"
                     />
                     {savingCat === cat.id && (
                       <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
@@ -1133,7 +1133,7 @@ function LimitsTab() {
               value={maxItem}
               onChange={e => setMaxItem(e.target.value.replace(/[^\d.]/g, ''))}
               placeholder="Sin límite"
-              className="w-full max-w-xs border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full max-w-xs font-mono-amount"
             />
           </div>
           {maxItem && !isNaN(parseInt(maxItem)) && (
@@ -1158,7 +1158,7 @@ function LimitsTab() {
               value={maxFund}
               onChange={e => setMaxFund(e.target.value.replace(/[^\d.]/g, ''))}
               placeholder="Sin límite"
-              className="w-full max-w-xs border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full max-w-xs font-mono-amount"
             />
           </div>
           {maxFund && !isNaN(parseInt(maxFund)) && (
@@ -1344,7 +1344,7 @@ function PoliciesTab() {
 
   if (loading) return <Spinner />
 
-  const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls = 'campo w-full'
   const selectCls = `${inputCls} bg-white`
 
   const dimLabels: Record<string, string> = {
@@ -1591,8 +1591,8 @@ function ViaticosTab() {
     await load()
   }
 
-  const inputCls   = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
-  const selectCls  = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls   = 'campo w-full py-2.5'
+  const selectCls  = 'campo w-full py-2.5'
 
   if (loading) return <Spinner />
 
@@ -1888,7 +1888,7 @@ function WebhooksTab() {
               onChange={e => setUrl(e.target.value)}
               required
               placeholder="https://tuapp.com/webhook"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -1900,7 +1900,7 @@ function WebhooksTab() {
               onChange={e => setSecret(e.target.value)}
               required
               placeholder="Mínimo 16 caracteres recomendados"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 

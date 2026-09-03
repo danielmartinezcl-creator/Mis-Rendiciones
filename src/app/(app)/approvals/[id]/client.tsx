@@ -505,7 +505,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               onChange={e => setNotes(e.target.value)}
               placeholder="Comentario para el rendidor..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px] resize-none"
             />
           </div>
 

@@ -67,7 +67,7 @@ export function RevertDefontanaDialog({ targetLabel, detail, onCancel, onConfirm
             rows={3}
             autoFocus
             placeholder="Ej: comprobante 4512 anulado en Defontana, se cargó con el centro de costo equivocado"
-            className="w-full px-3 py-2 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 disabled:opacity-50 resize-none"
+            className="campo w-full disabled:opacity-50 resize-none"
           />
           <p className="text-[11px] text-ink-400 mt-1">Queda registrado en Admin → Auditoría junto a tu nombre y la fecha.</p>
         </div>

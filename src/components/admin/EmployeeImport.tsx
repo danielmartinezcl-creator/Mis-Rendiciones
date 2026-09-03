@@ -243,7 +243,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     }
   }
 
-  const inputCls = 'w-full border border-ink-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600'
+  const inputCls = 'campo-compacto w-full'
 
   // ── Resultados ──────────────────────────────────────────────────────────────
   if (step === 'results') {
@@ -410,7 +410,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                       <select
                         value={row.role}
                         onChange={e => updateRow(row._key, 'role', e.target.value)}
-                        className="border border-ink-200 rounded px-1.5 py-1 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-600"
+                        className="campo-compacto"
                       >
                         {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>

@@ -145,7 +145,7 @@ export default function ProfilePage() {
               value={fullName}
               onChange={e => setFullName(e.target.value)}
               required
-              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px]"
             />
           </div>
 
@@ -156,7 +156,7 @@ export default function ProfilePage() {
               value={rut}
               onChange={e => setRut(e.target.value)}
               placeholder="Ej: 12.345.678-9"
-              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px]"
             />
           </div>
 
@@ -178,7 +178,7 @@ export default function ProfilePage() {
               value={department}
               onChange={e => setDepartment(e.target.value)}
               placeholder="Ej: Operaciones, Administración..."
-              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px]"
             />
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function ProfilePage() {
             <select
               value={bankName}
               onChange={e => setBankName(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px]"
             >
               <option value="">Selecciona un banco...</option>
               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -207,7 +207,7 @@ export default function ProfilePage() {
             <select
               value={bankAccountType}
               onChange={e => setBankAccountType(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px]"
             >
               <option value="">Selecciona tipo de cuenta...</option>
               {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -221,7 +221,7 @@ export default function ProfilePage() {
               value={bankAccount}
               onChange={e => setBankAccount(e.target.value)}
               placeholder="Ej: 00123456789"
-              className="w-full border border-ink-200 rounded-item px-3 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 text-[16px]"
             />
           </div>
         </div>

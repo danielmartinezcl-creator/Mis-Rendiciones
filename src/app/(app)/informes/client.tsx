@@ -221,7 +221,7 @@ export function InformesClient({ filterOptions }: Props) {
                   const parts = v.split('-')
                   applyPreset({ type: 'semester', year: parseInt(parts[1]), half: parseInt(parts[0].slice(1)) as 1|2 })
                 }}
-                className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="campo text-ink-800"
               >
                 <option value="custom">Personalizado</option>
                 <optgroup label="Año completo">
@@ -242,7 +242,7 @@ export function InformesClient({ filterOptions }: Props) {
                     type="date"
                     value={dateFrom}
                     onChange={e => { setDateFrom(e.target.value); setPeriodPreset({ type: 'custom' }) }}
-                    className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="campo text-ink-800"
                   />
                 </div>
                 <div>
@@ -251,7 +251,7 @@ export function InformesClient({ filterOptions }: Props) {
                     type="date"
                     value={dateTo}
                     onChange={e => { setDateTo(e.target.value); setPeriodPreset({ type: 'custom' }) }}
-                    className="border border-ink-200 rounded-item px-3 py-2 text-sm text-ink-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="campo text-ink-800"
                   />
                 </div>
               </>
@@ -273,7 +273,7 @@ export function InformesClient({ filterOptions }: Props) {
                 <button
                   type="button"
                   onClick={() => { setDeptDropdownOpen(o => !o); setEmpDropdownOpen(false) }}
-                  className="w-full flex items-center justify-between border border-ink-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                  className="campo w-full flex items-center justify-between hover:border-brand-400"
                 >
                   <span className={departments.length ? 'text-ink-800' : 'text-ink-400'}>
                     {departments.length === 0 ? 'Todos' : `${departments.length} seleccionado${departments.length !== 1 ? 's' : ''}`}
@@ -315,7 +315,7 @@ export function InformesClient({ filterOptions }: Props) {
               <button
                 type="button"
                 onClick={() => { setEmpDropdownOpen(o => !o); setDeptDropdownOpen(false) }}
-                className="w-full flex items-center justify-between border border-ink-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                className="campo w-full flex items-center justify-between hover:border-brand-400"
               >
                 <span className={selectedEmps.length ? 'text-ink-800' : 'text-ink-400'}>
                   {selectedEmps.length === 0 ? 'Todos los empleados' : `${selectedEmps.length} seleccionado${selectedEmps.length !== 1 ? 's' : ''}`}
@@ -330,7 +330,7 @@ export function InformesClient({ filterOptions }: Props) {
                       placeholder="Buscar empleado..."
                       value={empSearchInner}
                       onChange={e => setEmpSearchInner(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="campo w-full px-2.5 py-1.5"
                       autoFocus
                     />
                   </div>

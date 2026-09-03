@@ -197,7 +197,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
               value={search}
               onChange={e => setSearch(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
-              className="w-full px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 bg-white"
+              className="campo w-full"
             />
           </div>
 
@@ -205,7 +205,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
           <select
             value={entityType}
             onChange={e => setEntityType(e.target.value)}
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 bg-white"
+            className="campo"
           >
             <option value="">Todas las entidades</option>
             {ENTITY_TYPES.map(t => (
@@ -217,7 +217,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
           <select
             value={action}
             onChange={e => setAction(e.target.value)}
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 bg-white"
+            className="campo"
           >
             <option value="">Todas las acciones</option>
             {ACTIONS.map(a => (
@@ -231,7 +231,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             value={from}
             onChange={e => setFrom(e.target.value)}
             title="Desde"
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 bg-white"
+            className="campo"
           />
 
           {/* Hasta */}
@@ -240,7 +240,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             value={to}
             onChange={e => setTo(e.target.value)}
             title="Hasta"
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 bg-white"
+            className="campo"
           />
         </div>
 

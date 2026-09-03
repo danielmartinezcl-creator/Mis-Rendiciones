@@ -237,7 +237,7 @@ export default function QuickPage() {
                 value={description}
                 onChange={e => setDesc(e.target.value)}
                 placeholder="Ej: Almuerzo de trabajo"
-                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full py-2.5 text-[16px]"
               />
             </div>
             <div>
@@ -247,7 +247,7 @@ export default function QuickPage() {
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+                className="campo w-full py-2.5 text-[16px] font-mono-amount"
               />
             </div>
             <div>
@@ -255,7 +255,7 @@ export default function QuickPage() {
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+                className="campo w-full py-2.5 text-[16px]"
               >
                 <option value="">Sin categoría</option>
                 {categories.map(c => (

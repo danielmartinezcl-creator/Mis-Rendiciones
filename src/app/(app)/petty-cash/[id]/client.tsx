@@ -221,10 +221,10 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               <div>
                 <label className="block text-xs font-semibold text-ink-600 mb-1">Monto autorizado (CLP)</label>
                 <input type="number" value={approvedAmount} onChange={e => setApprovedAmount(e.target.value)} min="1"
-                  className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount" />
+                  className="campo w-full font-mono-amount" />
               </div>
               <input value={approveNotes} onChange={e => setApproveNotes(e.target.value)} placeholder="Notas (opcional)"
-                className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                className="campo w-full" />
               <div className="flex gap-2">
                 <button disabled={pending} onClick={() => act(() => approveFund(fund.id, parseFloat(approvedAmount), approveNotes))}
                   className="flex-1 py-2 bg-success-600 hover:bg-success-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
@@ -237,7 +237,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           {rejectingFund && (
             <div className="space-y-2">
               <textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} placeholder="Motivo de rechazo (obligatorio)" rows={2}
-                className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none" />
+                className="campo w-full resize-none" />
               <div className="flex gap-2">
                 <button disabled={pending || !rejectNotes.trim()} onClick={() => act(() => rejectFund(fund.id, rejectNotes))}
                   className="flex-1 py-2 bg-danger-600 hover:bg-danger-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
@@ -291,19 +291,19 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                   value={disbAmount}
                   onChange={e => setDisbAmount(e.target.value)}
                   min="1"
-                  className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+                  className="campo w-full font-mono-amount"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-ink-600 mb-1">Referencia bancaria</label>
                   <input value={disbRef} onChange={e => setDisbRef(e.target.value)} placeholder="TRF-00123"
-                    className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                    className="campo w-full" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha de transferencia</label>
                   <input type="date" value={disbDate} onChange={e => setDisbDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                    className="campo w-full" />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -516,7 +516,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <p className="text-sm font-semibold text-ink-800">Revisar y aprobar liquidación</p>
           <p className="text-xs text-ink-500">Revisá cada ítem arriba y marcalo como aprobado o rechazado antes de finalizar.</p>
           <input value={approveNotes} onChange={e => setApproveNotes(e.target.value)} placeholder="Notas de la liquidación (opcional)"
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
+            className="campo w-full" />
           <button
             disabled={pending}
             onClick={() => act(() => approveLiquidation(
@@ -557,12 +557,12 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                 <div>
                   <label className="block text-xs font-semibold text-ink-600 mb-1">Referencia bancaria</label>
                   <input value={settleRef} onChange={e => setSettleRef(e.target.value)} placeholder="TRF-00124"
-                    className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                    className="campo w-full" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-ink-600 mb-1">Fecha</label>
                   <input type="date" value={settleDate} onChange={e => setSettleDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                    className="campo w-full" />
                 </div>
               </div>
               <div className="flex gap-2">

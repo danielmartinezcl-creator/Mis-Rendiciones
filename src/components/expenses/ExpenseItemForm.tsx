@@ -314,7 +314,7 @@ export function ExpenseItemForm({
 
   // text-[16px] y no text-sm: por debajo de 16px, Safari en iPhone hace zoom
   // automático al enfocar un campo y descoloca la pantalla. Además se lee mejor.
-  const inputCls = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls = 'campo w-full py-2.5 text-[16px]'
 
   const isSaveDisabled =
     saving ||

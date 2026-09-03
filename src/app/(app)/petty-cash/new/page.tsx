@@ -80,7 +80,7 @@ export default function NewPettyCashFundPage() {
             value={form.name}
             onChange={e => set('name', e.target.value)}
             placeholder="Ej: Caja Chica Terreno Julio, Viáticos Visita Cliente..."
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           />
         </div>
 
@@ -90,7 +90,7 @@ export default function NewPettyCashFundPage() {
           <select
             value={form.employee_id}
             onChange={e => set('employee_id', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+            className="campo w-full"
           >
             <option value="">Seleccioná un empleado...</option>
             {employees.map(emp => (
@@ -109,7 +109,7 @@ export default function NewPettyCashFundPage() {
             value={form.amount_requested}
             onChange={e => set('amount_requested', e.target.value)}
             placeholder="0"
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+            className="campo w-full font-mono-amount"
           />
         </div>
 
@@ -121,7 +121,7 @@ export default function NewPettyCashFundPage() {
               type="date"
               value={form.period_start}
               onChange={e => set('period_start', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full"
             />
           </div>
           <div>
@@ -131,7 +131,7 @@ export default function NewPettyCashFundPage() {
               value={form.period_end}
               min={form.period_start}
               onChange={e => set('period_end', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full"
             />
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function NewPettyCashFundPage() {
             onChange={e => set('description', e.target.value)}
             rows={3}
             placeholder="Describí para qué se usará este fondo..."
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+            className="campo w-full resize-none"
           />
         </div>
 

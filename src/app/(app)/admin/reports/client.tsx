@@ -571,12 +571,12 @@ export function AdminReportsClient({ initialReports }: Props) {
           <div>
             <label className="block text-xs text-ink-500 mb-1">Desde (fecha envío)</label>
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+              className="campo w-full" />
           </div>
           <div>
             <label className="block text-xs text-ink-500 mb-1">Hasta</label>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+              className="campo w-full" />
           </div>
         </div>
 
@@ -607,7 +607,7 @@ export function AdminReportsClient({ initialReports }: Props) {
               <button
                 type="button"
                 onClick={() => setEmpDropdownOpen(o => !o)}
-                className="w-full flex items-center justify-between border border-ink-200 rounded-item px-3 py-2 text-sm bg-white hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-colors"
+                className="campo w-full flex items-center justify-between hover:border-brand-400"
               >
                 <span className={empFilter.length ? 'text-ink-800' : 'text-ink-400'}>
                   {empFilter.length === 0 ? 'Todos' : `${empFilter.length} seleccionado${empFilter.length !== 1 ? 's' : ''}`}
@@ -622,7 +622,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       placeholder="Buscar empleado…"
                       value={empSearch}
                       onChange={e => setEmpSearch(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="campo w-full px-2.5 py-1.5"
                       autoFocus
                     />
                   </div>
@@ -656,7 +656,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <div>
             <label className="block text-xs text-ink-500 mb-1">Departamento</label>
             <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              className="campo w-full">
               <option value="">Todos</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -664,7 +664,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <div>
             <label className="block text-xs text-ink-500 mb-1">Reembolso</label>
             <select value={reimb} onChange={e => setReimb(e.target.value as typeof reimb)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              className="campo w-full">
               <option value="all">Todos</option>
               <option value="pending">Pendiente de reembolso</option>
               <option value="reimbursed">Reembolsadas</option>
@@ -673,7 +673,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <div>
             <label className="block text-xs text-ink-500 mb-1">Contabilización</label>
             <select value={defFilter} onChange={e => setDefFilter(e.target.value as typeof defFilter)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+              className="campo w-full">
               <option value="all">Todas</option>
               <option value="notExported">Sin contabilizar</option>
               <option value="exported">Contabilizadas</option>
@@ -939,7 +939,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           value={reimbAmount}
                           onChange={e => setReimbAmount(e.target.value)}
                           placeholder={`Por reembolsar: ${formatCLP(r.approved_amount)}`}
-                          className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-600"
+                          className="campo w-full px-2.5 py-1.5 text-xs font-mono"
                         />
                       </div>
                       <div className="flex flex-col gap-1 flex-1">
@@ -949,7 +949,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                           value={reimbRef}
                           onChange={e => setReimbRef(e.target.value)}
                           placeholder="N° transferencia, cheque…"
-                          className="w-full px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
+                          className="campo w-full px-2.5 py-1.5 text-xs"
                         />
                       </div>
                     </div>
@@ -1178,7 +1178,7 @@ export function AdminReportsClient({ initialReports }: Props) {
               <select
                 value={bulkCCSelected}
                 onChange={e => setBulkCCSelected(e.target.value)}
-                className="w-full px-3 py-2 border border-ink-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full"
               >
                 <option value="">Sin centro asignado (quitar override)</option>
                 {costCenters.map(cc => (

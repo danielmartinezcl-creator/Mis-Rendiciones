@@ -70,7 +70,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             required
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+            className="campo w-full py-2.5"
             placeholder="tu@empresa.cl"
           />
         </div>
@@ -94,7 +94,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             required
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+            className="campo w-full py-2.5"
             placeholder="••••••••"
           />
         </div>
@@ -182,7 +182,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
             required
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full py-2.5"
             placeholder="tu@empresa.cl"
           />
         </div>

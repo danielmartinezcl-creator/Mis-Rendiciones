@@ -160,7 +160,7 @@ export function FundModals({
                     <select
                       value={trReceiverId}
                       onChange={e => handleTrReceiverChange(e.target.value)}
-                      className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo w-full"
                     >
                       <option value="">— Seleccionar empleado —</option>
                       {orgEmployees
@@ -186,7 +186,7 @@ export function FundModals({
                             setTrTargetId(e.target.value)
                             setTrTargetType('fund')
                           }}
-                          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                          className="campo w-full"
                         >
                           <option value="">— Sin vincular (quedará pendiente) —</option>
                           {trTargets.filter(t => t.type === 'fund').map(t => (
@@ -212,7 +212,7 @@ export function FundModals({
                       <select
                         value={trReportId}
                         onChange={e => setTrReportId(e.target.value)}
-                        className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        className="campo w-full"
                       >
                         <option value="">— Seleccionar rendición —</option>
                         {orgReports.map(r => (
@@ -241,7 +241,7 @@ export function FundModals({
                     value={trAmount}
                     onChange={e => setTrAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full font-mono-amount"
                   />
                 </div>
                 <div>
@@ -250,7 +250,7 @@ export function FundModals({
                     type="date"
                     value={trDate}
                     onChange={e => setTrDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full"
                   />
                 </div>
               </div>
@@ -261,7 +261,7 @@ export function FundModals({
                   value={trDesc}
                   onChange={e => setTrDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 />
               </div>
             </div>
@@ -307,7 +307,7 @@ export function FundModals({
                 <select
                   value={editReceiverId}
                   onChange={e => setEditReceiverId(e.target.value)}
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 >
                   <option value="">— Seleccionar empleado —</option>
                   {orgEmployees
@@ -325,7 +325,7 @@ export function FundModals({
                     value={editAmount}
                     onChange={e => setEditAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full font-mono-amount"
                   />
                 </div>
                 <div>
@@ -334,7 +334,7 @@ export function FundModals({
                     type="date"
                     value={editDate}
                     onChange={e => setEditDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full"
                   />
                 </div>
               </div>
@@ -345,7 +345,7 @@ export function FundModals({
                   value={editDesc}
                   onChange={e => setEditDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 />
               </div>
             </div>
@@ -397,7 +397,7 @@ export function FundModals({
                     value={editLinkedAmount}
                     onChange={e => setEditLinkedAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-flare-500"
+                    className="campo w-full font-mono-amount focus:ring-flare-500"
                   />
                 </div>
                 <div>
@@ -406,7 +406,7 @@ export function FundModals({
                     type="date"
                     value={editLinkedDate}
                     onChange={e => setEditLinkedDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-flare-500"
+                    className="campo w-full focus:ring-flare-500"
                   />
                 </div>
               </div>
@@ -417,7 +417,7 @@ export function FundModals({
                   value={editLinkedDesc}
                   onChange={e => setEditLinkedDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-flare-500"
+                  className="campo w-full focus:ring-flare-500"
                 />
               </div>
             </div>
@@ -484,7 +484,7 @@ export function FundModals({
                     const target = linkTargets.find(t => t.id === e.target.value)
                     if (target) setLinkTargetType(target.type)
                   }}
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 >
                   <option value="">— Seleccionar destino —</option>
                   {linkTargets.map(t => (

@@ -155,7 +155,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
                             <select
                               value={selected[item.id] ?? ''}
                               onChange={e => setSelected(prev => ({ ...prev, [item.id]: e.target.value }))}
-                              className="flex-1 border border-ink-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
+                              className="campo-compacto flex-1"
                             >
                               <option value="">Seleccionar…</option>
                               {imputables.map(cc => (

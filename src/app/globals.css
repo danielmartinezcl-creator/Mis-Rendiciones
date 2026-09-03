@@ -445,6 +445,69 @@ body::after {
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
   }
+
+  /* ── CAMPO ──────────────────────────────────────────────────────────────
+     El patrón más repetido de toda la app: 146 apariciones de
+     `border border-ink-200 rounded-item` y 108 del anillo de foco. Más que
+     la hoja.
+
+     Y con la misma deriva de siempre: la misma intención escrita en ocho
+     órdenes distintos y con TRES colores de anillo de foco —`brand-600`,
+     `brand-500` y `accent-500`— sin que nada distinguiera un caso de otro.
+
+     El foco sigue la sección 5 de la spec: el borde se tiñe y aparece un halo
+     suave, en vez del anillo de 2px. Se lee como que el campo se activa, no
+     como que le crece un contorno.
+
+     Va en `@layer components`, así que cualquier utilidad en el markup le gana:
+     un `py-2.5` o un `text-[16px]` sueltos siguen funcionando como override. */
+  .campo {
+    border: 1px solid var(--color-ink-200);
+    border-radius: var(--radius-item);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    /* El interlineado va JUNTO con el tamaño. En Tailwind, `text-sm` fija las
+       dos cosas; al absorber solo `font-size` los textarea cambiaban de alto,
+       porque su altura es filas × interlineado. Lo detectó la línea base. */
+    line-height: 1.25rem;
+    background-color: #fff;
+    color: var(--color-ink-800);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  /* Segunda talla, para campos en línea dentro de tablas. Es una talla real y
+     no deriva: `px-2 py-1 text-xs` con anillo de 1px, para editar una celda sin
+     que la fila crezca. Reemplaza los `rounded-[8px]` sueltos —un valor
+     arbitrario que esquivaba el sistema— por `--radius-xs`. */
+  .campo-compacto {
+    border: 1px solid var(--color-ink-200);
+    border-radius: var(--radius-xs);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;          /* el de `text-xs`, por el mismo motivo */
+    background-color: #fff;
+    color: var(--color-ink-800);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+
+  /* El foco es el mismo gesto en las dos tallas: el borde se tiñe y aparece un
+     halo. Compartido a propósito — si divergen, el formulario se siente como
+     dos aplicaciones distintas. */
+  .campo::placeholder,
+  .campo-compacto::placeholder { color: var(--color-ink-400); }
+
+  .campo:focus,
+  .campo-compacto:focus {
+    outline: none;
+    border-color: var(--color-brand-600);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-brand-600) 15%, transparent);
+  }
+
+  .campo:disabled,
+  .campo-compacto:disabled {
+    background-color: var(--color-ink-50);
+    color: var(--color-ink-400);
+    cursor: not-allowed;
+  }
 }
 
 /* ── VIDRIO ───────────────────────────────────────────────────────────────

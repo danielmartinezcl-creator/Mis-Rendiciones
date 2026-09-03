@@ -104,7 +104,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
             <select
               value={category}
               onChange={e => setCategory(e.target.value as Suggestion['category'])}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+              className="campo w-full"
             >
               {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
@@ -123,7 +123,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
             maxLength={2000}
             rows={4}
             placeholder="Describí la idea o el problema con el mayor detalle posible…"
-            className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+            className="campo w-full resize-none"
           />
         </div>
 
@@ -184,7 +184,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
                       <select
                         value={item.status}
                         onChange={e => handleStatusChange(item.id, e.target.value as Suggestion['status'])}
-                        className="text-xs border border-ink-200 rounded-item px-1.5 py-1 bg-white focus:outline-none"
+                        className="campo text-xs px-1.5 py-1"
                       >
                         <option value="pending">Nueva</option>
                         <option value="reviewing">En revisión</option>

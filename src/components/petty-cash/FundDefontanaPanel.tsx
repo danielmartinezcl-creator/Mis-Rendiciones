@@ -246,7 +246,7 @@ export function FundDefontanaPanel({ fundId, onChanged }: Props) {
               value={comprobante}
               onChange={e => setComprobante(e.target.value)}
               disabled={exporting || confirming}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent-500 disabled:opacity-50"
+              className="campo w-full text-xs focus:ring-1 disabled:opacity-50"
             />
             <button
               onClick={runConfirm}

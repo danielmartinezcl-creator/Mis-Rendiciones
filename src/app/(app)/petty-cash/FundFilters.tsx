@@ -133,7 +133,7 @@ export function FundFilters({
               type="date"
               value={dateFrom}
               onChange={e => { setDateFrom(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
-              className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-1.5"
             />
           </div>
           <div>
@@ -142,7 +142,7 @@ export function FundFilters({
               type="date"
               value={dateTo}
               onChange={e => { setDateTo(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
-              className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-1.5"
             />
           </div>
         </div>
@@ -250,7 +250,7 @@ export function FundFilters({
                 type="date"
                 value={reportDateFrom}
                 onChange={e => setReportDateFrom(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full"
               />
             </div>
             <div>
@@ -259,7 +259,7 @@ export function FundFilters({
                 type="date"
                 value={reportDateTo}
                 onChange={e => setReportDateTo(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full"
               />
             </div>
             <div className="sm:col-span-2">
