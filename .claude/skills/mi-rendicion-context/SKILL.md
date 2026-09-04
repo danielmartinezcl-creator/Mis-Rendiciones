@@ -464,9 +464,24 @@ la liquidación (`FundDefontanaPanel`).
    `<Marca>`; la carga vive en `/admin/settings` → pestaña «Marca»; el respaldo sin
    logo es el cuadrado con degradado y la inicial. Bucket `org-logos` en la migración
    `023`.
-   **Falta**: el color de marca por organización (la ZONA 1 de tokens tendría que
-   resolverse en tiempo de ejecución) y el favicon + `manifest.json` de la PWA, que
-   siguen siendo archivos estáticos y necesitan rutas de metadata dinámicas.
+   **El color por organización está MEDIDO Y DESCARTADO por ahora** (decisión de
+   Daniel, 2026-09-04). No es que falte hacerlo: se decidió que el cliente traiga
+   su logo y la app conserve su color. El logo va sobre un chip blanco que lo
+   aísla del chasis, así que ningún color de logo choca — y la app sigue siendo
+   reconocible como Mi Rendición, que es un activo del producto.
+   Comparación visual de las dos opciones:
+   https://claude.ai/code/artifact/7eae73e8-026e-4e22-b356-06fa3d84ff94
+
+   > Si algún día un cliente lo pide y lo paga, **el algoritmo ya está validado**:
+   > el cliente aporta matiz y croma, el sistema impone la luminosidad de la rampa.
+   > Contraste garantizado por construcción —el peor caso medido es el teal actual,
+   > 4,81:1— porque la rampa está en `oklch` y ahí la L es luminosidad perceptual.
+   > Las 386 clases `brand-*`/`accent-*` se reanclarían solas sobrescribiendo las
+   > variables; los únicos 8 lugares que NO pueden seguirlas son los que leen
+   > `BRAND.*` desde JS (gráficos SVG, plantillas de email, metadata de la PWA).
+
+   **Sigue faltando**: el favicon y el `manifest.json` de la PWA, que son archivos
+   estáticos y necesitarían rutas de metadata dinámicas.
 3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
 4. **Rediseño Tornasol**: el chasis y la regla de materiales están completos y verificados en las 24 pantallas (`npm run audit:materiales`). Falta el rediseño *conceptual* pantalla por pantalla — sólo `/petty-cash/[id]` pasó por eso. Ver [[project-rediseno-tornasol]] en la memoria.
 
