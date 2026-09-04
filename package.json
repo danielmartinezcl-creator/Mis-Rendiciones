@@ -13,7 +13,8 @@
     "baseline:crear": "node -e \"require('fs').rmSync('e2e/baseline',{recursive:true,force:true})\" && playwright test --update-snapshots",
     "baseline:verificar": "playwright test",
     "baseline:reporte": "playwright show-report e2e/reporte",
-    "audit:materiales": "playwright test --project=materiales"
+    "audit:materiales": "playwright test --project=materiales",
+    "audit:deuda": "node scripts/deuda-sistema.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",

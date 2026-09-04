@@ -14,12 +14,33 @@ como si fueran la guía a seguir. Son decisiones cerradas: no se reabren.
 |---|---|---|
 | §1 y §5 · vidrio **blanco** translúcido | **Oscuro**: `rgba(3,25,28,.42)`, con el destello en el borde superior | Medido: blanco sobre el tramo teal tumba el contraste de 4.77:1 a 3.72:1, bajo el mínimo AA. Oscuro lo sube a 8.12:1 |
 | §3 · «toda la interfaz» en Bricolage | Bricolage en **títulos**, Hanken en **cuerpo**, Manrope en montos | El carácter de Bricolage es personalidad a 26px y textura a 14px repetida cuarenta veces |
-| §3 · antetítulo 9,5px, cuerpo 12–13px | **Piso de 11px** | Público con adultos mayores. Costo medido en teléfono de 390px: una fila menos por pantalla y ~7 caracteres de razón social. En escritorio, cero |
+| §3 · antetítulo 9,5px, cuerpo 12–13px | **Piso de 11px, y SOLO en el cromo de vidrio** | Ver abajo — es la errata más fácil de aplicar mal |
 | §9 · `success` = teal = la marca | `success` **no** comparte color con `brand` | La marca es reemplazable: el día que un cliente traiga naranja, «aprobado» se volvería naranja |
 | §9 · `accent` = lila | `accent` **es el teal de marca**; el lila es `flare` | El rol de acento en esta app siempre fue el teal; el lila es el destello, un segundo nivel |
 | §9 · `brand-600` = `#12807C` | `#0D7F81` | Reanclaje de la rampa entera en oklch, para que `ink` conserve su curva de luminosidad |
 | §9 · «toda la paleta en un solo archivo» | **Dos**: `globals.css` y `src/lib/design-tokens.ts` | Gráficos SVG, plantillas de email y la metadata de la PWA no pueden leer variables CSS |
 | — | **El modo oscuro se eliminó** | Tornasol ya es el chasis oscuro. Mantener dos temas obligaba a decidir qué le pasa a la hoja blanca, que es la pieza que sostiene el sistema |
+
+### La escala: dos, y a propósito (decidido el 2026-09-03)
+
+**El material decide el tamaño.** No es una inconsistencia a limpiar:
+
+| Material | Escala | Por qué |
+|---|---|---|
+| **Vidrio** — antetítulos, línea de tiempo, leyendas, medidor | piso de **11px** | Se *mira*: son datos de orientación que se leen una vez |
+| **Hoja** — filas, montos, formularios, tablas | clases `card-*`, piso de **15px** | Se *lee*: montos que hay que comparar y razones sociales que hay que reconocer, muchas veces seguidas, por gente que incluye adultos mayores |
+
+Las clases `.card-eyebrow` (19px), `.card-label` (17px), `.card-meta` (15px) y
+`.section-title` (19px) de `globals.css` **son la escala vigente de la hoja**, no
+código viejo pendiente de migrar. Vienen de la decisión del 2026-08-16, tomada por
+un problema real —«en un celular no se leían»— y siguen en pie.
+
+Comparación medida a 1:1 en los dos tamaños:
+https://claude.ai/code/artifact/12164e8f-d2dc-475c-b12e-1f4b076e57f1
+
+> **Si estás midiendo «deuda de sistema», no cuentes los usos de `card-*`.** Un
+> relevamiento que no conoce esta decisión los marca a los 156 como patrón escrito
+> a mano y da 265 unidades de deuda donde hay 109.
 
 **Dónde está lo que esta spec no puede decir:**
 
