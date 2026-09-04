@@ -602,7 +602,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                         </div>
                         <p className="text-xs text-ink-400 mt-0.5">
                           {h.approved_at && <span>Fecha: {formatDate(h.approved_at.split('T')[0])}</span>}
-                          <span className="ml-2 text-ink-300">· {h.submitter_name}</span>
+                          <span className="ml-2 text-ink-500">· {h.submitter_name}</span>
                         </p>
                       </div>
 

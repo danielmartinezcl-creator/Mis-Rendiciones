@@ -199,6 +199,53 @@ async function auditar(page: Page, ruta: string): Promise<{ hallazgos: Hallazgo[
       if (el.getBoundingClientRect().height === 0) continue
       evaluados++
 
+      /* ── REGLA 2: claro sobre claro ──────────────────────────────────
+         La regla de abajo busca texto OSCURO sobre el degradado. Su espejo
+         es igual de invisible y no lo veía nadie: texto CLARO sobre una
+         superficie clara — un `tor-on-gradient-soft` (blanco al 72%) que
+         quedó dentro de una hoja blanca, por ejemplo.
+
+         Solo se evalúa contra superficies OPACAS: sobre vidrio traslúcido
+         el color efectivo depende de lo que haya detrás y el cálculo daría
+         cualquier cosa. Y el umbral es 2.0:1, no el 4.5:1 de AA — acá no se
+         juzga si el contraste es cómodo, se detecta lo que directamente no
+         se lee. Por debajo de 2 no hay decisión de diseño posible. */
+      const superficie = (() => {
+        let c: Element | null = el
+        while (c && c !== document.body) {
+          const est = getComputedStyle(c)
+          /* Un degradado corta la medición: el color efectivo depende del punto
+             y no hay un único valor contra el cual calcular. Devolver null es
+             correcto —no «no hay superficie»—, porque seguir subiendo mediría
+             contra una superficie que en realidad está TAPADA por el degradado.
+             Sin esto, un botón con `style={{background:'var(--cta-brand)'}}` se
+             reporta como blanco sobre blanco. */
+          if (est.backgroundImage && est.backgroundImage !== 'none') return null
+          const px = pixel(est.backgroundColor)
+          if (px && px[3] / 255 >= 0.95) return px
+          c = c.parentElement
+        }
+        return null
+      })()
+
+      if (superficie) {
+        const lt = luminancia(cs.color)
+        const lf = luminancia(`rgb(${superficie[0]},${superficie[1]},${superficie[2]})`)
+        if (lt !== null && lf !== null) {
+          const razon = (Math.max(lt, lf) + 0.05) / (Math.min(lt, lf) + 0.05)
+          if (razon < 2) {
+            hallazgos.push({
+              texto:  texto.slice(0, 60),
+              color:  `${cs.color} sobre rgb(${superficie[0]},${superficie[1]},${superficie[2]})`,
+              lum:    Math.round(razon * 100) / 100,
+              tag:    el.tagName.toLowerCase(),
+              clases: (el.getAttribute('class') ?? '').slice(0, 90),
+            })
+          }
+        }
+        continue   // tiene superficie: la regla del degradado no aplica
+      }
+
       // Subir hasta el primer ancestro que pinte.
       let cursor: Element | null = el
       let sobreDegradado = true
@@ -390,10 +437,11 @@ function informe(hs: Hallazgo[], visitadas: string[], nodos: number, noAuditados
 
   for (const [ruta, lista] of [...porRuta].sort((a, b) => b[1].length - a[1].length)) {
     lineas.push(`## ${ruta} — ${lista.length}`, '')
-    lineas.push('| Texto | Etiqueta | Luminancia | Clases |', '|---|---|---:|---|')
+    lineas.push('| Texto | Etiqueta | Medida | Color / sobre qué | Clases |',
+                '|---|---|---:|---|---|')
     for (const h of lista) {
       const txt = h.texto.replace(/\|/g, '\\|')
-      lineas.push(`| ${txt} | \`${h.tag}\` | ${h.lum} | \`${h.clases}\` |`)
+      lineas.push(`| ${txt} | \`${h.tag}\` | ${h.lum} | \`${h.color}\` | \`${h.clases}\` |`)
     }
     lineas.push('')
   }

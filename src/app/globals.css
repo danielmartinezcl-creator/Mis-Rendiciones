@@ -632,11 +632,27 @@ body::after {
    shadow-card` se unificó en `.hoja`, esta regla dejó de excluir las hojas y
    pintó de blanco sobre blanco los encabezados que viven dentro — «Progreso»,
    «Gastos registrados», «Historial del fondo» desaparecieron. Si aparece una
-   superficie nueva, hay que agregarla acá. */
-.content-area :is(h2, h3, .section-title):not(.hoja *):not(.bg-white *):not(.tor-glass *) {
+   superficie nueva, hay que agregarla acá.
+
+   ── Por qué la lista dejó de nombrar las superficies una por una ─────────
+   Nombrar `.hoja`, `.bg-white` y `.tor-glass` dejaba afuera a los paneles
+   tintados —`bg-danger-50`, `bg-ink-50`, `bg-info-50`…—, que también son
+   superficies. Resultado: `card-label` dentro de un aviso rosa se volvía blanco
+   al 74% sobre un fondo casi blanco. Invisible, y sin forma de notarlo salvo
+   entrando al panel correcto.
+
+   Ahora se excluye cualquier elemento que pinte —`[class*="bg-"]`— y sus
+   descendientes, además de los dos materiales cuyo nombre no lleva `bg-`. Se
+   excluye también el elemento MISMO y no solo sus descendientes: un botón que
+   es a la vez `bg-white` y `card-label` se estaba volviendo blanco sobre blanco.
+
+   Esto se puede cambiar con confianza porque `npm run audit:materiales` mide
+   las DOS direcciones: si acá se aclara de menos, aparece como texto oscuro
+   sobre el degradado; si se aclara de más, como claro sobre claro. */
+.content-area :is(h2, h3, .section-title):not(.hoja):not(.hoja *):not(.tor-glass):not(.tor-glass *):not([class*="bg-"]):not([class*="bg-"] *) {
   color: #fff;
 }
-.content-area :is(.card-eyebrow, .card-label, .card-meta):not(.hoja *):not(.bg-white *):not(.tor-glass *) {
+.content-area :is(.card-eyebrow, .card-label, .card-meta):not(.hoja):not(.hoja *):not(.tor-glass):not(.tor-glass *):not([class*="bg-"]):not([class*="bg-"] *) {
   color: rgba(255, 255, 255, .74);
 }
 

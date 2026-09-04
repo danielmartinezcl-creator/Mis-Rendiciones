@@ -140,7 +140,7 @@ export function FundModals({
                       type="button"
                       onClick={() => setTrDestMode(mode)}
                       className={[
-                        'py-1.5 rounded-[6px] text-xs font-semibold transition-colors',
+                        'py-1.5 rounded-xs text-xs font-semibold transition-colors',
                         trDestMode === mode
                           ? 'bg-white text-ink-900 shadow-sm'
                           : 'text-ink-500 hover:text-ink-700',

@@ -44,14 +44,14 @@ export default async function MisGastosPage() {
         <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Total aprobado</p>
           <p className="font-mono-amount font-bold text-accent-700 text-lg leading-tight">{formatCLP(grandTotal)}</p>
-          <p className="text-[11px] text-ink-300 mt-0.5">12 meses</p>
+          <p className="text-[11px] text-ink-500 mt-0.5">12 meses</p>
         </div>
         <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Promedio mensual</p>
           <p className="font-mono-amount font-bold text-ink-700 text-lg leading-tight">
             {formatCLP(activeMonths > 0 ? grandTotal / activeMonths : 0)}
           </p>
-          <p className="text-[11px] text-ink-300 mt-0.5">{activeMonths} mes{activeMonths !== 1 ? 'es' : ''} con gastos</p>
+          <p className="text-[11px] text-ink-500 mt-0.5">{activeMonths} mes{activeMonths !== 1 ? 'es' : ''} con gastos</p>
         </div>
         <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Categoría principal</p>
@@ -59,7 +59,7 @@ export default async function MisGastosPage() {
             {sortedCats[0]?.[1]?.name ?? '—'}
           </p>
           {sortedCats[0] && (
-            <p className="text-[11px] text-ink-300 mt-0.5 font-mono-amount">
+            <p className="text-[11px] text-ink-500 mt-0.5 font-mono-amount">
               {formatCLP(sortedCats[0][1].total)}
             </p>
           )}

@@ -133,7 +133,7 @@ export default function AdminSettingsPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={[
-              'px-4 py-1.5 rounded-[10px] text-sm font-semibold transition-all duration-150',
+              'px-4 py-1.5 rounded-sm text-sm font-semibold transition-all duration-150',
               activeTab === tab.id
                 ? 'bg-white text-ink-900 shadow-xs'
                 : 'text-ink-500 hover:text-ink-800',

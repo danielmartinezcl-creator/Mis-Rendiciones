@@ -115,7 +115,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
 
         <div>
           <label className="block text-xs font-semibold text-ink-600 mb-1">
-            Descripción <span className="text-ink-300 font-normal">({content.length}/2000)</span>
+            Descripción <span className="text-ink-500 font-normal">({content.length}/2000)</span>
           </label>
           <textarea
             value={content}

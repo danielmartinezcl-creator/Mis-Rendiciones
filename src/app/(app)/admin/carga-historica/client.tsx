@@ -351,7 +351,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${
+            className={`px-4 py-1.5 rounded-sm text-sm font-medium transition-colors ${
               tab === key ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-700'
             }`}
           >
@@ -750,7 +750,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
         <select
           value={row.itemType}
           onChange={e => handleTypeChange(e.target.value as ItemType)}
-          className={`w-28 border rounded-[8px] px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand-400 ${ITEM_TYPE_STYLES[row.itemType]}`}
+          className={`campo-compacto w-28 font-medium ${ITEM_TYPE_STYLES[row.itemType]}`}
         >
           <option value="expense">Gasto</option>
           <option value="advance">Adelanto</option>
@@ -808,7 +808,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           value={row.amountCLP || ''}
           onChange={e => onChange({ amountCLP: Number(e.target.value) || 0 })}
           placeholder="0"
-          className={`w-24 border rounded-[8px] px-2 py-1 text-xs font-mono-amount text-right focus:outline-none focus:ring-1 focus:ring-brand-400 ${
+          className={`campo-compacto w-24 font-mono-amount text-right  ${
             row.itemType === 'advance' ? 'border-info-300 bg-info-50' :
             row.itemType === 'return'  ? 'border-success-300 bg-success-50' :
             'border-ink-200'
@@ -822,7 +822,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           <select
             value={row.categoryId ?? ''}
             onChange={e => onChange({ categoryId: e.target.value || null })}
-            className={`w-36 border rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 ${
+            className={`campo-compacto w-36  ${
               !row.categoryId ? 'border-warning-300 bg-warning-50' : 'border-ink-200'
             }`}
           >
@@ -880,7 +880,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
                   value={row.supplierRut ?? ''}
                   onChange={e => onChange({ supplierRut: e.target.value || null })}
                   placeholder="RUT proveedor"
-                  className={`w-28 border rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 ${
+                  className={`campo-compacto w-28  ${
                     !row.supplierRut ? 'border-danger-300' : 'border-ink-200'
                   }`}
                 />

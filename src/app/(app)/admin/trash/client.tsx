@@ -100,7 +100,7 @@ export function TrashClient({ initialItems }: Props) {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-sm font-medium transition-colors',
                   tab === t.id ? 'bg-white text-ink-800 shadow-sm' : 'text-ink-500 hover:text-ink-700',
                 ].join(' ')}
               >
