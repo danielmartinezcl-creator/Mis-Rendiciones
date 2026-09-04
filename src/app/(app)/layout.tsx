@@ -5,14 +5,20 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { LogoutButton } from '@/components/layout/LogoutButton'
 import { RealtimeProvider } from './RealtimeProvider'
+import { Marca, MarcaProducto } from '@/components/layout/Marca'
+import { getMyOrgBranding } from '@/actions/organizations'
 
 // Mueve las funciones a São Paulo — reduce latencia Chile → DC (170ms) a Chile → GRU (30ms)
 export const preferredRegion = 'gru1'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [user, profile] = await Promise.all([
+  /* La marca entra al mismo `Promise.all` y no en una consulta aparte: el riel
+     y el encabezado la necesitan para el primer pintado, así que serializarla
+     agregaría una vuelta a la base antes de mostrar nada. */
+  const [user, profile, marca] = await Promise.all([
     getAuthUser(),
     getAuthProfile(),
+    getMyOrgBranding(),
   ])
 
   if (!user || !profile) redirect('/login')
@@ -20,13 +26,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <RealtimeProvider userId={profile.id}>
       <div className="flex min-h-screen">
-        <Sidebar user={profile} />
+        <Sidebar user={profile} marca={marca} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="md:hidden tor-glass-bar px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center text-white text-[15px] font-bold">
-              P
-            </div>
-            <span className="text-white font-semibold text-[17px]">Mi Rendición</span>
+            {marca
+              ? <Marca nombre={marca.nombre} logo={marca.logo} tamano="barra" />
+              : <MarcaProducto tamano="barra" />}
             <div className="ml-auto">
               <LogoutButton />
             </div>

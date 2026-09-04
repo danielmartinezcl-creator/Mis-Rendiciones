@@ -83,6 +83,7 @@ const PANELES: Panel[] = [
   { ruta: '/admin/settings', panel: 'Políticas',  pasos: [{ boton: 'Políticas' }] },
   { ruta: '/admin/settings', panel: 'Viáticos',   pasos: [{ boton: 'Viáticos' }] },
   { ruta: '/admin/settings', panel: 'Webhooks',   pasos: [{ boton: 'Webhooks' }] },
+  { ruta: '/admin/settings', panel: 'Marca',      pasos: [{ boton: 'Marca' }] },
 
   // Formularios que arrancan cerrados. Los tres controles son `setState` a
   // secas —verificado leyendo cada componente—: revelan el formulario vacío y

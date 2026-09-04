@@ -25,8 +25,9 @@ import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deleteP
 import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
 import type { TravelPolicy } from '@/lib/supabase/types'
 import { NEUTRAL, BRAND } from '@/lib/design-tokens'
+import { MarcaTab } from '@/components/admin/MarcaTab'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks' | 'marca'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -128,6 +129,7 @@ export default function AdminSettingsPage() {
           { id: 'policies',   label: 'Políticas' },
           { id: 'viaticos',   label: 'Viáticos' },
           { id: 'webhooks',   label: 'Webhooks' },
+          { id: 'marca',      label: 'Marca' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -152,6 +154,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'policies'   && <PoliciesTab />}
       {activeTab === 'viaticos'   && <ViaticosTab />}
       {activeTab === 'webhooks'   && <WebhooksTab />}
+      {activeTab === 'marca'      && <MarcaTab />}
     </div>
   )
 }

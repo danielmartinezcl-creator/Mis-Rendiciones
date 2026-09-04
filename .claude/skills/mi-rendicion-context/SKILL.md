@@ -458,7 +458,15 @@ la liquidación (`FundDefontanaPanel`).
 
 ### ⏳ Pendiente / Backlog
 1. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
-2. **Marca por organización (white-label)**: pedido por Daniel el 2026-08-16. Hoy el nombre visible es fijo. Falta: columnas en `organizations` (nombre visible + URL de logo), bucket de Storage, carga desde `/admin/settings`, fallback si la org no subió nada. Ojo con el favicon y el `manifest.json`, que también son fijos. Encaja con el `org_id` en `cost_centers` de la migración 016.
+2. **Marca por organización (white-label)** — **nombre y logo: HECHOS** (2026-09-04).
+   `organizations.name` y `logo_url` ya existían desde `001` y no los leía nadie, así
+   que no hizo falta migración de tablas. El riel y el encabezado móvil los leen vía
+   `<Marca>`; la carga vive en `/admin/settings` → pestaña «Marca»; el respaldo sin
+   logo es el cuadrado con degradado y la inicial. Bucket `org-logos` en la migración
+   `023`.
+   **Falta**: el color de marca por organización (la ZONA 1 de tokens tendría que
+   resolverse en tiempo de ejecución) y el favicon + `manifest.json` de la PWA, que
+   siguen siendo archivos estáticos y necesitan rutas de metadata dinámicas.
 3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
 4. **Rediseño Tornasol**: el chasis y la regla de materiales están completos y verificados en las 24 pantallas (`npm run audit:materiales`). Falta el rediseño *conceptual* pantalla por pantalla — sólo `/petty-cash/[id]` pasó por eso. Ver [[project-rediseno-tornasol]] en la memoria.
 

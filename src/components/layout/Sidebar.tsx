@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
 import type { UserProfile } from '@/lib/supabase/types'
-import { BRAND } from '@/lib/design-tokens'
 
 import {
   LayoutDashboard,
@@ -31,8 +30,13 @@ import {
   Landmark,
 } from 'lucide-react'
 
+import { Marca, MarcaProducto } from './Marca'
+import type { MarcaOrg } from '@/actions/organizations'
+
 interface SidebarProps {
   user: UserProfile
+  /** Nula mientras no se pudo resolver la organización: se cae a la marca del producto. */
+  marca?: MarcaOrg | null
 }
 
 const NAV_ITEMS = [
@@ -69,7 +73,7 @@ function applyOrder(items: NavItem[], saved: string[]): NavItem[] {
   })
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, marca }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
 
@@ -152,17 +156,9 @@ export function Sidebar({ user }: SidebarProps) {
 
       {/* ── Logo / marca ── */}
       <div className="p-5 border-b border-white/8">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
-               style={{ background: 'var(--cta-brand)' }}>
-            <ReceiptText size={18} className="text-white" />
-          </div>
-          <span className="font-display font-extrabold tracking-tight leading-none"
-                style={{ fontSize: 17 }}>
-            <span style={{ color: BRAND.accentBright }}>Mi</span>
-            <span className="text-white"> Rendición</span>
-          </span>
-        </div>
+        {marca
+          ? <Marca nombre={marca.nombre} logo={marca.logo} />
+          : <MarcaProducto />}
       </div>
 
       {/* ── Navegación ── */}
