@@ -40,12 +40,28 @@ const UMBRAL_OSCURO = 0.5
  * botón». Cada entrada se verifica a mano antes de entrar: las pestañas de
  * `/admin/settings` son `onClick={() => setActiveTab(id)}`, estado local puro.
  */
+interface Paso {
+  /** Texto visible del control. Es la etiqueta del error aunque haya `selector`. */
+  boton: string
+  /**
+   * Selector CSS, para controles que NO tienen texto — un expansor que es solo
+   * un chevron. Se prefiere `title`/`aria-label` antes que una clase: la clase
+   * cambia con cualquier retoque visual y el atributo describe la intención.
+   */
+  selector?: string
+}
+
 interface Panel {
   /** Ruta estática, o el slug de una RUTA_DETALLE para resolver un id real. */
   ruta?:    string
   detalle?: string
   panel:    string
-  boton:    string
+  /**
+   * Los clics, en orden. Casi siempre uno — pero las cargas históricas están
+   * plegadas en DOS niveles: hay que abrir el grupo para que existan las filas,
+   * y recién entonces se puede abrir una fila.
+   */
+  pasos:    Paso[]
   /**
    * El control solo existe en ciertos estados — «+ Agregar ítem» está en la
    * rendición solo mientras es borrador. Si no aparece, NO es un fallo: es que
@@ -60,20 +76,32 @@ interface Panel {
 
 const PANELES: Panel[] = [
   // Pestañas — `onClick={() => setActiveTab(id)}`, estado local puro.
-  { ruta: '/admin/settings', panel: 'Empleados',  boton: 'Empleados' },
-  { ruta: '/admin/settings', panel: 'Aprobación', boton: 'Aprobación' },
-  { ruta: '/admin/settings', panel: 'Límites',    boton: 'Límites' },
-  { ruta: '/admin/settings', panel: 'Defontana',  boton: 'Defontana' },
-  { ruta: '/admin/settings', panel: 'Políticas',  boton: 'Políticas' },
-  { ruta: '/admin/settings', panel: 'Viáticos',   boton: 'Viáticos' },
-  { ruta: '/admin/settings', panel: 'Webhooks',   boton: 'Webhooks' },
+  { ruta: '/admin/settings', panel: 'Empleados',  pasos: [{ boton: 'Empleados' }] },
+  { ruta: '/admin/settings', panel: 'Aprobación', pasos: [{ boton: 'Aprobación' }] },
+  { ruta: '/admin/settings', panel: 'Límites',    pasos: [{ boton: 'Límites' }] },
+  { ruta: '/admin/settings', panel: 'Defontana',  pasos: [{ boton: 'Defontana' }] },
+  { ruta: '/admin/settings', panel: 'Políticas',  pasos: [{ boton: 'Políticas' }] },
+  { ruta: '/admin/settings', panel: 'Viáticos',   pasos: [{ boton: 'Viáticos' }] },
+  { ruta: '/admin/settings', panel: 'Webhooks',   pasos: [{ boton: 'Webhooks' }] },
 
   // Formularios que arrancan cerrados. Los tres controles son `setState` a
   // secas —verificado leyendo cada componente—: revelan el formulario vacío y
   // no envían nada. El formulario queda sin tocar y la auditoría navega afuera.
-  { detalle: 'rendicion-detalle',  panel: 'Nuevo ítem',     boton: '+ Agregar ítem', condicional: true },
-  { detalle: 'caja-chica-detalle', panel: 'Nuevo gasto',    boton: 'Agregar gasto',  condicional: true },
-  { ruta: '/admin/employees',      panel: 'Nuevo empleado', boton: 'Agregar empleado' },
+  { detalle: 'rendicion-detalle',  panel: 'Nuevo ítem',     pasos: [{ boton: '+ Agregar ítem' }], condicional: true },
+  { detalle: 'caja-chica-detalle', panel: 'Nuevo gasto',    pasos: [{ boton: 'Agregar gasto' }],  condicional: true },
+  { ruta: '/admin/employees',      panel: 'Nuevo empleado', pasos: [{ boton: 'Agregar empleado' }] },
+
+  /* El rincón más enterrado de la app: las cargas históricas están plegadas en
+     DOS niveles. Los grupos arrancan colapsados, así que las filas ni existen;
+     hay que abrir el grupo y recién después la fila, y adentro vive un
+     `ItemAttachmentZone` que no vio nunca nadie.
+     Los dos controles son `setState` a secas y van por `title`, que además se
+     agregó al grupo junto con `aria-expanded` — un control que pliega tiene que
+     decir si está abierto, y no lo decía. */
+  { ruta: '/petty-cash', panel: 'Carga histórica expandida', condicional: true, pasos: [
+    { boton: 'Ver movimientos del fondo', selector: 'button[title="Ver movimientos del fondo"]' },
+    { boton: 'Ver ítems',                 selector: 'button[title="Ver ítems"]' },
+  ] },
 ]
 
 interface Hallazgo {
@@ -215,7 +243,12 @@ async function resolverDetalle(
 }
 
 test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => {
-  test.setTimeout(300_000)   // 25 pantallas en una sola prueba
+  /* 33 pantallas en una sola prueba, cada una con su espera de `networkidle`.
+     Los 300 s originales alcanzaban con 24 y quedaron cortos al crecer: sola
+     entra en ~2,5 min, pero corriendo detrás de las 51 capturas de la línea
+     base tarda el doble y se pasaba justo. El síntoma engaña — se ve como una
+     auditoría que falla, no como una que no llegó a terminar. */
+  test.setTimeout(900_000)
   const hallazgos: Hallazgo[] = []
   const visitadas: string[] = []
   let nodosVistos = 0
@@ -260,30 +293,38 @@ test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => 
     await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {})
 
     const etiqueta = `${p.ruta ?? '/' + p.detalle} [${p.panel}]`
-    /* Por contenido de texto y no por rol: varios de estos botones llevan un
-       `<svg>` inline sin `aria-hidden`, y el nombre accesible que computa
-       Chromium no coincide con la etiqueta visible. El texto sí. */
-    const boton = page.locator('button', { hasText: p.boton })
-    const visible = await boton.first()
-      .waitFor({ state: 'visible', timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false)
+    /* Los pasos, en orden. Por contenido de texto y no por rol: varios de estos
+       botones llevan un `<svg>` inline sin `aria-hidden`, y el nombre accesible
+       que computa Chromium no coincide con la etiqueta visible. El texto sí. */
+    let abierto = true
+    for (const paso of p.pasos) {
+      const control = paso.selector
+        ? page.locator(paso.selector)
+        : page.locator('button', { hasText: paso.boton })
 
-    if (!visible) {
-      if (p.condicional) {
-        /* Los datos de hoy no permiten abrirlo — p. ej. la rendición que el
-           arnés encontró no está en borrador. No es un fallo, pero tampoco se
-           saltea callado: va al informe. */
-        noAuditados.push(`${etiqueta} — el control «${p.boton}» no está en este estado`)
-        continue
+      const visible = await control.first()
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+
+      if (!visible) {
+        if (p.condicional) {
+          /* Los datos de hoy no permiten abrirlo — la rendición que el arnés
+             encontró no está en borrador, o no hay cargas históricas. No es un
+             fallo, pero tampoco se saltea callado: va al informe. */
+          noAuditados.push(`${etiqueta} — el control «${paso.boton}» no está en este estado`)
+          abierto = false
+          break
+        }
+        throw new Error(
+          `No se encontró el control «${paso.boton}» en ${ruta}. Si la pantalla ` +
+          `cambió, actualizá PANELES: un panel que deja de abrirse vuelve a ser ` +
+          `punto ciego en silencio, que es justo lo que este archivo evita.`,
+        )
       }
-      throw new Error(
-        `No se encontró el control «${p.boton}» en ${ruta}. Si la pantalla cambió, ` +
-        `actualizá PANELES: un panel que deja de abrirse vuelve a ser punto ciego ` +
-        `en silencio, que es justo lo que este archivo existe para evitar.`,
-      )
+      await control.first().click()
     }
-    await boton.first().click()
+    if (!abierto) continue
 
     const r = await auditar(page, etiqueta)
     hallazgos.push(...r.hallazgos)

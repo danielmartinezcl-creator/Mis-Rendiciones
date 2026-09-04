@@ -481,6 +481,8 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
             {hasFund && (
               <button
                 onClick={() => toggleGroup(groupKey)}
+                aria-expanded={!isCollapsed}
+                title={isCollapsed ? 'Ver movimientos del fondo' : 'Contraer el fondo'}
                 className="w-full bg-info-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-info-100 hover:bg-info-100 transition-colors"
               >
                 <span className="flex items-center gap-1.5 text-xs font-bold text-info-700">
