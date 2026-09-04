@@ -241,6 +241,13 @@ supabase/
 │   ├── 012_defontana_cost_centers.sql                ← cost_centers (46 PENTA) + defontana_suppliers + CC en users/items
 │   ├── 013_petty_cash_defontana.sql                  ← defontana_exported_at/ref en petty_cash_funds
 │   ├── 015_travel_policies.sql                       ← tabla travel_policies (viáticos por destino/categoría)
+│   ├── 016_audit_log.sql                             ← tabla audit_log append-only + RLS
+│   ├── 016_multi_tenant_cost_centers.sql             ← org_id en cost_centers  ⚠ segundo 016
+│   ├── 017_soft_delete_extensions.sql                ← soft-delete en items/categorías, monthly_budget_clp,
+│   │                                                    dedup_key en notifications, rate_limit_log
+│   ├── 018_webhooks.sql                              ← tabla webhooks + RLS con is_admin()
+│   ├── 019_security_fixes.sql                        ← RLS en rate_limit_log, notifications en realtime
+│   ├── 020_reimbursed_amount.sql                     ← monto reembolsado
 │   ├── 021_defontana_movements.sql                   ← cuenta banco + tipo comprobante/documento por movimiento
 │   └── 022_petty_cash_defontana_by_movement.sql      ← marca Defontana por ítem y por transferencia de fondo vivo
 └── seed.sql
@@ -450,9 +457,17 @@ la liquidación (`FundDefontanaPanel`).
 - **Invitación empleados**: `set-password` flow — empleado recibe link, establece contraseña
 
 ### ⏳ Pendiente / Backlog
-1. **Notificaciones email completas**: Resend instalado y funcional en algunos paths. El lookup de `auth.users.email` por UUID requiere `SUPABASE_SERVICE_ROLE_KEY` (ya disponible vía `createAdminClient()`). Asegurarse de que TODOS los `resend.emails.send()` usen el admin client para el lookup — algunos paths actuales pueden saltear el email por falta de email del destinatario.
-2. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
+1. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
+2. **Marca por organización (white-label)**: pedido por Daniel el 2026-08-16. Hoy el nombre visible es fijo. Falta: columnas en `organizations` (nombre visible + URL de logo), bucket de Storage, carga desde `/admin/settings`, fallback si la org no subió nada. Ojo con el favicon y el `manifest.json`, que también son fijos. Encaja con el `org_id` en `cost_centers` de la migración 016.
 3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
+4. **Rediseño Tornasol**: el chasis y la regla de materiales están completos y verificados en las 24 pantallas (`npm run audit:materiales`). Falta el rediseño *conceptual* pantalla por pantalla — sólo `/petty-cash/[id]` pasó por eso. Ver [[project-rediseno-tornasol]] en la memoria.
+
+> **Ya NO están pendientes, aunque documentos viejos lo digan:**
+> · *Notificaciones email* — completo desde el 2026-08-12. `lookupEmails()` en
+>   `actions/notifications.ts` usa `createAdminClient()` + `getUserById()`, y todos los
+>   paths de envío pasan por ahí.
+> · *«Penta Rend» hardcodeado* — el nombre no existe en ningún archivo desde `46d62ab`.
+>   Lo que sigue pendiente es el white-label (punto 2), no ese literal.
 
 ---
 
@@ -606,7 +621,7 @@ la liquidación (`FundDefontanaPanel`).
 | Archivos de referencia (.xlsx, .pdf) en git | `git add .` los incluye sin querer | Agregar a `.gitignore`; sacar con `git rm --cached` |
 | Código de cuenta Defontana con puntos | "45103010013" ≠ "4.5.1030.10.13" → Defontana rechaza la importación | Siempre aplicar `stripDots()` al código antes de escribirlo en el XLSX |
 | Fecha Defontana como texto formateado | Defontana espera serial numérico Excel, no "2026-07-15" | Usar `toExcelSerial(dateStr)` — devuelve número entero |
-| Dos migraciones con prefijo `011_` | Las dos aplican sin conflicto (nombres distintos) pero el orden es alfabético por nombre completo | Siempre usar número único por migración; aquí es una excepción que ya está en el repo |
+| Migraciones con prefijo duplicado | Hay **dos pares**: `011_bank_authorization_workflow` / `011_expense_policies_and_ai_analysis`, y `016_audit_log` / `016_multi_tenant_cost_centers`. Aplican sin conflicto porque tocan tablas distintas, y el orden es alfabético por nombre completo | Siempre usar número único. Los cuatro ya están en el repo y no se renumeran: renumerar una migración aplicada rompe el historial del servidor |
 | `travel_policies_read` sin filtro de org | La policy usa `activo = true` pero no filtra `org_id` | La RLS está en `activo` y `auth.uid() is not null` — un usuario solo ve políticas de su org porque `get_my_org_id()` filtra en el select; si se agrega multi-tenant real, revisar esta policy |
 | `window.location.reload()` después de createFundTransfer | `revalidatePath` server-side no actualiza estado client-side de fondos ya renderizados | Reload forzado es el patrón correcto para esta situación |
 | Notificaciones email sin service role | `auth.users.email` inaccesible con anon key | Usar `createAdminClient()` para el lookup del email del destinatario antes de `resend.emails.send()` |

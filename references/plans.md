@@ -69,18 +69,17 @@
 
 ---
 
-## Backlog real (2 ítems)
+## Backlog
 
-### 1. Service worker offline
-**Estado:** No implementado.
-**Bloqueante:** `next-pwa` v5 es incompatible con Turbopack (Next.js 16). La app es instalable como PWA (manifest.json + metadata en layout.tsx) pero sin cache offline.
-**Workaround:** Manual service worker sin `next-pwa`, pero complejidad alta para beneficio bajo. Backlog indefinido.
+**Vive en `.claude/skills/mi-rendicion-context/SKILL.md`, sección «⏳ Pendiente / Backlog».**
 
-### 2. Marca por organización (white-label)
-**Estado:** No implementado. Pedido por Daniel el 2026-08-16, a abordar **después** de la fase 2 de la escala tipográfica.
-**Qué:** hoy el header móvil y el sidebar muestran "Penta Rend" fijo (hardcodeado en `src/app/(app)/layout.tsx` y `src/components/layout/Sidebar.tsx`). Cada empresa que contrate la app debe poder poner su propio logotipo o nombre en ese lugar.
-**Alcance a definir al retomarlo:** columnas nuevas en `organizations` (nombre visible + URL de logo), bucket de Storage para los logos, carga desde `/admin/settings`, y fallback cuando la org no subió nada. Ojo con el favicon y el `manifest.json` de la PWA — hoy también son fijos.
-**Nota:** encaja con el trabajo de multi-tenancy ya hecho en la migración 016 (`org_id` en `cost_centers`).
+Acá había una segunda copia y las dos derivaron: este archivo daba las notificaciones
+por email como completadas (correcto) mientras la skill las seguía listando como
+pendientes, y describía «Penta Rend» como hardcodeado cuando ese literal ya no existe
+en ningún archivo desde `46d62ab`.
+
+La skill se carga en cada sesión; este archivo no. Por eso el backlog va allá y acá
+queda el puntero: **un hecho, un lugar.**
 
 ---
 
@@ -112,8 +111,20 @@ Todos los paths de email usan `createAdminClient()` para resolver `auth.users.em
 | `013_petty_cash_defontana.sql` | defontana_exported_at/ref en petty_cash_funds |
 | `015_travel_policies.sql` | travel_policies (viáticos por destino/categoría) |
 | `016_audit_log.sql` | Tabla `audit_log` append-only + RLS + índices |
+| `016_multi_tenant_cost_centers.sql` | `org_id` en `cost_centers` — base del white-label |
 | `017_soft_delete_extensions.sql` | soft-delete en expense_items/categories, `monthly_budget_clp`, `dedup_key` en notifications, `rate_limit_log` |
 | `018_webhooks.sql` | Tabla `webhooks` + RLS con `is_admin()` |
 | `019_security_fixes.sql` | RLS en `rate_limit_log`, drop policy insert abierta en `audit_log`, notifications en `supabase_realtime`, índice dedup sin cláusula WHERE |
+| `020_reimbursed_amount.sql` | Monto reembolsado |
+| `021_defontana_movements.sql` | Cuenta banco + tipo de comprobante/documento por movimiento |
+| `022_petty_cash_defontana_by_movement.sql` | Marca Defontana por ítem y por transferencia de fondo vivo |
 
-**Nota:** Dos archivos `011_*.sql` coexisten — el servidor los aplica por orden alfabético del nombre completo. No hay conflicto de datos porque afectan columnas/tablas distintas.
+**Nota:** hay **dos pares** con prefijo duplicado — `011_bank_authorization_workflow` /
+`011_expense_policies_and_ai_analysis` y `016_audit_log` /
+`016_multi_tenant_cost_centers`. El servidor los aplica por orden alfabético del nombre
+completo y no hay conflicto de datos porque afectan tablas distintas. No se renumeran:
+renumerar una migración ya aplicada rompe el historial del servidor.
+
+**Esta tabla y el árbol de `supabase/migrations/` en la skill describen lo mismo.** Si
+agregás una migración, van las dos — o vuelven a divergir, que es como esta tabla llegó
+a tener 16 de 20.
