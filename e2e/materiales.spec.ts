@@ -26,6 +26,30 @@ import path from 'path'
 /** Debajo de esta luminancia relativa, el texto es oscuro. */
 const UMBRAL_OSCURO = 0.5
 
+/**
+ * Paneles que arrancan cerrados, y por eso nunca los vio nadie.
+ *
+ * ⛔ REGLA DE SEGURIDAD — leerla antes de agregar una entrada acá.
+ *
+ * Esta auditoría corre contra la BASE REAL. Este mapa solo puede contener
+ * controles que ABREN o CAMBIAN DE VISTA. Ninguno que confirme, envíe, guarde
+ * o elimine: un clic equivocado acá borra datos de verdad, y la auditoría los
+ * recorre las 24 pantallas sin que nadie mire.
+ *
+ * Por eso es un mapa explícito y no un «hacé clic en todo lo que parezca un
+ * botón». Cada entrada se verifica a mano antes de entrar: las pestañas de
+ * `/admin/settings` son `onClick={() => setActiveTab(id)}`, estado local puro.
+ */
+const PANELES: { ruta: string; panel: string; boton: string }[] = [
+  { ruta: '/admin/settings', panel: 'Empleados',  boton: 'Empleados' },
+  { ruta: '/admin/settings', panel: 'Aprobación', boton: 'Aprobación' },
+  { ruta: '/admin/settings', panel: 'Límites',    boton: 'Límites' },
+  { ruta: '/admin/settings', panel: 'Defontana',  boton: 'Defontana' },
+  { ruta: '/admin/settings', panel: 'Políticas',  boton: 'Políticas' },
+  { ruta: '/admin/settings', panel: 'Viáticos',   boton: 'Viáticos' },
+  { ruta: '/admin/settings', panel: 'Webhooks',   boton: 'Webhooks' },
+]
+
 interface Hallazgo {
   ruta:   string
   texto:  string
@@ -180,6 +204,23 @@ test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => 
     hallazgos.push(...rd.hallazgos)
     nodosVistos += rd.nodos
     visitadas.push(destino)
+  }
+
+  /* Los paneles que arrancan cerrados. Ver la regla de seguridad de PANELES:
+     estos clics solo abren o cambian de vista, nunca confirman. */
+  for (const p of PANELES) {
+    await page.goto(p.ruta, { waitUntil: 'domcontentloaded' })
+    const boton = page.getByRole('button', { name: p.boton, exact: true })
+    if (await boton.count() === 0) {
+      throw new Error(`No se encontró el control «${p.boton}» en ${p.ruta}. ` +
+        `Si la pantalla cambió, actualizá PANELES — un panel que deja de abrirse ` +
+        `vuelve a ser punto ciego en silencio.`)
+    }
+    await boton.first().click()
+    const r = await auditar(page, `${p.ruta} [${p.panel}]`)
+    hallazgos.push(...r.hallazgos)
+    nodosVistos += r.nodos
+    visitadas.push(`${p.ruta} [${p.panel}]`)
   }
 
   /* El informe se escribe SIEMPRE, pase o falle: es la lista de trabajo. */

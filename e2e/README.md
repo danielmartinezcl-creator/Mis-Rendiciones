@@ -195,9 +195,27 @@ salieron limpias, y el motivo importa más que el resultado:**
   los más expuestos por ser de página y no de tabla, están dentro de
   `bg-white rounded-card`.
 
+**Las pestañas secundarias YA se cubren** (2026-09-03). `materiales.spec.ts` las
+abre por su mapa `PANELES` y las audita como una pantalla más: de 24 pasó a 31.
+
+Y el punto ciego era real. Las 7 pestañas de `/admin/settings` que nunca se
+habían visto tenían **7 defectos, todos el mismo**: el texto introductorio de
+cada una, apoyado directo sobre el degradado. El de la pestaña «Categorías» —la
+única visible en reposo— ya se había arreglado, y las otras siete quedaron rotas
+con el arnés diciendo «limpio». Es el caso de manual: **un defecto arreglado en
+1 de 8 lugares y una herramienta que informa verde.**
+
+> ⛔ **Antes de agregar una entrada a `PANELES`:** ese mapa solo puede contener
+> controles que ABREN o CAMBIAN DE VISTA. Nada que confirme, envíe, guarde o
+> elimine. La auditoría corre contra la base real y recorre 31 pantallas sin que
+> nadie mire — un clic equivocado ahí borra datos de verdad. Las pestañas de
+> settings entraron porque son `onClick={() => setActiveTab(id)}`, estado local
+> puro, verificado leyendo el componente.
+
 **Lo que sigue sin cubrir:** el contenido plegado (las filas expandibles de
-`HistoricalSection`, donde vive un `ItemAttachmentZone`) y las pestañas
-secundarias de `/admin/settings`. Son la parte del punto ciego que queda viva.
+`HistoricalSection`, donde vive un `ItemAttachmentZone`), los formularios que
+arrancan cerrados (`AddFundItemForm`, `ExpenseItemForm`) y los modales. Los
+modales importan menos — ver arriba: son limpios por construcción.
 
 Para la regla de materiales en el estado de reposo ya no hace falta mirar a ojo:
 está `npm run audit:materiales`, que la verifica en las 24 pantallas. Ver

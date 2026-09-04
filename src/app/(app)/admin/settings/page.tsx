@@ -485,7 +485,7 @@ function EmployeesTab() {
 
   return (
     <section className="space-y-2">
-      <p className="text-xs text-ink-400 mb-3">
+      <p className="text-xs tor-on-gradient-soft mb-3">
         Gestioná el acceso de los integrantes de tu organización. Para agregar nuevos empleados usá el módulo <strong>Empleados</strong> en el menú.
       </p>
 
@@ -818,7 +818,7 @@ function DefontanaTab() {
     <section className="space-y-6">
       <div>
         <h2 className="text-base font-display font-bold text-ink-900">Integración Defontana</h2>
-        <p className="text-sm text-ink-500 mt-0.5">
+        <p className="text-sm tor-on-gradient-soft mt-0.5">
           Configura las cuentas contables para generar asientos automáticos desde rendiciones aprobadas.
         </p>
       </div>
@@ -1111,7 +1111,7 @@ function LimitsTab() {
     <section className="space-y-4">
       <div>
         <h2 className="text-base font-display font-bold text-ink-900">Límites de gasto</h2>
-        <p className="text-sm text-ink-500 mt-0.5">
+        <p className="text-sm tor-on-gradient-soft mt-0.5">
           Configura montos máximos para ítems y fondos. Deja en blanco para no tener límite.
           Los límites son controles duros: el sistema rechaza el gasto si se excede.
         </p>
@@ -1357,7 +1357,7 @@ function PoliciesTab() {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-base font-display font-bold text-ink-900">Políticas de gastos</h2>
-          <p className="text-sm text-ink-500 mt-0.5">
+          <p className="text-sm tor-on-gradient-soft mt-0.5">
             Define límites por ítem o por período. Cada política puede aplicar a toda la org, un departamento o un empleado específico.
           </p>
         </div>
@@ -1599,7 +1599,7 @@ function ViaticosTab() {
   return (
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs text-ink-400">
+        <p className="text-xs tor-on-gradient-soft">
           Las políticas de viáticos definen montos máximos por categoría y tipo de destino.
           El empleado ve un indicador en tiempo real al ingresar un gasto que supere el límite.
         </p>
@@ -1814,7 +1814,7 @@ function WebhooksTab() {
     <section className="space-y-4">
       <div>
         <h3 className="text-base font-semibold text-ink-900 mb-1">Webhooks salientes</h3>
-        <p className="text-sm text-ink-500">
+        <p className="text-sm tor-on-gradient-soft">
           Envía notificaciones automáticas a sistemas externos cuando ocurran eventos.
           La firma HMAC-SHA256 va en el header{' '}
           <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">X-Signature-SHA256</code>.
