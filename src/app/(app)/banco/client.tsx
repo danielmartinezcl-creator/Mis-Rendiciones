@@ -69,6 +69,39 @@ export function BancoClient({ queue }: Props) {
   const loading  = queue.reports.filter(r => r.status === 'pending_bank_load')
   const authoriz = queue.reports.filter(r => r.status === 'pending_bank_auth')
 
+  /**
+   * Una etapa abierta por vez.
+   *
+   * Antes se pintaban las tres completas: 14,9 pantallas de desplazamiento en
+   * escritorio y 20 en teléfono, el peor número de la app después de la lista
+   * de empleados. Y el conteo de cada etapa aparecía DOS veces —en su KPI y en
+   * el encabezado de su sección—, así que la pantalla se hacía larga repitiendo.
+   *
+   * Ahora el KPI ES el control de su etapa. El resumen deja de ser un cartel
+   * que repite y pasa a ser la puerta de entrada, que es la idea de la §7 del
+   * piloto de caja chica.
+   *
+   * Para un operador esto no cambia nada: `getBankQueue()` ya devuelve solo los
+   * estados que su rol puede accionar, así que ve una sola etapa. Las tres
+   * juntas eran la vista del admin.
+   */
+  type Etapa = 'enviar' | 'carga' | 'autorizar'
+
+  /* Arranca en la primera etapa QUE TENGA TRABAJO, no siempre en la misma:
+     abrir una etapa vacía obligaría a un clic para encontrar dónde está lo
+     pendiente. */
+  const primeraConTrabajo: Etapa =
+    queue.isAdmin && ready.length    ? 'enviar' :
+    queue.canLoad  && loading.length  ? 'carga'  :
+    queue.canAuth  && authoriz.length ? 'autorizar' :
+    queue.isAdmin ? 'enviar' : queue.canLoad ? 'carga' : 'autorizar'
+
+  const [etapa, setEtapa] = useState<Etapa>(primeraConTrabajo)
+  /* La cola de envío es la única con volumen real (78 hoy). De a 25: el total
+     ya lo dice el contador de arriba, así que paginar no esconde la magnitud
+     del atraso, solo el scroll. */
+  const [visibles, setVisibles] = useState(25)
+
   function setError(reportId: string, msg: string) {
     setErrorId(reportId)
     setErrorMsg(msg)
@@ -140,25 +173,44 @@ export function BancoClient({ queue }: Props) {
         </div>
       </div>
 
-      {/* KPIs rápidos */}
+      {/* Los KPI son el control: cada uno abre su etapa. El conteo vive acá y
+          en ningún otro lado. */}
       <div className="grid grid-cols-3 gap-3">
         {queue.isAdmin && (
-          <div className="bg-warning-50 border border-warning-200 rounded-card p-3 text-center">
+          <button
+            onClick={() => setEtapa('enviar')}
+            aria-pressed={etapa === 'enviar'}
+            className={`bg-warning-50 border rounded-card p-3 text-center transition-all ${
+              etapa === 'enviar' ? 'border-warning-500 ring-2 ring-warning-200' : 'border-warning-200 hover:border-warning-400'
+            }`}
+          >
             <p className="text-2xl font-mono-amount font-semibold text-warning-700">{ready.length}</p>
             <p className="text-xs text-warning-600 mt-0.5">Para enviar</p>
-          </div>
+          </button>
         )}
         {queue.canLoad && (
-          <div className="bg-accent-50 border border-accent-200 rounded-card p-3 text-center">
+          <button
+            onClick={() => setEtapa('carga')}
+            aria-pressed={etapa === 'carga'}
+            className={`bg-accent-50 border rounded-card p-3 text-center transition-all ${
+              etapa === 'carga' ? 'border-accent-500 ring-2 ring-accent-200' : 'border-accent-200 hover:border-accent-400'
+            }`}
+          >
             <p className="text-2xl font-mono-amount font-semibold text-accent-700">{loading.length}</p>
             <p className="text-xs text-accent-600 mt-0.5">Carga pendiente</p>
-          </div>
+          </button>
         )}
         {queue.canAuth && (
-          <div className="bg-info-50 border border-info-200 rounded-card p-3 text-center">
+          <button
+            onClick={() => setEtapa('autorizar')}
+            aria-pressed={etapa === 'autorizar'}
+            className={`bg-info-50 border rounded-card p-3 text-center transition-all ${
+              etapa === 'autorizar' ? 'border-info-500 ring-2 ring-info-200' : 'border-info-200 hover:border-info-400'
+            }`}
+          >
             <p className="text-2xl font-mono-amount font-semibold text-info-700">{authoriz.length}</p>
             <p className="text-xs text-info-600 mt-0.5">Por autorizar</p>
-          </div>
+          </button>
         )}
       </div>
 
@@ -171,37 +223,45 @@ export function BancoClient({ queue }: Props) {
       )}
 
       {/* Sección 1: Para enviar al banco (solo admin) */}
-      {queue.isAdmin && ready.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="flex items-center gap-2 section-title text-warning-700">
-            <SendHorizonal size={14} />
-            Aprobadas — enviar al banco ({ready.length})
-          </h2>
-          {ready.map(r => (
-            <ReportCard
+      {etapa === 'enviar' && queue.isAdmin && ready.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <h2 className="flex items-center gap-2 section-title text-warning-700">
+              <SendHorizonal size={14} />
+              Aprobadas — enviar al banco ({ready.length})
+            </h2>
+            {/* La frase es de la etapa, no de cada rendición: antes se repetía
+                idéntica en las 78 filas. */}
+            <p className="card-meta">
+              Aprobadas y listas para iniciar la transferencia bancaria.
+            </p>
+          </div>
+
+          {ready.slice(0, visibles).map(r => (
+            <FilaEnviar
               key={r.id}
               report={r}
-              isSaving={savingId === r.id}
+              enviando={savingId === r.id}
+              bloqueada={!!savingId}
               errorMsg={errorId === r.id ? errorMsg : ''}
-            >
-              <p className="text-xs text-ink-500 mb-3">
-                Rendición aprobada y lista para iniciar el proceso de transferencia bancaria.
-              </p>
-              <button
-                onClick={() => handleSendToBank(r.id)}
-                disabled={!!savingId}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-4 py-2 rounded-item transition-colors"
-              >
-                <Landmark size={13} />
-                {savingId === r.id ? 'Enviando…' : 'Enviar al banco'}
-              </button>
-            </ReportCard>
+              onEnviar={() => handleSendToBank(r.id)}
+            />
           ))}
+
+          {ready.length > visibles && (
+            <button
+              onClick={() => setVisibles(v => v + 25)}
+              className="hoja border border-ink-200 w-full px-4 py-3 text-sm font-semibold text-accent-700 hover:bg-ink-50 transition-colors"
+            >
+              Mostrar {Math.min(25, ready.length - visibles)} más
+              <span className="font-normal text-ink-500"> · quedan {ready.length - visibles}</span>
+            </button>
+          )}
         </section>
       )}
 
       {/* Sección 2: Confirmación de carga bancaria */}
-      {queue.canLoad && loading.length > 0 && (
+      {etapa === 'carga' && queue.canLoad && loading.length > 0 && (
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 section-title text-accent-700">
             <Upload size={14} />
@@ -257,7 +317,7 @@ export function BancoClient({ queue }: Props) {
       )}
 
       {/* Sección 3: Autorización bancaria */}
-      {queue.canAuth && authoriz.length > 0 && (
+      {etapa === 'autorizar' && queue.canAuth && authoriz.length > 0 && (
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 section-title text-info-700">
             <ShieldCheck size={14} />
@@ -298,11 +358,83 @@ export function BancoClient({ queue }: Props) {
           })}
         </section>
       )}
+
+      {/* La etapa elegida está vacía, pero la cola no. Sin esto, tocar un KPI en
+          cero dejaba la pantalla en blanco debajo de los contadores y parecía
+          que algo había fallado. */}
+      {!isEmpty && (
+        (etapa === 'enviar'    && ready.length    === 0) ||
+        (etapa === 'carga'     && loading.length  === 0) ||
+        (etapa === 'autorizar' && authoriz.length === 0)
+      ) && (
+        <div className="hoja p-8 text-center">
+          <CheckCircle2 size={28} className="mx-auto mb-2 text-success-400" />
+          <p className="card-label font-semibold text-ink-700">Nada en esta etapa</p>
+          <p className="card-meta text-ink-500 mt-1">
+            Tocá otro contador de arriba para ver lo que sí está pendiente.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Tarjeta de report ──────────────────────────────────────────────────────
+
+/**
+ * Fila de la cola de envío.
+ *
+ * No usa ReportCard a propósito: esa tarjeta existe para alojar el formulario
+ * de dos campos de la etapa de carga, y mide ~165 px. Acá la acción es un
+ * botón solo, así que el ítem es una fila. Repetir la tarjeta en las 78
+ * rendiciones aprobadas daba 14 pantallas de scroll para una decisión que se
+ * toma leyendo nombre y monto.
+ */
+function FilaEnviar({
+  report,
+  enviando,
+  bloqueada,
+  errorMsg,
+  onEnviar,
+}: {
+  report: BankQueueReport
+  enviando: boolean
+  bloqueada: boolean
+  errorMsg: string
+  onEnviar: () => void
+}) {
+  return (
+    <div className={`hoja border border-ink-200 border-l-4 border-l-warning-400 px-4 py-2.5 ${enviando ? 'opacity-60' : ''}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-ink-900 sm:truncate">{report.title}</p>
+          <p className="text-xs text-ink-500 truncate">
+            {report.submitter_name}
+            {report.department && ` · ${report.department}`}
+            {report.approved_at && ` · aprobada ${formatDate(report.approved_at.split('T')[0])}`}
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+        <p className="font-mono-amount font-semibold text-sm text-ink-900 shrink-0 tabular-nums">
+          {formatCLP(report.approved_amount > 0 ? report.approved_amount : report.total_amount)}
+        </p>
+        <button
+          onClick={onEnviar}
+          disabled={bloqueada}
+          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-item transition-colors"
+        >
+          <Landmark size={13} />
+          {enviando ? 'Enviando…' : 'Enviar'}
+        </button>
+        </div>
+      </div>
+
+      {errorMsg && (
+        <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-item px-3 py-2 mt-2">{errorMsg}</p>
+      )}
+    </div>
+  )
+}
 
 function ReportCard({
   report,

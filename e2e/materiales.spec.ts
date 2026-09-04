@@ -92,6 +92,13 @@ const PANELES: Panel[] = [
   { detalle: 'caja-chica-detalle', panel: 'Nuevo gasto',    pasos: [{ boton: 'Agregar gasto' }],  condicional: true },
   { ruta: '/admin/employees',      panel: 'Nuevo empleado', pasos: [{ boton: 'Agregar empleado' }] },
 
+  /* Las etapas de la cola bancaria: los KPI son el control, así que solo una se
+     pinta por vez y las otras dos serían punto ciego. Los botones son
+     `setEtapa(...)`, estado local puro. Condicionales porque un usuario sin el
+     permiso correspondiente no ve ese contador. */
+  { ruta: '/banco', panel: 'Carga pendiente', condicional: true, pasos: [{ boton: 'Carga pendiente' }] },
+  { ruta: '/banco', panel: 'Por autorizar',   condicional: true, pasos: [{ boton: 'Por autorizar' }] },
+
   /* El rincón más enterrado de la app: las cargas históricas están plegadas en
      DOS niveles. Los grupos arrancan colapsados, así que las filas ni existen;
      hay que abrir el grupo y recién después la fila, y adentro vive un

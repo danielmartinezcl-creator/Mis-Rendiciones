@@ -199,6 +199,26 @@ Blanco, radio 20, `box-shadow: 0 14px 40px rgba(3,25,28,.2)`. Encabezado de secc
 ### Fila de lista
 Ícono circular con `--anod` · título y submarca · monto en Manrope · insignia de estado. Divisores de 1px en `--line`, sin borde en la primera.
 
+#### Cuándo el ítem es fila y cuándo es tarjeta
+Medido en `/banco`, que pasó de 14,9× a 2,2× pantallas de scroll:
+
+| El ítem pide… | Forma |
+|---|---|
+| un botón | **fila** (~56 px) |
+| un formulario | **tarjeta** (~165 px) |
+
+Dos correcciones que salieron de ahí y aplican a cualquier lista larga:
+
+1. **El texto idéntico en todos los ítems es de la sección, no del ítem.** La
+   misma frase explicativa estaba repetida 78 veces. Subió al encabezado.
+2. **Angosto apila, no comprime.** Meter título, monto y botón en una línea de
+   390 px cortaba los títulos: «Caja Chica N° 172 Oficina Ingenieria» y
+   «…Oficina de Ingenieria» quedaban idénticos en la pantalla donde se autoriza
+   una transferencia. La fila apila hasta `sm`.
+
+Paginar de a 25 es seguro **solo si el total sigue visible** — acá lo dice el
+contador de etapa, así que se esconde el scroll, no la magnitud del atraso.
+
 ### Insignias de estado
 Píldora de 9px, peso 700:
 
