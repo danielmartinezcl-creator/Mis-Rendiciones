@@ -50,7 +50,7 @@ const manrope = localFont({
 
 export const metadata: Metadata = {
   title: 'Mi Rendición',
-  description: 'Gestión de rendiciones de gastos — PENTA Ingenieros Asociados',
+  description: 'Rendiciones de gastos, caja chica y aprobaciones para empresas chilenas.',
   manifest: '/manifest.json',
   icons: {
     apple: '/icons/icon-192.png',

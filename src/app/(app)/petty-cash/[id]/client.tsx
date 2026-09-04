@@ -258,7 +258,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             <p className="text-sm font-semibold text-ink-800">Paso 2 — Enviar al banco</p>
           </div>
           <p className="text-xs text-ink-500">
-            Solicita la carga al banco. El fondo pasará a estado "Carga bancaria pendiente".
+            Solicita la carga al banco. El fondo pasará a estado «Carga bancaria pendiente».
           </p>
           <button
             disabled={pending}

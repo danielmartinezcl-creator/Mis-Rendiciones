@@ -1054,7 +1054,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                                     <span className="font-medium shrink-0">N{a.level}</span>
                                     <span className="font-semibold shrink-0">{a.approver_name}</span>
                                     <span className="shrink-0">→ {statusLabel(a.action)}</span>
-                                    {a.notes && <span className="text-ink-500 italic">"{a.notes}"</span>}
+                                    {a.notes && <span className="text-ink-500 italic">«{a.notes}»</span>}
                                     <span className="ml-auto text-ink-400 shrink-0">{formatDate(a.created_at.split('T')[0])}</span>
                                   </div>
                                 ))}

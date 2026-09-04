@@ -1,7 +1,7 @@
 {
   "name": "Mi Rendición",
   "short_name": "Mi Rendición",
-  "description": "Gestión de rendiciones de gastos — PENTA Ingenieros Asociados",
+  "description": "Rendiciones de gastos, caja chica y aprobaciones para empresas chilenas.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#03191C",

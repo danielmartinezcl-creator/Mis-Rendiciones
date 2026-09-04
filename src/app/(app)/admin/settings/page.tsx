@@ -971,7 +971,7 @@ function DefontanaTab() {
             <h3 className="text-sm font-bold text-ink-800">Mapeo de proveedores</h3>
             <p className="text-xs text-ink-400 mt-0.5">
               Si un proveedor específico siempre va a una cuenta distinta a la de su categoría, defínelo aquí.
-              Ejemplo: "COPEC" siempre va a Combustibles aunque el gasto esté en "Viajes".
+              Ejemplo: «COPEC» siempre va a Combustibles aunque el gasto esté en «Viajes».
             </p>
           </div>
 

@@ -50,11 +50,6 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: '/admin/carga-historica', label: 'Carga Histórica',  shortLabel: 'Historial',Icon: Clock,           roles: ['admin'],                     section: 'admin' },
 ]
 
-const SECTION_LABELS: Record<NavSection, string> = {
-  personal: 'Mis cosas',
-  reports:  'Reportes',
-  admin:    'Administración',
-}
 
 function isVisible(item: NavItemDef, user: UserProfile): boolean {
   if (!(item.roles as readonly string[]).includes(user.role)) return false
