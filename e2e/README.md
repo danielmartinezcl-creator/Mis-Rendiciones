@@ -173,12 +173,83 @@ resuelta; el punto ciego de abajo sigue vigente.
 **Regla práctica:** si un cambio toca colores de error, hover o modal, el run verde
 no es evidencia. Hay que mirarlo a mano o extender la cobertura.
 
+### Lo que ya se auditó a mano — no repetir la investigación (2026-09-03)
+
+Después del rediseño Tornasol se revisó cada categoría del punto ciego, buscando
+el defecto que el chasis oscuro pudo haber introducido: texto oscuro que antes
+estaba sobre una página clara y ahora quedó sobre el degradado. **Las cuatro
+salieron limpias, y el motivo importa más que el resultado:**
+
+- **Modales — limpios POR CONSTRUCCIÓN.** Las 6 superposiciones de la app
+  (`FundModals.tsx` ×4, `RevertDefontanaDialog`, `admin/reports`) tienen todas un
+  panel `bg-white` adentro del `fixed inset-0`. El contenido nunca toca el
+  degradado. Mientras un modal nuevo siga ese patrón, no hace falta auditarlo.
+  La séptima, `MobileNav`, es una hoja deslizante y usa `tor-glass-bar`.
+- **Estados de error — limpios.** De los 21 mensajes condicionales, 13 traen su
+  propio `bg-danger-50` y los otros 8 viven dentro de una `.hoja` o de un
+  `<form className="bg-white">`. Ninguno queda apoyado sobre el degradado.
+- **Hover — el patrón peligroso no existe.** El riesgo sería texto claro con un
+  fondo claro al pasar el mouse (blanco sobre blanco). Cero apariciones. El
+  único `hover:bg-white/*` es al 10%, que sobre el degradado sigue siendo oscuro.
+- **Estados vacíos — limpios.** Los de `/admin/trash` y `/admin/fondos`, que son
+  los más expuestos por ser de página y no de tabla, están dentro de
+  `bg-white rounded-card`.
+
+**Lo que sigue sin cubrir:** el contenido plegado (las filas expandibles de
+`HistoricalSection`, donde vive un `ItemAttachmentZone`) y las pestañas
+secundarias de `/admin/settings`. Son la parte del punto ciego que queda viva.
+
+Para la regla de materiales en el estado de reposo ya no hace falta mirar a ojo:
+está `npm run audit:materiales`, que la verifica en las 24 pantallas. Ver
+«Auditoría de materiales» abajo.
+
 - **`Aprobación · detalle` se salta** si no hay ninguna rendición esperando aprobación
   para la cuenta configurada. `/approvals/[id]` es de las pantallas más densas del
   sistema (análisis IA, toggles por ítem), así que conviene dejar una rendición enviada
   antes de correr la base.
 - **`/admin/settings` tiene pestañas** y solo se captura la primera. Políticas, Viáticos
   y Defontana quedan sin cubrir; si la etapa 1 toca esos paneles, mirarlos a mano.
+
+## Auditoría de materiales — `npm run audit:materiales`
+
+Verifica la regla que sostiene Tornasol: **un dato apoyado directo sobre el
+degradado está mal.** Recorre cada nodo de texto de las 24 pantallas, sube por el
+árbol hasta el primer ancestro que pinte fondo y, si llega al `body` sin
+encontrarlo, ese texto está sobre el degradado. Si además es oscuro, es oscuro
+sobre oscuro y no hay nada que opinar.
+
+Vive en `e2e/materiales.spec.ts`, como proyecto propio de Playwright. **Es una
+pregunta distinta a la de la línea base**: aquélla dice «esto cambió», ésta dice
+«esto está mal». Un rediseño legítimo pone la línea base en rojo y esta auditoría
+en verde; un error de material hace lo contrario. Mezclarlas haría que los dos
+casos se vean iguales.
+
+El informe se escribe en `e2e/reporte-materiales.md` (gitignoreado, se regenera
+en cada corrida) y es la lista de trabajo: ruta, texto, etiqueta, luminancia y
+clases de cada hallazgo.
+
+### Por qué el informe publica «pantallas recorridas» y «textos evaluados»
+
+Porque este archivo mintió dos veces antes de funcionar, y las dos de forma
+convincente:
+
+1. La primera versión informó **0 hallazgos** — parecía que la app estaba
+   impecable. No parseaba `oklch(...)`, que es como Chrome computa toda la
+   paleta desde la etapa 2, así que salteaba cada texto en silencio.
+2. La segunda informó **191 hallazgos**, 163 en una sola pantalla — parecía que
+   la app estaba rota. El mismo bug de `oklch`, ahora en la detección de
+   FONDOS: las cabeceras con `bg-info-50` se daban por transparentes.
+
+Por eso los colores ya no se parsean a mano: se pintan en un canvas y se lee el
+píxel, que convierte cualquier espacio de color sin tener que saber en cuál venía
+escrito. Y por eso el test **afirma** que se hayan recorrido más de 20 pantallas
+y evaluado más de 500 textos: sin esas dos aserciones, «cero hallazgos» y «no
+miré nada» se ven idénticos.
+
+**Si tocás este archivo, verificalo en las dos direcciones antes de confiar:**
+sacale la superficie a algo que sepas que está bien (tiene que aparecer) y
+confirmá que lo que ya estaba bien sigue sin aparecer. Un detector que solo se
+probó en verde no prueba nada.
 
 ## Cuando agregues una ruta a la app
 
