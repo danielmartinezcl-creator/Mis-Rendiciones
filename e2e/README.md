@@ -266,11 +266,36 @@ repetir porque arranca un servidor nuevo.
 > con `storageState` vacío y no necesita sesión ninguna. La rotación existe
 > (`auth.refresh_tokens` la muestra) pero no es esto.
 
-**Lo que sigue sin saberse es por qué se muere el servidor.** No se pudo
-reproducir: 3 veces en ~25 corridas el mismo día, y los intentos deliberados
-—encadenar corridas, repetir la verificación— dieron verde. También se descartó
-con medición la colisión de puerto: tras terminar una corrida el 3100 queda
-libre en el segundo 0 y no sobrevive ningún proceso node.
+### POR QUÉ se muere: la máquina se queda sin RAM
+
+Medido durante una corrida completa, muestreando cada 8 segundos:
+
+| | |
+|---|---:|
+| RAM total de la máquina | **5,9 GB** |
+| RAM libre **mínima** durante la corrida | **0,25 GB** |
+| Pico de los procesos node | **1.601 MB** en 6 procesos |
+
+El momento crítico es el arranque, durante `next build`: seis procesos node a la
+vez y **250 MB de margen**. No hay bug de la app — es el arnés compitiendo
+consigo mismo por la memoria de una máquina chica para este stack.
+
+Eso explica el patrón que se veía y no se entendía: **las tres fallas fueron la
+SEGUNDA invocación de un comando encadenado**, y todos los intentos de
+reproducción fueron corridas más aisladas. La primera invocación todavía no
+devolvió su memoria cuando arranca el build de la segunda.
+
+**Un tope de heap (`--max-old-space-size`) NO sirve** y la medición lo dice: el
+pico son 1.601 MB repartidos entre seis procesos, ninguno individualmente
+grande. El límite es la RAM total, no el heap de un proceso.
+
+**Regla operativa:** no encadenar dos invocaciones de Playwright en un mismo
+comando. Si hay que correr `--update-snapshots` y después `baseline:verificar`,
+que sean dos comandos separados, con la máquina respirando en el medio. Y si una
+corrida muere igual, volver a correrla: no hay nada que arreglar en el código.
+
+Descartado antes, con medición: colisión de puerto. Tras terminar una corrida el
+3100 queda libre en el segundo 0 y no sobrevive ningún proceso node.
 
 **Qué hacer cuando pase:**
 

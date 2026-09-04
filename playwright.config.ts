@@ -183,6 +183,9 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 420_000,
     stdout: 'ignore',
+    /* `pipe` y no `ignore`: si el servidor se muere a mitad de corrida —pasa, ver
+       «corridas fantasma» en e2e/README.md— su último mensaje es la única pista
+       de por qué. Con `ignore` se pierde. */
     stderr: 'pipe',
   },
 })
