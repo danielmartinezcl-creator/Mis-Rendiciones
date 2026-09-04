@@ -246,27 +246,44 @@ expect(page.url(),  '… redirigió al login — sesión perdida').not.toContain
 resumen de Playwright justo donde está el motivo. **Nunca truncar la salida de
 una corrida en rojo.**
 
-### Lo que se investigó, y hasta dónde llegó
+### EL MECANISMO, ya identificado: **se muere el servidor**
 
-- **Descartado con medición:** colisión de puerto entre corridas encadenadas. Se
-  midió el puerto 3100 en el instante siguiente a terminar una corrida: libre en
-  el segundo 0, cero procesos node huérfanos.
-- **Descartado:** que baste encadenar dos corridas. Se reprodujeron esas
-  condiciones exactas (auditoría + línea base seguidas) y dieron 52 verdes.
-- **Confirmado como mecanismo posible:** la sesión vive en una cookie de
-  `@supabase/ssr` que lleva adentro el access token Y el refresh token.
-  Playwright reparte a cada contexto una **foto estática** de esa cookie, y
-  Supabase **rota** el refresh token al renovarlo: el primer contexto que renueve
-  invalida el que van a reusar los demás. `auth.refresh_tokens` confirma que la
-  rotación está activa — 6 revocaciones con token padre en 2 días.
-- **Correlación:** una de las dos fallas coincide al minuto con una revocación
-  (22:38:48 del 03/09). **La otra no coincide con ninguna**, así que o hay dos
-  causas distintas o la reconstrucción horaria de la segunda está mal.
+```
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3100/admin/analisis
+```
 
-**No está cerrado.** Si vuelve a pasar: mirar el mensaje de la primera falla. Si
-dice «sesión perdida», es esto y alcanza con volver a correr. Si dice otra cosa,
-es un hallazgo nuevo y conviene guardar el `test-results/` antes de repetir,
-porque la corrida siguiente lo borra.
+Eso es lo que dice `test-results/*/error-context.md` en una corrida fantasma. El
+`next start` del `webServer` se cae a mitad de corrida, y a partir de ahí falla
+todo lo que sigue, al instante, porque no hay a quién conectarse.
+
+Explica las cuatro señales: fallas de medio segundo (una conexión rechazada no
+espera), consecutivas desde un punto en adelante, transitorias, y verdes al
+repetir porque arranca un servidor nuevo.
+
+> **Una hipótesis anterior decía que era la sesión de Supabase** —el refresh
+> token rotando y invalidando la cookie compartida entre contextos—. **Era
+> falsa.** La descartó un dato simple: entre las fallas está `Login`, que corre
+> con `storageState` vacío y no necesita sesión ninguna. La rotación existe
+> (`auth.refresh_tokens` la muestra) pero no es esto.
+
+**Lo que sigue sin saberse es por qué se muere el servidor.** No se pudo
+reproducir: 3 veces en ~25 corridas el mismo día, y los intentos deliberados
+—encadenar corridas, repetir la verificación— dieron verde. También se descartó
+con medición la colisión de puerto: tras terminar una corrida el 3100 queda
+libre en el segundo 0 y no sobrevive ningún proceso node.
+
+**Qué hacer cuando pase:**
+
+1. **No truncar la salida.** Un `| tail -3` corta el resumen de Playwright justo
+   donde está el motivo, y fue lo que hizo perder las dos primeras veces.
+2. Mirar el mensaje de la PRIMERA falla, no el conteo. Si dice
+   `ERR_CONNECTION_REFUSED`, es esto: volver a correr y listo.
+3. Si dice otra cosa, **guardar `test-results/` antes de repetir** — la corrida
+   siguiente lo borra, que es como se perdió la evidencia las dos primeras veces.
+4. Para cazar la causa hace falta la salida COMPLETA de una corrida fallida:
+   `npm run baseline:verificar > /tmp/full.log 2>&1`. El `webServer` está
+   configurado con `stderr: 'pipe'`, así que si el servidor muere con un mensaje
+   —memoria agotada, excepción sin atrapar— va a estar en ese archivo.
 
 ## Auditoría de materiales — `npm run audit:materiales`
 

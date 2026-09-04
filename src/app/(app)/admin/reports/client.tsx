@@ -1168,7 +1168,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       {/* ── Modal Reasignar Centro de Costo ── */}
       {bulkCCReportId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-card shadow-xl p-6 w-full max-w-sm space-y-4 mx-4">
+          <div className="hoja shadow-xl p-6 w-full max-w-sm space-y-4 mx-4">
             <h3 className="font-semibold text-ink-800">Reasignar Centro de Costo</h3>
             <p className="text-sm text-ink-500">
               Aplicará el centro de costo seleccionado a <strong>todos los ítems</strong> de esta rendición.

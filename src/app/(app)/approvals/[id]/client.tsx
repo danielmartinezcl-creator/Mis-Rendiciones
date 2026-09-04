@@ -354,7 +354,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
             <div
               key={item.id}
               className={[
-                'bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3 border-l-4',
+                'hoja p-4 space-y-3 border-l-4',
                 d.action === 'approve' ? 'border-l-success-400' :
                 d.action === 'reject'  ? 'border-l-danger-400'     :
                                          'border-l-ink-200',

@@ -116,7 +116,7 @@ export function FundModals({
       {/* ── Modal crear traspaso ─────────────────────────────────────────────── */}
       {transferSource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
                 <SendHorizontal size={18} className="text-flare-600" />
@@ -291,7 +291,7 @@ export function FundModals({
       {/* ── Modal editar traspaso sin vincular ──────────────────────────────── */}
       {editingTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
                 <Pencil size={18} className="text-ink-600" />
@@ -375,7 +375,7 @@ export function FundModals({
       {/* ── Modal editar traspaso VINCULADO ─────────────────────────────────── */}
       {editingLinkedTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
                 <ArrowRightLeft size={18} className="text-flare-600" />
@@ -447,7 +447,7 @@ export function FundModals({
       {/* ── Modal vincular traspaso ──────────────────────────────────────────── */}
       {linkingTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
                 <Link2 size={18} className="text-warning-600" />

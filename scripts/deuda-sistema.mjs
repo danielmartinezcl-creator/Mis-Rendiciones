@@ -43,8 +43,15 @@ const DEUDA = [
   ['hoja a mano',   /bg-white[^"']*rounded-card|rounded-card[^"']*bg-white/g],
   // Botón: tiene hover de fondo o de texto. Es la firma que lo separa del campo.
   ['boton 2° a mano', /border-ink-200[^"']*rounded-item[^"']*hover:(bg-ink-50|bg-white|text-ink)|hover:(bg-ink-50|bg-white|text-ink)[^"']*border-ink-200/g],
-  // Campo: sin hover. Cajas de scroll, selectores y campos reales.
-  ['campo a mano',  /border\s+border-ink-200[^"']*rounded-item|rounded-item[^"']*border-ink-200/g],
+  /* Campo: reacciona al FOCO. Es coincidencia POSITIVA y no negativa a
+     propósito. La primera versión marcaba todo lo que tuviera `border-ink-200`
+     + `rounded-item`, y de las 11 que quedaban NINGUNA era un campo: menús
+     flotantes, cajas con scroll, dos selectores de color, una miniatura, dos
+     chips y un botón. Ir agregando exclusiones para cada uno habría repetido la
+     fragilidad del selector de legibilidad, que se acopló a los nombres de las
+     superficies y se rompió cuando apareció una nueva.
+     Un campo se reconoce por lo que HACE: tiene tratamiento de foco. */
+  ['campo a mano',  /(border-ink-200[^"'`]*focus:(ring|border)|focus:(ring|border)[^"'`]*border-ink-200)/g],
   ['boton 1° a mano', /bg-brand-600[^"']*(rounded-item|font-bold)/g],
   ['radio literal', /rounded-\[\d+px\]/g],
   ['hex suelto',    /#[0-9a-fA-F]{6}\b/g],
@@ -62,6 +69,44 @@ const CREDITO = [
   ['escala',   /\b(card-eyebrow|card-label|card-meta|section-title)\b/g],
   ['esqueleto',/\besqueleto\b/g],
 ]
+
+/**
+ * Autocomprobación — corre siempre, antes de medir nada.
+ *
+ * Este script informó 265 unidades de deuda donde había 109 (contaba las clases
+ * `card-*`, que son una decisión y no deuda) y llamó «campo a mano» a 23 botones
+ * secundarios. Las dos veces el número salió con cara de verdad.
+ *
+ * Un detector solo probado en una dirección no vale nada: hay que confirmar que
+ * DETECTA lo que busca y que IGNORA lo que se le parece. Si esto falla, el
+ * script se planta en vez de informar un cero tranquilizador.
+ */
+function autocomprobar() {
+  const campo = DEUDA.find(([n]) => n === 'campo a mano')[1]
+  const boton = DEUDA.find(([n]) => n === 'boton 2° a mano')[1]
+  const casos = [
+    [campo, 'border border-ink-200 rounded-item px-3 py-2 focus:ring-2 focus:ring-brand-500', true],
+    [campo, 'focus:border-brand-600 border border-ink-200 rounded-item',                      true],
+    [campo, 'absolute mt-1 bg-white border border-ink-200 rounded-item shadow-lg',            false],
+    [campo, 'w-11 h-8 rounded-item border border-ink-200 cursor-pointer p-0.5',               false],
+    [boton, 'px-4 py-2 border border-ink-200 rounded-item text-ink-600 hover:bg-ink-50',      true],
+    [boton, 'max-h-28 overflow-y-auto border border-ink-200 rounded-item p-2',                false],
+  ]
+  const fallas = casos.filter(([re, texto, esperado]) => {
+    re.lastIndex = 0
+    return re.test(texto) !== esperado
+  })
+  if (fallas.length) {
+    console.error('\n⛔ El detector está roto: falla en', fallas.length, 'de', casos.length, 'casos.')
+    for (const [, texto, esperado] of fallas) {
+      console.error(`   debía ${esperado ? 'DETECTAR' : 'IGNORAR'}: ${texto}`)
+    }
+    console.error('\nUn conteo salido de un detector roto es peor que ninguno.\n')
+    process.exit(1)
+  }
+}
+
+autocomprobar()
 
 function contar(txt, defs) {
   const out = {}

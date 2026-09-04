@@ -319,7 +319,7 @@ function ReportCard({
   const border = borderColor(report.status)
 
   return (
-    <div className={`bg-white border border-ink-200 border-l-4 ${border} rounded-card p-4 shadow-sm ${isSaving ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`hoja border border-ink-200 border-l-4 ${border} p-4 ${isSaving ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <p className="font-medium text-sm text-ink-900 truncate">{report.title}</p>

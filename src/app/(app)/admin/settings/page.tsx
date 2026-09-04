@@ -1478,7 +1478,7 @@ function PoliciesTab() {
             const scope   = p.target_user_id ? `👤 ${empName ?? p.target_user_id}`
                           : p.department     ? `🏢 ${p.department}` : '🌐 Toda la org'
             return (
-              <div key={p.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!p.is_active ? 'opacity-50' : ''}`}>
+              <div key={p.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!p.is_active ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-ink-900">{p.name}</span>
@@ -1724,7 +1724,7 @@ function ViaticosTab() {
             const catName  = categories.find(c => c.id === p.category_id)?.name
             const destLabel = DEST_TYPE_OPTS.find(o => o.value === p.destination_type)?.label ?? 'Todos los destinos'
             return (
-              <div key={p.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!p.activo ? 'opacity-50' : ''}`}>
+              <div key={p.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!p.activo ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-ink-900">{p.name}</span>
@@ -1832,7 +1832,7 @@ function WebhooksTab() {
       ) : (
         <div className="space-y-2">
           {hooks.map(hook => (
-            <div key={hook.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!hook.activo ? 'opacity-50' : ''}`}>
+            <div key={hook.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!hook.activo ? 'opacity-50' : ''}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Link2 size={14} className="text-ink-400 shrink-0" />
