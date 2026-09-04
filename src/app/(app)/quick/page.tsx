@@ -230,7 +230,7 @@ export default function QuickPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+          <div className="hoja p-4 space-y-3">
             <div>
               <label className="block card-label font-semibold text-ink-600 mb-1">Descripción *</label>
               <input
@@ -281,7 +281,7 @@ export default function QuickPage() {
       {/* Paso 3: Fondo */}
       {step === 'fund' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-2">
+          <div className="hoja p-4 space-y-2">
             <p className="card-eyebrow text-ink-700">{description}</p>
             <p className="font-mono-amount font-bold text-accent-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
           </div>

@@ -12,7 +12,7 @@ export default function Loading() {
         </div>
       </div>
       {[0, 1, 2, 3, 4].map(i => (
-        <div key={i} className="bg-white rounded-card p-4 shadow-card space-y-3">
+        <div key={i} className="hoja p-4 space-y-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 esqueleto rounded-full shrink-0" />
             <div className="space-y-2 flex-1">

@@ -299,7 +299,7 @@ export default function ExpenseDetailPage() {
       </div>
 
       {/* Total */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
+      <div className="hoja p-4 flex items-center justify-between">
         <span className="card-label text-ink-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
@@ -347,7 +347,7 @@ export default function ExpenseDetailPage() {
 
       {/* R-03: Balance de rendición */}
       {showBalance && (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+        <div className="hoja p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="section-title text-ink-700">Resumen de aprobación</span>
             {isCuadrada && (
@@ -393,7 +393,7 @@ export default function ExpenseDetailPage() {
 
       {/* R-04: Línea de tiempo */}
       {showTimeline && (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <h3 className="section-title text-ink-700 mb-4">Historial</h3>
           <div className="space-y-0">
             {allTimelineEvents.map((ev, i) => (

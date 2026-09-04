@@ -69,7 +69,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
   }
 
   return (
-    <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+    <div className="hoja overflow-hidden">
       {/* Header colapsable */}
       <button
         onClick={() => setOpen(o => !o)}
@@ -307,7 +307,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
       <ItemsWithoutCCPanel items={itemsWithoutCC} costCenters={costCenters} />
 
       {rows.length === 0 ? (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center text-ink-400">
+        <div className="hoja p-12 text-center text-ink-400">
           Sin datos de gastos para el período seleccionado.
         </div>
       ) : (
@@ -315,7 +315,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
           {/* KPI cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {months.map(m => (
-              <div key={m} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+              <div key={m} className="hoja p-4">
                 <p className="card-meta text-ink-400 font-semibold mb-1">{monthLabel(m)}</p>
                 <p className="text-lg font-mono-amount font-semibold text-ink-800">{formatCLP(monthTotals[m] ?? 0)}</p>
               </div>
@@ -323,7 +323,7 @@ export function AnalisisClient({ result, itemsWithoutCC, costCenters }: Props) {
           </div>
 
           {/* Tabla pivot */}
-          <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+          <div className="hoja overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

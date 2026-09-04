@@ -323,7 +323,7 @@ export function ExpenseItemForm({
     (!!policyResult?.hasJustificationRequired && !policyResult.hasBlock && !policyJustification.trim())
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-4">
+    <form onSubmit={handleSubmit} className="hoja space-y-4 border-t-[3px] border-t-brand-600 p-4">
       <div className="flex items-center justify-between">
         <h3 className="section-title text-ink-800">Agregar ítem</h3>
         <button

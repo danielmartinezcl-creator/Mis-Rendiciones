@@ -259,7 +259,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       </div>
 
       {/* Total */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
+      <div className="hoja p-4 flex items-center justify-between">
         <span className="card-label text-ink-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
@@ -483,7 +483,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       </div>
 
       {/* Adjuntos de respaldo de la cadena de aprobación */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+      <div className="hoja p-4">
         <ApprovalAttachments
           attachments={attachments}
           target={{ reportId: id }}

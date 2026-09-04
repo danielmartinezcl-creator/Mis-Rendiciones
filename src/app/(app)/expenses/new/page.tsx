@@ -124,7 +124,7 @@ export default function NewExpensePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="hoja border-t-[3px] border-t-brand-600 p-5 space-y-4">
         <div>
           <label htmlFor="title" className="block card-label font-semibold text-ink-700 mb-1">
             Nombre de la rendición *

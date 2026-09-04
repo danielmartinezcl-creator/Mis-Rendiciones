@@ -9,7 +9,7 @@ export default function Loading() {
         </div>
       </div>
       <div className="h-32 esqueleto rounded-card" />
-      <div className="bg-white rounded-card p-4 shadow-card space-y-3">
+      <div className="hoja p-4 space-y-3">
         <div className="h-4 esqueleto rounded w-20" />
         <div className="grid grid-cols-2 gap-2">
           <div className="h-10 esqueleto rounded-item" />
@@ -20,7 +20,7 @@ export default function Loading() {
         </div>
       </div>
       {[0, 1, 2, 3].map(i => (
-        <div key={i} className="bg-white rounded-card p-4 shadow-card flex justify-between items-center gap-3">
+        <div key={i} className="hoja p-4 flex justify-between items-center gap-3">
           <div className="space-y-2 flex-1">
             <div className="h-4 esqueleto rounded w-1/2" />
             <div className="h-3 esqueleto rounded w-1/3" />

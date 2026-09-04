@@ -161,7 +161,7 @@ export function InformesClient({ filterOptions }: Props) {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-card p-5 shadow-card space-y-5">
+      <div className="hoja p-5 space-y-5">
 
         {/* Fila 1: Fuente + Datos */}
         <div className="flex flex-wrap gap-4">
@@ -541,12 +541,12 @@ export function InformesClient({ filterOptions }: Props) {
           {/* KPI cards — el gasto es el número principal; adelantos, devoluciones
               y traspasos son movimientos de fondos y no se suman al gasto */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-card p-4 shadow-card">
+            <div className="hoja p-4">
               <p className="text-xs text-ink-500 font-medium">Gastos aprobados</p>
               <p className="text-2xl font-mono-amount font-bold text-success-600 mt-1">{formatCLP(kpis.byMovement.expense.approvedCLP)}</p>
               <p className="text-xs text-ink-400 mt-0.5">{kpis.byMovement.expense.count.toLocaleString('es-CL')} ítems de gasto</p>
             </div>
-            <div className="bg-white rounded-card p-4 shadow-card">
+            <div className="hoja p-4">
               <p className="text-xs text-ink-500 font-medium mb-2">Movimientos de fondos</p>
               <div className="space-y-1">
                 {(['advance', 'return', 'transfer'] as const)
@@ -565,12 +565,12 @@ export function InformesClient({ filterOptions }: Props) {
               </div>
               <p className="text-[11px] text-ink-400 mt-2 leading-tight">No se suman al gasto</p>
             </div>
-            <div className="bg-white rounded-card p-4 shadow-card">
+            <div className="hoja p-4">
               <p className="text-xs text-ink-500 font-medium">Total ítems</p>
               <p className="text-2xl font-mono-amount font-bold text-ink-900 mt-1">{kpis.totalItems.toLocaleString('es-CL')}</p>
               <p className="text-xs text-ink-400 mt-0.5">{formatCLP(kpis.totalCLP)} en total</p>
             </div>
-            <div className="bg-white rounded-card p-4 shadow-card">
+            <div className="hoja p-4">
               <p className="text-xs text-ink-500 font-medium mb-2">Por fuente</p>
               <div className="space-y-1">
                 {(Object.entries(kpis.bySource) as [keyof typeof kpis.bySource, { count: number; totalCLP: number }][])
@@ -611,7 +611,7 @@ export function InformesClient({ filterOptions }: Props) {
 
           {/* Tabla */}
           {items!.length === 0 ? (
-            <div className="bg-white rounded-card p-10 text-center text-ink-400 text-sm shadow-card">
+            <div className="hoja p-10 text-center text-ink-400 text-sm">
               No hay ítems que coincidan con los filtros seleccionados.
             </div>
           ) : (

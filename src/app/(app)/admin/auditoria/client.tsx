@@ -187,7 +187,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
       </div>
 
       {/* ── Filtros ── */}
-      <div className="bg-white rounded-card border border-ink-100 p-4 shadow-sm">
+      <div className="hoja border border-ink-100 p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           {/* Búsqueda libre */}
           <div className="sm:col-span-2 xl:col-span-2">
@@ -257,7 +257,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
       </div>
 
       {/* ── Tabla ── */}
-      <div className="bg-white rounded-card border border-ink-100 shadow-sm overflow-hidden">
+      <div className="hoja border border-ink-100 overflow-hidden">
         {items.length === 0 ? (
           <div className="py-16 text-center text-ink-400 text-sm">
             No hay registros de auditoría para los filtros seleccionados.

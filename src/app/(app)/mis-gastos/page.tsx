@@ -41,19 +41,19 @@ export default async function MisGastosPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Total aprobado</p>
           <p className="font-mono-amount font-bold text-accent-700 text-lg leading-tight">{formatCLP(grandTotal)}</p>
           <p className="text-[11px] text-ink-300 mt-0.5">12 meses</p>
         </div>
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Promedio mensual</p>
           <p className="font-mono-amount font-bold text-ink-700 text-lg leading-tight">
             {formatCLP(activeMonths > 0 ? grandTotal / activeMonths : 0)}
           </p>
           <p className="text-[11px] text-ink-300 mt-0.5">{activeMonths} mes{activeMonths !== 1 ? 'es' : ''} con gastos</p>
         </div>
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Categoría principal</p>
           <p className="font-semibold text-ink-700 text-sm leading-tight truncate">
             {sortedCats[0]?.[1]?.name ?? '—'}
@@ -68,7 +68,7 @@ export default async function MisGastosPage() {
 
       {/* Gráfico de barras por mes */}
       {grandTotal > 0 ? (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
+        <div className="hoja p-5">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 size={16} className="text-accent-600" />
             <h2 className="text-sm font-semibold text-ink-700">Gastos por mes</h2>
@@ -100,7 +100,7 @@ export default async function MisGastosPage() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center">
+        <div className="hoja p-12 text-center">
           <TrendingUp size={36} className="mx-auto mb-3 text-ink-200" />
           <p className="text-ink-400 font-medium">Sin gastos aprobados en los últimos 12 meses</p>
           <p className="text-ink-400 text-sm mt-1">Los ítems aparecen aquí una vez que el aprobador los confirma</p>
@@ -109,7 +109,7 @@ export default async function MisGastosPage() {
 
       {/* Tabla por categoría */}
       {sortedCats.length > 0 && (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+        <div className="hoja overflow-hidden">
           <div className="px-5 py-3 border-b border-ink-100">
             <h2 className="text-sm font-semibold text-ink-700">Por categoría</h2>
           </div>
@@ -146,7 +146,7 @@ export default async function MisGastosPage() {
 
       {/* Detalle mes a mes (si hay datos) */}
       {grandTotal > 0 && (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+        <div className="hoja overflow-hidden">
           <div className="px-5 py-3 border-b border-ink-100">
             <h2 className="text-sm font-semibold text-ink-700">Detalle mensual</h2>
           </div>

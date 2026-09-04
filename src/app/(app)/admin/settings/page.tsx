@@ -1372,7 +1372,7 @@ function PoliciesTab() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSave} className="bg-white rounded-card shadow-sm p-5 space-y-4 border border-ink-100 border-t-[3px] border-t-brand-600">
+        <form onSubmit={handleSave} className="hoja p-5 space-y-4 border border-ink-100 border-t-[3px] border-t-brand-600">
           <h3 className="font-semibold text-ink-900 text-sm">{editingId ? 'Editar política' : 'Nueva política'}</h3>
           {error && <p className="text-sm text-danger-600">{error}</p>}
 
@@ -1464,7 +1464,7 @@ function PoliciesTab() {
       )}
 
       {policies.length === 0 ? (
-        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+        <div className="hoja border border-ink-100 p-8 text-center text-ink-400 text-sm">
           No hay políticas configuradas. Las políticas permiten controlar los gastos por categoría, departamento o empleado.
         </div>
       ) : (
@@ -1712,7 +1712,7 @@ function ViaticosTab() {
       )}
 
       {policies.length === 0 ? (
-        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+        <div className="hoja border border-ink-100 p-8 text-center text-ink-400 text-sm">
           Sin políticas de viáticos. Crea una para que los empleados vean indicadores de límite al registrar gastos.
         </div>
       ) : (
@@ -1823,7 +1823,7 @@ function WebhooksTab() {
 
       {/* Lista de webhooks existentes */}
       {hooks.length === 0 ? (
-        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+        <div className="hoja border border-ink-100 p-8 text-center text-ink-400 text-sm">
           Sin webhooks configurados. Agrega uno para recibir notificaciones en tus sistemas externos.
         </div>
       ) : (
@@ -1870,7 +1870,7 @@ function WebhooksTab() {
 
       {/* Formulario para agregar nuevo webhook */}
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white rounded-card shadow-sm border border-ink-100 p-5 space-y-4">
+        <form onSubmit={handleCreate} className="hoja border border-ink-100 p-5 space-y-4">
           <h4 className="font-semibold text-sm text-ink-900">Nuevo webhook</h4>
 
           {error && (

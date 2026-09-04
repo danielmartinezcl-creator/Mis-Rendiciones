@@ -5,7 +5,7 @@ export default function Loading() {
       <div className="flex gap-2">
         {[0, 1, 2].map(i => <div key={i} className="h-9 w-28 esqueleto rounded-item" />)}
       </div>
-      <div className="bg-white rounded-card p-5 shadow-card space-y-4">
+      <div className="hoja p-5 space-y-4">
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} className="flex items-center justify-between py-2 border-b border-ink-100">
             <div className="flex items-center gap-3">

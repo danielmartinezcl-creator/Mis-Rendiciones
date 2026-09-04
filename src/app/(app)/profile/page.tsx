@@ -119,7 +119,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Avatar + rol */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 flex items-center gap-4">
+      <div className="hoja p-5 flex items-center gap-4">
         <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-xl shrink-0">
           {profile.full_name[0].toUpperCase()}
         </div>
@@ -133,7 +133,7 @@ export default function ProfilePage() {
 
       <form onSubmit={handleSave} className="space-y-4">
         {/* ── Información personal ─────────────────────────────── */}
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
+        <div className="hoja p-5 space-y-4">
           <h2 className="section-title text-ink-700 border-b border-ink-100 pb-2">
             Información personal
           </h2>
@@ -184,7 +184,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Información bancaria ──────────────────────────────── */}
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5 space-y-4">
+        <div className="hoja p-5 space-y-4">
           <h2 className="section-title text-ink-700 border-b border-ink-100 pb-2">
             Información bancaria
           </h2>
@@ -245,7 +245,7 @@ export default function ProfilePage() {
       </form>
 
       {/* Contraseña */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-5">
+      <div className="hoja p-5">
         <h2 className="section-title text-ink-700 mb-3">Contraseña</h2>
         {resetSent ? (
           <p className="card-label text-success-600">✓ Email de restablecimiento enviado. Revisa tu bandeja.</p>

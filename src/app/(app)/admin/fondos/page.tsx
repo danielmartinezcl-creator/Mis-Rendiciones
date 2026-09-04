@@ -29,19 +29,19 @@ export default async function FondosPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Fondos activos</p>
           <p className="text-2xl font-mono-amount font-bold text-ink-800">{funds.length}</p>
         </div>
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Saldo disponible total</p>
           <p className="text-lg font-mono-amount font-bold text-accent-700">{formatCLP(totalBalance)}</p>
         </div>
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Total gastado</p>
           <p className="text-lg font-mono-amount font-bold text-ink-800">{formatCLP(totalExpense)}</p>
         </div>
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <p className="text-xs text-ink-400 mb-1">Con saldo bajo (≤10%)</p>
           <p className={`text-2xl font-mono-amount font-bold ${lowFunds.length > 0 ? 'text-danger-600' : 'text-ink-800'}`}>
             {lowFunds.length}
@@ -77,7 +77,7 @@ export default async function FondosPage() {
 
       {/* Tabla de fondos */}
       {funds.length === 0 ? (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center">
+        <div className="hoja p-12 text-center">
           <Wallet size={36} className="mx-auto mb-3 text-ink-300" />
           <p className="text-ink-400 font-medium">Sin fondos activos en circulación</p>
           <p className="text-ink-400 text-sm mt-1">
@@ -85,7 +85,7 @@ export default async function FondosPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+        <div className="hoja overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink-100">

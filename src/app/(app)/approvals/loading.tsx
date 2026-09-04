@@ -4,7 +4,7 @@ export default function Loading() {
       <div className="h-8 esqueleto rounded-item w-52" />
       <div className="h-3 esqueleto rounded w-36" />
       {[0, 1, 2, 3].map(i => (
-        <div key={i} className="bg-white rounded-card p-4 space-y-3 shadow-card">
+        <div key={i} className="hoja p-4 space-y-3">
           <div className="flex justify-between items-start">
             <div className="space-y-2 flex-1">
               <div className="h-4 esqueleto rounded w-3/4" />

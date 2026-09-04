@@ -86,7 +86,7 @@ export function TrashClient({ initialItems }: Props) {
       </div>
 
       {total === 0 ? (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center">
+        <div className="hoja p-12 text-center">
           <Trash2 size={40} className="mx-auto text-ink-200 mb-3" />
           <p className="text-ink-500 font-medium">La papelera está vacía</p>
           <p className="text-xs text-ink-400 mt-1">Los ítems eliminados aparecerán aquí</p>
@@ -125,7 +125,7 @@ export function TrashClient({ initialItems }: Props) {
                 <EmptyTab label="rendiciones eliminadas" />
               ) : (
                 items.reports.map(r => (
-                  <div key={r.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center gap-3 flex-wrap">
+                  <div key={r.id} className="hoja p-4 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-ink-800 truncate">{r.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -170,7 +170,7 @@ export function TrashClient({ initialItems }: Props) {
                 <EmptyTab label="cajas chicas eliminadas" />
               ) : (
                 items.funds.map(f => (
-                  <div key={f.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center gap-3 flex-wrap">
+                  <div key={f.id} className="hoja p-4 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-ink-800 truncate">{f.name}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -219,7 +219,7 @@ export function TrashClient({ initialItems }: Props) {
                 <EmptyTab label="empleados eliminados" />
               ) : (
                 items.users.map(u => (
-                  <div key={u.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center gap-3 flex-wrap">
+                  <div key={u.id} className="hoja p-4 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-ink-800">{u.full_name}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -266,7 +266,7 @@ export function TrashClient({ initialItems }: Props) {
 
 function EmptyTab({ label }: { label: string }) {
   return (
-    <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-8 text-center">
+    <div className="hoja p-8 text-center">
       <p className="text-sm text-ink-400">No hay {label}</p>
     </div>
   )

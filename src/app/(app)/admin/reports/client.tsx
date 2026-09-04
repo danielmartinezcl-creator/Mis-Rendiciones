@@ -553,7 +553,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       />
 
       {/* Filtros */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-4">
+      <div className="hoja p-4 space-y-4">
         <div className="flex items-center justify-between">
           <p className="card-meta font-semibold text-ink-600">Filtros</p>
           {hasFilters && (
@@ -743,7 +743,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           const canDefontana = ['approved', 'partially_approved', 'reimbursed'].includes(r.status)
 
           return (
-            <div key={r.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] overflow-hidden">
+            <div key={r.id} className="hoja overflow-hidden">
               {/* Fila principal */}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -996,26 +996,26 @@ export function AdminReportsClient({ initialReports }: Props) {
                     <>
                       {/* KPI mini-cards */}
                       <div className="p-4 pb-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                        <div className="hoja border border-ink-100 p-3">
                           <p className="text-xs text-ink-400">Total rendición</p>
                           <p className="text-sm font-bold text-ink-800 font-mono-amount mt-0.5">{formatCLP(r.total_amount)}</p>
                           <p className="text-xs text-ink-400 mt-0.5">{detail.items.length} ítem{detail.items.length !== 1 ? 's' : ''}</p>
                         </div>
-                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                        <div className="hoja border border-ink-100 p-3">
                           <p className="text-xs text-ink-400">Gastos aprobados</p>
                           <p className="text-sm font-bold text-ink-800 font-mono-amount mt-0.5">
                             {formatCLP(detail.items.filter(i => i.status === 'approved' && i.item_type === 'expense').reduce((s, i) => s + i.amount_clp, 0))}
                           </p>
                           <p className="text-xs text-ink-400 mt-0.5">{detail.items.filter(i => i.status === 'approved').length} aprobados</p>
                         </div>
-                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                        <div className="hoja border border-ink-100 p-3">
                           <p className="text-xs text-ink-400">Por reembolsar</p>
                           <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.approved_amount > 0 ? 'text-brand-700' : 'text-ink-400'}`}>
                             {r.approved_amount > 0 ? formatCLP(r.approved_amount) : '—'}
                           </p>
                           <p className="text-xs text-ink-400 mt-0.5">neto aprobado</p>
                         </div>
-                        <div className="bg-white rounded-card border border-ink-100 shadow-sm p-3">
+                        <div className="hoja border border-ink-100 p-3">
                           <p className="text-xs text-ink-400">Reembolsado</p>
                           <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-success-700' : 'text-ink-400'}`}>
                             {r.reimbursed_amount != null ? formatCLP(r.reimbursed_amount) : '—'}

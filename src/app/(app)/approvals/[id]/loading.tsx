@@ -6,12 +6,12 @@ export default function Loading() {
         <div className="h-7 esqueleto rounded w-2/3" />
         <div className="h-4 esqueleto rounded w-1/2" />
       </div>
-      <div className="bg-white rounded-card p-4 flex justify-between items-center shadow-card">
+      <div className="hoja p-4 flex justify-between items-center">
         <div className="h-4 esqueleto rounded w-28" />
         <div className="h-6 esqueleto rounded w-24" />
       </div>
       {[0, 1, 2].map(i => (
-        <div key={i} className="bg-white rounded-card p-4 space-y-3 shadow-card">
+        <div key={i} className="hoja p-4 space-y-3">
           <div className="flex justify-between">
             <div className="h-5 esqueleto rounded w-2/3" />
             <div className="h-5 esqueleto rounded w-20" />

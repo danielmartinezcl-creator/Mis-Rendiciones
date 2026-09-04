@@ -21,7 +21,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
 
   return (
     <ItemStatusAccent status={item.status as ItemStatus}>
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+      <div className="hoja p-4 space-y-3">
         {/* Fila principal: descripción + monto */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">

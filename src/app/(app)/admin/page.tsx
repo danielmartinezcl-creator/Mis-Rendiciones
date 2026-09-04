@@ -101,7 +101,7 @@ export default async function AdminPage() {
         <h2 className="text-lg font-semibold font-display text-ink-900 mb-4">Salud operacional</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Tasa de aprobación */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">Tasa aprobación</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.last30Days.approvalRate == null ? 'text-ink-300' :
@@ -113,7 +113,7 @@ export default async function AdminPage() {
           </div>
 
           {/* Tiempo promedio de aprobación */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">Tiempo promedio</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.avgApprovalDays == null ? 'text-ink-300' :
@@ -126,7 +126,7 @@ export default async function AdminPage() {
           </div>
 
           {/* En espera */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">En espera</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.last30Days.pending > 10 ? 'text-danger-600' : 'text-ink-900'
@@ -137,7 +137,7 @@ export default async function AdminPage() {
           </div>
 
           {/* Empleados sin actividad */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">Sin actividad</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.inactiveCount > 5 ? 'text-warning-600' : 'text-ink-900'
