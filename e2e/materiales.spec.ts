@@ -40,7 +40,26 @@ const UMBRAL_OSCURO = 0.5
  * botón». Cada entrada se verifica a mano antes de entrar: las pestañas de
  * `/admin/settings` son `onClick={() => setActiveTab(id)}`, estado local puro.
  */
-const PANELES: { ruta: string; panel: string; boton: string }[] = [
+interface Panel {
+  /** Ruta estática, o el slug de una RUTA_DETALLE para resolver un id real. */
+  ruta?:    string
+  detalle?: string
+  panel:    string
+  boton:    string
+  /**
+   * El control solo existe en ciertos estados — «+ Agregar ítem» está en la
+   * rendición solo mientras es borrador. Si no aparece, NO es un fallo: es que
+   * los datos de hoy no permiten abrirlo.
+   *
+   * Pero tampoco se saltea en silencio, que es como nació este punto ciego.
+   * Queda listado en el informe como «no auditado», con su motivo: un hueco
+   * que se ve es un hueco que se puede cerrar.
+   */
+  condicional?: boolean
+}
+
+const PANELES: Panel[] = [
+  // Pestañas — `onClick={() => setActiveTab(id)}`, estado local puro.
   { ruta: '/admin/settings', panel: 'Empleados',  boton: 'Empleados' },
   { ruta: '/admin/settings', panel: 'Aprobación', boton: 'Aprobación' },
   { ruta: '/admin/settings', panel: 'Límites',    boton: 'Límites' },
@@ -48,6 +67,13 @@ const PANELES: { ruta: string; panel: string; boton: string }[] = [
   { ruta: '/admin/settings', panel: 'Políticas',  boton: 'Políticas' },
   { ruta: '/admin/settings', panel: 'Viáticos',   boton: 'Viáticos' },
   { ruta: '/admin/settings', panel: 'Webhooks',   boton: 'Webhooks' },
+
+  // Formularios que arrancan cerrados. Los tres controles son `setState` a
+  // secas —verificado leyendo cada componente—: revelan el formulario vacío y
+  // no envían nada. El formulario queda sin tocar y la auditoría navega afuera.
+  { detalle: 'rendicion-detalle',  panel: 'Nuevo ítem',     boton: '+ Agregar ítem', condicional: true },
+  { detalle: 'caja-chica-detalle', panel: 'Nuevo gasto',    boton: 'Agregar gasto',  condicional: true },
+  { ruta: '/admin/employees',      panel: 'Nuevo empleado', boton: 'Agregar empleado' },
 ]
 
 interface Hallazgo {
@@ -172,11 +198,28 @@ async function auditar(page: Page, ruta: string): Promise<{ hallazgos: Hallazgo[
   }))
 }
 
+/** Entra por el listado y devuelve el href de un detalle real, o null si no hay datos. */
+async function resolverDetalle(
+  page: Page,
+  det: (typeof RUTAS_DETALLE)[number],
+): Promise<string | null> {
+  for (const lista of det.listas) {
+    await page.goto(lista, { waitUntil: 'domcontentloaded' })
+    const enlaces = await page
+      .locator(`a[href^="${det.prefijo}"]`)
+      .evaluateAll(nodos => nodos.map(n => n.getAttribute('href') ?? ''))
+    const destino = enlaces.find(h => h && !det.ignorar.includes(h) && h !== det.prefijo)
+    if (destino) return destino
+  }
+  return null
+}
+
 test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => {
   test.setTimeout(300_000)   // 25 pantallas en una sola prueba
   const hallazgos: Hallazgo[] = []
   const visitadas: string[] = []
   let nodosVistos = 0
+  const noAuditados: string[] = []
 
   for (const ruta of RUTAS_ESTATICAS) {
     await page.goto(ruta.path, { waitUntil: 'domcontentloaded' })
@@ -189,15 +232,7 @@ test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => 
   /* Las rutas de detalle resuelven un id real entrando por su listado — el
      mismo mecanismo que la línea base. Sin datos, se saltea: no es un fallo. */
   for (const det of RUTAS_DETALLE) {
-    let destino: string | undefined
-    for (const lista of det.listas) {
-      await page.goto(lista, { waitUntil: 'domcontentloaded' })
-      const enlaces = await page
-        .locator(`a[href^="${det.prefijo}"]`)
-        .evaluateAll(nodos => nodos.map(n => n.getAttribute('href') ?? ''))
-      destino = enlaces.find(h => h && !det.ignorar.includes(h) && h !== det.prefijo)
-      if (destino) break
-    }
+    const destino = await resolverDetalle(page, det)
     if (!destino) continue
     await page.goto(destino, { waitUntil: 'domcontentloaded' })
     const rd = await auditar(page, destino)
@@ -209,24 +244,57 @@ test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => 
   /* Los paneles que arrancan cerrados. Ver la regla de seguridad de PANELES:
      estos clics solo abren o cambian de vista, nunca confirman. */
   for (const p of PANELES) {
-    await page.goto(p.ruta, { waitUntil: 'domcontentloaded' })
-    const boton = page.getByRole('button', { name: p.boton, exact: true })
-    if (await boton.count() === 0) {
-      throw new Error(`No se encontró el control «${p.boton}» en ${p.ruta}. ` +
-        `Si la pantalla cambió, actualizá PANELES — un panel que deja de abrirse ` +
-        `vuelve a ser punto ciego en silencio.`)
+    let ruta = p.ruta
+    if (p.detalle) {
+      const det = RUTAS_DETALLE.find(d => d.slug === p.detalle)
+      if (!det) throw new Error(`PANELES apunta a un detalle inexistente: ${p.detalle}`)
+      ruta = (await resolverDetalle(page, det)) ?? undefined
+      if (!ruta) continue   // sin datos: no es un fallo, es información
+    }
+    await page.goto(ruta!, { waitUntil: 'domcontentloaded' })
+    /* Esperar a que la pantalla se asiente ANTES de buscar el control. Varias
+       muestran un spinner hasta que llegan los datos, y buscar el botón contra
+       el spinner da «no encontrado» por una razón que no es la real. Las
+       pestañas de settings no lo necesitaban porque son estáticas — por eso
+       este error tardó en aparecer. */
+    await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {})
+
+    const etiqueta = `${p.ruta ?? '/' + p.detalle} [${p.panel}]`
+    /* Por contenido de texto y no por rol: varios de estos botones llevan un
+       `<svg>` inline sin `aria-hidden`, y el nombre accesible que computa
+       Chromium no coincide con la etiqueta visible. El texto sí. */
+    const boton = page.locator('button', { hasText: p.boton })
+    const visible = await boton.first()
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false)
+
+    if (!visible) {
+      if (p.condicional) {
+        /* Los datos de hoy no permiten abrirlo — p. ej. la rendición que el
+           arnés encontró no está en borrador. No es un fallo, pero tampoco se
+           saltea callado: va al informe. */
+        noAuditados.push(`${etiqueta} — el control «${p.boton}» no está en este estado`)
+        continue
+      }
+      throw new Error(
+        `No se encontró el control «${p.boton}» en ${ruta}. Si la pantalla cambió, ` +
+        `actualizá PANELES: un panel que deja de abrirse vuelve a ser punto ciego ` +
+        `en silencio, que es justo lo que este archivo existe para evitar.`,
+      )
     }
     await boton.first().click()
-    const r = await auditar(page, `${p.ruta} [${p.panel}]`)
+
+    const r = await auditar(page, etiqueta)
     hallazgos.push(...r.hallazgos)
     nodosVistos += r.nodos
-    visitadas.push(`${p.ruta} [${p.panel}]`)
+    visitadas.push(etiqueta)
   }
 
   /* El informe se escribe SIEMPRE, pase o falle: es la lista de trabajo. */
   fs.writeFileSync(
     path.join(__dirname, 'reporte-materiales.md'),
-    informe(hallazgos, visitadas, nodosVistos),
+    informe(hallazgos, visitadas, nodosVistos, noAuditados),
     'utf8',
   )
 
@@ -243,7 +311,7 @@ test('ningun dato oscuro apoyado sobre el degradado', async ({ page }, info) => 
   ).toEqual([])
 })
 
-function informe(hs: Hallazgo[], visitadas: string[], nodos: number): string {
+function informe(hs: Hallazgo[], visitadas: string[], nodos: number, noAuditados: string[]): string {
   const porRuta = new Map<string, Hallazgo[]>()
   for (const h of hs) {
     const lista = porRuta.get(h.ruta) ?? []
@@ -262,6 +330,16 @@ function informe(hs: Hallazgo[], visitadas: string[], nodos: number): string {
     '> solo significa algo si la auditoría de verdad miró. Si dicen 0, el detector',
     '> está roto, no la app.',
     '',
+    ...(noAuditados.length ? [
+      '## ⚠ No auditado en esta corrida',
+      '',
+      'Paneles que los datos de hoy no permitieron abrir. **No son hallazgos, son',
+      'huecos**: nadie miró lo que hay adentro. Para cerrarlos hace falta dejar la',
+      'app en el estado que los habilita — por ejemplo, una rendición en borrador.',
+      '',
+      ...noAuditados.map(s => `- ${s}`),
+      '',
+    ] : []),
     'Cada línea es un texto oscuro que no tiene ninguna superficie debajo: está',
     'apoyado directo sobre el degradado. La corrección es envolverlo en `.hoja`',
     '(si se lee o se llena) o en `.tor-glass` (si se mira), o aclarar el texto',
