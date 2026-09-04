@@ -62,6 +62,10 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [deptFilter, setDeptFilter] = useState('')
   const empDropRef = useRef<HTMLDivElement>(null)
   const [reimb,      setReimb]      = useState<'all' | 'pending' | 'reimbursed'>('all')
+  /* Pagina SOLO el dibujo. Los KPIs, las exportaciones y las acciones masivas
+     siguen operando sobre `filtered` entero: lo que se esconde es el scroll,
+     nunca el alcance de un botón. */
+  const [tope,       setTope]       = useState(25)
   const [defFilter,  setDefFilter]  = useState<'all' | 'notExported' | 'exported'>('all')
 
   // Reembolso inline
@@ -733,7 +737,7 @@ export function AdminReportsClient({ initialReports }: Props) {
       })()}
 
       <div className="space-y-2">
-        {filtered.map(r => {
+        {filtered.slice(0, tope).map(r => {
           const isOpen    = expanded === r.id
           const detail    = details[r.id]
           const loading   = expanding === r.id
@@ -756,7 +760,11 @@ export function AdminReportsClient({ initialReports }: Props) {
                       className="mt-1 w-4 h-4 shrink-0 accent-accent-600 cursor-pointer"
                     />
                   )}
-                  <div className="flex-1 min-w-0">
+                  {/* Piso de ancho, no `min-w-0`: en 390 px esta columna quedaba
+                      en 30 px de ancho por 390 de alto, con el título apilado en
+                      vertical. Ver «`min-w-0` en una fila con `flex-wrap`» en
+                      docs/Rediseño/tornasol-spec.md. */}
+                  <div className="flex-1 min-w-[10rem]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[16px] leading-snug font-semibold text-ink-800">{formatDisplayTitle(r.title)}</p>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusCls(r.status)}`}>
@@ -1163,6 +1171,16 @@ export function AdminReportsClient({ initialReports }: Props) {
             </div>
           )
         })}
+
+        {filtered.length > tope && (
+          <button
+            onClick={() => setTope(t => t + 25)}
+            className="hoja border border-ink-200 w-full px-4 py-3 text-sm font-semibold text-brand-700 hover:bg-ink-50 transition-colors"
+          >
+            Mostrar {Math.min(25, filtered.length - tope)} más
+            <span className="font-normal text-ink-500"> · quedan {filtered.length - tope}</span>
+          </button>
+        )}
       </div>
 
       {/* ── Modal Reasignar Centro de Costo ── */}

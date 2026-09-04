@@ -216,8 +216,15 @@ Dos correcciones que salieron de ahí y aplican a cualquier lista larga:
    «…Oficina de Ingenieria» quedaban idénticos en la pantalla donde se autoriza
    una transferencia. La fila apila hasta `sm`.
 
-Paginar de a 25 es seguro **solo si el total sigue visible** — acá lo dice el
-contador de etapa, así que se esconde el scroll, no la magnitud del atraso.
+Paginar de a 25 es seguro con dos condiciones:
+
+1. **El total sigue visible** (el contador de etapa, el buscador). Se esconde
+   el scroll, nunca la magnitud del atraso.
+2. **Se pagina el dibujo, no el alcance.** Los KPIs, las exportaciones y las
+   acciones masivas siguen operando sobre la lista filtrada entera. Un botón
+   que dice «exportar» y exporta solo la página visible es peor que no
+   paginar. Por lo mismo, un «seleccionar todos» tiene que decir sobre qué
+   opera cuando hay filtro puesto.
 
 #### `min-w-0` en una fila con `flex-wrap` es una trampa
 En `/admin/employees`, la columna del nombre tenía `flex-1 min-w-0`. En 390 px
