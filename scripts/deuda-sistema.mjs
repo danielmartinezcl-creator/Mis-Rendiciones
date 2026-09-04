@@ -26,11 +26,26 @@ import path from 'path'
 
 const RAIZ = 'src/app/(app)'
 
-/** DEUDA — el patrón escrito a mano, habiendo un material para eso. */
+/**
+ * DEUDA — el patrón escrito a mano, habiendo un material para eso.
+ *
+ * OJO CON LAS ETIQUETAS. La primera versión llamaba «campo a mano» a todo lo
+ * que tuviera `border-ink-200` + `rounded-item`, y de las 29 apariciones **23
+ * eran botones secundarios**, no campos. Seguir esa etiqueta habría convertido
+ * 23 botones en campos de formulario. Lo que distingue al botón es que reacciona
+ * al mouse; el campo reacciona al foco.
+ *
+ * La lección: cuando una categoría da un número alto, mirar los casos antes de
+ * actuar. Un nombre equivocado en el instrumento se convierte en un codemod
+ * equivocado.
+ */
 const DEUDA = [
   ['hoja a mano',   /bg-white[^"']*rounded-card|rounded-card[^"']*bg-white/g],
+  // Botón: tiene hover de fondo o de texto. Es la firma que lo separa del campo.
+  ['boton 2° a mano', /border-ink-200[^"']*rounded-item[^"']*hover:(bg-ink-50|bg-white|text-ink)|hover:(bg-ink-50|bg-white|text-ink)[^"']*border-ink-200/g],
+  // Campo: sin hover. Cajas de scroll, selectores y campos reales.
   ['campo a mano',  /border\s+border-ink-200[^"']*rounded-item|rounded-item[^"']*border-ink-200/g],
-  ['boton a mano',  /bg-brand-600[^"']*(rounded-item|font-bold)/g],
+  ['boton 1° a mano', /bg-brand-600[^"']*(rounded-item|font-bold)/g],
   ['radio literal', /rounded-\[\d+px\]/g],
   ['hex suelto',    /#[0-9a-fA-F]{6}\b/g],
 ]
@@ -39,7 +54,8 @@ const DEUDA = [
 const CREDITO = [
   ['hoja',     /\bhoja\b/g],
   ['campo',    /\bcampo(-compacto)?\b/g],
-  ['btn',      /\bbtn-primario\b/g],
+  ['btn-1°',   /\bbtn-primario\b/g],
+  ['btn-2°',   /\bbtn-secundario\b/g],
   ['vidrio',   /\btor-glass\b/g],
   ['on-grad',  /\btor-on-gradient/g],
   ['insignia', /InsigniaEstado/g],

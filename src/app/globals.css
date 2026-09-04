@@ -532,6 +532,36 @@ body::after {
   .btn-primario:active:not(:disabled) { transform: scale(.98); }
   .btn-primario:disabled              { opacity: .5; cursor: not-allowed; }
 
+  /* ── BOTÓN SECUNDARIO ───────────────────────────────────────────────────
+     El «Cancelar», el «Ver detalle», el «Exportar» de cada pantalla: 23
+     apariciones, cada una con su propia definición.
+
+     No era desprolijidad, era un HUECO: `.btn-primario` existía y este no,
+     así que no había dónde converger. Por eso la etapa 3 unificó el primario
+     y no tocó éste — buscó materiales repetidos, y éste no estaba repetido,
+     estaba ausente.
+
+     Lo que variaba sin criterio y acá se unifica: el peso (`font-medium` en
+     unos, `font-semibold` en otros) y el tono del texto (`ink-500`, `ink-600`
+     e `ink-700` para el mismo rol).
+
+     NO fija `display`, ni relleno, ni fondo. Lo primero por el mismo motivo
+     que el primario —varios son `flex-1` o `w-full` y `inline-flex` les
+     cambiaría el layout—; el relleno porque cada sitio tiene su talla; y el
+     fondo porque lo pone la hoja que hay debajo. */
+  .btn-secundario {
+    border: 1px solid var(--color-ink-200);
+    border-radius: var(--radius-item);
+    color: var(--color-ink-600);
+    font-weight: 600;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  .btn-secundario:hover:not(:disabled) {
+    background-color: var(--color-ink-50);
+    border-color: var(--color-ink-300);
+  }
+  .btn-secundario:disabled { opacity: .5; cursor: not-allowed; }
+
   /* ── ESQUELETO DE CARGA ─────────────────────────────────────────────────
      Una barra de carga tiene que leerse como AUSENCIA. Los 11 `loading.tsx`
      usaban `bg-ink-100` —casi blanco— en todas: dentro de una hoja funciona,

@@ -289,7 +289,7 @@ export default function ExpenseDetailPage() {
                 { ...report, submitter_name: submitterName ?? undefined },
                 items.map(i => ({ ...i, category_name: i.expense_categories?.name ?? undefined }))
               )}
-              className="inline-flex items-center gap-2 px-3 py-2 card-label font-semibold text-ink-700 bg-white border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              className="btn-secundario inline-flex items-center gap-2 px-3 py-2 card-label bg-white"
             >
               <Download size={16} />
               Descargar PDF

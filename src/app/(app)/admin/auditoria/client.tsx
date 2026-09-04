@@ -368,7 +368,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             <button
               onClick={goPrev}
               disabled={offset === 0 || loading}
-              className="flex items-center gap-1 px-3 py-2 rounded-item border border-ink-200 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="btn-secundario flex items-center gap-1 px-3 py-2"
             >
               <ChevronLeft size={16} />
               Anterior
@@ -376,7 +376,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             <button
               onClick={goNext}
               disabled={offset + PAGE_SIZE >= total || loading}
-              className="flex items-center gap-1 px-3 py-2 rounded-item border border-ink-200 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="btn-secundario flex items-center gap-1 px-3 py-2"
             >
               Siguiente
               <ChevronRight size={16} />

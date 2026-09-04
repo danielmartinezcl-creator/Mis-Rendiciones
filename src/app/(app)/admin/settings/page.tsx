@@ -320,7 +320,7 @@ function CategoriesTab() {
                     <Check size={12} />{editSaving ? 'Guardando…' : 'Guardar cambios'}
                   </button>
                   <button type="button" onClick={() => setEditCat(null)}
-                    className="px-3 py-2 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                    className="btn-secundario px-3 py-2 text-xs">
                     Cancelar
                   </button>
                 </div>
@@ -383,7 +383,7 @@ function CategoriesTab() {
                       <Trash2 size={11} />{deleteLoading ? 'Eliminando…' : 'Confirmar'}
                     </button>
                     <button onClick={() => setDeleteCat(null)}
-                      className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                      className="btn-secundario px-3 py-1.5 text-xs">
                       Cancelar
                     </button>
                   </div>
@@ -548,7 +548,7 @@ function EmployeesTab() {
                         <Check size={11} />{editSaving ? 'Guardando…' : 'Guardar'}
                       </button>
                       <button onClick={() => setEditFull(null)}
-                        className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                        className="btn-secundario px-3 py-1.5 text-xs">
                         Cancelar
                       </button>
                     </div>
@@ -666,7 +666,7 @@ function EmployeesTab() {
                       <Trash2 size={11} />{deleting ? 'Eliminando…' : 'Confirmar eliminación'}
                     </button>
                     <button onClick={() => setDeleteConfirm(null)}
-                      className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                      className="btn-secundario px-3 py-1.5 text-xs">
                       Cancelar
                     </button>
                   </div>
@@ -1452,7 +1452,7 @@ function PoliciesTab() {
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={cancelForm}
-              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors">
+              className="btn-secundario flex-1 py-2 text-sm">
               Cancelar
             </button>
             <button type="submit" disabled={saving}
@@ -1700,7 +1700,7 @@ function ViaticosTab() {
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={cancelForm}
-              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors">
+              className="btn-secundario flex-1 py-2 text-sm">
               Cancelar
             </button>
             <button type="submit" disabled={saving || !form.name.trim() || form.max_amount <= 0}
@@ -1926,7 +1926,7 @@ function WebhooksTab() {
             <button
               type="button"
               onClick={() => { setShowForm(false); setError(null); setUrl(''); setSecret(''); setEvents([]) }}
-              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors"
+              className="btn-secundario flex-1 py-2 text-sm"
             >
               Cancelar
             </button>

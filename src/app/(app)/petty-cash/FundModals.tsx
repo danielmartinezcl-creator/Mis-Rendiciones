@@ -279,7 +279,7 @@ export function FundModals({
               </button>
               <button
                 onClick={() => setTransferSource(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -363,7 +363,7 @@ export function FundModals({
               </button>
               <button
                 onClick={() => setEditingTransfer(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -435,7 +435,7 @@ export function FundModals({
               </button>
               <button
                 onClick={() => setEditingLinkedTransfer(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -509,7 +509,7 @@ export function FundModals({
               </button>
               <button
                 onClick={() => setLinkingTransfer(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>

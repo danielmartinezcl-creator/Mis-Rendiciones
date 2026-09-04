@@ -593,7 +593,7 @@ export function InformesClient({ filterOptions }: Props) {
               <button
                 onClick={() => handleExport('excel')}
                 disabled={!!exporting}
-                className="flex items-center gap-2 px-4 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-700 bg-white hover:bg-ink-50 disabled:opacity-50 transition-colors"
+                className="btn-secundario flex items-center gap-2 px-4 py-2 text-sm bg-white"
               >
                 <FileSpreadsheet size={15} />
                 {exporting === 'excel' ? 'Generando…' : 'Excel'}
@@ -601,7 +601,7 @@ export function InformesClient({ filterOptions }: Props) {
               <button
                 onClick={() => handleExport('pdf')}
                 disabled={!!exporting}
-                className="flex items-center gap-2 px-4 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-700 bg-white hover:bg-ink-50 disabled:opacity-50 transition-colors"
+                className="btn-secundario flex items-center gap-2 px-4 py-2 text-sm bg-white"
               >
                 <Download size={15} />
                 {exporting === 'pdf' ? 'Generando…' : 'PDF'}

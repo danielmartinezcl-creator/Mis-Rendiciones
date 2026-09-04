@@ -1190,7 +1190,7 @@ export function AdminReportsClient({ initialReports }: Props) {
               <button
                 onClick={() => setBulkCCReportId(null)}
                 disabled={bulkCCSaving}
-                className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
+                className="btn-secundario flex-1 py-2 text-sm"
               >
                 Cancelar
               </button>

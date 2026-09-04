@@ -113,7 +113,7 @@ export default function QuickPage() {
         <div className="flex gap-3">
           <button
             onClick={() => { setDone(false); setStep('photo'); setPhoto(null); setDesc(''); setAmount(''); setCategoryId(''); setFundId('') }}
-            className="px-4 py-3 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50"
+            className="btn-secundario px-4 py-3 card-label"
           >
             Otro gasto
           </button>

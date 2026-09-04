@@ -221,7 +221,7 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
             <button
               type="button"
               onClick={() => setDupWarn(null)}
-              className="px-3 py-2.5 card-meta text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50"
+              className="btn-secundario px-3 py-2.5 card-meta"
             >
               Cancelar
             </button>

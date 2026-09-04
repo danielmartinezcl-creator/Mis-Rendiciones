@@ -686,7 +686,7 @@ export default function AdminEmployeesPage() {
                     </button>
                     <button
                       onClick={() => setExpandedEdit(null)}
-                      className="px-4 py-2 text-xs text-ink-500 hover:text-ink-700 border border-ink-200 rounded-item hover:bg-white transition-colors"
+                      className="btn-secundario px-4 py-2 text-xs"
                     >
                       Cancelar
                     </button>
@@ -742,7 +742,7 @@ export default function AdminEmployeesPage() {
                         </button>
                         <button
                           onClick={() => setPwPanel(null)}
-                          className="px-4 py-2 text-xs text-ink-500 hover:text-ink-700 border border-ink-200 rounded-item hover:bg-white transition-colors"
+                          className="btn-secundario px-4 py-2 text-xs"
                         >
                           Cancelar
                         </button>

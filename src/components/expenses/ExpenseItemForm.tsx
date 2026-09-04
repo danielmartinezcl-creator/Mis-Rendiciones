@@ -709,7 +709,7 @@ export function ExpenseItemForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 py-3 px-4 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
+          className="btn-secundario flex-1 py-3 px-4 card-label"
         >
           Cancelar
         </button>
