@@ -96,20 +96,23 @@ export const RUTAS_DETALLE: RutaDetalle[] = [
     prefijo: '/approvals/',
     ignorar: [],
     /**
-     * NO se compara. Esta pantalla muestra el análisis IA de la rendición, y
-     * el texto sale distinto en cada carga: frases diferentes, y con ellas un
-     * alto de bloque diferente que corre todo lo que está debajo. Medido: dos
-     * corridas seguidas dan 8-9% de píxeles distintos sin que nadie toque
-     * código.
+     * VUELVE A COMPARARSE desde el 2026-09-04.
      *
-     * Enmascarar el bloque no alcanza — una máscara tapa, pero no evita el
-     * desplazamiento vertical de lo que sigue.
+     * Estuvo marcada `comparar: false` porque el análisis IA salía con texto
+     * distinto en cada carga —8-9% de píxeles entre corridas sin tocar código—
+     * y con él cambiaba el alto del bloque, corriendo todo lo de abajo.
      *
-     * (Que el texto cambie en cada carga es en sí un problema: existe un caché
-     *  en `expense_reports.ai_analysis` justamente para evitarlo. Ver
-     *  `generateApprovalAnalysis` en src/actions/approvals.ts.)
+     * La causa no era la pantalla: el caché de `expense_reports.ai_analysis`
+     * nunca acertaba. La condición era `ai_analysis_at > updated_at`, pero
+     * guardar el análisis es un UPDATE sobre esa tabla y su trigger
+     * `set_updated_at()` pisaba la marca contra la que se comparaba. Arreglado
+     * en la migración 024, que mueve la invalidación a un trigger sobre
+     * `expense_items`.
+     *
+     * **Que esta ruta compare es la prueba viva de que el caché funciona:** si
+     * volviera a fallar, el análisis se recalcularía en cada carga y esta
+     * captura empezaría a fallar sola.
      */
-    comparar: false,
   },
   {
     slug: 'caja-chica-detalle',

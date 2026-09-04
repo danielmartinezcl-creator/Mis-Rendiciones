@@ -304,13 +304,19 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
     .single()
   if (!report) return null
 
-  // Usar análisis cacheado si está actualizado
-  if (report.ai_analysis && report.ai_analysis_at) {
-    const analysisAt = new Date(report.ai_analysis_at as string).getTime()
-    const updatedAt  = new Date(report.updated_at as string).getTime()
-    if (analysisAt > updatedAt) {
-      return report.ai_analysis as unknown as AiAnalysis
-    }
+  /* Si hay análisis guardado, sirve. Punto.
+     Antes esto comparaba `ai_analysis_at > updated_at` para decidir si el caché
+     estaba fresco, y la condición NUNCA se cumplía: guardar el análisis es un
+     UPDATE sobre `expense_reports`, la tabla tiene un trigger `set_updated_at()`
+     que corre en cada UPDATE, y por lo tanto la escritura del caché pisaba la
+     misma marca contra la que se comparaba. Medido: 0 de 4 análisis guardados
+     tenían caché válido. Cada apertura de la pantalla recalculaba lo que ya
+     estaba en la base.
+     Ahora la frescura la garantiza el trigger `trg_invalidar_analisis_ia`
+     (migración 024): si cambia un ítem de la rendición, el análisis se anula en
+     la base. Que exista un valor ES la garantía de que está vigente. */
+  if (report.ai_analysis) {
+    return report.ai_analysis as unknown as AiAnalysis
   }
 
   // Cargar ítems actuales
