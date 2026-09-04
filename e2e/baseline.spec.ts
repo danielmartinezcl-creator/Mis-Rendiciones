@@ -55,8 +55,14 @@ async function esperarDomQuieto(page: Page, limite = 15_000) {
   }
 }
 
-async function capturar(page: Page, slug: string) {
-  await expect(page).toHaveScreenshot(`${slug}.png`, { fullPage: true })
+async function capturar(page: Page, slug: string, mascaras: string[] = []) {
+  await expect(page).toHaveScreenshot(`${slug}.png`, {
+    fullPage: true,
+    /* Playwright pinta las máscaras de rosa antes de comparar, así lo tapado
+       es idéntico entre corridas. Ver `mascaras` en rutas.ts para cuándo
+       corresponde usarlas — y cuándo no. */
+    mask: mascaras.map(sel => page.locator(sel)),
+  })
 }
 
 /* ── Pantalla pública ──────────────────────────────────────────────────── */
@@ -81,7 +87,7 @@ for (const ruta of RUTAS_ESTATICAS) {
     expect(page.url(), `${ruta.path} redirigió al login — sesión perdida`).not.toContain('/login')
 
     await estabilizar(page)
-    await capturar(page, ruta.slug)
+    await capturar(page, ruta.slug, ruta.mascaras)
   })
 }
 

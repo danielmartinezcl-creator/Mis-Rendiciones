@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Camera, CheckCircle2, Wallet, ArrowRight, RotateCcw, AlertCircle } from 'lucide-react'
 import { runOcr } from '@/actions/ocr'
 import { addFundItem, listPettyCashFunds, getActivePettyCashCategories } from '@/actions/petty-cash'
+import { addPettyCashItemAttachment } from '@/actions/expenses'
 import type { FundListItem } from '@/actions/petty-cash'
 
 type Category = { id: string; name: string; color: string | null }
@@ -28,6 +29,7 @@ export default function QuickPage() {
   const [step,        setStep]        = useState<Step>('photo')
   const [photo,       setPhoto]       = useState<string | null>(null)   // base64
   const [photoFile,   setPhotoFile]   = useState<File | null>(null)
+  const [avisoAdjunto, setAvisoAdjunto] = useState<string | null>(null)
   const [ocrRunning,  setOcrRunning]  = useState(false)
   const [description, setDesc]        = useState('')
   const [amount,      setAmount]      = useState('')
@@ -82,7 +84,7 @@ export default function QuickPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await addFundItem(fundId, {
+      const itemId = await addFundItem(fundId, {
         description:   description.trim(),
         amount:        amtNum,
         currency:      'CLP',
@@ -96,6 +98,20 @@ export default function QuickPage() {
         supplier_rut:  null,
         notes:         null,
       })
+
+      /* La foto es el respaldo del gasto, no solo la entrada del OCR. Se adjunta
+         DESPUÉS de crear el ítem porque recién ahí hay un id al cual colgarla.
+         Si la subida falla, el gasto igual quedó registrado: se avisa y no se
+         pierde lo cargado. Perder el gasto por no poder subir la foto sería
+         peor que quedarse sin la foto. */
+      if (photoFile) {
+        try {
+          await addPettyCashItemAttachment(itemId, photoFile)
+        } catch {
+          setAvisoAdjunto('El gasto se registró, pero la foto no se pudo adjuntar. Podés subirla desde el detalle del fondo.')
+        }
+      }
+
       setDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
@@ -109,10 +125,17 @@ export default function QuickPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-5 px-4">
         <CheckCircle2 size={56} className="text-accent-500" />
         <h2 className="text-xl font-display font-bold text-ink-800">¡Gasto registrado!</h2>
-        <p className="text-ink-500 card-label">El gasto se agregó a tu caja chica.</p>
+        <p className="text-ink-500 card-label">
+          {avisoAdjunto ? 'El gasto se agregó a tu caja chica.' : 'El gasto y su boleta quedaron en tu caja chica.'}
+        </p>
+        {avisoAdjunto && (
+          <p className="card-label text-warning-700 bg-warning-50 border border-warning-200 rounded-item px-3 py-2 max-w-xs">
+            {avisoAdjunto}
+          </p>
+        )}
         <div className="flex gap-3">
           <button
-            onClick={() => { setDone(false); setStep('photo'); setPhoto(null); setDesc(''); setAmount(''); setCategoryId(''); setFundId('') }}
+            onClick={() => { setDone(false); setStep('photo'); setPhoto(null); setPhotoFile(null); setAvisoAdjunto(null); setDesc(''); setAmount(''); setCategoryId(''); setFundId('') }}
             className="btn-secundario px-4 py-3 card-label"
           >
             Otro gasto

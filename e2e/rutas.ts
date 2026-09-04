@@ -16,6 +16,19 @@ export type Ruta = {
   nombre: string
   /** Rol mínimo. Hoy capturamos todo con admin, que es quien ve las 24. */
   rol: 'admin' | 'approver' | 'employee'
+  /**
+   * Selectores a tapar antes de comparar, para lo que cambia SOLO con el paso
+   * del tiempo. No es una excusa para tapar diferencias molestas: es para lo
+   * que es imposible que dos corridas en días distintos coincidan.
+   *
+   * La alternativa —marcar la ruta `comparar: false`— ya se probó con
+   * `/approvals/[id]` y salió mal: costó la cobertura de la pantalla más densa
+   * del sistema durante semanas. Una máscara conserva el resto.
+   *
+   * Solo sirve cuando el alto NO cambia. Si el texto enmascarado crece o se
+   * achica, corre todo lo de abajo y la máscara no alcanza.
+   */
+  mascaras?: string[]
 }
 
 export const RUTAS_ESTATICAS: Ruta[] = [
@@ -46,7 +59,12 @@ export const RUTAS_ESTATICAS: Ruta[] = [
   { slug: 'admin-analisis',      path: '/admin/analisis',         nombre: 'Admin · análisis por CC',      rol: 'admin' },
   { slug: 'admin-carga-hist',    path: '/admin/carga-historica',  nombre: 'Admin · carga histórica',      rol: 'admin' },
   { slug: 'admin-auditoria',     path: '/admin/auditoria',        nombre: 'Admin · auditoría',            rol: 'admin' },
-  { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin' },
+  /* La papelera muestra «N días restantes» hasta el borrado definitivo. Ese
+     número baja cada día, así que sin máscara esta ruta falla TODOS LOS DÍAS
+     sin que nadie toque código — y un rojo que no significa nada entrena a
+     ignorar los rojos. */
+  { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin',
+    mascaras: ['[data-cuenta-regresiva]'] },
 ]
 
 /**

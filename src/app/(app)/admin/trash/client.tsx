@@ -16,9 +16,9 @@ function daysLeft(deletedAt: string): number {
 
 function DaysLeftBadge({ deletedAt }: { deletedAt: string }) {
   const days = daysLeft(deletedAt)
-  if (days <= 7)  return <span className="text-xs font-semibold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  if (days <= 30) return <span className="text-xs font-semibold text-warning-600 bg-warning-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  return <span className="text-xs text-ink-400 bg-ink-100 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  if (days <= 7)  return <span data-cuenta-regresiva className="text-xs font-semibold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  if (days <= 30) return <span data-cuenta-regresiva className="text-xs font-semibold text-warning-600 bg-warning-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  return <span data-cuenta-regresiva className="text-xs text-ink-400 bg-ink-100 px-2 py-0.5 rounded-full">{days}d restantes</span>
 }
 
 interface Props { initialItems: TrashItems }

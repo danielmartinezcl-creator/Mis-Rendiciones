@@ -241,7 +241,11 @@ export async function addFundItem(fundId: string, item: {
     throw new Error(`El monto excede el límite máximo por ítem ($${limit} CLP). Contacta al administrador.`)
   }
 
-  const { error } = await supabase.from('petty_cash_items').insert({
+  /* Devuelve el id del ítem creado. Antes no devolvía nada, y por eso el flujo
+     rápido de /quick no tenía a qué adjuntarle la foto: sacaba la boleta, la
+     usaba para el OCR y la descartaba. El gasto quedaba sin respaldo, que en una
+     rendición chilena es justamente lo que hay que conservar. */
+  const { data: creado, error } = await supabase.from('petty_cash_items').insert({
     fund_id:      fundId,
     org_id:       fund.org_id,
     description:  item.description.trim(),
@@ -257,10 +261,11 @@ export async function addFundItem(fundId: string, item: {
     supplier_rut: item.supplier_rut ?? null,
     notes:        item.notes ?? null,
     status:       'pending',
-  })
+  }).select('id').single()
 
   if (error) throw new Error(error.message)
   revalidatePath(`/petty-cash/${fundId}`)
+  return creado.id as string
 }
 
 // ── Empleado/Admin: editar ítem ──────────────────────────────────────────────
