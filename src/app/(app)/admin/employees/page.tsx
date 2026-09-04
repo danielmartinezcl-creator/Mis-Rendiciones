@@ -1,16 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, getCostCenters } from '@/actions/admin'
 import { sendInvitations, setEmployeePassword } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff, Search, ShieldCheck } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 
 type EmployeeWithEmail = UserProfile & { email: string }
+
+/* El orden es el del flujo del dinero: rendir → aprobar → caja chica → banco. */
+const PERMISOS = [
+  { campo: 'can_submit',                  chip: 'rinde' },
+  { campo: 'can_approve',                 chip: 'aprueba' },
+  { campo: 'can_manage_petty_cash',       chip: 'EFF' },
+  { campo: 'can_load_bank_transfer',      chip: 'carga banco' },
+  { campo: 'can_authorize_bank_transfer', chip: 'autoriza banco' },
+] as const satisfies readonly { campo: keyof UserProfile; chip: string }[]
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   admin:    { label: 'Admin',      cls: 'bg-flare-100 text-flare-700' },
@@ -39,6 +48,13 @@ export default function AdminEmployeesPage() {
 
   // Selección para invitación masiva
   const [selected,        setSelected]         = useState<Set<string>>(new Set())
+  const [busca,           setBusca]            = useState('')
+  /* Igual que la cola bancaria: de a 25, con el total a la vista en el
+     buscador. Paginar esconde el scroll, no la nómina. */
+  const [tope,            setTope]             = useState(25)
+  /* Los permisos pasan a un cajón: 7 casillas por persona son 399 casillas en
+     una pantalla, imposibles de leer y responsables de la mitad del alto. */
+  const [permisosDe,      setPermisosDe]       = useState<string | null>(null)
   const [inviting,        setInviting]         = useState<string | null>(null) // 'bulk' | userId
   const [inviteResults,   setInviteResults]    = useState<{ ok: number; fail: number; msg: string } | null>(null)
 
@@ -209,11 +225,31 @@ export default function AdminEmployeesPage() {
     }
   }
 
+  /* Sin tildes y en minúsculas: "perez" tiene que encontrar a "Pérez". */
+  const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+  const filtrados = useMemo(() => {
+    const q = sinTildes(busca.trim())
+    if (!q) return employees
+    return employees.filter(e => {
+      const campos = [
+        e.full_name,
+        (e as UserProfile & { email?: string }).email ?? '',
+        (e as UserProfile & { rut?: string | null }).rut ?? '',
+        e.department ?? '',
+      ]
+      return campos.some(c => sinTildes(String(c)).includes(q))
+    })
+  }, [employees, busca])
+
+  /* Opera sobre lo FILTRADO, no sobre la nómina entera: abajo hay borrado
+     masivo, y un "seleccionar todos" que alcanza gente que no está en
+     pantalla es la forma más fácil de borrar a quien no se quería. */
   function toggleSelectAll() {
-    if (selected.size === employees.length) {
+    if (filtrados.every(e => selected.has(e.id)) && filtrados.length > 0) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(employees.map(e => e.id)))
+      setSelected(new Set(filtrados.map(e => e.id)))
     }
   }
 
@@ -309,18 +345,39 @@ export default function AdminEmployeesPage() {
       )}
 
       {/* Barra de acciones */}
+      {/* Buscador: con 57 personas, dar con una es la tarea de la pantalla. */}
+      {employees.length > 8 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+            <input
+              type="search"
+              value={busca}
+              onChange={e => { setBusca(e.target.value); setTope(25) }}
+              placeholder="Buscar por nombre, correo, RUT o departamento…"
+              className="campo w-full pl-9"
+            />
+          </div>
+          {busca && (
+            <p className="card-meta">{filtrados.length} de {employees.length}</p>
+          )}
+        </div>
+      )}
+
       {employees.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
           {/* Seleccionar todos */}
           <label className="flex items-center gap-1.5 text-xs tor-on-gradient-soft cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={selected.size === employees.length && employees.length > 0}
-              ref={el => { if (el) el.indeterminate = selected.size > 0 && selected.size < employees.length }}
+              checked={filtrados.length > 0 && filtrados.every(e => selected.has(e.id))}
+              ref={el => { if (el) el.indeterminate = selected.size > 0 && !filtrados.every(e => selected.has(e.id)) }}
               onChange={toggleSelectAll}
               className="w-4 h-4 rounded text-brand-600 border-ink-300 focus:ring-brand-500"
             />
-            {selected.size > 0 ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}` : 'Seleccionar todos'}
+            {selected.size > 0
+              ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}`
+              : busca ? `Seleccionar los ${filtrados.length} filtrados` : 'Seleccionar todos'}
           </label>
 
           <span className="text-white/30">|</span>
@@ -374,6 +431,16 @@ export default function AdminEmployeesPage() {
 
       {/* Lista de empleados */}
       <div className="space-y-2">
+        {busca && filtrados.length === 0 && (
+          <div className="hoja p-8 text-center">
+            <Search size={26} className="mx-auto mb-2 text-ink-300" />
+            <p className="card-label font-semibold text-ink-700">Nadie coincide con «{busca}»</p>
+            <button onClick={() => setBusca('')} className="text-brand-600 text-sm hover:underline mt-2">
+              Limpiar la búsqueda
+            </button>
+          </div>
+        )}
+
         {employees.length === 0 && panel === 'none' && (
           <div className="text-center py-12 text-ink-400">
             <Users size={36} className="mx-auto mb-3 opacity-30" />
@@ -386,7 +453,7 @@ export default function AdminEmployeesPage() {
           </div>
         )}
 
-        {employees.map(emp => {
+        {filtrados.slice(0, tope).map(emp => {
           const badge           = ROLE_BADGE[emp.role] ?? ROLE_BADGE.employee
           const isOpen          = expandedApprover === emp.id
           const isEditOpen      = expandedEdit === emp.id
@@ -422,7 +489,13 @@ export default function AdminEmployeesPage() {
                     {emp.full_name[0].toUpperCase()}
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  {/* Piso de ancho, no `min-w-0`. Con cero, en 390 px el checkbox,
+                      el avatar y los controles se comían el ancho y esta columna
+                      quedaba en 35 px de ancho por 206 de alto: el nombre se
+                      apilaba en vertical, una letra por línea. El piso obliga a
+                      que los controles bajen de línea, que es lo que `flex-wrap`
+                      tenía que haber hecho desde el principio. */}
+                  <div className="flex-1 min-w-[10rem]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-ink-900">{emp.full_name}</p>
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
@@ -525,44 +598,31 @@ export default function AdminEmployeesPage() {
                   )}
                 </div>
 
-                {/* Permisos + Estado + Aprobadores */}
-                <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-ink-100">
-                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
-                    <input type="checkbox" checked={emp.can_submit} disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { can_submit: e.target.checked })}
-                      className="rounded text-brand-600" />
-                    Puede rendir
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
-                    <input type="checkbox" checked={emp.can_approve} disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { can_approve: e.target.checked })}
-                      className="rounded text-brand-600" />
-                    Puede aprobar
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
-                    <input type="checkbox" checked={emp.can_manage_petty_cash} disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { can_manage_petty_cash: e.target.checked })}
-                      className="rounded text-brand-600" />
-                    EFF (Caja Chica)
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede confirmar la carga bancaria de los fondos">
-                    <input type="checkbox" checked={emp.can_load_bank_transfer} disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { can_load_bank_transfer: e.target.checked })}
-                      className="rounded text-brand-600" />
-                    Carga banco
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede autorizar la transferencia bancaria final">
-                    <input type="checkbox" checked={emp.can_authorize_bank_transfer} disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { can_authorize_bank_transfer: e.target.checked })}
-                      className="rounded text-brand-600" />
-                    Autorizador banco
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
-                    <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}
-                      className="rounded text-brand-600" />
-                    Activo
-                  </label>
+                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-ink-100">
+                  {/* Plegado se LEE: los permisos activos como texto. Editarlos
+                      es otra intención y vive en el cajón de abajo. Seis
+                      casillas por persona eran 342 casillas en una pantalla. */}
+                  {!emp.is_active && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning-50 text-warning-700">inactivo</span>
+                  )}
+                  {PERMISOS.filter(p => emp[p.campo]).map(p => (
+                    <span key={p.campo} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-600">
+                      {p.chip}
+                    </span>
+                  ))}
+                  {PERMISOS.every(p => !emp[p.campo]) && (
+                    <span className="text-[10px] text-ink-400 italic">sin permisos</span>
+                  )}
+
+                  <button
+                    onClick={() => setPermisosDe(permisosDe === emp.id ? null : emp.id)}
+                    className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-item transition-colors ${
+                      permisosDe === emp.id ? 'bg-brand-100 text-brand-700' : 'bg-ink-50 text-ink-600 hover:bg-ink-100'
+                    }`}
+                  >
+                    <ShieldCheck size={11} />
+                    {permisosDe === emp.id ? 'Cerrar' : 'Permisos'}
+                  </button>
 
                   {/* Acciones: contraseña / inactivar / eliminar */}
                   <div className="ml-auto flex items-center gap-1">
@@ -626,6 +686,51 @@ export default function AdminEmployeesPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Panel de permisos */}
+              {permisosDe === emp.id && (
+                <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
+                  <p className="card-label font-semibold text-ink-600 mb-3">Permisos de {emp.full_name}</p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
+                    <input type="checkbox" checked={emp.can_submit} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_submit: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Puede rendir
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
+                    <input type="checkbox" checked={emp.can_approve} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_approve: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Puede aprobar
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
+                    <input type="checkbox" checked={emp.can_manage_petty_cash} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_manage_petty_cash: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    EFF (Caja Chica)
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede confirmar la carga bancaria de los fondos">
+                    <input type="checkbox" checked={emp.can_load_bank_transfer} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_load_bank_transfer: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Carga banco
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede autorizar la transferencia bancaria final">
+                    <input type="checkbox" checked={emp.can_authorize_bank_transfer} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { can_authorize_bank_transfer: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Autorizador banco
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
+                    <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id}
+                      onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}
+                      className="rounded text-brand-600" />
+                    Activo
+                  </label>
+                  </div>
+                </div>
+              )}
 
               {/* Panel editar datos del empleado */}
               {isEditOpen && (
@@ -770,6 +875,16 @@ export default function AdminEmployeesPage() {
             </div>
           )
         })}
+
+        {filtrados.length > tope && (
+          <button
+            onClick={() => setTope(t => t + 25)}
+            className="hoja border border-ink-200 w-full px-4 py-3 text-sm font-semibold text-brand-700 hover:bg-ink-50 transition-colors"
+          >
+            Mostrar {Math.min(25, filtrados.length - tope)} más
+            <span className="font-normal text-ink-500"> · quedan {filtrados.length - tope}</span>
+          </button>
+        )}
       </div>
     </div>
   )

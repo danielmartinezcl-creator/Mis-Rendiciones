@@ -92,6 +92,10 @@ const PANELES: Panel[] = [
   { detalle: 'caja-chica-detalle', panel: 'Nuevo gasto',    pasos: [{ boton: 'Agregar gasto' }],  condicional: true },
   { ruta: '/admin/employees',      panel: 'Nuevo empleado', pasos: [{ boton: 'Agregar empleado' }] },
 
+  /* Los permisos de cada empleado pasaron a un cajón plegado: sin esto, seis
+     casillas por persona dejarían de auditarse. */
+  { ruta: '/admin/employees',      panel: 'Permisos',       pasos: [{ boton: 'Permisos' }] },
+
   /* Las etapas de la cola bancaria: los KPI son el control, así que solo una se
      pinta por vez y las otras dos serían punto ciego. Los botones son
      `setEtapa(...)`, estado local puro. Condicionales porque un usuario sin el

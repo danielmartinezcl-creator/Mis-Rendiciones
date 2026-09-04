@@ -219,6 +219,22 @@ Dos correcciones que salieron de ahí y aplican a cualquier lista larga:
 Paginar de a 25 es seguro **solo si el total sigue visible** — acá lo dice el
 contador de etapa, así que se esconde el scroll, no la magnitud del atraso.
 
+#### `min-w-0` en una fila con `flex-wrap` es una trampa
+En `/admin/employees`, la columna del nombre tenía `flex-1 min-w-0`. En 390 px
+el checkbox, el avatar y los controles se comían el ancho y esa columna quedaba
+en **35 px de ancho por 206 de alto**: el nombre apilado en vertical, una letra
+por línea. `flex-wrap` no bajaba los controles porque `min-w-0` autoriza a la
+columna a encogerse hasta cero, así que nunca había desborde que provocara el
+salto.
+
+Un piso de ancho (`min-w-[10rem]`) lo arregla: los controles bajan de línea y
+la fila pasa de 206 px a 113. **`min-w-0` solo donde de verdad se quiere
+truncar; en una columna que debe conservar su ancho, va un piso.**
+
+Vale la pena buscar este patrón antes de suponer que una pantalla es larga por
+tener demasiado contenido: acá explicaba 93 px de los 385 de cada tarjeta, y la
+pantalla tiene 57.
+
 ### Insignias de estado
 Píldora de 9px, peso 700:
 
