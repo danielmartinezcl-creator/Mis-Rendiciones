@@ -502,7 +502,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <button
             onClick={handleDeleteAll}
             disabled={!!exporting || deletingAll || reports.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-danger-600 border border-danger-200 hover:bg-danger-50 rounded-item disabled:opacity-40 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-danger-200 border border-danger-200/40 hover:bg-danger-200/10 rounded-item disabled:opacity-40 transition-colors"
             title="Eliminar todas las rendiciones (solo para pruebas)"
           >
             <Trash2 size={14} />

@@ -59,3 +59,6 @@ next-env.d.ts
 /playwright-report/
 # Capturas de referencia de pantallas no deterministas: se miran, no se comparan
 /e2e/referencia/
+
+# Informe generado por 'npm run audit:materiales' — se regenera en cada corrida
+e2e/reporte-materiales.md

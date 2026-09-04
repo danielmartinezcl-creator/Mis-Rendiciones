@@ -312,7 +312,7 @@ export default function AdminEmployeesPage() {
       {employees.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
           {/* Seleccionar todos */}
-          <label className="flex items-center gap-1.5 text-xs text-ink-500 cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-xs tor-on-gradient-soft cursor-pointer select-none">
             <input
               type="checkbox"
               checked={selected.size === employees.length && employees.length > 0}

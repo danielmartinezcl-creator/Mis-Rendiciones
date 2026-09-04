@@ -311,12 +311,16 @@ export default function ExpenseDetailPage() {
         </div>
       )}
 
-      {/* Adjuntos del informe (aprobadores/admin) */}
-      <ApprovalAttachments
-        attachments={approvalAtts}
-        target={{ reportId: id }}
-        onRefresh={loadApprovalAtts}
-      />
+      {/* Adjuntos del informe (aprobadores/admin).
+          En hoja: el componente no trae superficie propia y sobre el degradado
+          su texto de ayuda queda ilegible. Es un formulario, se llena. */}
+      <div className="hoja p-4">
+        <ApprovalAttachments
+          attachments={approvalAtts}
+          target={{ reportId: id }}
+          onRefresh={loadApprovalAtts}
+        />
+      </div>
 
       {/* Lista de ítems */}
       <div className="space-y-2">
@@ -327,7 +331,9 @@ export default function ExpenseDetailPage() {
               canDelete={isDraft}
               onDelete={handleDeleteItem}
             />
-            <div className="px-3 pb-2">
+            {/* La zona de adjuntos continúa la hoja del ítem de arriba en vez
+                de flotar sobre el degradado: pertenece a esa tarjeta. */}
+            <div className="hoja rounded-t-none -mt-1 px-3 pt-1 pb-2">
               <ItemAttachmentZone
                 itemId={item.id}
                 itemType="expense_item"

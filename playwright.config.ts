@@ -156,6 +156,20 @@ export default defineConfig({
         deviceScaleFactor: 1,
       },
     },
+    /* Auditoría de materiales — `npm run audit:materiales`.
+       Proyecto aparte a propósito: responde otra pregunta que la línea base.
+       Aquélla dice «esto cambió»; ésta dice «esto está mal». Mezclarlas haría
+       que un rediseño legítimo y un error de material se vean igual. */
+    {
+      name: 'materiales',
+      dependencies: ['ingreso'],
+      testMatch: /materiales\.spec\.ts/,
+      use: {
+        storageState: SESION,
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: 1,
+      },
+    },
   ],
 
   webServer: {

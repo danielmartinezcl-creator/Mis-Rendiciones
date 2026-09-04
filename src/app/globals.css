@@ -531,6 +531,25 @@ body::after {
   .btn-primario:hover:not(:disabled)  { background-color: var(--color-brand-700); }
   .btn-primario:active:not(:disabled) { transform: scale(.98); }
   .btn-primario:disabled              { opacity: .5; cursor: not-allowed; }
+
+  /* ── ESQUELETO DE CARGA ─────────────────────────────────────────────────
+     Una barra de carga tiene que leerse como AUSENCIA. Los 11 `loading.tsx`
+     usaban `bg-ink-100` —casi blanco— en todas: dentro de una hoja funciona,
+     pero sobre el degradado oscuro son barras brillantes que se leen como
+     contenido que ya llegó. El chasis oscuro invirtió el problema sin que
+     nadie tocara esos archivos.
+
+     El color lo decide el MATERIAL QUE HAY DEBAJO, no quien escribe el markup,
+     con el mismo criterio que el selector de legibilidad: si el elemento no
+     está dentro de una superficie, está sobre el degradado. Así una barra
+     nueva sale bien en los dos contextos sin pensarlo.
+
+     OJO: comparte la lista de exclusiones con esa regla. Si aparece una
+     superficie nueva, hay que agregarla en los dos lugares. */
+  .esqueleto { background-color: rgba(255, 255, 255, .13); }
+  .hoja .esqueleto,
+  .bg-white .esqueleto,
+  .tor-glass .esqueleto { background-color: var(--color-ink-100); }
 }
 
 /* ── VIDRIO ───────────────────────────────────────────────────────────────

@@ -145,7 +145,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowAll(s => !s)}
-            className="flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-semibold tor-on-gradient hover:text-white/80 transition-colors"
           >
             <ChevronDown size={15} className={showAll ? 'rotate-180 transition-transform' : 'transition-transform'} />
             {showAll ? 'Ver solo las mías' : 'Ver todas las sugerencias (admin)'}

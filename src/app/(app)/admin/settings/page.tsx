@@ -218,7 +218,7 @@ function CategoriesTab() {
 
   return (
     <section className="space-y-3">
-      <p className="text-xs text-ink-400">Las categorías globales están disponibles para todas las organizaciones. Podés agregar y modificar categorías propias de tu empresa.</p>
+      <p className="text-xs tor-on-gradient-soft">Las categorías globales están disponibles para todas las organizaciones. Podés agregar y modificar categorías propias de tu empresa.</p>
 
       {/* ── Formulario nueva categoría ── */}
       <form onSubmit={handleAdd} className="hoja p-4 space-y-3">
