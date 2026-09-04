@@ -228,6 +228,46 @@ está `npm run audit:materiales`, que la verifica en las 24 pantallas. Ver
 - **`/admin/settings` tiene pestañas** y solo se captura la primera. Políticas, Viáticos
   y Defontana quedan sin cubrir; si la etapa 1 toca esos paneles, mirarlos a mano.
 
+## ⚠ Corridas fantasma — leer el MENSAJE, no el número
+
+Dos veces el 3–4 de septiembre la línea base dio muchas fallas y, repitiendo sin
+tocar nada, dio verde. Las fallas duraban 577 ms – 2,8 s, y ahí está la pista:
+**`toHaveScreenshot` reintenta hasta 15 s, así que nada que falle en medio
+segundo es una diferencia de píxeles.** Son las dos aserciones que corren ANTES
+de la captura:
+
+```ts
+expect(respuesta?.status(), '… respondió con error HTTP').toBeLessThan(400)
+expect(page.url(),  '… redirigió al login — sesión perdida').not.toContain('/login')
+```
+
+**El arnés ya diagnostica esto correctamente.** El error dice literalmente
+«sesión perdida». Lo que falló fue leer solo el conteo: `... | tail -3` corta el
+resumen de Playwright justo donde está el motivo. **Nunca truncar la salida de
+una corrida en rojo.**
+
+### Lo que se investigó, y hasta dónde llegó
+
+- **Descartado con medición:** colisión de puerto entre corridas encadenadas. Se
+  midió el puerto 3100 en el instante siguiente a terminar una corrida: libre en
+  el segundo 0, cero procesos node huérfanos.
+- **Descartado:** que baste encadenar dos corridas. Se reprodujeron esas
+  condiciones exactas (auditoría + línea base seguidas) y dieron 52 verdes.
+- **Confirmado como mecanismo posible:** la sesión vive en una cookie de
+  `@supabase/ssr` que lleva adentro el access token Y el refresh token.
+  Playwright reparte a cada contexto una **foto estática** de esa cookie, y
+  Supabase **rota** el refresh token al renovarlo: el primer contexto que renueve
+  invalida el que van a reusar los demás. `auth.refresh_tokens` confirma que la
+  rotación está activa — 6 revocaciones con token padre en 2 días.
+- **Correlación:** una de las dos fallas coincide al minuto con una revocación
+  (22:38:48 del 03/09). **La otra no coincide con ninguna**, así que o hay dos
+  causas distintas o la reconstrucción horaria de la segunda está mal.
+
+**No está cerrado.** Si vuelve a pasar: mirar el mensaje de la primera falla. Si
+dice «sesión perdida», es esto y alcanza con volver a correr. Si dice otra cosa,
+es un hallazgo nuevo y conviene guardar el `test-results/` antes de repetir,
+porque la corrida siguiente lo borra.
+
 ## Auditoría de materiales — `npm run audit:materiales`
 
 Verifica la regla que sostiene Tornasol: **un dato apoyado directo sobre el
