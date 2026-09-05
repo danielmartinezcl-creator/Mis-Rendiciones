@@ -22,7 +22,7 @@ export function PendingToRenderPanel({ list }: Props) {
   const isEmpty = count === 0
 
   return (
-    <div className="bg-white rounded-card shadow-card border-t-[3px] border-t-violet-400 overflow-hidden">
+    <div className="hoja border-t-[3px] border-t-flare-400 overflow-hidden">
       {/* Cabecera — clickeable */}
       <button
         onClick={() => setExpanded(e => !e)}
@@ -32,7 +32,7 @@ export function PendingToRenderPanel({ list }: Props) {
           <div>
             <p className="text-base font-medium text-ink-500 leading-tight mb-3">Pendiente de rendición</p>
             <p className="text-3xl font-bold text-ink-900 mb-0.5">{count}</p>
-            <p className={`text-base font-mono-amount font-semibold ${amount > 0 ? 'text-violet-600' : 'text-ink-400'}`}>
+            <p className={`text-base font-mono-amount font-semibold ${amount > 0 ? 'text-flare-600' : 'text-ink-400'}`}>
               {fmtCLP(amount)}
             </p>
           </div>
@@ -56,12 +56,12 @@ export function PendingToRenderPanel({ list }: Props) {
                   href={`/petty-cash/${f.id}`}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-ink-50 transition-colors"
                 >
-                  <Wallet size={14} className="text-violet-500 shrink-0" />
+                  <Wallet size={14} className="text-flare-500 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-ink-800 truncate">{f.name}</p>
                     <p className="text-xs text-ink-400">{f.employeeName}</p>
                   </div>
-                  <span className="font-mono-amount text-sm font-bold text-violet-700 shrink-0">
+                  <span className="font-mono-amount text-sm font-bold text-flare-700 shrink-0">
                     {fmtCLP(f.amount)}
                   </span>
                 </Link>
@@ -74,12 +74,12 @@ export function PendingToRenderPanel({ list }: Props) {
                   href={`/petty-cash`}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-ink-50 transition-colors"
                 >
-                  <History size={14} className="text-amber-500 shrink-0" />
+                  <History size={14} className="text-warning-500 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-ink-800 truncate">{h.title}</p>
                     <p className="text-xs text-ink-400">{h.employeeName} · Carga histórica</p>
                   </div>
-                  <span className="font-mono-amount text-sm font-bold text-amber-700 shrink-0">
+                  <span className="font-mono-amount text-sm font-bold text-warning-700 shrink-0">
                     {fmtCLP(h.amount)}
                   </span>
                 </Link>
@@ -89,12 +89,12 @@ export function PendingToRenderPanel({ list }: Props) {
 
           {/* Footer con total */}
           {!isEmpty && (
-            <div className="px-5 py-3 bg-violet-50 border-t border-violet-100 flex justify-between items-center">
-              <span className="text-xs font-medium text-violet-700 flex items-center gap-1.5">
+            <div className="px-5 py-3 bg-flare-50 border-t border-flare-100 flex justify-between items-center">
+              <span className="text-xs font-medium text-flare-700 flex items-center gap-1.5">
                 <Clock size={12} />
                 Total pendiente de rendición
               </span>
-              <span className="font-mono-amount text-sm font-bold text-violet-800">{fmtCLP(amount)}</span>
+              <span className="font-mono-amount text-sm font-bold text-flare-800">{fmtCLP(amount)}</span>
             </div>
           )}
         </div>

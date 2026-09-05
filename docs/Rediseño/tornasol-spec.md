@@ -1,0 +1,361 @@
+# Sistema de diseño "Tornasol" — especificación
+
+Documento de referencia para implementar la identidad visual de **Mi Rendición**.
+
+---
+
+## ⛔ FE DE ERRATAS — leer antes que el resto
+
+**Esta spec está implementada, pero no al pie de la letra.** Ocho puntos se
+decidieron distinto *después* de escribirla, y varios de ellos siguen escritos acá
+como si fueran la guía a seguir. Son decisiones cerradas: no se reabren.
+
+| Dice la spec | Se hizo | Por qué |
+|---|---|---|
+| §1 y §5 · vidrio **blanco** translúcido | **Oscuro**: `rgba(3,25,28,.42)`, con el destello en el borde superior | Medido: blanco sobre el tramo teal tumba el contraste de 4.77:1 a 3.72:1, bajo el mínimo AA. Oscuro lo sube a 8.12:1 |
+| §3 · «toda la interfaz» en Bricolage | Bricolage en **títulos**, Hanken en **cuerpo**, Manrope en montos | El carácter de Bricolage es personalidad a 26px y textura a 14px repetida cuarenta veces |
+| §3 · antetítulo 9,5px, cuerpo 12–13px | **Piso de 11px, y SOLO en el cromo de vidrio** | Ver abajo — es la errata más fácil de aplicar mal |
+| §9 · `success` = teal = la marca | `success` **no** comparte color con `brand` | La marca es reemplazable: el día que un cliente traiga naranja, «aprobado» se volvería naranja |
+| §9 · `accent` = lila | `accent` **es el teal de marca**; el lila es `flare` | El rol de acento en esta app siempre fue el teal; el lila es el destello, un segundo nivel |
+| §9 · `brand-600` = `#12807C` | `#0D7F81` | Reanclaje de la rampa entera en oklch, para que `ink` conserve su curva de luminosidad |
+| §9 · «toda la paleta en un solo archivo» | **Dos**: `globals.css` y `src/lib/design-tokens.ts` | Gráficos SVG, plantillas de email y la metadata de la PWA no pueden leer variables CSS |
+| — | **El modo oscuro se eliminó** | Tornasol ya es el chasis oscuro. Mantener dos temas obligaba a decidir qué le pasa a la hoja blanca, que es la pieza que sostiene el sistema |
+
+### La escala: dos, y a propósito (decidido el 2026-09-03)
+
+**El material decide el tamaño.** No es una inconsistencia a limpiar:
+
+| Material | Escala | Por qué |
+|---|---|---|
+| **Vidrio** — antetítulos, línea de tiempo, leyendas, medidor | piso de **11px** | Se *mira*: son datos de orientación que se leen una vez |
+| **Hoja** — filas, montos, formularios, tablas | clases `card-*`, piso de **15px** | Se *lee*: montos que hay que comparar y razones sociales que hay que reconocer, muchas veces seguidas, por gente que incluye adultos mayores |
+
+Las clases `.card-eyebrow` (19px), `.card-label` (17px), `.card-meta` (15px) y
+`.section-title` (19px) de `globals.css` **son la escala vigente de la hoja**, no
+código viejo pendiente de migrar. Vienen de la decisión del 2026-08-16, tomada por
+un problema real —«en un celular no se leían»— y siguen en pie.
+
+Comparación medida a 1:1 en los dos tamaños:
+https://claude.ai/code/artifact/12164e8f-d2dc-475c-b12e-1f4b076e57f1
+
+> **Si estás midiendo «deuda de sistema», no cuentes los usos de `card-*`.** Un
+> relevamiento que no conoce esta decisión los marca a los 156 como patrón escrito
+> a mano y da 265 unidades de deuda donde hay 109.
+
+**Dónde está lo que esta spec no puede decir:**
+
+- **Qué se construyó y por qué** → los mensajes de commit, que son largos a propósito:
+  `git log --oneline 7235fb1..HEAD`.
+- **Los materiales, con su razonamiento** → los comentarios de `src/app/globals.css`
+  (`.hoja`, `.campo`, `.btn-primario`, `.tor-glass` y el selector de legibilidad).
+- **Qué verifica y qué NO verifica la línea base visual** → `e2e/README.md`, sobre todo
+  la sección del punto ciego.
+- **El diseño aprobado de la pantalla piloto** →
+  https://claude.ai/code/artifact/4e0b71b1-72ce-4b3e-8091-fc21f5290dee
+
+> **Al tocar el selector de legibilidad, ojo:** `globals.css` aclara los encabezados que
+> NO están dentro de una superficie, y excluye las superficies **por nombre de clase**
+> (`:not(.hoja *):not(.bg-white *):not(.tor-glass *)`). Si creás una superficie nueva,
+> agregala a esa lista o los encabezados de adentro se vuelven blancos sobre blanco.
+> Ya pasó una vez. Es la razón principal para preferir una clase de material antes que
+> un componente de React con clase propia.
+
+---
+
+## 1. La regla que sostiene todo el sistema
+
+> **El degradado es el contenedor. Nunca la superficie de trabajo.**
+
+Hay exactamente **dos materiales**:
+
+| Material | Qué es | Para qué |
+|---|---|---|
+| **Vidrio** (`glass`) | Blanco translúcido sobre el degradado, con desenfoque | Resúmenes, KPIs, totales, encabezados. Cosas que se *miran*. |
+| **Hoja** (`sheet`) | Blanco sólido, texto oscuro, sombra profunda | Tablas, listas, formularios, detalle. Cosas que se *leen, comparan o deciden*. |
+
+Si el usuario tiene que comparar cifras, revisar 40 filas o llenar campos, va en hoja blanca. Sin excepciones. Esto es lo que hace que un degradado saturado sea viable en una herramienta de uso diario: el color enmarca, el blanco trabaja.
+
+Romper esta regla es el error que arruina el diseño. Una tabla de aprobaciones sobre el degradado es ilegible a los diez minutos.
+
+---
+
+## 2. Tokens de color
+
+### Rampa del degradado
+
+```css
+--tor-1:  #03191C;   /* abismo — arranque */
+--tor-2:  #0B4448;   /* petróleo */
+--tor-3:  #12807C;   /* teal medio — color de acción */
+--tor-4:  #2FC9B6;   /* aqua brillante */
+--flare:  #7E77DE;   /* lila — el tono ajeno */
+```
+
+**El lila no es decorativo.** El metal iridiscente —titanio anodizado, una mancha de aceite— siempre tiene un tono extraño en el borde. Sin él, el degradado teal se ve plano y barato. Va **solo arriba a la derecha**. Centrado, el resultado parece chicle.
+
+### Superficies y texto
+
+```css
+--sheet:   #FFFFFF;   /* hoja de trabajo */
+--ink:     #062A2E;   /* texto principal sobre hoja */
+--muted:   #6F8F8C;   /* texto secundario sobre hoja */
+--line:    #E9F3F1;   /* divisor interno */
+--line-2:  #D9E9E6;   /* borde de campo y encabezado de tabla */
+```
+
+### Semánticos
+
+```css
+--ok:    #12807C;   /* correcto, aprobado, listo */
+--warn:  #DE603C;   /* coral — atención, falta respaldo */
+--flare: #7E77DE;   /* lila — caja chica, segundo nivel */
+```
+
+Solo tres. Cualquier estado nuevo se resuelve con intensidad o ícono, no inventando un color más.
+
+### Degradados compuestos
+
+```css
+--anod: linear-gradient(150deg, #2FC9B6 0%, #12807C 55%, #0B4448 100%);
+```
+
+`--anod` es el relleno de todo elemento activo: botón primario, chip seleccionado, avatar, ícono de fila, pestaña activa, checkbox marcado.
+
+### Fondo de la aplicación
+
+```css
+/* capa base */
+background: linear-gradient(155deg,
+  #03191C 0%, #0B4448 26%, #12807C 50%, #2FC9B6 76%, #7E77DE 100%);
+
+/* capa de destellos, encima, pointer-events:none */
+background:
+  radial-gradient(560px 340px at 90% 4%,  rgba(126,119,222,.5),  transparent 62%),
+  radial-gradient(460px 300px at 2% 92%,  rgba(234,252,248,.16), transparent 60%);
+```
+
+Va fijo al viewport (`position:fixed; inset:0`), no scrollea con el contenido. En la app actual esto reemplaza a `.content-area`.
+
+---
+
+## 3. Tipografía
+
+| Uso | Fuente | Peso |
+|---|---|---|
+| Toda la interfaz, títulos, etiquetas | **Bricolage Grotesque** | 400–800 |
+| **Montos y cifras** | **Manrope** | 700–800 |
+
+Manrope reemplaza a Geist Mono en `.font-mono-amount`. Es decisión tomada: el cero de Manrope no lleva barra ni punto, que es la regla del proyecto.
+
+Los montos llevan siempre `letter-spacing: -.04em` y `font-variant-numeric: tabular-nums`. El tracking negativo es lo que les da densidad de cifra financiera; sin él parecen texto.
+
+Escala de referencia:
+
+- Monto héroe: `clamp(38px, 6vw, 52px)`, peso 800
+- Monto de tarjeta secundaria: 22px, peso 800
+- Monto en fila de tabla: 13px, peso 700
+- Título de pantalla: 26px, peso 800, `letter-spacing: -.035em`
+- Antetítulo (`kick`): 9.5px, `letter-spacing: .22em`, mayúsculas, opacidad .65
+- Cuerpo: 12–13px
+
+---
+
+## 4. Forma y movimiento
+
+```css
+--r:    20px;                         /* radio de tarjeta */
+--ease: cubic-bezier(.16, 1, .3, 1);  /* la curva del sistema */
+```
+
+Radios: 20px tarjeta · 14px campo grande · 12px campo normal · 11px fila de menú · 99px píldora y botón.
+
+**Movimiento.** Sobrio y con propósito:
+
+- Entrada de pantalla: `opacity 0→1` + `translateY(12px→0)`, 600 ms
+- Botón primario al pasar el cursor: `translateY(-2px)` y sombra más profunda
+- Acciones masivas (aprobar todos): cascada con 90–130 ms de retardo entre filas. Esto no es adorno: hace visible que se ejecutaron N acciones y no una.
+- Medidor de caja chica: el arco se dibuja en 1,6 s al entrar
+- Cajón de detalle: entra desde la derecha en 450 ms
+
+Todo dentro de `@media (prefers-reduced-motion: reduce)` se desactiva. Ya existe esa regla en `globals.css`; hay que respetarla.
+
+---
+
+## 5. Componentes
+
+### Riel de navegación
+Vidrio, 212 px, altura completa. Ítem activo: fondo **blanco sólido** con texto oscuro —el contraste invertido es lo que lo hace inconfundible. Contadores en píldora; en el ítem activo la píldora usa `--anod`.
+
+En móvil (<900px) se convierte en barra horizontal con scroll lateral.
+
+### Tarjeta héroe (vidrio)
+Etiqueta en mayúsculas pequeñas → monto gigante → barra segmentada → leyenda con cuadraditos de color → botón.
+
+La barra segmentada usa **opacidades del blanco**, no colores distintos: 100% / 50% / 22%. Sobre el degradado, tres colores compiten; tres opacidades se leen de inmediato.
+
+### Hoja de trabajo
+Blanco, radio 20, `box-shadow: 0 14px 40px rgba(3,25,28,.2)`. Encabezado de sección de 11 px en peso 700, con un dato secundario alineado a la derecha en `--muted`.
+
+### Fila de lista
+Ícono circular con `--anod` · título y submarca · monto en Manrope · insignia de estado. Divisores de 1px en `--line`, sin borde en la primera.
+
+#### Cuándo el ítem es fila y cuándo es tarjeta
+Medido en `/banco`, que pasó de 14,9× a 2,2× pantallas de scroll:
+
+| El ítem pide… | Forma |
+|---|---|
+| un botón | **fila** (~56 px) |
+| un formulario | **tarjeta** (~165 px) |
+
+Dos correcciones que salieron de ahí y aplican a cualquier lista larga:
+
+1. **El texto idéntico en todos los ítems es de la sección, no del ítem.** La
+   misma frase explicativa estaba repetida 78 veces. Subió al encabezado.
+2. **Angosto apila, no comprime.** Meter título, monto y botón en una línea de
+   390 px cortaba los títulos: «Caja Chica N° 172 Oficina Ingenieria» y
+   «…Oficina de Ingenieria» quedaban idénticos en la pantalla donde se autoriza
+   una transferencia. La fila apila hasta `sm`.
+
+Paginar de a 25 es seguro con dos condiciones:
+
+1. **El total sigue visible** (el contador de etapa, el buscador). Se esconde
+   el scroll, nunca la magnitud del atraso.
+2. **Se pagina el dibujo, no el alcance.** Los KPIs, las exportaciones y las
+   acciones masivas siguen operando sobre la lista filtrada entera. Un botón
+   que dice «exportar» y exporta solo la página visible es peor que no
+   paginar. Por lo mismo, un «seleccionar todos» tiene que decir sobre qué
+   opera cuando hay filtro puesto.
+
+#### `min-w-0` en una fila con `flex-wrap` es una trampa
+En `/admin/employees`, la columna del nombre tenía `flex-1 min-w-0`. En 390 px
+el checkbox, el avatar y los controles se comían el ancho y esa columna quedaba
+en **35 px de ancho por 206 de alto**: el nombre apilado en vertical, una letra
+por línea. `flex-wrap` no bajaba los controles porque `min-w-0` autoriza a la
+columna a encogerse hasta cero, así que nunca había desborde que provocara el
+salto.
+
+Un piso de ancho (`min-w-[10rem]`) lo arregla: los controles bajan de línea y
+la fila pasa de 206 px a 113. **`min-w-0` solo donde de verdad se quiere
+truncar; en una columna que debe conservar su ancho, va un piso.**
+
+Vale la pena buscar este patrón antes de suponer que una pantalla es larga por
+tener demasiado contenido: acá explicaba 93 px de los 385 de cada tarjeta, y la
+pantalla tiene 57.
+
+#### Qué proporción del alto merece cada bloque
+Medir una pantalla por bloques, no entera, dice qué rediseñar. `/petty-cash`
+repartía sus 4.404 px así:
+
+| Bloque | Alto | % |
+|---|---:|---:|
+| Filtros (siempre desplegados) | 785 px | 18% |
+| **Los 4 fondos vivos** | 913 px | **21%** |
+| Carga histórica (76 importadas) | 2.390 px | 54% |
+
+El panel para elegir pesaba casi lo mismo que lo elegido, y el archivo más que
+todo lo demás junto. La pantalla se llama «Caja Chica» y dedicaba una quinta
+parte de su alto a las cajas chicas.
+
+Ambos se pliegan, con la condición de siempre: **plegar no puede esconder que
+hay algo puesto.** El encabezado de filtros muestra «con filtro puesto» cuando
+hay uno activo; el archivo dice cuántas cargas tiene. Resultado: 5,2× → 1,5×.
+
+### Insignias de estado
+Píldora de 9px, peso 700:
+
+```css
+.st        { background:#E7F7F4; color:#12807C }  /* teal — listo */
+.st.warn   { background:#FDEEE9; color:#DE603C }  /* coral — atención */
+.st.flare  { background:#F0EEFA; color:#5B52B8 }  /* lila — caja chica */
+```
+
+### Tabla
+Encabezado de 9px en mayúsculas con `letter-spacing: .14em`, color `--muted`. Filas con hover `#F7FCFB`. Montos alineados a la derecha, tabulares. Filas ya resueltas al 42% de opacidad —siguen visibles pero se apagan.
+
+### Campos
+Borde `--line-2`, radio 12. Al foco: borde `--tor-3` y halo `0 0 0 3px rgba(18,128,124,.13)`.
+
+El campo de monto es especial: 30px, Manrope 800, con el símbolo `$` fijo a la izquierda en `--muted`. Formateo en vivo con separador de miles chileno mientras se escribe.
+
+### Chips
+Píldora con borde. Seleccionado: `--anod`, texto blanco, sin borde.
+
+### Zona de respaldo
+Borde punteado 1.5px. Al adjuntar pasa a borde sólido teal con fondo `#F1FAF8`.
+
+**Corrección respecto al prototipo original:** el texto decía *"sin respaldo el gasto no puede enviarse"*. La regla cambió. Ahora debe decir que el gasto se puede enviar igual, pero queda marcado. El aviso es una **advertencia coral, no un bloqueo**. Los botones de aprobar y enviar no se deshabilitan por falta de respaldo.
+
+### Cajón de detalle
+Panel blanco derecho de 430px máximo, con velo oscuro y desenfoque detrás. El monto del encabezado usa `background-clip: text` con degradado teal.
+
+Incluye una **línea de tiempo vertical** del recorrido del documento: puntos rellenos para lo cumplido, punto con halo para el paso actual, huecos para lo pendiente. Este componente resuelve los nueve estados de rendición sin necesidad de nueve colores.
+
+### Aviso flotante
+Píldora blanca centrada abajo, con punto aqua. 2,6 s.
+
+---
+
+## 6. Los estados reales de la app
+
+La app tiene **9 estados de rendición** y **10 de fondo**. Tornasol los resuelve con **cuatro familias visuales**, no diecinueve colores:
+
+| Familia | Estados | Tratamiento |
+|---|---|---|
+| **Neutro** | draft | Gris `--muted`, sin énfasis |
+| **En curso** | submitted, pending_l2, pending_bank_load, pending_bank_auth, pending_approval, pending_liquidation_approval, funds_sent | Lila `--flare` + la línea de tiempo indica el paso exacto |
+| **Atención** | rejected, partially_approved | Coral `--warn` |
+| **Resuelto** | approved, reimbursed, settled | Teal `--ok` |
+
+**La línea de tiempo hace el trabajo que el color no puede.** Siete estados "en curso" con siete colores son imposibles de memorizar; siete pasos en una barra de progreso se entienden sin explicación.
+
+---
+
+## 7. Tarjeta de caja chica según su estado
+
+El fondo tiene diez estados y la tarjeta **cambia de significado** en cada tramo. No muestra siempre lo mismo:
+
+**Antes de que llegue el dinero** (`draft` → `pending_bank_auth`)
+Todavía no hay saldo. La cifra grande es el **monto solicitado o aprobado**, con etiqueta explícita. Lo que manda visualmente es el paso del trámite bancario en la línea de tiempo. Sin medidor: no hay nada que medir.
+
+**Con el dinero disponible** (`funds_sent` → `pending_liquidation_approval`)
+Este es el estado donde están hoy los fondos activos y el que más se va a ver. La cifra grande es **disponible = aprobado − rendido**, con el arco de consumo. Debajo, una línea de contexto: cuánto se usó del total y desde cuándo. Cuando el disponible baja del 25%, el arco pasa a coral.
+
+**Cerrado** (`settled`)
+Total del período, sin medidor, tarjeta al 60% de opacidad. Está archivado y debe verse archivado.
+
+**Rechazado** (`rejected`)
+Coral, con el motivo visible.
+
+---
+
+## 8. Advertencias técnicas
+
+1. **`backdrop-filter` cuesta caro.** Úsalo solo en el riel y en las tarjetas de resumen. Nunca en filas de lista ni en elementos que se repiten decenas de veces: en una tabla de 40 filas hunde el rendimiento en móvil.
+
+2. **`background-clip: text` solo en cifras grandes.** En párrafos rompe la selección de texto y complica los lectores de pantalla. Permitido en: monto del cajón de detalle. Prohibido en cualquier texto corrido.
+
+3. **Contraste sobre el degradado.** El tramo aqua (`#2FC9B6`) es claro. Texto blanco encima queda por debajo del mínimo AA. Por eso los datos van sobre vidrio o sobre hoja, nunca directo sobre el degradado. Sirve como comprobación: si escribiste texto directo sobre el fondo, probablemente esté mal.
+
+4. **Foco visible.** `outline: 2px solid #fff; outline-offset: 2px` sobre el degradado. No se elimina nunca.
+
+5. **La app es PWA.** El `themeColor` del viewport pasa de `#4A50A0` a `#03191C`, y el `manifest.json` debe acompañar.
+
+---
+
+## 9. Traducción a Tailwind v4
+
+La etapa 1 del rediseño crea las familias semánticas `success`, `warning`, `danger`, `info`, `accent` con valores neutros. La etapa 2 solo cambia esos valores:
+
+| Familia semántica | Pasa a ser |
+|---|---|
+| `brand-*` | Rampa teal: 600 = `#12807C`, 500 = `#2FC9B6`, 700 = `#0B4448` |
+| `success-*` | Teal `--ok` (en Tornasol, correcto y marca son el mismo color) |
+| `warning-*` | Coral `#DE603C` |
+| `danger-*` | Coral más profundo |
+| `accent-*` | Lila `#7E77DE` |
+| `info-*` | Se pliega a lila — no hay azul en este sistema |
+| `ink-*` | Se reancla a `#062A2E` con matiz verde-azulado, no gris neutro |
+
+Los tokens propios de Tornasol (`--tor-1..4`, `--flare`, `--anod`, `--sheet`, `--line`) se agregan al mismo bloque `@theme {}` de `globals.css`.
+
+**Toda la paleta vive en un solo archivo.** Si algún componente vuelve a escribir un hexadecimal a mano, el sistema se rompe otra vez.

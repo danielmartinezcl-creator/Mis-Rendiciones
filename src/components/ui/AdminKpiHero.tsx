@@ -1,3 +1,5 @@
+import { ON_DARK, BRAND } from '@/lib/design-tokens'
+
 /**
  * AdminKpiHero — Componente hero con degradé violeta PENTA
  *
@@ -19,15 +21,9 @@ interface AdminKpiHeroProps {
   className?: string
 }
 
-const colorMap: Record<NonNullable<SecondaryMetric['color']>, string> = {
-  teal:    '#5EEAD4',
-  amber:   '#FCD34D',
-  emerald: '#6EE7B7',
-  sky:     '#7DD3FC',
-  rose:    '#FDA4AF',
-  violet:  '#C4B5FD',
-  white:   '#FFFFFF',
-}
+// Se aplican como `style={{ color }}` desde JS, así que salen de
+// design-tokens.ts y no de globals.css.
+const colorMap: Record<NonNullable<SecondaryMetric['color']>, string> = ON_DARK
 
 function fmtCLP(n: number): string {
   return '$ ' + Math.round(n).toLocaleString('es-CL')
@@ -42,7 +38,7 @@ export function AdminKpiHero({
   return (
     <div
       className={`relative overflow-hidden rounded-xl shadow-md ${className}`}
-      style={{ background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' }}
+      style={{ background: 'var(--cta-brand)' }}
     >
       {/* Glow radial sutil en esquina derecha */}
       <div
@@ -58,7 +54,7 @@ export function AdminKpiHero({
         {/* Total principal */}
         <div>
           <p className="card-eyebrow"
-             style={{ color: '#9EA0DF', marginBottom: 6 }}>
+             style={{ color: BRAND.primarySoft, marginBottom: 6 }}>
             {title}
           </p>
           <p className="font-mono-amount text-white"

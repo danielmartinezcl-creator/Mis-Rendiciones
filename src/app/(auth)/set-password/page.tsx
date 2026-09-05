@@ -65,8 +65,8 @@ export default function SetPasswordPage() {
 
   if (done) {
     return (
-      <div className="bg-white rounded-card shadow-card p-6 text-center space-y-3">
-        <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
+      <div className="hoja p-6 text-center space-y-3">
+        <CheckCircle2 size={40} className="text-success-500 mx-auto" />
         <p className="font-bold text-ink-900">¡Contraseña creada!</p>
         <p className="text-sm text-ink-500">Ingresando a la app…</p>
       </div>
@@ -74,7 +74,7 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="bg-white rounded-card shadow-card p-6 space-y-5">
+    <div className="hoja p-6 space-y-5">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 bg-brand-50 rounded-item flex items-center justify-center shrink-0">
           <KeyRound size={18} className="text-brand-600" />
@@ -90,7 +90,7 @@ export default function SetPasswordPage() {
       </p>
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-item p-3">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">
           {error}
         </div>
       )}
@@ -107,7 +107,7 @@ export default function SetPasswordPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Mínimo 8 caracteres"
-              className="w-full px-3 py-2.5 pr-10 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-2.5 pr-10"
             />
             <button
               type="button"
@@ -129,7 +129,7 @@ export default function SetPasswordPage() {
             value={confirm}
             onChange={e => setConfirm(e.target.value)}
             placeholder="Repetí la contraseña"
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full py-2.5"
           />
         </div>
 
@@ -140,9 +140,9 @@ export default function SetPasswordPage() {
               <div
                 className={[
                   'h-full rounded-full transition-all duration-300',
-                  password.length < 8  ? 'w-1/4 bg-rose-400' :
-                  password.length < 12 ? 'w-2/4 bg-amber-400' :
-                                         'w-full bg-emerald-500',
+                  password.length < 8  ? 'w-1/4 bg-danger-400' :
+                  password.length < 12 ? 'w-2/4 bg-warning-400' :
+                                         'w-full bg-success-500',
                 ].join(' ')}
               />
             </div>
@@ -156,7 +156,7 @@ export default function SetPasswordPage() {
         <button
           type="submit"
           disabled={loading || !password || !confirm}
-          className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-item transition-all duration-[180ms] active:scale-[.98]"
+          className="btn-primario w-full py-2.5 px-4"
         >
           {loading ? 'Guardando…' : 'Guardar contraseña e ingresar'}
         </button>

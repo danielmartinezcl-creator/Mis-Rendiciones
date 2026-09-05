@@ -1,52 +1,183 @@
 @import "tailwindcss";
 
-/* ── Dark mode: class-based (next-themes añade .dark en <html>) ── */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Sin modo oscuro: se eliminó en la etapa 2 del rediseño Tornasol, cuyo chasis
+   ya es oscuro. Ver docs/Rediseño/tornasol-spec.md */
 
 @theme {
   /* ── Fuentes ────────────────────────────────────────────────────────────
-     Reforma: Bricolage Grotesque (display) · Hanken Grotesk (UI) · Geist Mono (cifras)
-     Instalación: npm install geist
-     En layout.tsx: importar Bricolage_Grotesque y Hanken_Grotesk de next/font/google
-                    importar GeistMono de geist/font/mono
+     Bricolage Grotesque (títulos) · Hanken Grotesk (cuerpo) · Manrope (montos).
+     Las tres son variables y LOCALES: viven en src/app/fonts/ y se declaran con
+     next/font/local en layout.tsx. No dependen de Google en tiempo de build.
   ──────────────────────────────────────────────────────────────────────── */
   --font-display: var(--font-bricolage), system-ui, sans-serif;
   --font-ui:      var(--font-hanken), system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
+  --font-amount:  var(--font-manrope), system-ui, sans-serif;
 
-  /* ── Paleta brand (VIOLETA PENTA) ───────────────────────────────────── */
-  --color-brand-50:  #F1F1FB;
-  --color-brand-100: #E3E3F6;
-  --color-brand-200: #C5C6ED;
-  --color-brand-300: #9EA0DF;
-  --color-brand-400: #7678CE;
-  --color-brand-500: #5D5FBE;
-  --color-brand:     #4A50A0;   /* primary — violeta PENTA */
-  --color-brand-600: #4A50A0;
-  --color-brand-700: #3B4090;   /* hover */
-  --color-brand-800: #2D3278;   /* pressed */
-  --color-brand-900: #1E2260;
+  /* ══════════════════════════════════════════════════════════════════════
+     ZONA 1 · IDENTIDAD — reemplazable por cliente
+     ══════════════════════════════════════════════════════════════════════
+     Todo lo de este bloque es "el color de la empresa". La app apunta a ser
+     usada por otras organizaciones que traigan su propio logo e identidad, así
+     que esto es lo ÚNICO que cambia en ese caso. Nada de la zona 2 se toca.
 
-  /* ── Acento (teal del ícono GP de PENTA) ────────────────────────────── */
-  --color-accent:     #3DBAB5;
-  --color-accent-hover: #2FA8A3;
+     Por eso `success` NO comparte color con `brand`, aunque la spec de Tornasol
+     (§9) diga que «correcto y marca son el mismo color». Eso solo funciona si
+     el teal es para siempre: el día que un cliente traiga naranja, «aprobado»
+     se volvería naranja y la semántica quedaría atada a una identidad ajena.
+
+     Rampa derivada de los anclajes de Tornasol, que caen solos en la escala:
+     tor-4 aqua = 400 · tor-3 teal = 600 · tor-2 petróleo = 800 · tor-1 = 950.
+     ══════════════════════════════════════════════════════════════════════ */
+  --color-brand-50:   oklch(97.5% 0.015 182); /* #EDFAF7 */
+  --color-brand-100:  oklch(94.5% 0.042 185); /* #CFF7F0 */
+  --color-brand-200:  oklch(89.5% 0.075 187); /* #A2EDE5 */
+  --color-brand-300:  oklch(83% 0.105 190);   /* #6BDDD6 */
+  --color-brand-400:  oklch(75.5% 0.125 192); /* #20C8C4 — tor-4 aqua */
+  --color-brand-500:  oklch(64.5% 0.115 195); /* #00A3A3 */
+  --color-brand-600:  oklch(54.3% 0.090 197); /* #0D7F81 — tor-3, color de acción */
+  --color-brand-700:  oklch(44% 0.078 200);   /* #005F63 */
+  --color-brand-800:  oklch(35.4% 0.058 202); /* #054448 — tor-2 petróleo */
+  --color-brand-900:  oklch(27% 0.042 205);   /* #052C30 */
+  --color-brand-950:  oklch(19.7% 0.029 207); /* #03191C — tor-1 abismo */
+  --color-brand:      oklch(54.3% 0.090 197);
+
+  /* `accent` repite los valores de `brand`: en Tornasol el acento ES el teal de
+     marca. Se mantiene el nombre porque 181 usos del código expresan ese rol —
+     si un cliente quisiera un acento distinto del primario, se cambia acá.
+
+     Los valores van LITERALES y no como `var(--color-brand-N)`: Tailwind v4
+     solo emite las variables de @theme cuya utilidad detecta en uso, así que si
+     ninguna clase `bg-brand-50` apareciera en el código, la referencia quedaría
+     sin resolver. Si cambiás brand, cambiá también este bloque. */
+  --color-accent-50:  oklch(97.5% 0.015 182);
+  --color-accent-100: oklch(94.5% 0.042 185);
+  --color-accent-200: oklch(89.5% 0.075 187);
+  --color-accent-300: oklch(83% 0.105 190);
+  --color-accent-400: oklch(75.5% 0.125 192);
+  --color-accent-500: oklch(64.5% 0.115 195);
+  --color-accent-600: oklch(54.3% 0.090 197);
+  --color-accent-700: oklch(44% 0.078 200);
+  --color-accent-800: oklch(35.4% 0.058 202);
+  --color-accent-900: oklch(27% 0.042 205);
+  --color-accent-950: oklch(19.7% 0.029 207);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     FAMILIAS SEMÁNTICAS — etapa 1 del rediseño Tornasol
+     ══════════════════════════════════════════════════════════════════════
+     Los valores son copias LITERALES de las rampas de Tailwind v4, así el
+     renombre de las clases es idéntico píxel a píxel y la línea base
+     (e2e/baseline/) lo demuestra. La etapa 2 cambia estos valores por los de
+     Tornasol; el resto del código no se toca porque ya no nombra colores.
+
+     Origen de cada familia:
+       warning ← amber   ·  danger ← red     ·  success ← emerald
+       info    ← blue    ·  flare  ← violet  ·  accent  ← teal
+
+     `brand-*` e `ink-*` NO se tocan acá: ya son tokens semánticos con 418 y
+     1.246 usos. La etapa 2 los reancla por valor, en este mismo archivo.
+
+     REGLA: si un componente vuelve a escribir un hexadecimal o una clase de
+     la paleta cruda de Tailwind (amber-500, rose-600…), el sistema se rompe
+     otra vez. Toda la paleta vive acá.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* ── warning — pendiente, atención, requiere revisión (← amber) ──────── */
+  --color-warning-50:  oklch(97.5% 0.020 52);
+  --color-warning-100: oklch(94.5% 0.057 50);
+  --color-warning-200: oklch(89.5% 0.101 48);
+  --color-warning-300: oklch(83% 0.142 46);
+  --color-warning-400: oklch(75.5% 0.169 44);
+  --color-warning-500: oklch(64.5% 0.155 42);
+  --color-warning-600: oklch(54.3% 0.121 40);
+  --color-warning-700: oklch(44% 0.105 38);
+  --color-warning-800: oklch(35.4% 0.078 36);
+  --color-warning-900: oklch(27% 0.057 34);
+  --color-warning-950: oklch(19.7% 0.039 32);
+
+  /* ── danger — destructivo, error, rechazado (← red) ──────────────────── */
+  --color-danger-50:  oklch(97.5% 0.022 32);
+  --color-danger-100: oklch(94.5% 0.061 31);
+  --color-danger-200: oklch(89.5% 0.109 30);
+  --color-danger-300: oklch(83% 0.152 28);
+  --color-danger-400: oklch(75.5% 0.181 27);
+  --color-danger-500: oklch(64.5% 0.167 26);
+  --color-danger-600: oklch(54.3% 0.131 25);
+  --color-danger-700: oklch(44% 0.113 24);
+  --color-danger-800: oklch(35.4% 0.084 22);
+  --color-danger-900: oklch(27% 0.061 21);
+  --color-danger-950: oklch(19.7% 0.042 20);
+
+  /* ── success — aprobado, correcto, liquidado (← emerald) ─────────────── */
+  --color-success-50:  oklch(97.5% 0.014 158);
+  --color-success-100: oklch(94.5% 0.040 159);
+  --color-success-200: oklch(89.5% 0.071 160);
+  --color-success-300: oklch(83% 0.100 161);
+  --color-success-400: oklch(75.5% 0.119 162);
+  --color-success-500: oklch(64.5% 0.109 163);
+  --color-success-600: oklch(54.3% 0.085 164);
+  --color-success-700: oklch(44% 0.074 165);
+  --color-success-800: oklch(35.4% 0.055 166);
+  --color-success-900: oklch(27% 0.040 167);
+  --color-success-950: oklch(19.7% 0.028 168);
+
+  /* ── info — informativo, en proceso bancario (← blue) ────────────────── */
+  --color-info-50:  oklch(97.5% 0.019 288);
+  --color-info-100: oklch(94.5% 0.053 287);
+  --color-info-200: oklch(89.5% 0.094 286);
+  --color-info-300: oklch(83% 0.131 285);
+  --color-info-400: oklch(75.5% 0.156 284);
+  --color-info-500: oklch(64.5% 0.144 283);
+  --color-info-600: oklch(54.3% 0.112 282);
+  --color-info-700: oklch(44% 0.098 281);
+  --color-info-800: oklch(35.4% 0.073 280);
+  --color-info-900: oklch(27% 0.053 279);
+  --color-info-950: oklch(19.7% 0.036 278);
+
+  /* ── flare — caja chica, segundo nivel (← violet) ────────────────────── */
+  --color-flare-50:  oklch(97.5% 0.019 288);
+  --color-flare-100: oklch(94.5% 0.053 287);
+  --color-flare-200: oklch(89.5% 0.094 286);
+  --color-flare-300: oklch(83% 0.131 285);
+  --color-flare-400: oklch(75.5% 0.156 284);
+  --color-flare-500: oklch(64.5% 0.144 283);
+  --color-flare-600: oklch(54.3% 0.112 282);
+  --color-flare-700: oklch(44% 0.098 281);
+  --color-flare-800: oklch(35.4% 0.073 280);
+  --color-flare-900: oklch(27% 0.053 279);
+  --color-flare-950: oklch(19.7% 0.036 278);
+
+  /* ── accent — el teal del ícono GP (← teal) ──────────────────────────
+     Reemplaza al viejo `--color-accent: #3DBAB5`, que era un valor suelto
+     sin rampa y tenía CERO usos en la app: el rol de acento se estaba
+     escribiendo con clases teal-* crudas (178 de ellas). */
+  --color-accent-50:  oklch(98.4% 0.014 180.72);
+  --color-accent-100: oklch(95.3% 0.051 180.801);
+  --color-accent-200: oklch(91% 0.096 180.426);
+  --color-accent-300: oklch(85.5% 0.138 181.071);
+  --color-accent-400: oklch(77.7% 0.152 181.912);
+  --color-accent-500: oklch(70.4% 0.14 182.503);
+  --color-accent-600: oklch(60% 0.118 184.704);
+  --color-accent-700: oklch(51.1% 0.096 186.391);
+  --color-accent-800: oklch(43.7% 0.078 188.216);
+  --color-accent-900: oklch(38.6% 0.063 188.416);
+  --color-accent-950: oklch(27.7% 0.046 192.524);
 
   /* ── Ink — neutrales azul-negro fríos (reemplaza slate) ─────────────── */
-  --color-ink-950: #080C16;
-  --color-ink-900: #0B1120;
-  --color-ink-800: #16203A;
-  --color-ink-700: #243049;
-  --color-ink-600: #3A4763;
-  --color-ink-500: #5B6883;
-  --color-ink-400: #8A95AD;
-  --color-ink-300: #B9C1D4;
-  --color-ink-200: #DDE2EC;
-  --color-ink-150: #E7EBF2;
-  --color-ink-100: #EEF1F7;
-  --color-ink-50:  #F6F8FB;
+  --color-ink-950: oklch(15.6% 0.022 206);
+  --color-ink-900: oklch(18% 0.024 206);
+  --color-ink-800: oklch(24.9% 0.026 206);
+  --color-ink-700: oklch(31.1% 0.028 206);
+  --color-ink-600: oklch(39.9% 0.03 206);
+  --color-ink-500: oklch(51.7% 0.032 206);
+  --color-ink-400: oklch(66% 0.03 206);
+  --color-ink-300: oklch(81.1% 0.022 206);
+  --color-ink-200: oklch(91.2% 0.014 206);
+  --color-ink-150: oklch(93.9% 0.01 206);
+  --color-ink-100: oklch(95.8% 0.008 206);
+  --color-ink-50:  oklch(97.8% 0.004 206);
 
   /* ── Sidebar / superficies oscuras ──────────────────────────────────── */
-  --color-sidebar: #12152E;     /* azul-violeta oscuro — deriva del violeta PENTA */
+  --color-sidebar: #03191C;    /* tor-1 abismo — el oscuro de Tornasol */
 
   /* ── Radios ──────────────────────────────────────────────────────────── */
   --radius-xs:   6px;
@@ -60,10 +191,52 @@
   --shadow-card: 0 2px 8px rgba(11,17,32,.07), 0 1px 2px rgba(11,17,32,.04);
   --shadow-md:   0 10px 28px -8px rgba(11,17,32,.14), 0 3px 8px rgba(11,17,32,.06);
   --shadow-lg:   0 24px 56px -16px rgba(11,17,32,.22), 0 6px 16px rgba(11,17,32,.08);
-  --shadow-brand: 0 8px 24px -6px rgba(74,80,160,.4);
+  --shadow-brand: 0 8px 24px -6px rgba(13,127,129,.4);
 
-  /* ── Degradé hero (violeta PENTA oscuro → violeta medio) ────────────── */
-  --background-image-card-hero: linear-gradient(130deg, #12152E 0%, #3B4090 100%);
+  /* ══════════════════════════════════════════════════════════════════════
+     DEGRADADOS — etapa 1c
+     ══════════════════════════════════════════════════════════════════════
+     Antes vivían como `style={{background:'linear-gradient(…)'}}` inline en
+     nueve archivos. Eran seis degradados semánticos escritos de diez maneras:
+     el mismo verde con dos oscuros distintos (#12152E y #0B1120), el mismo
+     teal igual, el rol «peligro» con dos rojos Y dos oscuros, y un 135deg
+     suelto donde el resto usa 130deg.
+
+     Ahora todos arrancan en `#12152E` (el oscuro del riel, que era el más
+     usado) y cambian solo en el extremo claro, que es el que porta el
+     significado. La etapa 2 reescribe estos seis valores y con eso cambian
+     todos los botones de la app.
+     ══════════════════════════════════════════════════════════════════════ */
+  --background-image-card-hero: linear-gradient(130deg, #03191C 0%, #0D7F81 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEGRADADOS DE CTA — etapa 1c
+   ══════════════════════════════════════════════════════════════════════════
+   Van en un `:root` plano y NO en `@theme` a propósito: se consumen desde
+   `style={{ background: 'var(--cta-brand)' }}` en el JSX, y Tailwind v4 solo
+   emite las variables de `@theme` cuya utilidad detecta en uso. Una variable
+   referenciada únicamente desde un `var()` inline no la detecta, y el
+   degradado saldría vacío.
+
+   Antes vivían como literales inline en nueve archivos: seis degradados
+   semánticos escritos de diez maneras. El mismo verde con dos oscuros
+   distintos (#12152E y #0B1120), el mismo teal igual, el rol «peligro» con
+   dos rojos Y dos oscuros, y un 135deg suelto donde el resto usa 130deg.
+
+   Ahora todos arrancan en #12152E —el oscuro del riel, que era el más usado—
+   y cambian solo en el extremo claro, que es el que porta el significado.
+   La etapa 2 reescribe estos seis valores y con eso cambian todos los CTA.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --cta-brand:   linear-gradient(130deg, #03191C 0%, #0D7F81 100%);
+  --cta-success: linear-gradient(130deg, #03191C 0%, #387F62 100%);
+  --cta-danger:  linear-gradient(130deg, #03191C 0%, #AF4C47 100%);
+  --cta-accent:  linear-gradient(130deg, #03191C 0%, #00A3A3 100%);
+  --cta-flare:   linear-gradient(130deg, #03191C 0%, #6666AF 100%);
+  /* El único que no arranca en el oscuro del riel: es ámbar sobre ámbar, para
+     el aviso de carga histórica, que debe leerse entero como advertencia. */
+  --cta-warning: linear-gradient(130deg, #5D2B1D 0%, #A95334 100%);
 }
 
 @layer base {
@@ -76,7 +249,12 @@
   }
   body {
     font-family: var(--font-ui), system-ui, sans-serif;
-    background-color: #F6F8FB;   /* ink-50 */
+    /* El body NO pinta fondo: lo pinta la capa fija del degradado, que vive en
+       `body::before`. Y tiene que ser transparente por el orden de pintado —
+       dentro de un contexto de apilamiento, el fondo del bloque se pinta
+       DESPUÉS de los descendientes con z-index negativo, así que un fondo acá
+       tapa el degradado por completo. */
+    background-color: transparent;
     color: #16203A;               /* ink-800 */
   }
   @media (prefers-reduced-motion: reduce) {
@@ -88,12 +266,14 @@
 }
 
 @layer utilities {
-  /* Cifras monetarias — siempre Geist Mono + tabular-nums */
+  /* Cifras monetarias — Manrope + tabular-nums.
+     El tracking negativo es lo que les da densidad de cifra financiera: sin él
+     los montos se leen como texto corrido. */
   .font-mono-amount {
-    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-family: var(--font-amount), system-ui, sans-serif;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.035em;
   }
 
   /* Títulos — Bricolage Grotesque */
@@ -146,47 +326,27 @@
   }
 
   /* Acentos laterales por estado de ítem (3px) */
-  .item-accent-approved  { border-left: 3px solid #10B981; }
-  .item-accent-pending   { border-left: 3px solid #F59E0B; }
-  .item-accent-rejected  { border-left: 3px solid #F43F5E; }
+  .item-accent-approved  { border-left: 3px solid #43A27A; }
+  .item-accent-pending   { border-left: 3px solid #D96838; }
+  .item-accent-rejected  { border-left: 3px solid #E15D55; }
 }
 
-/* ── Clases utilitarias manuales (fallback si @theme no genera las clases) ── */
+/* ── Clases utilitarias manuales ─────────────────────────────────────────────
+   Acá vivían 24 clases de color «de respaldo por si @theme no genera las
+   clases» (bg-brand-600, text-ink-500, bg-sidebar…). Se eliminaron en la
+   etapa 2 y el motivo importa:
 
-/* Brand / Violeta PENTA */
-.bg-brand-50  { background-color: #F1F1FB; }
-.bg-brand-100 { background-color: #E3E3F6; }
-.bg-brand-500 { background-color: #5D5FBE; }
-.bg-brand-600 { background-color: #4A50A0; }
-.bg-brand-700 { background-color: #3B4090; }
-.bg-brand-800 { background-color: #2D3278; }
-.hover\:bg-brand-700:hover { background-color: #3B4090; }
-.text-brand-50  { color: #F1F1FB; }
-.text-brand-100 { color: #E3E3F6; }
-.text-brand-300 { color: #9EA0DF; }
-.text-brand-400 { color: #7678CE; }
-.text-brand-600 { color: #4A50A0; }
-.text-brand-700 { color: #3B4090; }
-.border-brand-600 { border-color: #4A50A0; }
-.ring-brand { box-shadow: 0 0 0 3px rgba(74,80,160,.28); }
+   **No eran un respaldo, eran un override.** Son CSS plano, fuera de
+   `@layer`, y en la cascada el CSS sin capa le gana al que está en una capa
+   — que es donde Tailwind pone sus utilidades. O sea que ganaban siempre.
 
-/* Acento / Teal ícono PENTA */
-.bg-accent   { background-color: #3DBAB5; }
-.text-accent { color: #3DBAB5; }
+   Consecuencia: cambiar los valores en `@theme` no habría cambiado nada en
+   los botones primarios ni en medio texto de la app. Seguirían violetas,
+   silenciosamente, mientras el resto se volvía teal.
 
-/* Ink neutrals */
-.bg-ink-900 { background-color: #0B1120; }
-.bg-ink-800 { background-color: #16203A; }
-.bg-ink-100 { background-color: #EEF1F7; }
-.bg-ink-50  { background-color: #F6F8FB; }
-.text-ink-900 { color: #0B1120; }
-.text-ink-800 { color: #16203A; }
-.text-ink-500 { color: #5B6883; }
-.text-ink-400 { color: #8A95AD; }
-.border-ink-200 { border-color: #DDE2EC; }
-
-/* Sidebar */
-.bg-sidebar { background-color: #12152E; }
+   Lo que queda debajo NO es color: radios, sombras y alias de fuente. Eso
+   puede seguir acá sin riesgo de divergir de la paleta.
+   ──────────────────────────────────────────────────────────────────────── */
 
 /* Radios */
 .rounded-card { border-radius: 18px; }
@@ -195,94 +355,342 @@
 
 /* Sombras */
 .shadow-card  { box-shadow: 0 2px 8px rgba(11,17,32,.07), 0 1px 2px rgba(11,17,32,.04); }
-.shadow-brand { box-shadow: 0 8px 24px -6px rgba(13,148,136,.4); }
+.shadow-brand { box-shadow: 0 8px 24px -6px rgba(13,127,129,.4); }
 
 /* Hero degradé violeta PENTA */
-.bg-card-hero { background-image: linear-gradient(130deg, #12152E 0%, #3B4090 100%); }
+.bg-card-hero { background-image: linear-gradient(130deg, #03191C 0%, #0D7F81 100%); }
 
 /* Font helpers */
 .font-jakarta  { font-family: var(--font-bricolage), system-ui, sans-serif; }   /* compatibilidad */
-.font-manrope  { font-family: var(--font-geist-mono), monospace; }              /* compatibilidad */
+.font-manrope  { font-family: var(--font-amount), system-ui, sans-serif; }     /* compatibilidad */
 .font-bricolage { font-family: var(--font-bricolage), system-ui, sans-serif; }
 .font-hanken   { font-family: var(--font-hanken), system-ui, sans-serif; }
 
-/* ═══════════════════════════════════════════════════════════════
-   DARK MODE — Overrides globales
-   El sidebar ya es oscuro, estas reglas solo aplican al área de contenido
-   ═══════════════════════════════════════════════════════════════ */
 
-/* Fondo del área de contenido principal */
+/* ══════════════════════════════════════════════════════════════════════════
+   EL CHASIS TORNASOL — etapa 2 (3/4)
+   ══════════════════════════════════════════════════════════════════════════
+   La regla que sostiene todo el sistema:
+
+     **El degradado es el contenedor. Nunca la superficie de trabajo.**
+
+   Dos materiales, y solo dos:
+     · VIDRIO (.tor-glass) — translúcido sobre el degradado, con desenfoque.
+       Para resúmenes, KPIs, encabezados. Cosas que se MIRAN.
+     · HOJA (bg-white)     — blanco sólido, texto oscuro, sombra profunda.
+       Para tablas, listas, formularios. Cosas que se LEEN o se DECIDEN.
+
+   Si el usuario tiene que comparar cifras, revisar 40 filas o llenar campos,
+   va en hoja blanca. Sin excepciones: un degradado saturado es viable en una
+   herramienta de uso diario solo si el color enmarca y el blanco trabaja.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* El degradado va fijo al viewport en un pseudo-elemento, no en `background-
+   attachment: fixed`, que en iOS Safari se rompe y salta al hacer scroll.
+   `html` lleva el color sólido de respaldo por si el degradado no pinta. */
+html { background-color: #03191C; }
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  z-index: -2;
+  background: linear-gradient(155deg,
+    #03191C 0%,   /* tor-1 abismo */
+    #0B4448 26%,  /* tor-2 petróleo */
+    #12807C 50%,  /* tor-3 teal */
+    #2FC9B6 76%,  /* tor-4 aqua */
+    #7E77DE 100%  /* flare lila */
+  );
+}
+
+/* La capa de destellos. El lila NO es decorativo: el metal iridiscente —el
+   titanio anodizado, una mancha de aceite— siempre tiene un tono ajeno en el
+   borde. Sin él, el teal se ve plano. Va solo arriba a la derecha; centrado,
+   el resultado parece chicle. */
+body::after {
+  z-index: -1;
+  background:
+    radial-gradient(560px 340px at 90% 4%, rgba(126,119,222,.5), transparent 62%),
+    radial-gradient(460px 300px at 2% 92%, rgba(234,252,248,.16), transparent 60%);
+}
+
+/* El área de contenido deja de pintar: ahora la pinta el degradado de atrás. */
 .content-area {
-  background: linear-gradient(160deg, #BFDBFE 0%, #E0F2FE 45%, #D1FAE5 100%);
-  transition: background 0.3s ease;
+  background: transparent;
 }
-html.dark .content-area {
-  background: #1E293B;
+
+/* ── HOJA ─────────────────────────────────────────────────────────────────
+   El segundo material del sistema: blanco sólido con sombra profunda, para lo
+   que se LEE, se COMPARA o se DECIDE. Tablas, listas, formularios, detalle.
+
+   Es una clase CSS y no un componente de React a propósito. Las 46 apariciones
+   del patrón en el código llevaban todas un padding distinto y extras propios
+   (`p-5 space-y-4`, `p-4 border-t-2 border-t-warning-400`, `overflow-hidden`…),
+   así que un componente habría sido un wrapper de tres clases con passthrough
+   de `className` — o sea, la misma clase con más ceremonia. La hoja no tiene
+   comportamiento ni estructura: es un material.
+
+   Va en `@layer components` para que las utilidades de Tailwind le ganen. Sin
+   la capa sería CSS plano, que gana siempre — el mismo error que tenían las 24
+   «clases de respaldo» que se eliminaron en la etapa 2. */
+@layer components {
+  .hoja {
+    background-color: #fff;
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* ── CAMPO ──────────────────────────────────────────────────────────────
+     El patrón más repetido de toda la app: 146 apariciones de
+     `border border-ink-200 rounded-item` y 108 del anillo de foco. Más que
+     la hoja.
+
+     Y con la misma deriva de siempre: la misma intención escrita en ocho
+     órdenes distintos y con TRES colores de anillo de foco —`brand-600`,
+     `brand-500` y `accent-500`— sin que nada distinguiera un caso de otro.
+
+     El foco sigue la sección 5 de la spec: el borde se tiñe y aparece un halo
+     suave, en vez del anillo de 2px. Se lee como que el campo se activa, no
+     como que le crece un contorno.
+
+     Va en `@layer components`, así que cualquier utilidad en el markup le gana:
+     un `py-2.5` o un `text-[16px]` sueltos siguen funcionando como override. */
+  .campo {
+    border: 1px solid var(--color-ink-200);
+    border-radius: var(--radius-item);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    /* El interlineado va JUNTO con el tamaño. En Tailwind, `text-sm` fija las
+       dos cosas; al absorber solo `font-size` los textarea cambiaban de alto,
+       porque su altura es filas × interlineado. Lo detectó la línea base. */
+    line-height: 1.25rem;
+    background-color: #fff;
+    color: var(--color-ink-800);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  /* Segunda talla, para campos en línea dentro de tablas. Es una talla real y
+     no deriva: `px-2 py-1 text-xs` con anillo de 1px, para editar una celda sin
+     que la fila crezca. Reemplaza los `rounded-[8px]` sueltos —un valor
+     arbitrario que esquivaba el sistema— por `--radius-xs`. */
+  .campo-compacto {
+    border: 1px solid var(--color-ink-200);
+    border-radius: var(--radius-xs);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;          /* el de `text-xs`, por el mismo motivo */
+    background-color: #fff;
+    color: var(--color-ink-800);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+
+  /* El foco es el mismo gesto en las dos tallas: el borde se tiñe y aparece un
+     halo. Compartido a propósito — si divergen, el formulario se siente como
+     dos aplicaciones distintas. */
+  .campo::placeholder,
+  .campo-compacto::placeholder { color: var(--color-ink-400); }
+
+  .campo:focus,
+  .campo-compacto:focus {
+    outline: none;
+    border-color: var(--color-brand-600);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-brand-600) 15%, transparent);
+  }
+
+  .campo:disabled,
+  .campo-compacto:disabled {
+    background-color: var(--color-ink-50);
+    color: var(--color-ink-400);
+    cursor: not-allowed;
+  }
+
+  /* ── BOTÓN PRIMARIO ─────────────────────────────────────────────────────
+     31 apariciones con la firma completa. El núcleo era idéntico en las 31;
+     lo que variaba sin criterio era el PESO —17 en `font-bold` contra 14 en
+     `font-semibold`— y el tamaño. Se unifica en bold: es la acción principal
+     de su pantalla y tiene que leerse como tal.
+
+     NO fija `display` a propósito. Ocho de los 31 son `flex-1` y otros
+     `w-full`: imponerles `inline-flex` les cambiaría el layout. El botón
+     aporta color, radio, peso y estados; la disposición sigue en el markup.
+
+     El `active:scale` viene del design system del proyecto —la respuesta al
+     toque— y es invisible para la línea base, que captura el estado en reposo. */
+  .btn-primario {
+    border-radius: var(--radius-item);
+    background-color: var(--color-brand-600);
+    color: #fff;
+    font-weight: 700;
+    transition: background-color .15s ease, transform .18s ease;
+  }
+  .btn-primario:hover:not(:disabled)  { background-color: var(--color-brand-700); }
+  .btn-primario:active:not(:disabled) { transform: scale(.98); }
+  .btn-primario:disabled              { opacity: .5; cursor: not-allowed; }
+
+  /* ── BOTÓN SECUNDARIO ───────────────────────────────────────────────────
+     El «Cancelar», el «Ver detalle», el «Exportar» de cada pantalla: 23
+     apariciones, cada una con su propia definición.
+
+     No era desprolijidad, era un HUECO: `.btn-primario` existía y este no,
+     así que no había dónde converger. Por eso la etapa 3 unificó el primario
+     y no tocó éste — buscó materiales repetidos, y éste no estaba repetido,
+     estaba ausente.
+
+     Lo que variaba sin criterio y acá se unifica: el peso (`font-medium` en
+     unos, `font-semibold` en otros) y el tono del texto (`ink-500`, `ink-600`
+     e `ink-700` para el mismo rol).
+
+     NO fija `display`, ni relleno, ni fondo. Lo primero por el mismo motivo
+     que el primario —varios son `flex-1` o `w-full` y `inline-flex` les
+     cambiaría el layout—; el relleno porque cada sitio tiene su talla; y el
+     fondo porque lo pone la hoja que hay debajo. */
+  .btn-secundario {
+    border: 1px solid var(--color-ink-200);
+    border-radius: var(--radius-item);
+    color: var(--color-ink-600);
+    font-weight: 600;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  .btn-secundario:hover:not(:disabled) {
+    background-color: var(--color-ink-50);
+    border-color: var(--color-ink-300);
+  }
+  .btn-secundario:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── ESQUELETO DE CARGA ─────────────────────────────────────────────────
+     Una barra de carga tiene que leerse como AUSENCIA. Los 11 `loading.tsx`
+     usaban `bg-ink-100` —casi blanco— en todas: dentro de una hoja funciona,
+     pero sobre el degradado oscuro son barras brillantes que se leen como
+     contenido que ya llegó. El chasis oscuro invirtió el problema sin que
+     nadie tocara esos archivos.
+
+     El color lo decide el MATERIAL QUE HAY DEBAJO, no quien escribe el markup,
+     con el mismo criterio que el selector de legibilidad: si el elemento no
+     está dentro de una superficie, está sobre el degradado. Así una barra
+     nueva sale bien en los dos contextos sin pensarlo.
+
+     OJO: comparte la lista de exclusiones con esa regla. Si aparece una
+     superficie nueva, hay que agregarla en los dos lugares. */
+  .esqueleto { background-color: rgba(255, 255, 255, .13); }
+  .hoja .esqueleto,
+  .bg-white .esqueleto,
+  .tor-glass .esqueleto { background-color: var(--color-ink-100); }
 }
-html.dark body {
-  background-color: #1E293B;
-  color: #F1F5F9;
+
+/* ── VIDRIO ───────────────────────────────────────────────────────────────
+   OSCURO, no blanco. La spec pedía blanco translúcido, pero superponer blanco
+   sobre un fondo claro lo aclara todavía más: sobre el tramo teal el contraste
+   del texto blanco cae de 4.77:1 a 3.72:1, por debajo del mínimo AA. Con
+   tinte oscuro sube a 8.12:1. El brillo de cristal lo da el borde superior,
+   no el relleno.
+
+   `backdrop-filter` cuesta caro: va solo en el riel y en tarjetas de resumen.
+   NUNCA en filas de lista — en una tabla de 40 filas hunde el móvil. */
+.tor-glass {
+  background: rgba(3, 25, 28, .42);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16);
+}
+
+/* Variante para barras a pantalla completa (riel, nav móvil): el destello va
+   en el borde que da al contenido, no arriba. */
+.tor-glass-rail {
+  background: rgba(3, 25, 28, .34);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, .09);
+}
+.tor-glass-bar {
+  background: rgba(3, 25, 28, .40);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
+}
+
+/* ── Texto directo sobre el degradado ────────────────────────────────────
+   Solo para títulos de pantalla y sus bajadas. Cualquier DATO va sobre vidrio
+   o sobre hoja: si escribiste un dato directo sobre el fondo, está mal. */
+.tor-on-gradient      { color: #fff; }
+.tor-on-gradient-soft { color: rgba(255, 255, 255, .72); }
+
+/* Encabezados de sección aclarados por el criterio del sistema: **no estar
+   dentro de una hoja**. No sirve un selector por profundidad —la anidación
+   varía de página a página— pero sí sirve la regla material: si el elemento no
+   está dentro de una superficie blanca, entonces está sobre el degradado.
+
+   Es un `:not()` complejo, soportado desde Chrome 88, y gana por especificidad
+   a las utilidades `text-ink-*` (0,1,0).
+
+   OJO con la lista de exclusiones: nombra las clases de las superficies, así
+   que está acoplada a ellas. Cuando el patrón `bg-white rounded-card
+   shadow-card` se unificó en `.hoja`, esta regla dejó de excluir las hojas y
+   pintó de blanco sobre blanco los encabezados que viven dentro — «Progreso»,
+   «Gastos registrados», «Historial del fondo» desaparecieron. Si aparece una
+   superficie nueva, hay que agregarla acá.
+
+   ── Por qué la lista dejó de nombrar las superficies una por una ─────────
+   Nombrar `.hoja`, `.bg-white` y `.tor-glass` dejaba afuera a los paneles
+   tintados —`bg-danger-50`, `bg-ink-50`, `bg-info-50`…—, que también son
+   superficies. Resultado: `card-label` dentro de un aviso rosa se volvía blanco
+   al 74% sobre un fondo casi blanco. Invisible, y sin forma de notarlo salvo
+   entrando al panel correcto.
+
+   Ahora se excluye cualquier elemento que pinte —`[class*="bg-"]`— y sus
+   descendientes, además de los dos materiales cuyo nombre no lleva `bg-`. Se
+   excluye también el elemento MISMO y no solo sus descendientes: un botón que
+   es a la vez `bg-white` y `card-label` se estaba volviendo blanco sobre blanco.
+
+   Esto se puede cambiar con confianza porque `npm run audit:materiales` mide
+   las DOS direcciones: si acá se aclara de menos, aparece como texto oscuro
+   sobre el degradado; si se aclara de más, como claro sobre claro. */
+.content-area :is(h2, h3, .section-title):not(.hoja):not(.hoja *):not(.tor-glass):not(.tor-glass *):not([class*="bg-"]):not([class*="bg-"] *) {
+  color: #fff;
+}
+.content-area :is(.card-eyebrow, .card-label, .card-meta):not(.hoja):not(.hoja *):not(.tor-glass):not(.tor-glass *):not([class*="bg-"]):not([class*="bg-"] *) {
+  color: rgba(255, 255, 255, .74);
+}
+
+/* El foco nunca se elimina: sobre el degradado necesita ser blanco. */
+:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tor-glass, .tor-glass-rail, .tor-glass-bar { transition: none; }
 }
 
 /* Cards y superficies blancas */
-html.dark .bg-white        { background-color: #273548; }
-html.dark .bg-ink-50       { background-color: #1E293B; }
-html.dark .bg-ink-100      { background-color: #273548; }
-html.dark .hover\:bg-ink-50:hover { background-color: #2F3E55; }
 
 /* Texto */
-html.dark .text-ink-900,
-html.dark .text-ink-800    { color: #F1F5F9; }
-html.dark .text-ink-700,
-html.dark .text-ink-600,
-html.dark .text-ink-500    { color: #94A3B8; }
-html.dark .text-ink-400,
-html.dark .text-ink-300    { color: #64748B; }
 
 /* Bordes */
-html.dark .border-ink-100,
-html.dark .border-t-ink-100 { border-color: #334155; }
-html.dark .border-ink-50    { border-color: #273548; }
-html.dark .border-ink-200   { border-color: #334155; }
 
 /* Dividers */
-html.dark .divide-ink-50 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
-html.dark .divide-ink-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
 
 /* Sombra de cards (más oscura en dark mode) */
-html.dark .shadow-card { box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25); }
 
-/* Fondos coloreados de footer de paneles */
-html.dark .bg-amber-50   { background-color: rgba(245,158,11,.12);  }
-html.dark .bg-emerald-50 { background-color: rgba(16,185,129,.10);  }
-html.dark .bg-violet-50  { background-color: rgba(167,139,250,.10); }
-html.dark .bg-sky-50     { background-color: rgba(56,189,248,.10);  }
-html.dark .bg-teal-50    { background-color: rgba(20,184,166,.10);  }
-html.dark .bg-red-50     { background-color: rgba(239,68,68,.10);   }
+/* Fondos coloreados de footer de paneles
+   Renombrados junto con el codemod de la etapa 1a: estos selectores apuntan a
+   clases del JSX, así que si no se renombran acá el modo oscuro deja de pintar
+   esos paneles. (El modo oscuro se elimina en la etapa 2 — ver la spec.) */
 
 /* Borders coloreados de footers */
-html.dark .border-amber-100   { border-color: rgba(245,158,11,.25);  }
-html.dark .border-emerald-100 { border-color: rgba(16,185,129,.25);  }
-html.dark .border-violet-100  { border-color: rgba(167,139,250,.25); }
-html.dark .border-sky-100     { border-color: rgba(56,189,248,.25);  }
-html.dark .border-teal-100    { border-color: rgba(20,184,166,.25);  }
 
 /* Status badges — oscurecer fondos en dark mode */
-html.dark .bg-status-approved   { background-color: rgba(4,120,87,.2); }
-html.dark .bg-status-pending    { background-color: rgba(180,83,9,.2); }
-html.dark .bg-status-rejected   { background-color: rgba(190,18,60,.2); }
-html.dark .bg-status-reimbursed { background-color: rgba(3,105,161,.2); }
-html.dark .text-status-approved  { color: #34D399; }
-html.dark .text-status-pending   { color: #FCD34D; }
-html.dark .text-status-rejected  { color: #FB7185; }
-html.dark .text-status-reimbursed { color: #38BDF8; }
 
 /* Status badges */
-.bg-status-approved   { background-color: #ECFDF5; }
-.text-status-approved { color: #047857; }
-.bg-status-pending    { background-color: #FFFBEB; }
-.text-status-pending  { color: #B45309; }
-.bg-status-rejected   { background-color: #FFF1F2; }
-.text-status-rejected { color: #BE123C; }
-.bg-status-reimbursed { background-color: #F0F9FF; }
-.text-status-reimbursed { color: #0369A1; }
+.bg-status-approved   { background-color: #EFFAF3; }
+.text-status-approved { color: #225F48; }
+.bg-status-pending    { background-color: #FFF3EB; }
+.text-status-pending  { color: #823A23; }
+.bg-status-rejected   { background-color: #FFF2EE; }
+.text-status-rejected { color: #863433; }
+.bg-status-reimbursed { background-color: #F6F5FF; }
+.text-status-reimbursed { color: #4A4B87; }

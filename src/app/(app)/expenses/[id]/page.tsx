@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import type { ReportStatus } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { ExpenseItemForm, type ItemFormData } from '@/components/expenses/ExpenseItemForm'
 import { ExpenseItemCard } from '@/components/expenses/ExpenseItemCard'
-import { ReportStatusBadge } from '@/components/ui/Badge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
@@ -97,6 +98,8 @@ export default function ExpenseDetailPage() {
   }
 
   useEffect(() => {
+    /* Carga inicial de la rendición, sus adjuntos y su línea de tiempo. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     loadApprovalAtts()
     getReportTimeline(id).then(setTimeline)
@@ -217,7 +220,7 @@ export default function ExpenseDetailPage() {
 
   if (!report) {
     return (
-      <div className="text-center py-12 text-slate-400">
+      <div className="text-center py-12 text-ink-400">
         <p>Rendición no encontrada</p>
         <button onClick={() => router.push('/')} className="text-brand-600 text-sm mt-2 hover:underline">
           Volver al inicio
@@ -253,9 +256,9 @@ export default function ExpenseDetailPage() {
   }
   const timelineDotCls: Record<TimelineEvent['type'], string> = {
     neutral: 'border-ink-300 bg-ink-100',
-    success: 'border-emerald-500 bg-emerald-50',
-    warning: 'border-amber-400 bg-amber-50',
-    error:   'border-red-400 bg-red-50',
+    success: 'border-success-500 bg-success-50',
+    warning: 'border-warning-400 bg-warning-50',
+    error:   'border-danger-400 bg-danger-50',
   }
   const allTimelineEvents: (TimelineEvent & { key: string })[] = [
     { key: 'created',   label: 'Borrador creado',      date: report.created_at,   type: 'neutral' },
@@ -272,24 +275,24 @@ export default function ExpenseDetailPage() {
         <div>
           <button
             onClick={() => router.push('/')}
-            className="card-meta text-slate-400 hover:text-slate-600 mb-1 flex items-center gap-1"
+            className="card-meta text-ink-400 hover:text-ink-600 mb-1 flex items-center gap-1"
           >
             ← Inicio
           </button>
-          <h1 className="text-xl font-bold text-slate-800">{formatDisplayTitle(report.title)}</h1>
+          <h1 className="text-xl font-bold tor-on-gradient">{formatDisplayTitle(report.title)}</h1>
           {report.description && (
-            <p className="card-label text-slate-500 mt-1">{report.description}</p>
+            <p className="card-label tor-on-gradient-soft mt-1">{report.description}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <ReportStatusBadge status={report.status as any} />
+          <InsigniaEstado tipo="reporte" estado={report.status as ReportStatus} />
           {report.status !== 'draft' && (
             <button
               onClick={() => exportEmployeeReportPdf(
                 { ...report, submitter_name: submitterName ?? undefined },
                 items.map(i => ({ ...i, category_name: i.expense_categories?.name ?? undefined }))
               )}
-              className="inline-flex items-center gap-2 px-3 py-2 card-label font-semibold text-ink-700 bg-white border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+              className="btn-secundario inline-flex items-center gap-2 px-3 py-2 card-label bg-white"
             >
               <Download size={16} />
               Descargar PDF
@@ -299,24 +302,28 @@ export default function ExpenseDetailPage() {
       </div>
 
       {/* Total */}
-      <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center justify-between">
-        <span className="card-label text-slate-500">Total rendición</span>
+      <div className="hoja p-4 flex items-center justify-between">
+        <span className="card-label text-ink-500">Total rendición</span>
         <CurrencyAmount amount={report.total_amount} currency="CLP" size="lg" />
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 card-label rounded-item p-3">
           {error}
         </div>
       )}
 
-      {/* Adjuntos del informe (aprobadores/admin) */}
-      <ApprovalAttachments
-        attachments={approvalAtts}
-        target={{ reportId: id }}
-        onRefresh={loadApprovalAtts}
-      />
+      {/* Adjuntos del informe (aprobadores/admin).
+          En hoja: el componente no trae superficie propia y sobre el degradado
+          su texto de ayuda queda ilegible. Es un formulario, se llena. */}
+      <div className="hoja p-4">
+        <ApprovalAttachments
+          attachments={approvalAtts}
+          target={{ reportId: id }}
+          onRefresh={loadApprovalAtts}
+        />
+      </div>
 
       {/* Lista de ítems */}
       <div className="space-y-2">
@@ -327,7 +334,9 @@ export default function ExpenseDetailPage() {
               canDelete={isDraft}
               onDelete={handleDeleteItem}
             />
-            <div className="px-3 pb-2">
+            {/* La zona de adjuntos continúa la hoja del ítem de arriba en vez
+                de flotar sobre el degradado: pertenece a esa tarjeta. */}
+            <div className="hoja rounded-t-none -mt-1 px-3 pt-1 pb-2">
               <ItemAttachmentZone
                 itemId={item.id}
                 itemType="expense_item"
@@ -341,21 +350,21 @@ export default function ExpenseDetailPage() {
 
       {/* R-03: Balance de rendición */}
       {showBalance && (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+        <div className="hoja p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="section-title text-ink-700">Resumen de aprobación</span>
             {isCuadrada && (
-              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-success-100 text-success-700 rounded-full">
                 ✓ Cuadrada
               </span>
             )}
             {isParcial && (
-              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-amber-100 text-amber-700 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-warning-100 text-warning-700 rounded-full">
                 ⚠ Parcial
               </span>
             )}
             {hasPending && (
-              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-slate-100 text-slate-500 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-ink-100 text-ink-500 rounded-full">
                 En revisión
               </span>
             )}
@@ -366,18 +375,18 @@ export default function ExpenseDetailPage() {
               <CurrencyAmount amount={report.total_amount} currency="CLP" size="sm" />
             </div>
             <div className="flex justify-between items-center py-2 card-label">
-              <span className="text-emerald-600 font-medium">Aprobado</span>
+              <span className="text-success-600 font-medium">Aprobado</span>
               <CurrencyAmount amount={totalAprobado} currency="CLP" size="sm" />
             </div>
             {totalRechazado > 0 && (
               <div className="flex justify-between items-center py-2 card-label">
-                <span className="text-red-500 font-medium">Rechazado</span>
+                <span className="text-danger-500 font-medium">Rechazado</span>
                 <CurrencyAmount amount={totalRechazado} currency="CLP" size="sm" />
               </div>
             )}
             {hasPending && (
               <div className="flex justify-between items-center py-2 card-label">
-                <span className="text-amber-500 font-medium">Pendiente de revisión</span>
+                <span className="text-warning-500 font-medium">Pendiente de revisión</span>
                 <CurrencyAmount amount={report.total_amount - totalAprobado - totalRechazado} currency="CLP" size="sm" />
               </div>
             )}
@@ -387,7 +396,7 @@ export default function ExpenseDetailPage() {
 
       {/* R-04: Línea de tiempo */}
       {showTimeline && (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
+        <div className="hoja p-4">
           <h3 className="section-title text-ink-700 mb-4">Historial</h3>
           <div className="space-y-0">
             {allTimelineEvents.map((ev, i) => (
@@ -436,7 +445,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-card transition-colors card-label"
+              className="btn-primario w-full py-3 card-label"
             >
               {submitting
                 ? 'Enviando...'
@@ -448,7 +457,7 @@ export default function ExpenseDetailPage() {
             <button
               onClick={handleDeleteReport}
               disabled={deleting}
-              className="w-full py-2.5 text-red-500 hover:text-red-700 card-label font-medium border border-red-200 hover:border-red-400 rounded-card transition-colors disabled:opacity-50"
+              className="w-full py-2.5 text-danger-500 hover:text-danger-700 card-label font-medium border border-danger-200 hover:border-danger-400 rounded-card transition-colors disabled:opacity-50"
             >
               {deleting ? 'Eliminando...' : 'Eliminar rendición'}
             </button>
@@ -458,12 +467,12 @@ export default function ExpenseDetailPage() {
 
       {/* Banner de rechazo (para empleado) */}
       {showRejectionBanner && (
-        <div className={`rounded-card p-4 border ${isRejected ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-          <p className={`card-eyebrow ${isRejected ? 'text-red-800' : 'text-amber-800'}`}>
+        <div className={`rounded-card p-4 border ${isRejected ? 'bg-danger-50 border-danger-200' : 'bg-warning-50 border-warning-200'}`}>
+          <p className={`card-eyebrow ${isRejected ? 'text-danger-800' : 'text-warning-800'}`}>
             {isRejected ? 'Tu rendición fue rechazada' : 'Tu rendición fue parcialmente aprobada'}
           </p>
           {rejectedItems.length > 0 && (
-            <p className={`card-label mt-1 ${isRejected ? 'text-red-700' : 'text-amber-700'}`}>
+            <p className={`card-label mt-1 ${isRejected ? 'text-danger-700' : 'text-warning-700'}`}>
               {rejectedItems.length} ítem{rejectedItems.length !== 1 ? 's' : ''} rechazado{rejectedItems.length !== 1 ? 's' : ''} — revisa los motivos debajo de cada ítem.
             </p>
           )}
@@ -472,7 +481,7 @@ export default function ExpenseDetailPage() {
 
       {/* Estado informativo (no borrador, sin rechazo) */}
       {!isDraft && !showRejectionBanner && (
-        <div className="bg-slate-50 rounded-card p-4 text-center card-label text-slate-500">
+        <div className="bg-ink-50 rounded-card p-4 text-center card-label text-ink-500">
           Esta rendición está en estado <strong>{report.status}</strong> y no puede editarse.
         </div>
       )}

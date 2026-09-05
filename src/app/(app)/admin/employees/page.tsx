@@ -1,21 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, getCostCenters } from '@/actions/admin'
 import { sendInvitations, setEmployeePassword } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff, Search, ShieldCheck } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 
 type EmployeeWithEmail = UserProfile & { email: string }
 
+/* El orden es el del flujo del dinero: rendir → aprobar → caja chica → banco. */
+const PERMISOS = [
+  { campo: 'can_submit',                  chip: 'rinde' },
+  { campo: 'can_approve',                 chip: 'aprueba' },
+  { campo: 'can_manage_petty_cash',       chip: 'EFF' },
+  { campo: 'can_load_bank_transfer',      chip: 'carga banco' },
+  { campo: 'can_authorize_bank_transfer', chip: 'autoriza banco' },
+] as const satisfies readonly { campo: keyof UserProfile; chip: string }[]
+
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
-  admin:    { label: 'Admin',      cls: 'bg-purple-100 text-purple-700' },
-  approver: { label: 'Aprobador',  cls: 'bg-blue-100 text-blue-700' },
-  employee: { label: 'Empleado',   cls: 'bg-slate-100 text-slate-600' },
+  admin:    { label: 'Admin',      cls: 'bg-flare-100 text-flare-700' },
+  approver: { label: 'Aprobador',  cls: 'bg-info-100 text-info-700' },
+  employee: { label: 'Empleado',   cls: 'bg-ink-100 text-ink-600' },
 }
 
 function approverSummary(emp: UserProfile, all: UserProfile[]): string {
@@ -39,6 +48,13 @@ export default function AdminEmployeesPage() {
 
   // Selección para invitación masiva
   const [selected,        setSelected]         = useState<Set<string>>(new Set())
+  const [busca,           setBusca]            = useState('')
+  /* Igual que la cola bancaria: de a 25, con el total a la vista en el
+     buscador. Paginar esconde el scroll, no la nómina. */
+  const [tope,            setTope]             = useState(25)
+  /* Los permisos pasan a un cajón: 7 casillas por persona son 399 casillas en
+     una pantalla, imposibles de leer y responsables de la mitad del alto. */
+  const [permisosDe,      setPermisosDe]       = useState<string | null>(null)
   const [inviting,        setInviting]         = useState<string | null>(null) // 'bulk' | userId
   const [inviteResults,   setInviteResults]    = useState<{ ok: number; fail: number; msg: string } | null>(null)
 
@@ -70,6 +86,8 @@ export default function AdminEmployeesPage() {
   }
 
   useEffect(() => {
+    /* Carga inicial: `load()` prende su propio indicador de carga. Es el render en cascada que cuesta traer datos desde un componente de cliente. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
   }, [])
@@ -209,11 +227,31 @@ export default function AdminEmployeesPage() {
     }
   }
 
+  /* Sin tildes y en minúsculas: "perez" tiene que encontrar a "Pérez". */
+  const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+  const filtrados = useMemo(() => {
+    const q = sinTildes(busca.trim())
+    if (!q) return employees
+    return employees.filter(e => {
+      const campos = [
+        e.full_name,
+        (e as UserProfile & { email?: string }).email ?? '',
+        (e as UserProfile & { rut?: string | null }).rut ?? '',
+        e.department ?? '',
+      ]
+      return campos.some(c => sinTildes(String(c)).includes(q))
+    })
+  }, [employees, busca])
+
+  /* Opera sobre lo FILTRADO, no sobre la nómina entera: abajo hay borrado
+     masivo, y un "seleccionar todos" que alcanza gente que no está en
+     pantalla es la forma más fácil de borrar a quien no se quería. */
   function toggleSelectAll() {
-    if (selected.size === employees.length) {
+    if (filtrados.every(e => selected.has(e.id)) && filtrados.length > 0) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(employees.map(e => e.id)))
+      setSelected(new Set(filtrados.map(e => e.id)))
     }
   }
 
@@ -240,8 +278,8 @@ export default function AdminEmployeesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Empleados</h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Empleados</h1>
+          <p className="text-sm tor-on-gradient-soft mt-1">
             {employees.length} persona{employees.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
           </p>
         </div>
@@ -266,7 +304,7 @@ export default function AdminEmployeesPage() {
               'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md',
               panel === 'import' ? 'bg-ink-500' : '',
             ].join(' ')}
-            style={panel !== 'import' ? { background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' } : undefined}
+            style={panel !== 'import' ? { background: 'var(--cta-brand)' } : undefined}
           >
             {panel === 'import'
               ? <><X size={12} />Cerrar</>
@@ -278,7 +316,7 @@ export default function AdminEmployeesPage() {
 
       {/* Panel: agregar uno */}
       {panel === 'add' && (
-        <div className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600">
+        <div className="hoja p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-ink-800 mb-4">Agregar empleado</h2>
           <AddEmployeeForm onDone={() => { setPanel('none'); load() }} />
         </div>
@@ -286,7 +324,7 @@ export default function AdminEmployeesPage() {
 
       {/* Panel: importar Excel */}
       {panel === 'import' && (
-        <div className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600">
+        <div className="hoja p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-ink-800 mb-4">Importar empleados desde Excel</h2>
           <EmployeeImport onDone={() => { setPanel('none'); load() }} />
         </div>
@@ -296,41 +334,62 @@ export default function AdminEmployeesPage() {
       {inviteResults && (
         <div className={`flex items-start gap-3 p-3 rounded-item border text-sm ${
           inviteResults.fail === 0
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            : 'bg-amber-50 border-amber-200 text-amber-700'
+            ? 'bg-success-50 border-success-200 text-success-700'
+            : 'bg-warning-50 border-warning-200 text-warning-700'
         }`}>
           <div className="flex-1">
             {inviteResults.ok > 0 && <span className="font-semibold">{inviteResults.ok} invitación{inviteResults.ok !== 1 ? 'es' : ''} enviada{inviteResults.ok !== 1 ? 's' : ''}</span>}
-            {inviteResults.fail > 0 && <span className="font-semibold ml-2 text-red-600">{inviteResults.fail} error{inviteResults.fail !== 1 ? 'es' : ''}</span>}
-            {inviteResults.msg && <p className="text-xs mt-0.5 text-red-600">{inviteResults.msg}</p>}
+            {inviteResults.fail > 0 && <span className="font-semibold ml-2 text-danger-600">{inviteResults.fail} error{inviteResults.fail !== 1 ? 'es' : ''}</span>}
+            {inviteResults.msg && <p className="text-xs mt-0.5 text-danger-600">{inviteResults.msg}</p>}
           </div>
-          <button onClick={() => setInviteResults(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+          <button onClick={() => setInviteResults(null)} className="text-ink-400 hover:text-ink-600"><X size={14} /></button>
         </div>
       )}
 
       {/* Barra de acciones */}
+      {/* Buscador: con 57 personas, dar con una es la tarea de la pantalla. */}
+      {employees.length > 8 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+            <input
+              type="search"
+              value={busca}
+              onChange={e => { setBusca(e.target.value); setTope(25) }}
+              placeholder="Buscar por nombre, correo, RUT o departamento…"
+              className="campo w-full pl-9"
+            />
+          </div>
+          {busca && (
+            <p className="card-meta">{filtrados.length} de {employees.length}</p>
+          )}
+        </div>
+      )}
+
       {employees.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
           {/* Seleccionar todos */}
-          <label className="flex items-center gap-1.5 text-xs text-ink-500 cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-xs tor-on-gradient-soft cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={selected.size === employees.length && employees.length > 0}
-              ref={el => { if (el) el.indeterminate = selected.size > 0 && selected.size < employees.length }}
+              checked={filtrados.length > 0 && filtrados.every(e => selected.has(e.id))}
+              ref={el => { if (el) el.indeterminate = selected.size > 0 && !filtrados.every(e => selected.has(e.id)) }}
               onChange={toggleSelectAll}
-              className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500"
+              className="w-4 h-4 rounded text-brand-600 border-ink-300 focus:ring-brand-500"
             />
-            {selected.size > 0 ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}` : 'Seleccionar todos'}
+            {selected.size > 0
+              ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}`
+              : busca ? `Seleccionar los ${filtrados.length} filtrados` : 'Seleccionar todos'}
           </label>
 
-          <span className="text-ink-200">|</span>
+          <span className="text-white/30">|</span>
 
           {/* Invitar a todos sin invitar */}
           {notInvited.length > 0 && (
             <button
               onClick={() => handleSendInvitations(notInvited.map(e => e.id))}
               disabled={inviting === 'bulk'}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-item transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-accent-600 hover:bg-accent-700 disabled:opacity-50 rounded-item transition-colors"
             >
               {inviting === 'bulk'
                 ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
@@ -345,7 +404,7 @@ export default function AdminEmployeesPage() {
               <button
                 onClick={() => handleSendInvitations([...selected])}
                 disabled={!!inviting || deletingBulk}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 rounded-item transition-colors"
+                className="btn-primario inline-flex items-center gap-2 px-3 py-1.5 text-xs"
               >
                 {inviting && inviting !== 'bulk'
                   ? <><Loader2 size={12} className="animate-spin" />Enviando…</>
@@ -356,7 +415,7 @@ export default function AdminEmployeesPage() {
               <button
                 onClick={handleDeleteSelected}
                 disabled={deletingBulk || !!inviting}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 hover:bg-red-50 disabled:opacity-50 rounded-item transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-danger-600 border border-danger-300 hover:bg-danger-50 disabled:opacity-50 rounded-item transition-colors"
               >
                 {deletingBulk
                   ? <><Loader2 size={12} className="animate-spin" />Eliminando…</>
@@ -374,6 +433,16 @@ export default function AdminEmployeesPage() {
 
       {/* Lista de empleados */}
       <div className="space-y-2">
+        {busca && filtrados.length === 0 && (
+          <div className="hoja p-8 text-center">
+            <Search size={26} className="mx-auto mb-2 text-ink-300" />
+            <p className="card-label font-semibold text-ink-700">Nadie coincide con «{busca}»</p>
+            <button onClick={() => setBusca('')} className="text-brand-600 text-sm hover:underline mt-2">
+              Limpiar la búsqueda
+            </button>
+          </div>
+        )}
+
         {employees.length === 0 && panel === 'none' && (
           <div className="text-center py-12 text-ink-400">
             <Users size={36} className="mx-auto mb-3 opacity-30" />
@@ -386,7 +455,7 @@ export default function AdminEmployeesPage() {
           </div>
         )}
 
-        {employees.map(emp => {
+        {filtrados.slice(0, tope).map(emp => {
           const badge           = ROLE_BADGE[emp.role] ?? ROLE_BADGE.employee
           const isOpen          = expandedApprover === emp.id
           const isEditOpen      = expandedEdit === emp.id
@@ -401,7 +470,7 @@ export default function AdminEmployeesPage() {
             <div
               key={emp.id}
               className={[
-                'bg-white rounded-card shadow-card overflow-hidden transition-all',
+                'hoja overflow-hidden transition-all',
                 !emp.is_active && 'opacity-60',
                 isSelected && 'ring-2 ring-brand-400',
               ].filter(Boolean).join(' ')}
@@ -414,7 +483,7 @@ export default function AdminEmployeesPage() {
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelect(emp.id)}
-                    className="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500 shrink-0"
+                    className="w-4 h-4 rounded text-brand-600 border-ink-300 focus:ring-brand-500 shrink-0"
                     title="Seleccionar empleado"
                   />
 
@@ -422,17 +491,23 @@ export default function AdminEmployeesPage() {
                     {emp.full_name[0].toUpperCase()}
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  {/* Piso de ancho, no `min-w-0`. Con cero, en 390 px el checkbox,
+                      el avatar y los controles se comían el ancho y esta columna
+                      quedaba en 35 px de ancho por 206 de alto: el nombre se
+                      apilaba en vertical, una letra por línea. El piso obliga a
+                      que los controles bajen de línea, que es lo que `flex-wrap`
+                      tenía que haber hecho desde el principio. */}
+                  <div className="flex-1 min-w-[10rem]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-ink-900">{emp.full_name}</p>
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
                       {/* Badge estado invitación */}
                       {emp.invited_at ? (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent-50 text-accent-700">
                           ✉ invitado {formatDate(emp.invited_at)}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-warning-50 text-warning-700">
                           ⏳ sin invitar
                         </span>
                       )}
@@ -454,8 +529,8 @@ export default function AdminEmployeesPage() {
                       title={emp.invited_at ? `Reenviar invitación (ya enviada el ${formatDate(emp.invited_at)})` : 'Enviar invitación'}
                       className={`inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold disabled:opacity-40 rounded-item transition-colors border ${
                         emp.invited_at
-                          ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200'
-                          : 'text-teal-700 bg-teal-50 hover:bg-teal-100 border-teal-200'
+                          ? 'text-warning-700 bg-warning-50 hover:bg-warning-100 border-warning-200'
+                          : 'text-accent-700 bg-accent-50 hover:bg-accent-100 border-accent-200'
                       }`}
                     >
                       {isInvitingSingle
@@ -469,7 +544,7 @@ export default function AdminEmployeesPage() {
                       value={emp.role}
                       disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { role: e.target.value as UserProfile['role'] })}
-                      className="text-xs border border-ink-200 rounded-item px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo text-xs px-2 py-1.5"
                     >
                       <option value="employee">Empleado</option>
                       <option value="approver">Aprobador</option>
@@ -496,7 +571,7 @@ export default function AdminEmployeesPage() {
                         <button
                           onClick={() => handleSaveEmail(emp.id)}
                           disabled={emailSaving}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors"
+                          className="btn-primario inline-flex items-center gap-1 px-2.5 py-1 text-xs"
                         >
                           <Check size={11} />{emailSaving ? 'Guardando…' : 'Guardar'}
                         </button>
@@ -507,7 +582,7 @@ export default function AdminEmployeesPage() {
                           <X size={13} />
                         </button>
                       </div>
-                      {emailError && <p className="w-full text-xs text-rose-600">{emailError}</p>}
+                      {emailError && <p className="w-full text-xs text-danger-600">{emailError}</p>}
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -525,8 +600,100 @@ export default function AdminEmployeesPage() {
                   )}
                 </div>
 
-                {/* Permisos + Estado + Aprobadores */}
-                <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-ink-100">
+                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-ink-100">
+                  {/* Plegado se LEE: los permisos activos como texto. Editarlos
+                      es otra intención y vive en el cajón de abajo. Seis
+                      casillas por persona eran 342 casillas en una pantalla. */}
+                  {!emp.is_active && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning-50 text-warning-700">inactivo</span>
+                  )}
+                  {PERMISOS.filter(p => emp[p.campo]).map(p => (
+                    <span key={p.campo} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-600">
+                      {p.chip}
+                    </span>
+                  ))}
+                  {PERMISOS.every(p => !emp[p.campo]) && (
+                    <span className="text-[10px] text-ink-400 italic">sin permisos</span>
+                  )}
+
+                  <button
+                    onClick={() => setPermisosDe(permisosDe === emp.id ? null : emp.id)}
+                    className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-item transition-colors ${
+                      permisosDe === emp.id ? 'bg-brand-100 text-brand-700' : 'bg-ink-50 text-ink-600 hover:bg-ink-100'
+                    }`}
+                  >
+                    <ShieldCheck size={11} />
+                    {permisosDe === emp.id ? 'Cerrar' : 'Permisos'}
+                  </button>
+
+                  {/* Acciones: contraseña / inactivar / eliminar */}
+                  <div className="ml-auto flex items-center gap-1">
+                    <button
+                      onClick={() => pwPanel === emp.id ? setPwPanel(null) : openPwPanel(emp.id)}
+                      title="Establecer contraseña"
+                      className={`p-1.5 rounded-item transition-colors ${pwPanel === emp.id ? 'text-brand-600 bg-brand-50' : 'text-ink-400 hover:text-brand-600 hover:bg-brand-50'}`}
+                    >
+                      <KeyRound size={14} />
+                    </button>
+                    {emp.is_active && (
+                      <button
+                        onClick={() => handleDeactivate(emp.id, emp.full_name)}
+                        disabled={deactivatingId === emp.id || deletingId === emp.id}
+                        title="Inactivar empleado"
+                        className="p-1.5 text-warning-500 hover:text-warning-700 hover:bg-warning-50 rounded-item transition-colors disabled:opacity-40"
+                      >
+                        {deactivatingId === emp.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <UserX size={14} />}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(emp.id, emp.full_name)}
+                      disabled={deletingId === emp.id || deactivatingId === emp.id}
+                      title="Eliminar empleado definitivamente"
+                      className="p-1.5 text-danger-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
+                    >
+                      {deletingId === emp.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Trash2 size={14} />}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (isEditOpen) { setExpandedEdit(null) } else { openEdit(emp); setExpandedApprover(null) }
+                    }}
+                    className={[
+                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
+                      isEditOpen ? 'bg-ink-100 text-ink-500' : 'bg-ink-50 text-ink-600 hover:bg-ink-100',
+                    ].join(' ')}
+                  >
+                    <Pencil size={11} />
+                    {isEditOpen ? 'Cerrar' : 'Editar datos'}
+                  </button>
+
+                  <button
+                    onClick={() => { setExpandedApprover(isOpen ? null : emp.id); setExpandedEdit(null) }}
+                    className={[
+                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
+                      isOpen
+                        ? 'bg-brand-100 text-brand-700'
+                        : hasApprover
+                          ? 'bg-success-50 text-success-700 hover:bg-success-100'
+                          : 'bg-warning-50 text-warning-700 hover:bg-warning-100',
+                    ].join(' ')}
+                  >
+                    <span>{isOpen ? '▲' : '▼'}</span>
+                    <span>{isOpen ? 'Cerrar' : hasApprover ? `⛓ ${summary}` : '⚠ Sin aprobador'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Panel de permisos */}
+              {permisosDe === emp.id && (
+                <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
+                  <p className="card-label font-semibold text-ink-600 mb-3">Permisos de {emp.full_name}</p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
                     <input type="checkbox" checked={emp.can_submit} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { can_submit: e.target.checked })}
@@ -563,69 +730,9 @@ export default function AdminEmployeesPage() {
                       className="rounded text-brand-600" />
                     Activo
                   </label>
-
-                  {/* Acciones: contraseña / inactivar / eliminar */}
-                  <div className="ml-auto flex items-center gap-1">
-                    <button
-                      onClick={() => pwPanel === emp.id ? setPwPanel(null) : openPwPanel(emp.id)}
-                      title="Establecer contraseña"
-                      className={`p-1.5 rounded-item transition-colors ${pwPanel === emp.id ? 'text-brand-600 bg-brand-50' : 'text-ink-400 hover:text-brand-600 hover:bg-brand-50'}`}
-                    >
-                      <KeyRound size={14} />
-                    </button>
-                    {emp.is_active && (
-                      <button
-                        onClick={() => handleDeactivate(emp.id, emp.full_name)}
-                        disabled={deactivatingId === emp.id || deletingId === emp.id}
-                        title="Inactivar empleado"
-                        className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
-                      >
-                        {deactivatingId === emp.id
-                          ? <Loader2 size={14} className="animate-spin" />
-                          : <UserX size={14} />}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(emp.id, emp.full_name)}
-                      disabled={deletingId === emp.id || deactivatingId === emp.id}
-                      title="Eliminar empleado definitivamente"
-                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
-                    >
-                      {deletingId === emp.id
-                        ? <Loader2 size={14} className="animate-spin" />
-                        : <Trash2 size={14} />}
-                    </button>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      if (isEditOpen) { setExpandedEdit(null) } else { openEdit(emp); setExpandedApprover(null) }
-                    }}
-                    className={[
-                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
-                      isEditOpen ? 'bg-ink-100 text-ink-500' : 'bg-slate-50 text-slate-600 hover:bg-slate-100',
-                    ].join(' ')}
-                  >
-                    <Pencil size={11} />
-                    {isEditOpen ? 'Cerrar' : 'Editar datos'}
-                  </button>
-
-                  <button
-                    onClick={() => { setExpandedApprover(isOpen ? null : emp.id); setExpandedEdit(null) }}
-                    className={[
-                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-item transition-colors',
-                      isOpen
-                        ? 'bg-brand-100 text-brand-700'
-                        : hasApprover
-                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          : 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-                    ].join(' ')}
-                  >
-                    <span>{isOpen ? '▲' : '▼'}</span>
-                    <span>{isOpen ? 'Cerrar' : hasApprover ? `⛓ ${summary}` : '⚠ Sin aprobador'}</span>
-                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Panel editar datos del empleado */}
               {isEditOpen && (
@@ -638,7 +745,7 @@ export default function AdminEmployeesPage() {
                         type="text"
                         value={editForm.full_name}
                         onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                         placeholder="Apellido Nombre"
                       />
                     </div>
@@ -648,7 +755,7 @@ export default function AdminEmployeesPage() {
                         type="text"
                         value={editForm.rut}
                         onChange={e => setEditForm(f => ({ ...f, rut: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                         placeholder="12.345.678-9"
                       />
                     </div>
@@ -658,7 +765,7 @@ export default function AdminEmployeesPage() {
                         type="text"
                         value={editForm.department}
                         onChange={e => setEditForm(f => ({ ...f, department: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                         placeholder="Ej: Ingeniería, Gerencia..."
                       />
                     </div>
@@ -667,7 +774,7 @@ export default function AdminEmployeesPage() {
                       <select
                         value={editForm.cost_center_id}
                         onChange={e => setEditForm(f => ({ ...f, cost_center_id: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                       >
                         <option value="">— Sin asignar —</option>
                         {costCenters.map(cc => (
@@ -680,13 +787,13 @@ export default function AdminEmployeesPage() {
                     <button
                       onClick={() => handleSaveEdit(emp.id)}
                       disabled={editSaving}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors"
+                      className="btn-primario inline-flex items-center gap-1.5 px-4 py-2 text-xs"
                     >
                       {editSaving ? <><Loader2 size={12} className="animate-spin" />Guardando…</> : <><Check size={12} />Guardar</>}
                     </button>
                     <button
                       onClick={() => setExpandedEdit(null)}
-                      className="px-4 py-2 text-xs text-ink-500 hover:text-ink-700 border border-ink-200 rounded-item hover:bg-white transition-colors"
+                      className="btn-secundario px-4 py-2 text-xs"
                     >
                       Cancelar
                     </button>
@@ -699,7 +806,7 @@ export default function AdminEmployeesPage() {
                 <div className="border-t border-ink-100 bg-ink-50 px-4 py-4">
                   <p className="card-label font-semibold text-ink-600 mb-3">Establecer contraseña</p>
                   {pwSuccess ? (
-                    <p className="text-sm text-emerald-600 font-medium flex items-center gap-2">
+                    <p className="text-sm text-success-600 font-medium flex items-center gap-2">
                       <Check size={15} /> Contraseña actualizada correctamente
                     </p>
                   ) : (
@@ -711,7 +818,7 @@ export default function AdminEmployeesPage() {
                           onChange={e => { setPwValue(e.target.value); setPwError(null) }}
                           placeholder="Nueva contraseña (mínimo 8 caracteres)"
                           autoComplete="new-password"
-                          className="w-full px-3 py-2 pr-9 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          className="campo w-full pr-9"
                         />
                         <button
                           type="button"
@@ -729,20 +836,20 @@ export default function AdminEmployeesPage() {
                         placeholder="Confirmar contraseña"
                         autoComplete="new-password"
                         onKeyDown={e => { if (e.key === 'Enter') handleSetPassword(emp.id) }}
-                        className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="campo w-full"
                       />
-                      {pwError && <p className="text-xs text-rose-600">{pwError}</p>}
+                      {pwError && <p className="text-xs text-danger-600">{pwError}</p>}
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleSetPassword(emp.id)}
                           disabled={pwSaving}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors"
+                          className="btn-primario inline-flex items-center gap-1.5 px-4 py-2 text-xs"
                         >
                           {pwSaving ? <><Loader2 size={12} className="animate-spin" />Guardando…</> : <><KeyRound size={12} />Establecer contraseña</>}
                         </button>
                         <button
                           onClick={() => setPwPanel(null)}
-                          className="px-4 py-2 text-xs text-ink-500 hover:text-ink-700 border border-ink-200 rounded-item hover:bg-white transition-colors"
+                          className="btn-secundario px-4 py-2 text-xs"
                         >
                           Cancelar
                         </button>
@@ -770,6 +877,16 @@ export default function AdminEmployeesPage() {
             </div>
           )
         })}
+
+        {filtrados.length > tope && (
+          <button
+            onClick={() => setTope(t => t + 25)}
+            className="hoja border border-ink-200 w-full px-4 py-3 text-sm font-semibold text-brand-700 hover:bg-ink-50 transition-colors"
+          >
+            Mostrar {Math.min(25, filtrados.length - tope)} más
+            <span className="font-normal text-ink-500"> · quedan {filtrados.length - tope}</span>
+          </button>
+        )}
       </div>
     </div>
   )

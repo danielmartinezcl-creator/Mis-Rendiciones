@@ -16,9 +16,9 @@ function daysLeft(deletedAt: string): number {
 
 function DaysLeftBadge({ deletedAt }: { deletedAt: string }) {
   const days = daysLeft(deletedAt)
-  if (days <= 7)  return <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  if (days <= 30) return <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  return <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  if (days <= 7)  return <span data-cuenta-regresiva className="text-xs font-semibold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  if (days <= 30) return <span data-cuenta-regresiva className="text-xs font-semibold text-warning-600 bg-warning-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
+  return <span data-cuenta-regresiva className="text-xs text-ink-400 bg-ink-100 px-2 py-0.5 rounded-full">{days}d restantes</span>
 }
 
 interface Props { initialItems: TrashItems }
@@ -74,34 +74,34 @@ export function TrashClient({ initialItems }: Props) {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="p-2.5 rounded-item bg-slate-100 text-slate-500 shrink-0">
+        <div className="p-2.5 rounded-item bg-ink-100 text-ink-500 shrink-0">
           <Trash2 size={20} />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Papelera</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-xl font-bold tor-on-gradient">Papelera</h1>
+          <p className="text-sm tor-on-gradient-soft mt-0.5">
             Los ítems eliminados se guardan aquí durante 90 días y luego se borran automáticamente.
           </p>
         </div>
       </div>
 
       {total === 0 ? (
-        <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-12 text-center">
-          <Trash2 size={40} className="mx-auto text-slate-200 mb-3" />
-          <p className="text-slate-500 font-medium">La papelera está vacía</p>
-          <p className="text-xs text-slate-400 mt-1">Los ítems eliminados aparecerán aquí</p>
+        <div className="hoja p-12 text-center">
+          <Trash2 size={40} className="mx-auto text-ink-200 mb-3" />
+          <p className="text-ink-500 font-medium">La papelera está vacía</p>
+          <p className="text-xs text-ink-400 mt-1">Los ítems eliminados aparecerán aquí</p>
         </div>
       ) : (
         <>
           {/* Tabs */}
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-item w-fit">
+          <div className="flex gap-1 bg-ink-100 p-1 rounded-item w-fit">
             {tabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-sm font-medium transition-colors',
-                  tab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-sm font-medium transition-colors',
+                  tab === t.id ? 'bg-white text-ink-800 shadow-sm' : 'text-ink-500 hover:text-ink-700',
                 ].join(' ')}
               >
                 <t.icon size={14} />
@@ -109,7 +109,7 @@ export function TrashClient({ initialItems }: Props) {
                 {t.count > 0 && (
                   <span className={[
                     'text-xs font-bold px-1.5 py-0.5 rounded-full',
-                    tab === t.id ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-500',
+                    tab === t.id ? 'bg-ink-100 text-ink-600' : 'bg-ink-200 text-ink-500',
                   ].join(' ')}>
                     {t.count}
                   </span>
@@ -125,17 +125,17 @@ export function TrashClient({ initialItems }: Props) {
                 <EmptyTab label="rendiciones eliminadas" />
               ) : (
                 items.reports.map(r => (
-                  <div key={r.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center gap-3 flex-wrap">
+                  <div key={r.id} className="hoja p-4 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{r.title}</p>
+                      <p className="font-semibold text-ink-800 truncate">{r.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-slate-400">por {r.submitter_name}</span>
-                        <span className="text-xs text-slate-300">·</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-ink-400">por {r.submitter_name}</span>
+                        <span className="text-xs text-ink-300">·</span>
+                        <span className="text-xs text-ink-400">
                           Eliminada {formatDate(r.deleted_at!.split('T')[0])}
                         </span>
-                        <span className="text-xs text-slate-300">·</span>
-                        <span className="font-mono-amount text-xs text-slate-600">{formatCLP(r.total_amount)}</span>
+                        <span className="text-xs text-ink-300">·</span>
+                        <span className="font-mono-amount text-xs text-ink-600">{formatCLP(r.total_amount)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -152,7 +152,7 @@ export function TrashClient({ initialItems }: Props) {
                         onClick={() => handlePermanentDelete('report', r.id, r.title)}
                         disabled={loading === r.id}
                         title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -170,17 +170,17 @@ export function TrashClient({ initialItems }: Props) {
                 <EmptyTab label="cajas chicas eliminadas" />
               ) : (
                 items.funds.map(f => (
-                  <div key={f.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center gap-3 flex-wrap">
+                  <div key={f.id} className="hoja p-4 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{f.name}</p>
+                      <p className="font-semibold text-ink-800 truncate">{f.name}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-slate-400">empleado: {f.employee_name}</span>
-                        <span className="text-xs text-slate-300">·</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-ink-400">empleado: {f.employee_name}</span>
+                        <span className="text-xs text-ink-300">·</span>
+                        <span className="text-xs text-ink-400">
                           Eliminada {formatDate(f.deleted_at!.split('T')[0])}
                         </span>
-                        <span className="text-xs text-slate-300">·</span>
-                        <span className="font-mono-amount text-xs text-slate-600">{formatCLP(f.amount_requested)}</span>
+                        <span className="text-xs text-ink-300">·</span>
+                        <span className="font-mono-amount text-xs text-ink-600">{formatCLP(f.amount_requested)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -197,7 +197,7 @@ export function TrashClient({ initialItems }: Props) {
                         onClick={() => handlePermanentDelete('fund', f.id, f.name)}
                         disabled={loading === f.id}
                         title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -211,7 +211,7 @@ export function TrashClient({ initialItems }: Props) {
           {/* Empleados */}
           {tab === 'users' && (
             <div className="space-y-2">
-              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-item text-amber-700 text-sm">
+              <div className="flex items-start gap-2 p-3 bg-warning-50 border border-warning-100 rounded-item text-warning-700 text-sm">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <span>Los empleados eliminados no pueden iniciar sesión. Al restaurar recuperan el acceso automáticamente.</span>
               </div>
@@ -219,17 +219,17 @@ export function TrashClient({ initialItems }: Props) {
                 <EmptyTab label="empleados eliminados" />
               ) : (
                 items.users.map(u => (
-                  <div key={u.id} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 flex items-center gap-3 flex-wrap">
+                  <div key={u.id} className="hoja p-4 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800">{u.full_name}</p>
+                      <p className="font-semibold text-ink-800">{u.full_name}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-slate-400 capitalize">{u.role}</span>
+                        <span className="text-xs text-ink-400 capitalize">{u.role}</span>
                         {u.department && <>
-                          <span className="text-xs text-slate-300">·</span>
-                          <span className="text-xs text-slate-400">{u.department}</span>
+                          <span className="text-xs text-ink-300">·</span>
+                          <span className="text-xs text-ink-400">{u.department}</span>
                         </>}
-                        <span className="text-xs text-slate-300">·</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-ink-300">·</span>
+                        <span className="text-xs text-ink-400">
                           Eliminado {formatDate(u.deleted_at!.split('T')[0])}
                         </span>
                       </div>
@@ -248,7 +248,7 @@ export function TrashClient({ initialItems }: Props) {
                         onClick={() => handlePermanentDelete('user', u.id, u.full_name)}
                         disabled={loading === u.id}
                         title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -266,8 +266,8 @@ export function TrashClient({ initialItems }: Props) {
 
 function EmptyTab({ label }: { label: string }) {
   return (
-    <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-8 text-center">
-      <p className="text-sm text-slate-400">No hay {label}</p>
+    <div className="hoja p-8 text-center">
+      <p className="text-sm text-ink-400">No hay {label}</p>
     </div>
   )
 }

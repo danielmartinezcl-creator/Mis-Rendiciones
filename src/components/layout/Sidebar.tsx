@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LogoutButton } from './LogoutButton'
-import { ThemeToggle } from './ThemeToggle'
 import type { UserProfile } from '@/lib/supabase/types'
 
 import {
@@ -31,8 +30,13 @@ import {
   Landmark,
 } from 'lucide-react'
 
+import { Marca, MarcaProducto } from './Marca'
+import type { MarcaOrg } from '@/actions/organizations'
+
 interface SidebarProps {
   user: UserProfile
+  /** Nula mientras no se pudo resolver la organización: se cae a la marca del producto. */
+  marca?: MarcaOrg | null
 }
 
 const NAV_ITEMS = [
@@ -69,7 +73,7 @@ function applyOrder(items: NavItem[], saved: string[]): NavItem[] {
   })
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, marca }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
 
@@ -92,6 +96,8 @@ export function Sidebar({ user }: SidebarProps) {
       const raw = localStorage.getItem(orderKey(user.id))
       if (raw) {
         const saved: string[] = JSON.parse(raw)
+        /* Hidrata el orden guardado en localStorage. NO se puede inicializar de forma perezosa: el primer render del cliente debe coincidir con el HTML del servidor o Next tira error de hidratación. */
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setItems(applyOrder(visible, saved))
         setIsCustomized(true)
       }
@@ -148,21 +154,13 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-sidebar min-h-screen select-none">
+    <aside className="hidden md:flex flex-col w-64 tor-glass-rail min-h-screen select-none">
 
       {/* ── Logo / marca ── */}
       <div className="p-5 border-b border-white/8">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
-               style={{ background: 'linear-gradient(135deg, #12152E, #3B4090)' }}>
-            <ReceiptText size={18} className="text-white" />
-          </div>
-          <span className="font-display font-extrabold tracking-tight leading-none"
-                style={{ fontSize: 17 }}>
-            <span style={{ color: '#3DBAB5' }}>Penta</span>
-            <span className="text-white"> Rend</span>
-          </span>
-        </div>
+        {marca
+          ? <Marca nombre={marca.nombre} logo={marca.logo} />
+          : <MarcaProducto />}
       </div>
 
       {/* ── Navegación ── */}
@@ -239,9 +237,6 @@ export function Sidebar({ user }: SidebarProps) {
             <p className="text-white/40 text-xs group-hover:text-white/60 transition-colors">Mi perfil</p>
           </div>
         </Link>
-        <div className="mt-1 border-t border-white/8 pt-2">
-          <ThemeToggle />
-        </div>
         <LogoutButton />
       </div>
     </aside>

@@ -1,5 +1,7 @@
 'use server'
 
+import { BRAND } from '@/lib/design-tokens'
+
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
@@ -162,7 +164,7 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
           html:    `<p>Hola ${full_name},</p>
                     <p>Tienes acceso a <strong>Mi Rendición</strong>, el sistema de rendición de gastos de tu empresa. Haz clic en el botón para crear tu contraseña.</p>
                     <p style="margin:24px 0">
-                      <a href="${actionLink}" style="background:#0D9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
+                      <a href="${actionLink}" style="background:${BRAND.accent};color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
                         Crear contraseña →
                       </a>
                     </p>

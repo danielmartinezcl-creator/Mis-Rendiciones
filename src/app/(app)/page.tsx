@@ -35,17 +35,19 @@ export default async function DashboardPage() {
             subida de tamaño: la letra crece, la tarjeta no. */}
         <div className="space-y-1.5">
           <p className="card-eyebrow text-brand-300">Por cobrar (aprobado)</p>
-          <CurrencyAmount amount={approved} currency="CLP" size="xl" className="text-white block" />
+          {/* fit: una cifra de 8 dígitos a 40px mide 283px y no entra en un
+              celular de 320px (260px disponibles). Con fit baja a 34px sola. */}
+          <CurrencyAmount amount={approved} currency="CLP" size="xl" fit className="text-white block" />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
             {/* brand-300 y no brand-400: a 17px sobre el degradé oscuro, el 400 queda flojo */}
             <p className="card-label text-brand-300 mb-1">En revisión</p>
-            <CurrencyAmount amount={inReview} currency="CLP" size="md" className="text-white block" />
+            <CurrencyAmount amount={inReview} currency="CLP" size="md" fit className="text-white block" />
           </div>
           <div>
             <p className="card-label text-brand-300 mb-1">Borradores</p>
-            <CurrencyAmount amount={pending} currency="CLP" size="md" className="text-white block" />
+            <CurrencyAmount amount={pending} currency="CLP" size="md" fit className="text-white block" />
           </div>
         </div>
       </Card>
@@ -54,17 +56,17 @@ export default async function DashboardPage() {
       {rejected.length > 0 && (
         <Link
           href={`/expenses/${rejected[0].id}`}
-          className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-card p-3 hover:bg-red-100 transition-colors"
+          className="flex items-center justify-between gap-3 bg-danger-50 border border-danger-200 rounded-card p-3 hover:bg-danger-100 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <AlertCircle size={20} className="text-red-500 shrink-0" />
-            <p className="card-label font-medium text-red-700">
+            <AlertCircle size={20} className="text-danger-500 shrink-0" />
+            <p className="card-label font-medium text-danger-700">
               {rejected.length === 1
                 ? 'Una rendición fue rechazada — revisá los motivos'
                 : `${rejected.length} rendiciones fueron rechazadas`}
             </p>
           </div>
-          <span className="card-meta text-red-600 font-semibold shrink-0">Ver →</span>
+          <span className="card-meta text-danger-600 font-semibold shrink-0">Ver →</span>
         </Link>
       )}
 

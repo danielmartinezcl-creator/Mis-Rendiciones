@@ -67,12 +67,12 @@ export default function NewPettyCashFundPage() {
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Nuevo fondo</h1>
-          <p className="text-sm text-ink-500">Creá un fondo de caja chica para un empleado</p>
+          <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Nuevo fondo</h1>
+          <p className="text-sm tor-on-gradient-soft">Creá un fondo de caja chica para un empleado</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-card p-5 border-t-4 border-t-brand-600 space-y-4">
+      <form onSubmit={handleSubmit} className="hoja p-5 border-t-4 border-t-brand-600 space-y-4">
         {/* Nombre del fondo */}
         <div>
           <label className="block text-xs font-semibold text-ink-700 mb-1">Nombre del fondo *</label>
@@ -80,7 +80,7 @@ export default function NewPettyCashFundPage() {
             value={form.name}
             onChange={e => set('name', e.target.value)}
             placeholder="Ej: Caja Chica Terreno Julio, Viáticos Visita Cliente..."
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           />
         </div>
 
@@ -90,7 +90,7 @@ export default function NewPettyCashFundPage() {
           <select
             value={form.employee_id}
             onChange={e => set('employee_id', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+            className="campo w-full"
           >
             <option value="">Seleccioná un empleado...</option>
             {employees.map(emp => (
@@ -109,7 +109,7 @@ export default function NewPettyCashFundPage() {
             value={form.amount_requested}
             onChange={e => set('amount_requested', e.target.value)}
             placeholder="0"
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+            className="campo w-full font-mono-amount"
           />
         </div>
 
@@ -121,7 +121,7 @@ export default function NewPettyCashFundPage() {
               type="date"
               value={form.period_start}
               onChange={e => set('period_start', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full"
             />
           </div>
           <div>
@@ -131,7 +131,7 @@ export default function NewPettyCashFundPage() {
               value={form.period_end}
               min={form.period_start}
               onChange={e => set('period_end', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full"
             />
           </div>
         </div>
@@ -144,19 +144,19 @@ export default function NewPettyCashFundPage() {
             onChange={e => set('description', e.target.value)}
             rows={3}
             placeholder="Describí para qué se usará este fondo..."
-            className="w-full px-3 py-2 text-sm border border-ink-200 rounded-item focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+            className="campo w-full resize-none"
           />
         </div>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item border border-rose-100">{error}</p>
+          <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item border border-danger-100">{error}</p>
         )}
 
         <button
           type="submit"
           disabled={pending}
           className="w-full py-2.5 text-sm font-bold text-white rounded-item transition-all active:scale-[.98] disabled:opacity-50"
-          style={{ background: 'linear-gradient(130deg, #12152E 0%, #3B4090 100%)' }}
+          style={{ background: 'var(--cta-brand)' }}
         >
           {pending ? 'Creando fondo...' : 'Crear fondo'}
         </button>

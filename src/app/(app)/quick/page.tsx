@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Camera, CheckCircle2, Wallet, ArrowRight, RotateCcw, AlertCircle } from 'lucide-react'
 import { runOcr } from '@/actions/ocr'
 import { addFundItem, listPettyCashFunds, getActivePettyCashCategories } from '@/actions/petty-cash'
+import { addPettyCashItemAttachment } from '@/actions/expenses'
 import type { FundListItem } from '@/actions/petty-cash'
 
 type Category = { id: string; name: string; color: string | null }
@@ -28,6 +29,7 @@ export default function QuickPage() {
   const [step,        setStep]        = useState<Step>('photo')
   const [photo,       setPhoto]       = useState<string | null>(null)   // base64
   const [photoFile,   setPhotoFile]   = useState<File | null>(null)
+  const [avisoAdjunto, setAvisoAdjunto] = useState<string | null>(null)
   const [ocrRunning,  setOcrRunning]  = useState(false)
   const [description, setDesc]        = useState('')
   const [amount,      setAmount]      = useState('')
@@ -82,7 +84,7 @@ export default function QuickPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await addFundItem(fundId, {
+      const itemId = await addFundItem(fundId, {
         description:   description.trim(),
         amount:        amtNum,
         currency:      'CLP',
@@ -96,6 +98,20 @@ export default function QuickPage() {
         supplier_rut:  null,
         notes:         null,
       })
+
+      /* La foto es el respaldo del gasto, no solo la entrada del OCR. Se adjunta
+         DESPUÉS de crear el ítem porque recién ahí hay un id al cual colgarla.
+         Si la subida falla, el gasto igual quedó registrado: se avisa y no se
+         pierde lo cargado. Perder el gasto por no poder subir la foto sería
+         peor que quedarse sin la foto. */
+      if (photoFile) {
+        try {
+          await addPettyCashItemAttachment(itemId, photoFile)
+        } catch {
+          setAvisoAdjunto('El gasto se registró, pero la foto no se pudo adjuntar. Podés subirla desde el detalle del fondo.')
+        }
+      }
+
       setDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
@@ -107,19 +123,26 @@ export default function QuickPage() {
   if (done) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-5 px-4">
-        <CheckCircle2 size={56} className="text-teal-500" />
+        <CheckCircle2 size={56} className="text-accent-500" />
         <h2 className="text-xl font-display font-bold text-ink-800">¡Gasto registrado!</h2>
-        <p className="text-ink-500 card-label">El gasto se agregó a tu caja chica.</p>
+        <p className="text-ink-500 card-label">
+          {avisoAdjunto ? 'El gasto se agregó a tu caja chica.' : 'El gasto y su boleta quedaron en tu caja chica.'}
+        </p>
+        {avisoAdjunto && (
+          <p className="card-label text-warning-700 bg-warning-50 border border-warning-200 rounded-item px-3 py-2 max-w-xs">
+            {avisoAdjunto}
+          </p>
+        )}
         <div className="flex gap-3">
           <button
-            onClick={() => { setDone(false); setStep('photo'); setPhoto(null); setDesc(''); setAmount(''); setCategoryId(''); setFundId('') }}
-            className="px-4 py-3 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50"
+            onClick={() => { setDone(false); setStep('photo'); setPhoto(null); setPhotoFile(null); setAvisoAdjunto(null); setDesc(''); setAmount(''); setCategoryId(''); setFundId('') }}
+            className="btn-secundario px-4 py-3 card-label"
           >
             Otro gasto
           </button>
           <button
             onClick={() => router.push('/petty-cash/' + fundId)}
-            className="px-4 py-3 bg-brand-600 text-white rounded-item card-label font-semibold hover:bg-brand-700"
+            className="btn-primario px-4 py-3 card-label"
           >
             Ver fondo →
           </button>
@@ -133,8 +156,8 @@ export default function QuickPage() {
       {/* Cabecera */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-display font-bold text-ink-800">Gasto rápido</h1>
-          <p className="card-meta text-ink-400 mt-0.5">3 pasos, solo lo esencial</p>
+          <h1 className="text-xl font-display font-bold tor-on-gradient">Gasto rápido</h1>
+          <p className="card-meta tor-on-gradient-soft mt-0.5">3 pasos, solo lo esencial</p>
         </div>
         <button onClick={() => router.push('/')} className="card-label text-ink-400 hover:text-ink-600">
           Cancelar
@@ -146,7 +169,7 @@ export default function QuickPage() {
         {(['photo', 'confirm', 'fund'] as Step[]).map((s, i) => (
           <div key={s} className="flex-1 flex items-center gap-1">
             <div className={`h-1 rounded-full flex-1 transition-colors ${
-              step === s ? 'bg-brand-600' : i < (['photo','confirm','fund'] as Step[]).indexOf(step) ? 'bg-teal-400' : 'bg-ink-100'
+              step === s ? 'bg-brand-600' : i < (['photo','confirm','fund'] as Step[]).indexOf(step) ? 'bg-accent-400' : 'bg-ink-100'
             }`} />
           </div>
         ))}
@@ -154,9 +177,9 @@ export default function QuickPage() {
       <p className="card-label font-semibold text-ink-500 -mt-3">{STEP_LABELS[step]}</p>
 
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-item px-3 py-2.5">
-          <AlertCircle size={18} className="text-red-500 shrink-0" />
-          <p className="card-label text-red-700">{error}</p>
+        <div className="flex items-center gap-2 bg-danger-50 border border-danger-200 rounded-item px-3 py-2.5">
+          <AlertCircle size={18} className="text-danger-500 shrink-0" />
+          <p className="card-label text-danger-700">{error}</p>
         </div>
       )}
 
@@ -197,7 +220,7 @@ export default function QuickPage() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={ocrRunning}
-            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-card font-bold text-[19px] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+            className="btn-primario w-full py-3.5 text-[19px] flex items-center justify-center gap-2"
           >
             <Camera size={24} />
             {ocrRunning ? 'Analizando...' : 'Abrir cámara'}
@@ -230,14 +253,14 @@ export default function QuickPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-3">
+          <div className="hoja p-4 space-y-3">
             <div>
               <label className="block card-label font-semibold text-ink-600 mb-1">Descripción *</label>
               <input
                 value={description}
                 onChange={e => setDesc(e.target.value)}
                 placeholder="Ej: Almuerzo de trabajo"
-                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full py-2.5 text-[16px]"
               />
             </div>
             <div>
@@ -247,7 +270,7 @@ export default function QuickPage() {
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount"
+                className="campo w-full py-2.5 text-[16px] font-mono-amount"
               />
             </div>
             <div>
@@ -255,7 +278,7 @@ export default function QuickPage() {
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+                className="campo w-full py-2.5 text-[16px]"
               >
                 <option value="">Sin categoría</option>
                 {categories.map(c => (
@@ -271,7 +294,7 @@ export default function QuickPage() {
               setError(null)
               setStep('fund')
             }}
-            className="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-card font-bold text-base flex items-center justify-center gap-2 transition-colors"
+            className="btn-primario w-full py-3.5 text-base flex items-center justify-center gap-2"
           >
             Siguiente <ArrowRight size={18} />
           </button>
@@ -281,9 +304,9 @@ export default function QuickPage() {
       {/* Paso 3: Fondo */}
       {step === 'fund' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4 space-y-2">
+          <div className="hoja p-4 space-y-2">
             <p className="card-eyebrow text-ink-700">{description}</p>
-            <p className="font-mono-amount font-bold text-teal-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
+            <p className="font-mono-amount font-bold text-accent-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
           </div>
 
           {readyFunds.length === 0 ? (
@@ -322,7 +345,7 @@ export default function QuickPage() {
             <button
               onClick={handleSubmit}
               disabled={!fundId || submitting}
-              className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white rounded-card font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-3.5 bg-accent-600 hover:bg-accent-700 text-white rounded-card font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
             >
               {submitting ? (
                 <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

@@ -18,18 +18,18 @@ import {
 const PAGE_SIZE = 50
 
 const ACTION_COLORS: Record<string, string> = {
-  deleted:             'bg-red-100 text-red-700',
-  permanently_deleted: 'bg-red-200 text-red-800',
-  restored:            'bg-green-100 text-green-700',
-  created:             'bg-teal-100 text-teal-700',
-  updated:             'bg-blue-100 text-blue-700',
-  bulk_updated:        'bg-purple-100 text-purple-700',
-  config_changed:      'bg-amber-100 text-amber-700',
-  exported:            'bg-gray-100 text-gray-700',
-  reverted:            'bg-amber-100 text-amber-800',
-  submitted:           'bg-blue-100 text-blue-800',
-  approved:            'bg-green-100 text-green-700',
-  rejected:            'bg-red-100 text-red-700',
+  deleted:             'bg-danger-100 text-danger-700',
+  permanently_deleted: 'bg-danger-200 text-danger-800',
+  restored:            'bg-success-100 text-success-700',
+  created:             'bg-accent-100 text-accent-700',
+  updated:             'bg-info-100 text-info-700',
+  bulk_updated:        'bg-flare-100 text-flare-700',
+  config_changed:      'bg-warning-100 text-warning-700',
+  exported:            'bg-ink-100 text-ink-700',
+  reverted:            'bg-warning-100 text-warning-800',
+  submitted:           'bg-info-100 text-info-800',
+  approved:            'bg-success-100 text-success-700',
+  rejected:            'bg-danger-100 text-danger-700',
 }
 
 const ENTITY_TYPES = [
@@ -166,12 +166,12 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-item bg-teal-50 flex items-center justify-center">
-            <Shield size={20} className="text-teal-600" />
+          <div className="w-10 h-10 rounded-item bg-accent-50 flex items-center justify-center">
+            <Shield size={20} className="text-accent-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold text-ink-900">Auditoría</h1>
-            <p className="text-sm text-ink-500">
+            <h1 className="text-2xl font-display font-bold tor-on-gradient">Auditoría</h1>
+            <p className="text-sm tor-on-gradient-soft">
               {loading ? 'Cargando…' : `${total} registro${total !== 1 ? 's' : ''}`}
             </p>
           </div>
@@ -179,7 +179,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
         <button
           onClick={handleExport}
           disabled={items.length === 0}
-          className="flex items-center gap-2 px-4 py-2 rounded-item text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-item text-sm font-semibold bg-accent-600 text-white hover:bg-accent-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <Download size={16} />
           Exportar Excel
@@ -187,7 +187,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
       </div>
 
       {/* ── Filtros ── */}
-      <div className="bg-white rounded-card border border-ink-100 p-4 shadow-sm">
+      <div className="hoja border border-ink-100 p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           {/* Búsqueda libre */}
           <div className="sm:col-span-2 xl:col-span-2">
@@ -197,7 +197,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
               value={search}
               onChange={e => setSearch(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
-              className="w-full px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+              className="campo w-full"
             />
           </div>
 
@@ -205,7 +205,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
           <select
             value={entityType}
             onChange={e => setEntityType(e.target.value)}
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            className="campo"
           >
             <option value="">Todas las entidades</option>
             {ENTITY_TYPES.map(t => (
@@ -217,7 +217,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
           <select
             value={action}
             onChange={e => setAction(e.target.value)}
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            className="campo"
           >
             <option value="">Todas las acciones</option>
             {ACTIONS.map(a => (
@@ -231,7 +231,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             value={from}
             onChange={e => setFrom(e.target.value)}
             title="Desde"
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            className="campo"
           />
 
           {/* Hasta */}
@@ -240,7 +240,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             value={to}
             onChange={e => setTo(e.target.value)}
             title="Hasta"
-            className="px-3 py-2 rounded-item border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            className="campo"
           />
         </div>
 
@@ -248,7 +248,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-item text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-item text-sm font-semibold bg-accent-600 text-white hover:bg-accent-700 disabled:opacity-60 transition-colors"
           >
             <Search size={16} />
             {loading ? 'Buscando…' : 'Buscar'}
@@ -257,7 +257,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
       </div>
 
       {/* ── Tabla ── */}
-      <div className="bg-white rounded-card border border-ink-100 shadow-sm overflow-hidden">
+      <div className="hoja border border-ink-100 overflow-hidden">
         {items.length === 0 ? (
           <div className="py-16 text-center text-ink-400 text-sm">
             No hay registros de auditoría para los filtros seleccionados.
@@ -278,7 +278,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
               <tbody className="divide-y divide-ink-100">
                 {items.map(item => {
                   const isExpanded = expanded.has(item.id)
-                  const badgeClass = ACTION_COLORS[item.action] ?? 'bg-gray-100 text-gray-700'
+                  const badgeClass = ACTION_COLORS[item.action] ?? 'bg-ink-100 text-ink-700'
                   const hasDetail  = item.old_value !== null || item.new_value !== null
 
                   return (
@@ -307,7 +307,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
                           {hasDetail ? (
                             <button
                               onClick={() => toggleExpand(item.id)}
-                              className="flex items-center gap-1 text-teal-600 hover:text-teal-800 text-xs font-medium transition-colors"
+                              className="flex items-center gap-1 text-accent-600 hover:text-accent-800 text-xs font-medium transition-colors"
                             >
                               {isExpanded
                                 ? <><ChevronUp size={14} /> Ocultar</>
@@ -368,7 +368,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             <button
               onClick={goPrev}
               disabled={offset === 0 || loading}
-              className="flex items-center gap-1 px-3 py-2 rounded-item border border-ink-200 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="btn-secundario flex items-center gap-1 px-3 py-2"
             >
               <ChevronLeft size={16} />
               Anterior
@@ -376,7 +376,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             <button
               onClick={goNext}
               disabled={offset + PAGE_SIZE >= total || loading}
-              className="flex items-center gap-1 px-3 py-2 rounded-item border border-ink-200 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="btn-secundario flex items-center gap-1 px-3 py-2"
             >
               Siguiente
               <ChevronRight size={16} />

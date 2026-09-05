@@ -42,8 +42,8 @@ const DOC_TYPES = [
 
 const ITEM_TYPES = [
   { value: 'expense', label: 'Gasto',      icon: Receipt,          chipCls: 'bg-ink-100 text-ink-600' },
-  { value: 'advance', label: 'Adelanto',   icon: ArrowDownToLine,  chipCls: 'bg-blue-100 text-blue-700' },
-  { value: 'return',  label: 'Devolución', icon: ArrowUpFromLine,  chipCls: 'bg-emerald-100 text-emerald-700' },
+  { value: 'advance', label: 'Adelanto',   icon: ArrowDownToLine,  chipCls: 'bg-info-100 text-info-700' },
+  { value: 'return',  label: 'Devolución', icon: ArrowUpFromLine,  chipCls: 'bg-success-100 text-success-700' },
 ] as const
 
 type ItemType = 'expense' | 'advance' | 'return'
@@ -90,7 +90,7 @@ function formatDate(s: string) {
 
 function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: number; reimbursedAmount: number | null }) {
   if (reimbursedAmount == null) return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="No se registró el monto pagado">
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 border border-ink-200" title="No se registró el monto pagado">
       — Sin registro
     </span>
   )
@@ -98,7 +98,7 @@ function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: num
   const absDiff = Math.abs(diff)
   if (absDiff < 1) {
     return (
-      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-success-50 text-success-700 border border-success-200">
         ✓ Cuadrado
       </span>
     )
@@ -106,7 +106,7 @@ function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: num
   if (diff > 0) {
     return (
       <span
-        className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+        className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning-50 text-warning-700 border border-warning-200"
         title={`Aprobado neto: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
       >
         ↑ Exceso de reembolso {formatCLP(absDiff)}
@@ -115,7 +115,7 @@ function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: num
   }
   return (
     <span
-      className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200"
+      className="text-xs font-medium px-2 py-0.5 rounded-full bg-danger-50 text-danger-700 border border-danger-200"
       title={`Aprobado neto: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
     >
       ↓ Pendiente por reembolsar {formatCLP(absDiff)}
@@ -332,11 +332,11 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
       <div>
         <div className="flex items-center gap-2 mb-1">
           <History size={20} className="text-brand-600" />
-          <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">
+          <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">
             Carga Histórica
           </h1>
         </div>
-        <p className="text-sm text-ink-500">
+        <p className="text-sm tor-on-gradient-soft">
           Importá rendiciones y cajas chicas de períodos anteriores para exportarlas a Defontana.
         </p>
       </div>
@@ -351,7 +351,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${
+            className={`px-4 py-1.5 rounded-sm text-sm font-medium transition-colors ${
               tab === key ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-700'
             }`}
           >
@@ -394,14 +394,14 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                         )}
                         <div className="flex items-center gap-1.5 mt-0.5">
                           {r.defontana_exported_at && (
-                            <span className="text-xs text-teal-600">
+                            <span className="text-xs text-accent-600">
                               ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
                             </span>
                           )}
                           <button
                             onClick={() => setDefPanelId(prev => prev === r.id ? null : r.id)}
                             title="Defontana por tipo: exportar, confirmar o revertir gastos y adelantos por separado"
-                            className={`p-0.5 rounded-item transition-colors ${defPanelId === r.id ? 'text-teal-700 bg-teal-100' : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50'}`}
+                            className={`p-0.5 rounded-item transition-colors ${defPanelId === r.id ? 'text-accent-700 bg-accent-100' : 'text-accent-500 hover:text-accent-700 hover:bg-accent-50'}`}
                           >
                             <FileSpreadsheet size={12} />
                           </button>
@@ -513,7 +513,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <input
               type="text" value={fundNumber} onChange={e => setFundNumber(e.target.value)}
               placeholder="ej: 173"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -522,7 +522,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <input
               type="text" value={title} onChange={e => setTitle(e.target.value)}
               placeholder="ej: Caja Chica N°173 — OFICINA DE INGENIERÍA"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -530,7 +530,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <label className="block text-xs font-medium text-ink-600 mb-1">Responsable</label>
             <select
               value={responsibleId} onChange={e => setResponsibleId(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             >
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.full_name}</option>
@@ -542,7 +542,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <label className="block text-xs font-medium text-ink-600 mb-1">Fecha de rendición</label>
             <input
               type="date" value={approvedDate} onChange={e => setApprovedDate(e.target.value)}
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
         </div>
@@ -555,7 +555,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             Ítems <span className="text-ink-400 font-normal text-sm">({rows.length})</span>
           </h2>
           {warnings > 0 && (
-            <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+            <span className="flex items-center gap-1 text-xs text-warning-600 bg-warning-50 px-2 py-1 rounded-full">
               <AlertTriangle size={12} />
               {warnings} sin categoría
             </span>
@@ -609,14 +609,14 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
           <span className="text-ink-200">|</span>
           <button
             onClick={() => addRow('advance')}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="flex items-center gap-1 text-sm text-info-600 hover:text-info-800 font-medium"
           >
             <ArrowDownToLine size={14} /> Agregar adelanto
           </button>
           <span className="text-ink-200">|</span>
           <button
             onClick={() => addRow('return')}
-            className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-800 font-medium"
+            className="flex items-center gap-1 text-sm text-success-600 hover:text-success-800 font-medium"
           >
             <ArrowUpFromLine size={14} /> Agregar devolución
           </button>
@@ -628,10 +628,10 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
             <p className="card-label font-semibold text-ink-500 mb-2">Balance de la rendición</p>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="flex items-center gap-1.5 text-blue-700">
+                <span className="flex items-center gap-1.5 text-info-700">
                   <ArrowDownToLine size={13} /> Adelantado por empresa
                 </span>
-                <span className="font-mono-amount font-semibold text-blue-700">{fmtCLP(advanceTotal)}</span>
+                <span className="font-mono-amount font-semibold text-info-700">{fmtCLP(advanceTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="flex items-center gap-1.5 text-ink-600">
@@ -641,14 +641,14 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
               </div>
               {returnTotal > 0 && (
                 <div className="flex justify-between">
-                  <span className="flex items-center gap-1.5 text-emerald-700">
+                  <span className="flex items-center gap-1.5 text-success-700">
                     <ArrowUpFromLine size={13} /> Devuelto por empleado
                   </span>
-                  <span className="font-mono-amount font-semibold text-emerald-700">({fmtCLP(returnTotal)})</span>
+                  <span className="font-mono-amount font-semibold text-success-700">({fmtCLP(returnTotal)})</span>
                 </div>
               )}
               <div className={`flex justify-between pt-1 border-t font-bold ${
-                Math.abs(balanceDiff) < 1 ? 'text-emerald-700' : 'text-amber-600'
+                Math.abs(balanceDiff) < 1 ? 'text-success-700' : 'text-warning-600'
               }`}>
                 <span>Diferencia</span>
                 <span className="font-mono-amount">
@@ -667,7 +667,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
 
       {/* Error */}
       {error && (
-        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-item p-3 text-sm text-red-700">
+        <div className="flex items-start gap-2 bg-danger-50 border border-danger-200 rounded-item p-3 text-sm text-danger-700">
           <X size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
@@ -709,14 +709,14 @@ interface GridRowEditorProps {
 
 const ITEM_TYPE_STYLES: Record<string, string> = {
   expense: 'border-ink-200 bg-white',
-  advance: 'border-blue-200 bg-blue-50/40',
-  return:  'border-emerald-200 bg-emerald-50/40',
+  advance: 'border-info-200 bg-info-50/40',
+  return:  'border-success-200 bg-success-50/40',
 }
 
 function GridRowEditor({ row, categories, costCenters, employees, advanceDefaults, onChange, onRemove }: GridRowEditorProps) {
   const isExpense = row.itemType === 'expense'
   const isFactura = isExpense && (row.docType === 'factura' || row.docType === 'factura_exenta')
-  const rowBg = row.itemType === 'advance' ? 'bg-blue-50/30' : row.itemType === 'return' ? 'bg-emerald-50/30' : ''
+  const rowBg = row.itemType === 'advance' ? 'bg-info-50/30' : row.itemType === 'return' ? 'bg-success-50/30' : ''
 
   function handleEmployeeSelect(value: string) {
     if (value === '' || value === '__ext__') {
@@ -750,7 +750,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
         <select
           value={row.itemType}
           onChange={e => handleTypeChange(e.target.value as ItemType)}
-          className={`w-28 border rounded-[8px] px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand-400 ${ITEM_TYPE_STYLES[row.itemType]}`}
+          className={`campo-compacto w-28 font-medium ${ITEM_TYPE_STYLES[row.itemType]}`}
         >
           <option value="expense">Gasto</option>
           <option value="advance">Adelanto</option>
@@ -763,7 +763,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
         <select
           value={row.employeeId ?? (row.employeeName ? '__ext__' : '')}
           onChange={e => handleEmployeeSelect(e.target.value)}
-          className="w-36 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="campo-compacto w-36"
         >
           <option value="">— Seleccionar —</option>
           {employees.map(emp => (
@@ -787,7 +787,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
             row.itemType === 'return'  ? 'ej: Devolución saldo' :
             'Descripción'
           }
-          className="w-44 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="campo-compacto w-44"
         />
       </td>
 
@@ -797,7 +797,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           type="date"
           value={row.date}
           onChange={e => onChange({ date: e.target.value })}
-          className="border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="campo-compacto"
         />
       </td>
 
@@ -808,9 +808,9 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           value={row.amountCLP || ''}
           onChange={e => onChange({ amountCLP: Number(e.target.value) || 0 })}
           placeholder="0"
-          className={`w-24 border rounded-[8px] px-2 py-1 text-xs font-mono-amount text-right focus:outline-none focus:ring-1 focus:ring-brand-400 ${
-            row.itemType === 'advance' ? 'border-blue-300 bg-blue-50' :
-            row.itemType === 'return'  ? 'border-emerald-300 bg-emerald-50' :
+          className={`campo-compacto w-24 font-mono-amount text-right  ${
+            row.itemType === 'advance' ? 'border-info-300 bg-info-50' :
+            row.itemType === 'return'  ? 'border-success-300 bg-success-50' :
             'border-ink-200'
           }`}
         />
@@ -822,8 +822,8 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           <select
             value={row.categoryId ?? ''}
             onChange={e => onChange({ categoryId: e.target.value || null })}
-            className={`w-36 border rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 ${
-              !row.categoryId ? 'border-amber-300 bg-amber-50' : 'border-ink-200'
+            className={`campo-compacto w-36  ${
+              !row.categoryId ? 'border-warning-300 bg-warning-50' : 'border-ink-200'
             }`}
           >
             <option value="">— Sin asignar —</option>
@@ -842,7 +842,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           <select
             value={row.costCenterId}
             onChange={e => onChange({ costCenterId: e.target.value })}
-            className="w-36 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+            className="campo-compacto w-36"
           >
             {costCenters.filter(c => c.imputable).map(c => (
               <option key={c.id} value={c.id}>{c.id} — {c.descripcion}</option>
@@ -860,7 +860,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
             <select
               value={row.docType}
               onChange={e => onChange({ docType: e.target.value as GridRow['docType'] })}
-              className="w-28 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+              className="campo-compacto w-28"
             >
               {DOC_TYPES.map(d => (
                 <option key={d.value} value={d.value}>{d.label}</option>
@@ -873,15 +873,15 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
                   value={row.docNumber ?? ''}
                   onChange={e => onChange({ docNumber: e.target.value || null })}
                   placeholder="Nro. doc"
-                  className="w-28 border border-ink-200 rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  className="campo-compacto w-28"
                 />
                 <input
                   type="text"
                   value={row.supplierRut ?? ''}
                   onChange={e => onChange({ supplierRut: e.target.value || null })}
                   placeholder="RUT proveedor"
-                  className={`w-28 border rounded-[8px] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 ${
-                    !row.supplierRut ? 'border-red-300' : 'border-ink-200'
+                  className={`campo-compacto w-28  ${
+                    !row.supplierRut ? 'border-danger-300' : 'border-ink-200'
                   }`}
                 />
               </>
@@ -896,7 +896,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
       <td className="py-1.5">
         <button
           onClick={onRemove}
-          className="opacity-0 group-hover:opacity-100 p-1 text-ink-300 hover:text-red-500 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 p-1 text-ink-300 hover:text-danger-500 transition-opacity"
         >
           <Trash2 size={14} />
         </button>

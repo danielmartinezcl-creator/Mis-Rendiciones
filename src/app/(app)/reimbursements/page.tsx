@@ -23,12 +23,12 @@ export default async function ReimbursementsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-slate-800">Mis rendiciones</h1>
+      <h1 className="text-xl font-bold tor-on-gradient">Mis rendiciones</h1>
 
       {/* KPI total reembolsado */}
       {reimbursed.length > 0 && (
-        <div className="bg-white rounded-[12px] shadow-[0_1px_4px_rgba(0,0,0,.08)] p-4">
-          <p className="card-label text-slate-500">Total reembolsado</p>
+        <div className="hoja p-4">
+          <p className="card-label text-ink-500">Total reembolsado</p>
           <CurrencyAmount amount={totalReimbursed} currency="CLP" size="lg" />
         </div>
       )}
@@ -45,13 +45,13 @@ export default async function ReimbursementsPage() {
               }}
             />
             {report.status === 'reimbursed' && report.payment_reference && (
-              <p className="card-meta text-slate-400 ml-2 mt-1">
+              <p className="card-meta text-ink-400 ml-2 mt-1">
                 Ref: {report.payment_reference}
                 {report.reimbursed_at && ` · ${new Date(report.reimbursed_at).toLocaleDateString('es-CL')}`}
               </p>
             )}
             {(report.status === 'rejected' || report.status === 'partially_approved') && (
-              <p className="card-meta text-red-500 ml-2 mt-1 font-medium">
+              <p className="card-meta text-danger-500 ml-2 mt-1 font-medium">
                 ⚠ Requiere corrección — revisa los motivos en el detalle
               </p>
             )}
@@ -60,7 +60,7 @@ export default async function ReimbursementsPage() {
       </div>
 
       {all.length === 0 && (
-        <div className="text-center py-12 text-slate-400">
+        <div className="text-center py-12 text-ink-400">
           <p className="text-4xl mb-3">🧾</p>
           <p className="font-medium">Sin rendiciones aún</p>
         </div>

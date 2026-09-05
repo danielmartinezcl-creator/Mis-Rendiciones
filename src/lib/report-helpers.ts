@@ -93,9 +93,9 @@ export const SOURCE_LABELS: Record<UnifiedItemSource, string> = {
 
 export const SOURCE_COLORS: Record<UnifiedItemSource, { bg: string; text: string }> = {
   rendicion_new:   { bg: 'bg-brand-50',  text: 'text-brand-700'  },
-  rendicion_hist:  { bg: 'bg-violet-50', text: 'text-violet-700' },
-  caja_chica_new:  { bg: 'bg-teal-50',   text: 'text-teal-700'   },
-  caja_chica_hist: { bg: 'bg-amber-50',  text: 'text-amber-700'  },
+  rendicion_hist:  { bg: 'bg-flare-50', text: 'text-flare-700' },
+  caja_chica_new:  { bg: 'bg-accent-50',   text: 'text-accent-700'   },
+  caja_chica_hist: { bg: 'bg-warning-50',  text: 'text-warning-700'  },
 }
 
 // ─── buildPeriodRange ────────────────────────────────────────────────────────

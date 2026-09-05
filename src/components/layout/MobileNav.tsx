@@ -50,11 +50,6 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: '/admin/carga-historica', label: 'Carga Histórica',  shortLabel: 'Historial',Icon: Clock,           roles: ['admin'],                     section: 'admin' },
 ]
 
-const SECTION_LABELS: Record<NavSection, string> = {
-  personal: 'Mis cosas',
-  reports:  'Reportes',
-  admin:    'Administración',
-}
 
 function isVisible(item: NavItemDef, user: UserProfile): boolean {
   if (!(item.roles as readonly string[]).includes(user.role)) return false
@@ -76,10 +71,12 @@ function getPrimaryHrefs(user: UserProfile): string[] {
 
 export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
-
-  // Cerrar el sheet al navegar
-  useEffect(() => { setOpen(false) }, [pathname])
+  /* Se guarda EN QUÉ ruta se abrió la hoja, no si está abierta. Al navegar,
+     la ruta deja de coincidir y la hoja queda cerrada sola — sin el efecto
+     `setOpen(false)` que disparaba un render en cascada en cada navegación
+     de toda la app. Estado derivado en vez de estado sincronizado. */
+  const [abiertaEn, setAbiertaEn] = useState<string | null>(null)
+  const open = abiertaEn === pathname
 
   // Bloquear scroll del body mientras el sheet está abierto
   useEffect(() => {
@@ -109,7 +106,7 @@ export function MobileNav({ user }: MobileNavProps) {
   return (
     <>
       {/* ── Barra inferior ── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-ink-200"
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 tor-glass-bar"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* h-16 = 64px, la altura original: la barra no debe crecer. Lo que crece
             es el contenido — ícono 28 (antes 21) y rótulo 13px (antes 10). Entran
@@ -125,7 +122,7 @@ export function MobileNav({ user }: MobileNavProps) {
                 href={item.href}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center gap-1 transition-colors',
-                  active ? 'text-brand-600' : 'text-ink-400'
+                  active ? 'text-brand-300' : 'text-white/55'
                 )}
               >
                 <item.Icon size={28} />
@@ -136,10 +133,10 @@ export function MobileNav({ user }: MobileNavProps) {
 
           {/* Botón "Más" */}
           <button
-            onClick={() => setOpen(v => !v)}
+            onClick={() => setAbiertaEn(open ? null : pathname)}
             className={cn(
               'flex-1 flex flex-col items-center justify-center gap-1.5 transition-colors',
-              open || moreIsActive ? 'text-brand-600' : 'text-ink-400'
+              open || moreIsActive ? 'text-brand-300' : 'text-white/55'
             )}
           >
             <MoreHorizontal size={28} />
@@ -161,7 +158,7 @@ export function MobileNav({ user }: MobileNavProps) {
             'absolute inset-0 bg-black/50 transition-opacity duration-300',
             open ? 'opacity-100' : 'opacity-0',
           )}
-          onClick={() => setOpen(false)}
+          onClick={() => setAbiertaEn(null)}
         />
 
         {/* Hoja */}
@@ -182,7 +179,7 @@ export function MobileNav({ user }: MobileNavProps) {
           <div className="flex items-center justify-between px-5 pt-3 pb-3">
             <span className="font-display font-bold text-ink-900 text-[19px]">Menú</span>
             <button
-              onClick={() => setOpen(false)}
+              onClick={() => setAbiertaEn(null)}
               className="w-10 h-10 rounded-full bg-ink-100 flex items-center justify-center text-ink-500 transition-colors hover:bg-ink-200"
               aria-label="Cerrar menú"
             >

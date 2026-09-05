@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { formatCLP, formatDate, getStatusLabel, getStatusColor, formatExchangeRate, formatDisplayTitle } from '@/lib/utils'
+import { formatCLP, formatDate, getStatusLabel, formatExchangeRate, formatDisplayTitle, isLongStatusLabel, fitAmountFontSize } from '@/lib/utils'
+import { FAMILIA_REPORTE, FAMILIA_FONDO, FAMILIA_CLASES, REPORT_STATUSES, FUND_STATUSES } from '@/lib/constants'
 
 describe('formatDisplayTitle', () => {
   it('convierte un título en mayúsculas dejando los nombres capitalizados', () => {
@@ -71,5 +72,82 @@ describe('getStatusLabel', () => {
 describe('formatExchangeRate', () => {
   it('formatea el TC con 4 decimales', () => {
     expect(formatExchangeRate(0.5694)).toBe('0,5694')
+  })
+})
+
+describe('isLongStatusLabel', () => {
+  it('deja en línea los estados que caben', () => {
+    ;['Borrador', 'En revisión', 'Aprobada', 'Reembolsada'].forEach(e =>
+      expect(isLongStatusLabel(e)).toBe(false))
+  })
+
+  it('marca como largos los dos estados bancarios', () => {
+    expect(isLongStatusLabel('Carga bancaria pendiente')).toBe(true)
+    expect(isLongStatusLabel('Autorización bancaria pendiente')).toBe(true)
+  })
+
+  it('el límite son 16 caracteres inclusive', () => {
+    expect(isLongStatusLabel('Revisión nivel 2')).toBe(false)
+    expect(isLongStatusLabel('Revisión nivel 22')).toBe(true)
+  })
+
+  it('ignora espacios al borde', () => {
+    expect(isLongStatusLabel('   Aprobada   ')).toBe(false)
+  })
+})
+
+describe('fitAmountFontSize', () => {
+  it('mantiene el tamaño completo cuando la cifra es corta', () => {
+    expect(fitAmountFontSize('$ 0', 'xl')).toBe(40)
+    expect(fitAmountFontSize('$ 137.425', 'md')).toBe(24)
+  })
+
+  it('achica el monto secundario que se salía de su columna', () => {
+    expect(fitAmountFontSize('$ 1.234.567', 'md')).toBe(20)
+  })
+
+  it('achica el monto principal que no entraba en un celular de 320px', () => {
+    expect(fitAmountFontSize('$ 12.345.678', 'xl')).toBe(34)
+  })
+
+  it('usa el tramo más chico para cifras muy largas', () => {
+    expect(fitAmountFontSize('$ 123.456.789', 'xl')).toBe(28)
+    expect(fitAmountFontSize('$ 123.456.789', 'md')).toBe(18)
+  })
+})
+
+describe('familias visuales de estado', () => {
+  it('cada estado de rendición tiene familia', () => {
+    for (const s of REPORT_STATUSES) {
+      expect(FAMILIA_REPORTE[s], `falta familia para "${s}"`).toBeDefined()
+      expect(FAMILIA_CLASES[FAMILIA_REPORTE[s]]).toBeDefined()
+    }
+  })
+
+  it('cada estado de fondo tiene familia', () => {
+    for (const s of FUND_STATUSES) {
+      expect(FAMILIA_FONDO[s], `falta familia para "${s}"`).toBeDefined()
+      expect(FAMILIA_CLASES[FAMILIA_FONDO[s]]).toBeDefined()
+    }
+  })
+
+  /* La spec de Tornasol define CUATRO familias. Si alguien agrega una quinta
+     para un caso puntual, el sistema vuelve a la deriva que tenía antes: 19
+     estados con 19 colores. Este test es el que lo impide. */
+  it('no hay más de cuatro familias', () => {
+    expect(Object.keys(FAMILIA_CLASES).sort()).toEqual(
+      ['atencion', 'en-curso', 'neutro', 'resuelto']
+    )
+  })
+
+  it('los estados terminales positivos son «resuelto»', () => {
+    expect(FAMILIA_REPORTE.approved).toBe('resuelto')
+    expect(FAMILIA_REPORTE.reimbursed).toBe('resuelto')
+    expect(FAMILIA_FONDO.settled).toBe('resuelto')
+  })
+
+  it('lo rechazado pide atención, no se pierde entre lo neutro', () => {
+    expect(FAMILIA_REPORTE.rejected).toBe('atencion')
+    expect(FAMILIA_FONDO.rejected).toBe('atencion')
   })
 })

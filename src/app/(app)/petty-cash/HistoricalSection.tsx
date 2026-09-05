@@ -48,10 +48,10 @@ export interface HistoricalSectionProps {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ITEM_TYPE_ICON: Record<string, React.ReactNode> = {
-  advance:  <ArrowDownToLine  size={12} className="text-blue-500 shrink-0" />,
+  advance:  <ArrowDownToLine  size={12} className="text-info-500 shrink-0" />,
   expense:  <Receipt          size={12} className="text-ink-400 shrink-0" />,
-  return:   <ArrowUpFromLine  size={12} className="text-emerald-500 shrink-0" />,
-  transfer: <SendHorizontal   size={12} className="text-violet-500 shrink-0" />,
+  return:   <ArrowUpFromLine  size={12} className="text-success-500 shrink-0" />,
+  transfer: <SendHorizontal   size={12} className="text-flare-500 shrink-0" />,
 }
 
 const ITEM_TYPE_LABEL: Record<string, string> = {
@@ -129,7 +129,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
     }
   }
 
-  const inputCls = 'px-2 py-1 text-xs border border-ink-200 rounded-item focus:outline-none focus:ring-1 focus:ring-brand-600'
+  const inputCls = 'campo-compacto'
 
   return (
     <div className="bg-ink-50 border-t border-ink-100 px-4 py-3 space-y-2">
@@ -165,8 +165,8 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                     <span className="flex items-center gap-1">
                       {ITEM_TYPE_ICON[item.item_type] ?? null}
                       <span className={
-                        item.item_type === 'advance' ? 'text-blue-600 font-medium' :
-                        item.item_type === 'return'  ? 'text-emerald-600 font-medium' :
+                        item.item_type === 'advance' ? 'text-info-600 font-medium' :
+                        item.item_type === 'return'  ? 'text-success-600 font-medium' :
                         'text-ink-600'
                       }>{ITEM_TYPE_LABEL[item.item_type] ?? item.item_type}</span>
                     </span>
@@ -212,8 +212,8 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                   </td>
                 ) : (
                   <td className={`py-1.5 text-right font-mono-amount font-semibold align-top ${
-                    item.item_type === 'advance' ? 'text-blue-600' :
-                    item.item_type === 'return'  ? 'text-emerald-600' :
+                    item.item_type === 'advance' ? 'text-info-600' :
+                    item.item_type === 'return'  ? 'text-success-600' :
                     'text-ink-900'
                   }`}>{formatCLP(item.amount_clp)}</td>
                 )}
@@ -250,7 +250,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                                   item.description || null,
                                 )}
                                 title="Editar traspaso"
-                                className="p-1 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded transition-colors"
+                                className="p-1 text-flare-400 hover:text-flare-600 hover:bg-flare-50 rounded transition-colors"
                               >
                                 <Pencil size={12} />
                               </button>
@@ -261,7 +261,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                                   (item as { transfer_id: string }).transfer_id,
                                 )}
                                 title="Eliminar traspaso"
-                                className="p-1 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-colors"
+                                className="p-1 text-danger-300 hover:text-danger-500 hover:bg-danger-50 rounded transition-colors"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -279,7 +279,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                           onClick={() => deleteItem(item)}
                           disabled={deletingItemId === item.id}
                           title="Eliminar ítem"
-                          className="p-1 text-ink-300 hover:text-rose-500 rounded transition-colors disabled:opacity-40"
+                          className="p-1 text-ink-300 hover:text-danger-500 rounded transition-colors disabled:opacity-40"
                         >
                           {deletingItemId === item.id
                             ? <span className="text-[10px]">…</span>
@@ -307,7 +307,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
         </tbody>
       </table>
       {saveError && (
-        <p className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-item">{saveError}</p>
+        <p className="text-xs text-danger-600 bg-danger-50 px-2 py-1 rounded-item">{saveError}</p>
       )}
     </div>
   )
@@ -317,6 +317,10 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
 
 export function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onRevertContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
+  /* La sección entera arranca plegada. Son 76 cargas importadas: 2.390 px de
+     encabezados, el 54% de una pantalla cuyo contenido son 4 fondos vivos.
+     Es archivo — se abre cuando se lo va a consultar. */
+  const [abierto,         setAbierto]         = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     // Todos los grupos inician colapsados
     const keys = new Set<string>()
@@ -443,21 +447,31 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
   return (
     <div className="mt-6 space-y-4">
       <div className="flex items-center gap-2">
-        <History size={15} className="text-ink-400" />
-        <h2 className="text-sm font-semibold text-ink-600">Carga histórica</h2>
-        <span className="text-xs text-ink-400">({imports.length})</span>
+        <History size={15} className="text-white/60" />
         <button
-          onClick={toggleAllGroups}
-          className="ml-auto text-xs text-ink-400 hover:text-ink-700 border border-ink-200 rounded-item px-2.5 py-1 transition-colors flex items-center gap-1.5"
+          onClick={() => setAbierto(a => !a)}
+          aria-expanded={abierto}
+          className="flex items-center gap-2 text-left"
         >
-          {allCollapsed
-            ? <><ChevronDown size={12} /> Expandir todo</>
-            : <><ChevronRight size={12} /> Contraer todo</>
-          }
+          <span className="section-title">Carga histórica</span>
+          <span className="text-xs tor-on-gradient-soft">({imports.length})</span>
+          {abierto ? <ChevronDown size={13} className="text-white/60" /> : <ChevronRight size={13} className="text-white/60" />}
         </button>
+
+        {abierto && (
+          <button
+            onClick={toggleAllGroups}
+            className="ml-auto text-xs text-white/70 hover:text-white border border-white/25 rounded-item px-2.5 py-1 transition-colors flex items-center gap-1.5"
+          >
+            {allCollapsed
+              ? <><ChevronDown size={12} /> Expandir todo</>
+              : <><ChevronRight size={12} /> Contraer todo</>
+            }
+          </button>
+        )}
       </div>
 
-      {groups.map(([groupKey, group]) => {
+      {abierto && groups.map(([groupKey, group]) => {
         const hasFund       = !groupKey.startsWith('__solo__')
         const fundLabel     = hasFund ? `Fondo N°${groupKey}` : null
         const isCollapsed   = collapsedGroups.has(groupKey)
@@ -476,26 +490,28 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
         const isOweComp        = !isPending && groupDiff > 1
 
         return (
-          <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund ? 'border border-blue-100' : ''}`}>
+          <div key={groupKey} className={`rounded-card shadow-card overflow-hidden ${hasFund ? 'border border-info-100' : ''}`}>
             {/* Cabecera del grupo — siempre visible, clickeable para colapsar */}
             {hasFund && (
               <button
                 onClick={() => toggleGroup(groupKey)}
-                className="w-full bg-blue-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-blue-100 hover:bg-blue-100 transition-colors"
+                aria-expanded={!isCollapsed}
+                title={isCollapsed ? 'Ver movimientos del fondo' : 'Contraer el fondo'}
+                className="w-full bg-info-50 px-4 py-2 flex items-center justify-between gap-3 border-b border-info-100 hover:bg-info-100 transition-colors"
               >
-                <span className="flex items-center gap-1.5 text-xs font-bold text-blue-700">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-info-700">
                   {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                   {fundLabel}
                 </span>
                 <div className="flex items-center gap-3 text-xs">
                   {groupAdvance > 0 && (
-                    <span className="text-blue-700 font-mono-amount">
+                    <span className="text-info-700 font-mono-amount">
                       <ArrowDownToLine size={10} className="inline mr-0.5" />
                       {formatCLP(groupAdvance)}
                     </span>
                   )}
                   {groupTransferIn > 0 && (
-                    <span className="text-violet-600 font-mono-amount">
+                    <span className="text-flare-600 font-mono-amount">
                       <ArrowRightLeft size={10} className="inline mr-0.5" />
                       +{formatCLP(groupTransferIn)}
                     </span>
@@ -507,28 +523,28 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                     </span>
                   )}
                   {groupReturn > 0 && (
-                    <span className="text-emerald-600 font-mono-amount">
+                    <span className="text-success-600 font-mono-amount">
                       <ArrowUpFromLine size={10} className="inline mr-0.5" />
                       ({formatCLP(groupReturn)})
                     </span>
                   )}
                   {groupTransferOut > 0 && (
-                    <span className="text-orange-500 font-mono-amount">
+                    <span className="text-warning-500 font-mono-amount">
                       <ArrowRightLeft size={10} className="inline mr-0.5" />
                       ({formatCLP(groupTransferOut)})
                     </span>
                   )}
                   {isBalanced && (
-                    <span className="font-bold text-emerald-600">✓ Cuadra</span>
+                    <span className="font-bold text-success-600">✓ Cuadra</span>
                   )}
                   {isPending && (
-                    <span className="font-bold text-amber-500">⏳ Pendiente de rendir</span>
+                    <span className="font-bold text-warning-500">⏳ Pendiente de rendir</span>
                   )}
                   {isOweEmp && (
-                    <span className="font-bold text-blue-600">↑ Reembolsar al empleado {formatCLP(Math.abs(groupDiff))}</span>
+                    <span className="font-bold text-info-600">↑ Reembolsar al empleado {formatCLP(Math.abs(groupDiff))}</span>
                   )}
                   {isOweComp && (
-                    <span className="font-bold text-orange-500">↓ Devolver a empresa {formatCLP(groupDiff)}</span>
+                    <span className="font-bold text-warning-500">↓ Devolver a empresa {formatCLP(groupDiff)}</span>
                   )}
                 </div>
               </button>
@@ -578,7 +594,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                 className="p-0.5 text-ink-400 hover:bg-ink-100 rounded">
                                 <X size={13} />
                               </button>
-                              {titleError && <span className="text-xs text-rose-500">{titleError}</span>}
+                              {titleError && <span className="text-xs text-danger-500">{titleError}</span>}
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 group/title min-w-0">
@@ -600,7 +616,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                         </div>
                         <p className="text-xs text-ink-400 mt-0.5">
                           {h.approved_at && <span>Fecha: {formatDate(h.approved_at.split('T')[0])}</span>}
-                          <span className="ml-2 text-ink-300">· {h.submitter_name}</span>
+                          <span className="ml-2 text-ink-500">· {h.submitter_name}</span>
                         </p>
                       </div>
 
@@ -608,7 +624,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="text-right">
                           {isAdvanceOnly ? (
-                            <p className="font-mono-amount font-bold text-blue-600 text-sm">
+                            <p className="font-mono-amount font-bold text-info-600 text-sm">
                               <ArrowDownToLine size={11} className="inline mr-0.5 mb-0.5" />
                               {formatCLP(h.advance_total)}
                             </p>
@@ -616,9 +632,9 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                             <p className="font-mono-amount font-bold text-ink-900 text-sm">{formatCLP(h.expense_total)}</p>
                           ) : (
                             <div className="space-y-0.5">
-                              {h.advance_total > 0 && <p className="font-mono-amount text-blue-600 text-xs">{formatCLP(h.advance_total)} adelanto</p>}
+                              {h.advance_total > 0 && <p className="font-mono-amount text-info-600 text-xs">{formatCLP(h.advance_total)} adelanto</p>}
                               {h.expense_total > 0 && <p className="font-mono-amount text-ink-700 text-xs">({formatCLP(h.expense_total)}) gastos</p>}
-                              {h.return_total  > 0 && <p className="font-mono-amount text-emerald-600 text-xs">({formatCLP(h.return_total)})</p>}
+                              {h.return_total  > 0 && <p className="font-mono-amount text-success-600 text-xs">({formatCLP(h.return_total)})</p>}
                             </div>
                           )}
                           {(() => {
@@ -631,7 +647,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                 </span>
                                 {exportedCount > 0 && (
                                   <span
-                                    className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium flex items-center gap-1"
+                                    className="text-xs px-2 py-0.5 rounded-full bg-accent-100 text-accent-700 font-medium flex items-center gap-1"
                                     title={h.defontana_export_ref ? `Comprobante: ${h.defontana_export_ref}` : undefined}
                                   >
                                     <BookCheck size={10} />
@@ -650,7 +666,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                             <button
                               onClick={() => onTransfer(h.id, h.submitter_id, h.advance_total || h.total_amount)}
                               title="Registrar traspaso a otro empleado"
-                              className="p-1.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-item transition-colors"
+                              className="p-1.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 rounded-item transition-colors"
                             >
                               <SendHorizontal size={14} />
                             </button>
@@ -660,8 +676,8 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                               className={[
                                 'p-1.5 rounded-item transition-colors',
                                 defPanelId === h.id
-                                  ? 'text-teal-700 bg-teal-100'
-                                  : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50',
+                                  ? 'text-accent-700 bg-accent-100'
+                                  : 'text-accent-500 hover:text-accent-700 hover:bg-accent-50',
                               ].join(' ')}
                             >
                               <FileSpreadsheet size={14} />
@@ -670,7 +686,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                               onClick={() => onMove(h.id, h.title)}
                               disabled={movingHistId === h.id}
                               title="Mover a Rendiciones"
-                              className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors disabled:opacity-40"
+                              className="p-1.5 text-warning-500 hover:text-warning-700 hover:bg-warning-50 rounded-item transition-colors disabled:opacity-40"
                             >
                               <ArrowRightLeft size={14} />
                             </button>
@@ -678,7 +694,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                               onClick={() => onDelete(h.id, h.title)}
                               disabled={deletingHistId === h.id}
                               title="Eliminar"
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-item transition-colors disabled:opacity-40"
+                              className="p-1.5 text-danger-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
                             >
                               {deletingHistId === h.id ? <span className="text-xs">...</span> : <Trash2 size={14} />}
                             </button>
@@ -702,12 +718,12 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                       const LABEL: Record<string, string> = { expense: 'Gastos', advance: 'Adelantos', return: 'Devoluciones', transfer: 'Traspasos' }
 
                       return (
-                        <div className="border-t border-teal-100 bg-teal-50 px-4 py-4 space-y-3">
+                        <div className="border-t border-accent-100 bg-accent-50 px-4 py-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold text-teal-900 flex items-center gap-1.5">
+                            <h4 className="text-sm font-semibold text-accent-900 flex items-center gap-1.5">
                               <FileSpreadsheet size={14} /> Exportar a Defontana
                             </h4>
-                            <button onClick={() => setDefPanelId(null)} className="text-teal-400 hover:text-teal-700 transition-colors">
+                            <button onClick={() => setDefPanelId(null)} className="text-accent-400 hover:text-accent-700 transition-colors">
                               <X size={14} />
                             </button>
                           </div>
@@ -722,7 +738,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                 return (
                                   <label
                                     key={type}
-                                    className={`flex items-center gap-3 text-sm rounded-item px-2 py-1.5 bg-white border ${allDone ? 'border-teal-100 opacity-60' : 'border-ink-100 cursor-pointer hover:border-teal-200'}`}
+                                    className={`flex items-center gap-3 text-sm rounded-item px-2 py-1.5 bg-white border ${allDone ? 'border-accent-100 opacity-60' : 'border-ink-100 cursor-pointer hover:border-accent-200'}`}
                                   >
                                     <input
                                       type="checkbox"
@@ -735,24 +751,24 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                           return next
                                         })
                                       }}
-                                      className="accent-teal-600 w-4 h-4 shrink-0"
+                                      className="accent-accent-600 w-4 h-4 shrink-0"
                                     />
                                     <span className="flex-1 text-ink-700 font-medium">{LABEL[type]}</span>
                                     {allDone ? (
-                                      <span className="text-xs text-teal-600 font-medium flex items-center gap-1">
+                                      <span className="text-xs text-accent-600 font-medium flex items-center gap-1">
                                         <BookCheck size={11} /> {exported.length} contabilizados
                                       </span>
                                     ) : (
                                       <span className="text-xs text-ink-500">
                                         {pending.length} pendientes · {formatCLP(total)}
-                                        {exported.length > 0 && <span className="text-teal-600 ml-1">(+{exported.length} ya contabilizados)</span>}
+                                        {exported.length > 0 && <span className="text-accent-600 ml-1">(+{exported.length} ya contabilizados)</span>}
                                       </span>
                                     )}
                                     {exported.length > 0 && (
                                       <button
                                         onClick={e => { e.preventDefault(); e.stopPropagation(); setRevertTarget({ h, types: [type] }) }}
                                         title={`Revertir la contabilización de ${LABEL[type].toLowerCase()} (${exported.length} ítems)`}
-                                        className="shrink-0 p-1 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-item transition-colors"
+                                        className="shrink-0 p-1 text-warning-500 hover:text-warning-700 hover:bg-warning-50 rounded-item transition-colors"
                                       >
                                         <Undo2 size={12} />
                                       </button>
@@ -764,7 +780,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                           )}
 
                           {defExportWarnings && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-item px-3 py-2 text-xs text-amber-700">
+                            <div className="bg-warning-50 border border-warning-200 rounded-item px-3 py-2 text-xs text-warning-700">
                               ⚠ Sin cuenta Defontana: {defExportWarnings.categories.join(', ')}
                               {defExportWarnings.unmappedCLP > 0 && ` — ${formatCLP(defExportWarnings.unmappedCLP)} no incluidos en el asiento`}
                             </div>
@@ -777,25 +793,25 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                 <button
                                   onClick={() => runExport(h)}
                                   disabled={defExporting || defConfirming || !hasAnythingPending}
-                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-teal-700 bg-white border border-teal-300 hover:bg-teal-50 rounded-item transition-colors disabled:opacity-40"
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-accent-700 bg-white border border-accent-300 hover:bg-accent-50 rounded-item transition-colors disabled:opacity-40"
                                 >
                                   {defExporting
-                                    ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full" /> Generando...</>
+                                    ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-accent-500 border-t-transparent rounded-full" /> Generando...</>
                                     : <><FileSpreadsheet size={13} /> Generar Excel para Defontana</>
                                   }
                                 </button>
                               </div>
 
                               {/* Paso 2: confirmar después de cargar en Defontana */}
-                              <div className="border-t border-teal-100 pt-3 space-y-2">
-                                <p className="text-xs font-semibold text-teal-800">
+                              <div className="border-t border-accent-100 pt-3 space-y-2">
+                                <p className="text-xs font-semibold text-accent-800">
                                   ✓ Confirmar contabilización
                                 </p>
                                 <p className="text-xs text-ink-500">
                                   Hacé clic aquí solo después de haber importado el Excel en Defontana exitosamente.
                                 </p>
                                 {h.defontana_export_ref && (
-                                  <p className="text-xs text-teal-600 font-mono">
+                                  <p className="text-xs text-accent-600 font-mono">
                                     Último comprobante registrado: {h.defontana_export_ref}
                                   </p>
                                 )}
@@ -806,13 +822,13 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                                     value={defComprobante}
                                     onChange={e => setDefComprobante(e.target.value)}
                                     disabled={defExporting || defConfirming}
-                                    className="flex-1 border border-ink-200 rounded-item px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+                                    className="campo flex-1 text-xs focus:ring-1 disabled:opacity-50"
                                   />
                                 </div>
                                 <button
                                   onClick={() => runConfirmContabilizado(h)}
                                   disabled={defConfirming || defExporting || (!hasAnythingPending && !defComprobante.trim())}
-                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-item transition-colors disabled:opacity-40"
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-accent-600 hover:bg-accent-700 rounded-item transition-colors disabled:opacity-40"
                                 >
                                   {defConfirming
                                     ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> Guardando...</>

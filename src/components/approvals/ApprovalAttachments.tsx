@@ -100,7 +100,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
             <button
               onClick={() => handleDelete(att.id, att.storage_path)}
               disabled={deleting === att.id}
-              className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-item transition-colors disabled:opacity-40"
+              className="p-1.5 text-ink-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 size={14} />
@@ -116,7 +116,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Descripción del adjunto (ej: Email de autorización)"
-          className="flex-1 border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="campo flex-1"
         />
         <label className={[
           'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-item cursor-pointer transition-colors active:scale-[.97]',
@@ -137,7 +137,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
         </label>
       </div>
 
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {error && <p className="text-xs text-danger-600">{error}</p>}
       <p className="text-xs text-ink-400">
         Formatos aceptados: PDF, imágenes, correos (.eml, .msg) · Máx. 10 MB
       </p>

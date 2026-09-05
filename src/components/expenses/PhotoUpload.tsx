@@ -125,17 +125,17 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
             {labels[status]}
           </span>
           {status === 'idle' && (
-            <span className="card-meta text-slate-400">
+            <span className="card-meta text-ink-400">
               JPG · PNG · WebP · PDF — máx 10 MB
             </span>
           )}
           {status === 'done' && (
-            <span className="card-meta text-slate-400">
+            <span className="card-meta text-ink-400">
               Datos pre-cargados — revisá y confirmá
             </span>
           )}
           {status === 'error' && (
-            <span className="card-meta text-slate-400">
+            <span className="card-meta text-ink-400">
               La IA no pudo leer el documento — completá los campos manualmente
             </span>
           )}

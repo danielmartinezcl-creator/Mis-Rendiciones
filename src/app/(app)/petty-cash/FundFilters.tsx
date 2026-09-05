@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
-import { Filter, BarChart2, ChevronDown, Search } from 'lucide-react'
+import React, { useState } from 'react'
+import { Filter, BarChart2, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { buildPeriodRange } from '@/lib/report-helpers'
 import type { PeriodPreset } from '@/lib/report-helpers'
 import { formatCLP } from '@/lib/utils'
@@ -88,15 +88,32 @@ export function FundFilters({
   clearSearchFilters,
   fetchReportItems,
 }: FundFiltersProps) {
+  /* Los filtros ocupaban 785 px SIEMPRE, encima de 913 px de fondos: el panel
+     para elegir pesaba tanto como lo elegido. Plegados por defecto; si hay
+     alguno puesto, el encabezado lo dice para que plegar no lo esconda. */
+  const [abierto, setAbierto] = useState(false)
+
   return (
-    <div className="bg-white rounded-card shadow-card overflow-hidden">
-      {/* ── Sección 1: Filtros de lista (siempre visible) ── */}
+    <div className="hoja overflow-hidden">
+      {/* ── Sección 1: Filtros de lista ── */}
       <div className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter size={13} className="text-ink-400" />
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={() => setAbierto(a => !a)}
+            aria-expanded={abierto}
+            className="flex items-center gap-2 min-w-0"
+          >
+            <Filter size={13} className="text-ink-400 shrink-0" />
             <span className="card-label font-bold text-ink-700">Filtros de lista</span>
-          </div>
+            {activeFilters && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 shrink-0">
+                con filtro puesto
+              </span>
+            )}
+            {abierto
+              ? <ChevronDown size={13} className="text-ink-400 shrink-0" />
+              : <ChevronRight size={13} className="text-ink-400 shrink-0" />}
+          </button>
           {activeFilters && (
             <button
               onClick={clearListFilters}
@@ -107,6 +124,7 @@ export function FundFilters({
           )}
         </div>
 
+        {abierto && (<>
         {/* Chips de estado */}
         <div className="flex gap-1.5 flex-wrap">
           {FUND_STATUSES.map(s => (
@@ -133,7 +151,7 @@ export function FundFilters({
               type="date"
               value={dateFrom}
               onChange={e => { setDateFrom(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
-              className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-1.5"
             />
           </div>
           <div>
@@ -142,7 +160,7 @@ export function FundFilters({
               type="date"
               value={dateTo}
               onChange={e => { setDateTo(e.target.value); setPeriodPreset_list({ type: 'custom' }) }}
-              className="w-full border border-ink-200 rounded-item px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full py-1.5"
             />
           </div>
         </div>
@@ -222,10 +240,11 @@ export function FundFilters({
             )}
           </div>
         )}
+        </>)}
       </div>
 
       {/* ── Sección 2: Búsqueda de ítems (solo managers, separada con borde) ── */}
-      {isManager && (
+      {isManager && abierto && (
         <div className="border-t border-ink-100 p-5 space-y-4 bg-ink-50/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -250,7 +269,7 @@ export function FundFilters({
                 type="date"
                 value={reportDateFrom}
                 onChange={e => setReportDateFrom(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full"
               />
             </div>
             <div>
@@ -259,7 +278,7 @@ export function FundFilters({
                 type="date"
                 value={reportDateTo}
                 onChange={e => setReportDateTo(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                className="campo w-full"
               />
             </div>
             <div className="sm:col-span-2">
@@ -332,7 +351,7 @@ export function FundFilters({
           )}
 
           {reportError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">
+            <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">
               {reportError}
             </div>
           )}
@@ -342,7 +361,7 @@ export function FundFilters({
               onClick={fetchReportItems}
               disabled={loadingSearch}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all active:scale-[.97] shadow-sm"
-              style={{ background: 'linear-gradient(130deg, #0B1120 0%, #0D9488 100%)' }}
+              style={{ background: 'var(--cta-accent)' }}
             >
               <Search size={14} />
               {loadingSearch ? 'Buscando…' : 'Buscar'}
@@ -382,9 +401,9 @@ export function FundFilters({
                           <td className="px-3 py-2 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
                           <td className="px-3 py-2">
                             <span className={`px-2 py-0.5 rounded-item font-medium ${
-                              item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                              item.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                              'bg-amber-100 text-amber-700'
+                              item.status === 'approved' ? 'bg-success-100 text-success-700' :
+                              item.status === 'rejected' ? 'bg-danger-100 text-danger-700' :
+                              'bg-warning-100 text-warning-700'
                             }`}>
                               {item.status === 'approved' ? 'Aprobado' : item.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
                             </span>

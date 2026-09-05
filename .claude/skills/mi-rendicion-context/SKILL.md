@@ -64,12 +64,22 @@ description: >
 - **Admin client**: `src/lib/supabase/admin.ts` → `createAdminClient()` con `SUPABASE_SERVICE_ROLE_KEY` — usar solo en Server Actions para operaciones que requieren bypass de RLS (crear usuarios, operaciones cross-org)
 - **Variables de entorno requeridas**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (sin NEXT_PUBLIC — nunca exponer al browser)
 
-### Tipografía (reforma visual 2026-06-04)
+### Tipografía (rediseño Tornasol, 2026-09-02)
 - **Display / títulos:** `Bricolage Grotesque` — variable `--font-bricolage`, clases `font-display` / `font-bricolage`
 - **UI / body / labels:** `Hanken Grotesk` — variable `--font-hanken`, clase `font-hanken` (default del `<body>`)
-- **Montos y cifras:** `Geist Mono` (paquete npm `geist`) — variable `--font-geist-mono`, clase `font-mono-amount`
+- **Montos y cifras:** `Manrope` — token `--font-amount`, clase `font-mono-amount`
 - **Nunca** usar JetBrains Mono ni fuentes con cero marcado con barra (confunde a adultos mayores)
-- Compatibilidad: `.font-jakarta` → alias de Bricolage, `.font-manrope` → alias de Geist Mono (no romper código viejo)
+- **Las tres son LOCALES**: `.woff2` variables en `src/app/fonts/`, con `next/font/local`.
+  No dependen de Google en tiempo de build — era la causa de deploys caídos
+- Compatibilidad: `.font-jakarta` → alias de Bricolage, `.font-manrope` → alias de Manrope
+
+> **Geist Mono ya no existe acá.** Manrope lo reemplazó en montos y el paquete npm
+> `geist` se desinstaló. Si ves `--font-geist-mono` en algún lado, es residuo.
+
+**Trampa de `next/font`:** nombrar la variable de la fuente igual que el token de
+`@theme` deja `--font-amount: var(--font-amount)`, autorreferente e inválido, y la
+fuente cae al fallback del sistema **en silencio**. `next/font` expone
+`--font-manrope`; `@theme` define `--font-amount` en base a él.
 
 ### Lógica sensible
 - OCR, emails y tipo de cambio histórico van en **Server Actions** — nunca en Client Components
@@ -193,12 +203,15 @@ src/
 │   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones
 ├── components/
 │   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
-│   ├── ui/                 ← Button, Card, Badge, CurrencyAmount, RevertDefontanaDialog
+│   ├── ui/                 ← InsigniaEstado, Button, CurrencyAmount, MedidorArco,
+│   │                         VerticalTimeline, CompactStepper, AdminKpiHero, Badge, Card
 │   ├── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig, DefontanaTypePanel
-│   ├── petty-cash/         ← FundStatusBadge, FundTimeline, AddFundItemForm, FundDefontanaPanel
+│   ├── petty-cash/         ← TarjetaFondo, RecorridoFondo, FundTimeline, AddFundItemForm,
+│   │                         EditFundItemForm, FundDefontanaPanel
 │   └── expenses/           ← ExpenseItemForm (OCR, km, viáticos, políticas), PhotoUpload, ExportButton
 ├── lib/
-│   ├── constants.ts        ← CURRENCIES, DOC_TYPES, STATUS_COLORS, STATUS_DOT
+│   ├── constants.ts        ← CURRENCIES, DOC_TYPES, FAMILIA_REPORTE, FAMILIA_FONDO,
+│   │                         FUND_STEPS, FUND_AUDIT_LABELS
 │   ├── utils.ts            ← formatCLP, formatAmount, formatDate, cn
 │   ├── auth.ts             ← helpers de autenticación
 │   ├── approval-helpers.ts    ← computeReportStatus, computeApprovedAmount
@@ -228,6 +241,13 @@ supabase/
 │   ├── 012_defontana_cost_centers.sql                ← cost_centers (46 PENTA) + defontana_suppliers + CC en users/items
 │   ├── 013_petty_cash_defontana.sql                  ← defontana_exported_at/ref en petty_cash_funds
 │   ├── 015_travel_policies.sql                       ← tabla travel_policies (viáticos por destino/categoría)
+│   ├── 016_audit_log.sql                             ← tabla audit_log append-only + RLS
+│   ├── 016_multi_tenant_cost_centers.sql             ← org_id en cost_centers  ⚠ segundo 016
+│   ├── 017_soft_delete_extensions.sql                ← soft-delete en items/categorías, monthly_budget_clp,
+│   │                                                    dedup_key en notifications, rate_limit_log
+│   ├── 018_webhooks.sql                              ← tabla webhooks + RLS con is_admin()
+│   ├── 019_security_fixes.sql                        ← RLS en rate_limit_log, notifications en realtime
+│   ├── 020_reimbursed_amount.sql                     ← monto reembolsado
 │   ├── 021_defontana_movements.sql                   ← cuenta banco + tipo comprobante/documento por movimiento
 │   └── 022_petty_cash_defontana_by_movement.sql      ← marca Defontana por ítem y por transferencia de fondo vivo
 └── seed.sql
@@ -253,11 +273,44 @@ references/
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
 - 32+ tests Vitest pasando · build TypeScript limpio
 
-### ✅ Reforma visual — "Mi rendición" (2026-06-04)
-- Nombre: **"Mi rendición"**; color brand: teal `#0D9488`; paleta: ink (`#080C16`…`#F6F8FB`)
+### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
+
+**La regla que sostiene todo: el degradado es el contenedor, nunca la superficie de
+trabajo.** Hay dos materiales y solo dos, los dos como clase CSS en `@layer components`
+(así cualquier utilidad del markup les gana):
+
+| | Clase | Para qué |
+|---|---|---|
+| **Vidrio** | `.tor-glass` (+ `-rail`, `-bar`) | Resúmenes, KPIs, encabezados. Cosas que se **miran** |
+| **Hoja** | `.hoja` | Tablas, listas, formularios. Cosas que se **leen o deciden** |
+
+Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
+**Un dato apoyado directo sobre el degradado está mal.**
+
+- **No hay modo oscuro.** Se eliminó: Tornasol ya es el chasis oscuro
+- **Los materiales son clases, no componentes de React.** Un componente sería un wrapper
+  con passthrough de `className` — y encima habría que sumarlo al `:not()` del selector
+  de legibilidad de `globals.css`. Solo es componente lo que tiene lógica o estructura
+- Otras clases de material: `.campo` / `.campo-compacto`, `.btn-primario`
+- **Toda la paleta vive en `globals.css` + `src/lib/design-tokens.ts`** (este segundo,
+  para SVG, emails y metadata de la PWA, que no leen variables CSS). Los dos se mueven
+  en paralelo. Escribir un hexadecimal en un componente rompe el sistema
+- `globals.css` está partido en **ZONA 1 identidad** (brand, accent, sidebar, degradados
+  de CTA — lo único que cambia si otro cliente trae su marca) y **ZONA 2 semánticos**
+- Color de acción: `brand-600` = `#0D7F81`; `accent` repite brand; el lila es `flare`
 - `rounded-item` (14px) · `rounded-card` (18px) — usar siempre, no valores hardcodeados
-- Íconos: Lucide React (no emoji en UI); fuentes: Bricolage + Hanken + Geist Mono
-- `STATUS_DOT` export en `constants.ts`; `"Mi rendición — Design System"` en `tsconfig.json` `exclude`
+- Íconos: Lucide React, nunca emoji en UI
+- Cuatro familias de estado en `constants.ts` (`FAMILIA_REPORTE` / `FAMILIA_FONDO`):
+  `neutro` · `en-curso` · `atencion` · `resuelto`. **Hay un test que impide una quinta**
+- `"Mi rendición — Design System"` en `tsconfig.json` `exclude`
+
+**Antes de tocar estilos, leer `docs/Rediseño/tornasol-spec.md` — empezando por su fe de
+erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
+
+**Hay una línea base visual de 50 capturas** (`e2e/`, `npm run baseline:verificar`). Un
+cambio de estilo que la deje en verde no tocó nada visible; si la ensucia, el reporte
+dice dónde. Leer `e2e/README.md` antes de confiar en un resultado: solo captura el
+estado de reposo, así que errores, hover y modales no se ven.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -404,9 +457,40 @@ la liquidación (`FundDefontanaPanel`).
 - **Invitación empleados**: `set-password` flow — empleado recibe link, establece contraseña
 
 ### ⏳ Pendiente / Backlog
-1. **Notificaciones email completas**: Resend instalado y funcional en algunos paths. El lookup de `auth.users.email` por UUID requiere `SUPABASE_SERVICE_ROLE_KEY` (ya disponible vía `createAdminClient()`). Asegurarse de que TODOS los `resend.emails.send()` usen el admin client para el lookup — algunos paths actuales pueden saltear el email por falta de email del destinatario.
-2. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
+1. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
+2. **Marca por organización (white-label)** — **nombre y logo: HECHOS** (2026-09-04).
+   `organizations.name` y `logo_url` ya existían desde `001` y no los leía nadie, así
+   que no hizo falta migración de tablas. El riel y el encabezado móvil los leen vía
+   `<Marca>`; la carga vive en `/admin/settings` → pestaña «Marca»; el respaldo sin
+   logo es el cuadrado con degradado y la inicial. Bucket `org-logos` en la migración
+   `023`.
+   **El color por organización está MEDIDO Y DESCARTADO por ahora** (decisión de
+   Daniel, 2026-09-04). No es que falte hacerlo: se decidió que el cliente traiga
+   su logo y la app conserve su color. El logo va sobre un chip blanco que lo
+   aísla del chasis, así que ningún color de logo choca — y la app sigue siendo
+   reconocible como Mi Rendición, que es un activo del producto.
+   Comparación visual de las dos opciones:
+   https://claude.ai/code/artifact/7eae73e8-026e-4e22-b356-06fa3d84ff94
+
+   > Si algún día un cliente lo pide y lo paga, **el algoritmo ya está validado**:
+   > el cliente aporta matiz y croma, el sistema impone la luminosidad de la rampa.
+   > Contraste garantizado por construcción —el peor caso medido es el teal actual,
+   > 4,81:1— porque la rampa está en `oklch` y ahí la L es luminosidad perceptual.
+   > Las 386 clases `brand-*`/`accent-*` se reanclarían solas sobrescribiendo las
+   > variables; los únicos 8 lugares que NO pueden seguirlas son los que leen
+   > `BRAND.*` desde JS (gráficos SVG, plantillas de email, metadata de la PWA).
+
+   **Sigue faltando**: el favicon y el `manifest.json` de la PWA, que son archivos
+   estáticos y necesitarían rutas de metadata dinámicas.
 3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
+4. **Rediseño Tornasol**: el chasis y la regla de materiales están completos y verificados en las 24 pantallas (`npm run audit:materiales`). Falta el rediseño *conceptual* pantalla por pantalla — sólo `/petty-cash/[id]` pasó por eso. Ver [[project-rediseno-tornasol]] en la memoria.
+
+> **Ya NO están pendientes, aunque documentos viejos lo digan:**
+> · *Notificaciones email* — completo desde el 2026-08-12. `lookupEmails()` en
+>   `actions/notifications.ts` usa `createAdminClient()` + `getUserById()`, y todos los
+>   paths de envío pasan por ahí.
+> · *«Penta Rend» hardcodeado* — el nombre no existe en ningún archivo desde `46d62ab`.
+>   Lo que sigue pendiente es el white-label (punto 2), no ese literal.
 
 ---
 
@@ -560,7 +644,7 @@ la liquidación (`FundDefontanaPanel`).
 | Archivos de referencia (.xlsx, .pdf) en git | `git add .` los incluye sin querer | Agregar a `.gitignore`; sacar con `git rm --cached` |
 | Código de cuenta Defontana con puntos | "45103010013" ≠ "4.5.1030.10.13" → Defontana rechaza la importación | Siempre aplicar `stripDots()` al código antes de escribirlo en el XLSX |
 | Fecha Defontana como texto formateado | Defontana espera serial numérico Excel, no "2026-07-15" | Usar `toExcelSerial(dateStr)` — devuelve número entero |
-| Dos migraciones con prefijo `011_` | Las dos aplican sin conflicto (nombres distintos) pero el orden es alfabético por nombre completo | Siempre usar número único por migración; aquí es una excepción que ya está en el repo |
+| Migraciones con prefijo duplicado | Hay **dos pares**: `011_bank_authorization_workflow` / `011_expense_policies_and_ai_analysis`, y `016_audit_log` / `016_multi_tenant_cost_centers`. Aplican sin conflicto porque tocan tablas distintas, y el orden es alfabético por nombre completo | Siempre usar número único. Los cuatro ya están en el repo y no se renumeran: renumerar una migración aplicada rompe el historial del servidor |
 | `travel_policies_read` sin filtro de org | La policy usa `activo = true` pero no filtra `org_id` | La RLS está en `activo` y `auth.uid() is not null` — un usuario solo ve políticas de su org porque `get_my_org_id()` filtra en el select; si se agrega multi-tenant real, revisar esta policy |
 | `window.location.reload()` después de createFundTransfer | `revalidatePath` server-side no actualiza estado client-side de fondos ya renderizados | Reload forzado es el patrón correcto para esta situación |
 | Notificaciones email sin service role | `auth.users.email` inaccesible con anon key | Usar `createAdminClient()` para el lookup del email del destinatario antes de `resend.emails.send()` |
@@ -577,3 +661,7 @@ la liquidación (`FundDefontanaPanel`).
 | Sumar adelantos y gastos en un KPI de "total" | Es la misma plata contada dos veces | `byMovement` — el gasto es `expense`, el resto es flujo de fondos |
 | Buscar los adelantos de un fondo vivo en `petty_cash_items` | Ahí solo hay gastos; adelantos y reembolsos son `petty_cash_transfers` | Mapear por sentido del dinero: `disbursement`/`refund_to_employee` → adelanto, `reimbursement_from_employee` → devolución |
 | Heredoc largo con TSX/TS en el Bash tool | El comando falla con "unexpected EOF while looking for matching `''" | Usar el tool Write (o Write a un temporal + `cat >>`) para bloques grandes |
+| `stroke="var(--color-brand-300)"` en un SVG sale sin color | Tailwind v4 solo emite las variables de `@theme` cuya **utilidad** detecta en uso; un `var()` inline no cuenta. Falla en silencio | Usar la clase (`className="stroke-brand-300"`), que sí es una utilidad. Mismo motivo por el que los degradados de CTA viven en un `:root` plano |
+| Texto tenue dentro de un contenedor con `opacity` | El contraste se **multiplica**: `text-white/70` dentro de una tarjeta al 60% da 42% efectivo, ilegible | Al bajar la opacidad de un contenedor, subir la de su texto para compensar |
+| `strokeLinecap="round"` con un arco de largo cero | Igual pinta el redondeo de las puntas: un punto que se lee como un 1% inexistente | No renderizar el trazo cuando el valor es 0 |
+| Crear un componente de React para una superficie visual nueva | El selector de legibilidad de `globals.css` excluye superficies **por nombre de clase**; una clase nueva no excluida vuelve blancos sobre blanco los encabezados de adentro | Preferir la clase de material existente (`.hoja`, `.tor-glass`). Si de verdad hace falta una clase nueva, agregarla al `:not()` |

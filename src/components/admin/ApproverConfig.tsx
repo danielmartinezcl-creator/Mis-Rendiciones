@@ -52,16 +52,16 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
   const backupName = options.find(u => u.id === backupId)?.full_name
 
   if (saved) {
-    return <p className="text-xs text-emerald-600 font-medium py-1">✓ Aprobadores actualizados</p>
+    return <p className="text-xs text-success-600 font-medium py-1">✓ Aprobadores actualizados</p>
   }
 
   return (
     <div className="space-y-3 pt-1">
       {/* Aprobador N1 */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">
+        <label className="block text-xs font-medium text-ink-600 mb-1">
           Aprobador Nivel 1
-          <span className="text-slate-400 font-normal ml-1">— quien aprueba las rendiciones de {employee.full_name.split(' ')[0]}</span>
+          <span className="text-ink-400 font-normal ml-1">— quien aprueba las rendiciones de {employee.full_name.split(' ')[0]}</span>
         </label>
         <select
           value={l1Id}
@@ -69,7 +69,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
             setL1Id(e.target.value)
             if (!e.target.value) { setL2Id(''); setBackupId(''); setBackupFrom(''); setBackupUntil('') }
           }}
-          className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+          className="campo w-full"
         >
           <option value="">Sin aprobador asignado</option>
           {options.map(u => (
@@ -81,21 +81,21 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
       {/* Aprobador N2 — solo si hay N1 */}
       {l1Id && (
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+          <label className="block text-xs font-medium text-ink-600 mb-1">
             Aprobador Nivel 2
-            <span className="text-slate-400 font-normal ml-1">— opcional, confirma lo que aprueba {l1Name ?? 'el N1'}</span>
+            <span className="text-ink-400 font-normal ml-1">— opcional, confirma lo que aprueba {l1Name ?? 'el N1'}</span>
           </label>
           <select
             value={l2Id}
             onChange={e => setL2Id(e.target.value)}
-            className="w-full border border-slate-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full"
           >
             <option value="">Sin segundo nivel</option>
             {options.filter(u => u.id !== l1Id).map(u => (
               <option key={u.id} value={u.id}>{u.full_name} ({roleLabel(u.role)})</option>
             ))}
           </select>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ink-400 mt-1">
             Flujo: {employee.full_name.split(' ')[0]} → {l1Name}{l2Id ? ` → ${l2Name}` : ''} → Aprobado
           </p>
         </div>
@@ -103,9 +103,9 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
 
       {/* Aprobador suplente — solo si hay N1 */}
       {l1Id && (
-        <div className="border border-amber-200 bg-amber-50 rounded-item p-3 space-y-2">
-          <p className="text-xs font-semibold text-amber-800">Aprobador suplente de N1</p>
-          <p className="text-xs text-amber-700">
+        <div className="border border-warning-200 bg-warning-50 rounded-item p-3 space-y-2">
+          <p className="text-xs font-semibold text-warning-800">Aprobador suplente de N1</p>
+          <p className="text-xs text-warning-700">
             Si {l1Name ?? 'el N1'} está de vacaciones, otro aprobador puede revisar temporalmente dentro del período indicado.
           </p>
           <select
@@ -114,7 +114,7 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
               setBackupId(e.target.value)
               if (!e.target.value) { setBackupFrom(''); setBackupUntil('') }
             }}
-            className="w-full border border-amber-300 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full border border-warning-300 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-warning-500"
           >
             <option value="">Sin suplente</option>
             {options.filter(u => u.id !== l1Id).map(u => (
@@ -124,39 +124,39 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
           {backupId && (
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-medium text-amber-800 mb-1">Desde</label>
+                <label className="block text-xs font-medium text-warning-800 mb-1">Desde</label>
                 <input
                   type="date"
                   value={backupFrom}
                   onChange={e => setBackupFrom(e.target.value)}
-                  className="w-full border border-amber-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-warning-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-warning-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-amber-800 mb-1">Hasta</label>
+                <label className="block text-xs font-medium text-warning-800 mb-1">Hasta</label>
                 <input
                   type="date"
                   value={backupUntil}
                   onChange={e => setBackupUntil(e.target.value)}
-                  className="w-full border border-amber-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-warning-300 rounded-item px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-warning-500"
                 />
               </div>
             </div>
           )}
           {backupId && backupFrom && backupUntil && (
-            <p className="text-xs text-amber-700">
+            <p className="text-xs text-warning-700">
               {backupName} verá las rendiciones de {employee.full_name.split(' ')[0]} del {backupFrom} al {backupUntil}
             </p>
           )}
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600 bg-red-50 rounded p-2">{error}</p>}
+      {error && <p className="text-xs text-danger-600 bg-danger-50 rounded p-2">{error}</p>}
 
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold rounded-item transition-colors"
+        className="btn-primario px-4 py-1.5 text-xs"
       >
         {saving ? 'Guardando...' : 'Guardar aprobadores'}
       </button>

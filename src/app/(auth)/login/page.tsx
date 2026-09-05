@@ -44,17 +44,17 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
   }
 
   return (
-    <div className="bg-white rounded-card shadow-card p-6">
+    <div className="hoja p-6">
       <h2 className="text-lg font-bold text-ink-900 mb-5">Iniciar sesión</h2>
 
       {urlError === 'session_expired' && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-item p-3 mb-4">
+        <div className="bg-warning-50 border border-warning-200 text-warning-700 text-sm rounded-item p-3 mb-4">
           El link expiró. Pedí que te reenvíen la invitación.
         </div>
       )}
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-item p-3 mb-4">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3 mb-4">
           {error}
         </div>
       )}
@@ -70,7 +70,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             required
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+            className="campo w-full py-2.5"
             placeholder="tu@empresa.cl"
           />
         </div>
@@ -94,7 +94,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             required
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+            className="campo w-full py-2.5"
             placeholder="••••••••"
           />
         </div>
@@ -102,7 +102,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-item transition-all duration-[180ms] active:scale-[.98]"
+          className="btn-primario w-full py-2.5 px-4"
         >
           {loading ? 'Ingresando…' : 'Ingresar'}
         </button>
@@ -141,8 +141,8 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
 
   if (sent) {
     return (
-      <div className="bg-white rounded-card shadow-card p-6 text-center space-y-4">
-        <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
+      <div className="hoja p-6 text-center space-y-4">
+        <CheckCircle2 size={40} className="text-success-500 mx-auto" />
         <div>
           <p className="font-bold text-ink-900">Correo enviado</p>
           <p className="text-sm text-ink-500 mt-1">
@@ -160,14 +160,14 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="bg-white rounded-card shadow-card p-6">
+    <div className="hoja p-6">
       <h2 className="text-lg font-bold text-ink-900 mb-1">Recuperar contraseña</h2>
       <p className="text-sm text-ink-500 mb-5">
         Ingresá tu correo y te enviaremos un link para crear una nueva contraseña.
       </p>
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-item p-3 mb-4">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3 mb-4">
           {error}
         </div>
       )}
@@ -182,7 +182,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
             required
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full py-2.5"
             placeholder="tu@empresa.cl"
           />
         </div>
@@ -190,7 +190,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
         <button
           type="submit"
           disabled={loading || !email}
-          className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-item transition-all duration-[180ms] active:scale-[.98]"
+          className="btn-primario w-full py-2.5 px-4"
         >
           {loading ? 'Enviando…' : 'Enviar link de recuperación'}
         </button>
@@ -210,7 +210,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="bg-white rounded-card shadow-card p-6 text-center text-ink-500">
+      <div className="hoja p-6 text-center text-ink-500">
         Cargando...
       </div>
     }>

@@ -24,8 +24,10 @@ import type { ExpenseCategory, UserProfile, CostCenter, DefontanaSupplier, Expen
 import { getOrgPolicies, createPolicy, updatePolicy, togglePolicyActive, deletePolicy, getTravelPolicies, createTravelPolicy, updateTravelPolicy, deleteTravelPolicy } from '@/actions/policies'
 import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
 import type { TravelPolicy } from '@/lib/supabase/types'
+import { NEUTRAL, BRAND } from '@/lib/design-tokens'
+import { MarcaTab } from '@/components/admin/MarcaTab'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks' | 'marca'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 /* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
@@ -61,10 +63,14 @@ function getIconByKey(key: string | null | undefined): LucideIcon {
 
 function CategoryIcon({ icon, color }: { icon?: string | null; color?: string | null }) {
   const Icon = getIconByKey(icon)
-  const bg   = color ?? '#8A95AD'
+  const bg   = color ?? NEUTRAL.muted
   return (
     <span className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
           style={{ backgroundColor: bg + '22', color: bg }}>
+      {/* `Icon` sale de ICON_CATALOG, un catálogo de nivel de módulo con
+          referencias fijas de lucide-react: el componente NO se recrea en cada
+          render, pero el linter no puede probar esa estabilidad. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
       <Icon size={17} strokeWidth={2} />
     </span>
   )
@@ -103,9 +109,9 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin', approver: 'Aprobador', employee: 'Empleado',
 }
 const ROLE_CLS: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
-  approver: 'bg-blue-100 text-blue-700',
-  employee: 'bg-slate-100 text-slate-600',
+  admin: 'bg-flare-100 text-flare-700',
+  approver: 'bg-info-100 text-info-700',
+  employee: 'bg-ink-100 text-ink-600',
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -114,7 +120,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <h1 className="font-display font-extrabold text-2xl tracking-tight text-ink-900">Configuración</h1>
+      <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Configuración</h1>
 
       {/* ── Tabs ── */}
       <div className="flex gap-1 bg-ink-100 p-1 rounded-item w-fit">
@@ -127,12 +133,13 @@ export default function AdminSettingsPage() {
           { id: 'policies',   label: 'Políticas' },
           { id: 'viaticos',   label: 'Viáticos' },
           { id: 'webhooks',   label: 'Webhooks' },
+          { id: 'marca',      label: 'Marca' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={[
-              'px-4 py-1.5 rounded-[10px] text-sm font-semibold transition-all duration-150',
+              'px-4 py-1.5 rounded-sm text-sm font-semibold transition-all duration-150',
               activeTab === tab.id
                 ? 'bg-white text-ink-900 shadow-xs'
                 : 'text-ink-500 hover:text-ink-800',
@@ -151,6 +158,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'policies'   && <PoliciesTab />}
       {activeTab === 'viaticos'   && <ViaticosTab />}
       {activeTab === 'webhooks'   && <WebhooksTab />}
+      {activeTab === 'marca'      && <MarcaTab />}
     </div>
   )
 }
@@ -162,7 +170,7 @@ function CategoriesTab() {
 
   // Form nueva categoría
   const [catName,   setCatName]   = useState('')
-  const [catColor,  setCatColor]  = useState('#4A50A0')
+  const [catColor,  setCatColor]  = useState<string>(BRAND.primary)
   const [catIcon,   setCatIcon]   = useState('tag')
   const [catSaving, setCatSaving] = useState(false)
 
@@ -178,6 +186,8 @@ function CategoriesTab() {
     setCategories(await getOrgCategories())
     setLoading(false)
   }
+  /* Carga inicial. */
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   async function handleAdd(e: React.FormEvent) {
@@ -186,7 +196,7 @@ function CategoriesTab() {
     setCatSaving(true)
     try {
       await addCategory({ name: catName, color: catColor, icon: catIcon })
-      setCatName(''); setCatColor('#4A50A0'); setCatIcon('tag')
+      setCatName(''); setCatColor(BRAND.primary); setCatIcon('tag')
       await load()
     } finally { setCatSaving(false) }
   }
@@ -211,16 +221,16 @@ function CategoriesTab() {
     } finally { setDeleteLoading(false) }
   }
 
-  const inputCls = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls = 'campo w-full py-2.5'
 
   if (loading) return <Spinner />
 
   return (
     <section className="space-y-3">
-      <p className="text-xs text-ink-400">Las categorías globales están disponibles para todas las organizaciones. Podés agregar y modificar categorías propias de tu empresa.</p>
+      <p className="text-xs tor-on-gradient-soft">Las categorías globales están disponibles para todas las organizaciones. Podés agregar y modificar categorías propias de tu empresa.</p>
 
       {/* ── Formulario nueva categoría ── */}
-      <form onSubmit={handleAdd} className="bg-white rounded-card shadow-card p-4 space-y-3">
+      <form onSubmit={handleAdd} className="hoja p-4 space-y-3">
         <h3 className="font-semibold text-ink-800 text-sm">Nueva categoría</h3>
 
         {/* Nombre + color */}
@@ -247,7 +257,7 @@ function CategoriesTab() {
         </div>
 
         <button type="submit" disabled={catSaving || !catName.trim()}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-all duration-[180ms] active:scale-[.97]">
+          className="btn-primario px-4 py-2 text-sm">
           {catSaving ? 'Guardando…' : '+ Agregar'}
         </button>
       </form>
@@ -263,7 +273,7 @@ function CategoriesTab() {
           if (isEditing) {
             return (
               <form key={cat.id} onSubmit={handleEdit}
-                className="bg-white rounded-card shadow-card p-4 space-y-3 border-t-2 border-t-brand-600">
+                className="hoja p-4 space-y-3 border-t-2 border-t-brand-600">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-ink-600">Editar categoría</p>
                   <button type="button" onClick={() => setEditCat(null)}
@@ -315,11 +325,11 @@ function CategoriesTab() {
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" disabled={editSaving || !editCat.name.trim()}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                    className="btn-primario inline-flex items-center gap-1.5 px-3 py-2 text-xs">
                     <Check size={12} />{editSaving ? 'Guardando…' : 'Guardar cambios'}
                   </button>
                   <button type="button" onClick={() => setEditCat(null)}
-                    className="px-3 py-2 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                    className="btn-secundario px-3 py-2 text-xs">
                     Cancelar
                   </button>
                 </div>
@@ -330,7 +340,7 @@ function CategoriesTab() {
           // ── Vista normal ──
           return (
             <div key={cat.id}
-              className={['bg-white rounded-card shadow-card overflow-hidden transition-opacity',
+              className={['hoja overflow-hidden transition-opacity',
                 !cat.is_active && 'opacity-40'].filter(Boolean).join(' ')}>
 
               <div className="p-3 flex items-center gap-3">
@@ -352,7 +362,7 @@ function CategoriesTab() {
                       </button>
                     )}
                     <button
-                      onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? '#4A50A0', icon: cat.icon ?? 'tag', monthly_budget_clp: cat.monthly_budget_clp ?? null })}
+                      onClick={() => setEditCat({ id: cat.id, name: cat.name, color: cat.color ?? BRAND.primary, icon: cat.icon ?? 'tag', monthly_budget_clp: cat.monthly_budget_clp ?? null })}
                       title="Editar categoría"
                       className="p-1.5 text-ink-300 hover:text-brand-600 rounded-item hover:bg-brand-50 transition-colors">
                       <Pencil size={14} />
@@ -360,7 +370,7 @@ function CategoriesTab() {
                     <button
                       onClick={() => setDeleteCat(cat.id)}
                       title="Eliminar categoría"
-                      className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors">
+                      className="p-1.5 text-ink-300 hover:text-danger-600 rounded-item hover:bg-danger-50 transition-colors">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -369,20 +379,20 @@ function CategoriesTab() {
 
               {/* Confirmación de eliminación */}
               {isDeleting && (
-                <div className="border-t border-rose-100 bg-rose-50 px-4 py-3 space-y-2">
+                <div className="border-t border-danger-100 bg-danger-50 px-4 py-3 space-y-2">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-rose-700 font-semibold">
+                    <AlertTriangle size={14} className="text-danger-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-danger-700 font-semibold">
                       ¿Eliminar &quot;{cat.name}&quot;? Las rendiciones existentes que usan esta categoría no se verán afectadas.
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleDelete(cat.id)} disabled={deleteLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-danger-600 hover:bg-danger-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
                       <Trash2 size={11} />{deleteLoading ? 'Eliminando…' : 'Confirmar'}
                     </button>
                     <button onClick={() => setDeleteCat(null)}
-                      className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                      className="btn-secundario px-3 py-1.5 text-xs">
                       Cancelar
                     </button>
                   </div>
@@ -426,6 +436,8 @@ function EmployeesTab() {
     setLoading(false)
   }
   useEffect(() => {
+    /* Carga inicial. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
   }, [])
@@ -484,7 +496,7 @@ function EmployeesTab() {
 
   return (
     <section className="space-y-2">
-      <p className="text-xs text-ink-400 mb-3">
+      <p className="text-xs tor-on-gradient-soft mb-3">
         Gestioná el acceso de los integrantes de tu organización. Para agregar nuevos empleados usá el módulo <strong>Empleados</strong> en el menú.
       </p>
 
@@ -495,7 +507,7 @@ function EmployeesTab() {
 
         return (
           <div key={emp.id}
-            className={['bg-white rounded-card shadow-card overflow-hidden transition-opacity',
+            className={['hoja overflow-hidden transition-opacity',
               !emp.is_active && 'opacity-50'].filter(Boolean).join(' ')}>
 
             <div className="p-4 space-y-3">
@@ -518,7 +530,7 @@ function EmployeesTab() {
                       <select
                         value={editFull.role}
                         onChange={e => setEditFull(f => f && ({ ...f, role: e.target.value as UserProfile['role'] }))}
-                        className="flex-1 border border-ink-200 rounded-item px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        className="campo flex-1 px-2.5 py-1.5 text-xs"
                       >
                         <option value="employee">Empleado</option>
                         <option value="approver">Aprobador</option>
@@ -527,14 +539,14 @@ function EmployeesTab() {
                       <input
                         value={editFull.dept}
                         onChange={e => setEditFull(f => f && ({ ...f, dept: e.target.value }))}
-                        className="flex-1 px-2.5 py-1.5 border border-ink-200 rounded-item text-xs focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        className="campo flex-1 px-2.5 py-1.5 text-xs"
                         placeholder="Departamento"
                       />
                     </div>
                     <select
                       value={editFull.costCenterId}
                       onChange={e => setEditFull(f => f && ({ ...f, costCenterId: e.target.value }))}
-                      className="w-full border border-ink-200 rounded-item px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo w-full px-2.5 py-1.5 text-xs"
                     >
                       <option value="">— Sin centro de costo —</option>
                       {costCenters.map(cc => (
@@ -543,11 +555,11 @@ function EmployeesTab() {
                     </select>
                     <div className="flex gap-2">
                       <button onClick={handleSaveEdit} disabled={editSaving}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                        className="btn-primario inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
                         <Check size={11} />{editSaving ? 'Guardando…' : 'Guardar'}
                       </button>
                       <button onClick={() => setEditFull(null)}
-                        className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                        className="btn-secundario px-3 py-1.5 text-xs">
                         Cancelar
                       </button>
                     </div>
@@ -559,11 +571,11 @@ function EmployeesTab() {
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${ROLE_CLS[emp.role] ?? ROLE_CLS.employee}`}>
                         {ROLE_LABEL[emp.role] ?? 'Empleado'}
                       </span>
-                      {!emp.is_active && <span className="text-xs text-rose-500 font-medium">Inactivo</span>}
+                      {!emp.is_active && <span className="text-xs text-danger-500 font-medium">Inactivo</span>}
                     </div>
                     {emp.department && <p className="text-xs text-ink-400 mt-0.5">{emp.department}</p>}
                     {emp.cost_center_id && (
-                      <p className="text-xs text-teal-600 mt-0.5 font-medium">
+                      <p className="text-xs text-accent-600 mt-0.5 font-medium">
                         ⚙ {emp.cost_center_id} — {costCenters.find(c => c.id === emp.cost_center_id)?.descripcion ?? ''}
                       </p>
                     )}
@@ -587,7 +599,7 @@ function EmployeesTab() {
                       className={[
                         'p-1.5 rounded-item transition-colors',
                         resendOk === emp.id
-                          ? 'text-emerald-600 bg-emerald-50'
+                          ? 'text-success-600 bg-success-50'
                           : 'text-ink-300 hover:text-brand-600 hover:bg-brand-50',
                         resending === emp.id && 'opacity-50',
                       ].join(' ')}
@@ -597,7 +609,7 @@ function EmployeesTab() {
                     <button
                       onClick={() => setDeleteConfirm(emp.id)}
                       title="Eliminar empleado"
-                      className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors"
+                      className="p-1.5 text-ink-300 hover:text-danger-600 rounded-item hover:bg-danger-50 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -622,7 +634,7 @@ function EmployeesTab() {
                       />
                       <div className="flex gap-1 shrink-0">
                         <button onClick={() => handleSaveEmail(emp.id)} disabled={emailSaving}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                          className="btn-primario inline-flex items-center gap-1 px-2.5 py-1 text-xs">
                           <Check size={11} />{emailSaving ? '…' : 'Guardar'}
                         </button>
                         <button onClick={() => { setEmailEdit(null); setEmailError(null) }}
@@ -630,7 +642,7 @@ function EmployeesTab() {
                           <X size={13} />
                         </button>
                       </div>
-                      {emailError && <p className="w-full text-xs text-rose-600">{emailError}</p>}
+                      {emailError && <p className="w-full text-xs text-danger-600">{emailError}</p>}
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -651,21 +663,21 @@ function EmployeesTab() {
 
               {/* ── Confirmación de eliminación ── */}
               {isDeleting && (
-                <div className="bg-rose-50 border border-rose-200 rounded-item p-3 space-y-2">
+                <div className="bg-danger-50 border border-danger-200 rounded-item p-3 space-y-2">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle size={15} className="text-rose-500 shrink-0 mt-0.5" />
+                    <AlertTriangle size={15} className="text-danger-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-semibold text-rose-700">¿Eliminar a {emp.full_name}?</p>
-                      <p className="text-xs text-rose-600 mt-0.5">Se revoca el acceso a la app. Las rendiciones históricas se conservan.</p>
+                      <p className="text-xs font-semibold text-danger-700">¿Eliminar a {emp.full_name}?</p>
+                      <p className="text-xs text-danger-600 mt-0.5">Se revoca el acceso a la app. Las rendiciones históricas se conservan.</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleDelete(emp.id)} disabled={deleting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-danger-600 hover:bg-danger-700 disabled:opacity-50 text-white text-xs font-bold rounded-item transition-colors">
                       <Trash2 size={11} />{deleting ? 'Eliminando…' : 'Confirmar eliminación'}
                     </button>
                     <button onClick={() => setDeleteConfirm(null)}
-                      className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-800 border border-ink-200 rounded-item transition-colors">
+                      className="btn-secundario px-3 py-1.5 text-xs">
                       Cancelar
                     </button>
                   </div>
@@ -811,20 +823,20 @@ function DefontanaTab() {
     } finally { setSuppDeleting(null) }
   }
 
-  const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono-amount'
+  const inputCls = 'campo w-full font-mono-amount'
 
   return (
     <section className="space-y-6">
       <div>
         <h2 className="text-base font-display font-bold text-ink-900">Integración Defontana</h2>
-        <p className="text-sm text-ink-500 mt-0.5">
+        <p className="text-sm tor-on-gradient-soft mt-0.5">
           Configura las cuentas contables para generar asientos automáticos desde rendiciones aprobadas.
         </p>
       </div>
 
       {/* ── Configuración general ── */}
       {cfgLoading ? <Spinner /> : (
-        <form onSubmit={handleSaveConfig} className="bg-white rounded-card shadow-card p-5 space-y-4">
+        <form onSubmit={handleSaveConfig} className="hoja p-5 space-y-4">
           <h3 className="text-sm font-bold text-ink-800">Configuración general</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -860,7 +872,7 @@ function DefontanaTab() {
               <label className="block text-xs font-semibold text-ink-600 mb-1">Centro de costo por defecto</label>
               <p className="text-xs text-ink-400 mb-1.5">Fallback cuando el empleado o ítem no tienen centro asignado</p>
               <select value={costCenter} onChange={e => setCostCenter(e.target.value)}
-                className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600">
+                className="campo w-full">
                 <option value="">— Sin centro por defecto —</option>
                 {costCenters.map(cc => (
                   <option key={cc.id} value={cc.id}>{cc.id} — {cc.descripcion}</option>
@@ -949,11 +961,11 @@ function DefontanaTab() {
             </p>
           </div>
 
-          {cfgError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{cfgError}</div>}
-          {cfgSaved && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-item p-3">✓ Configuración guardada</div>}
+          {cfgError && <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">{cfgError}</div>}
+          {cfgSaved && <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">✓ Configuración guardada</div>}
 
           <button type="submit" disabled={cfgSaving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
+            className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm">
             <Check size={14} />
             {cfgSaving ? 'Guardando…' : 'Guardar configuración'}
           </button>
@@ -962,12 +974,12 @@ function DefontanaTab() {
 
       {/* ── Mapeo de proveedores (merchant → cuenta) ── */}
       {suppLoading ? <Spinner /> : (
-        <div className="bg-white rounded-card shadow-card p-5 space-y-4">
+        <div className="hoja p-5 space-y-4">
           <div>
             <h3 className="text-sm font-bold text-ink-800">Mapeo de proveedores</h3>
             <p className="text-xs text-ink-400 mt-0.5">
               Si un proveedor específico siempre va a una cuenta distinta a la de su categoría, defínelo aquí.
-              Ejemplo: "COPEC" siempre va a Combustibles aunque el gasto esté en "Viajes".
+              Ejemplo: «COPEC» siempre va a Combustibles aunque el gasto esté en «Viajes».
             </p>
           </div>
 
@@ -982,10 +994,10 @@ function DefontanaTab() {
                   <button
                     onClick={() => handleDeleteSupplier(s.id)}
                     disabled={suppDeleting === s.id}
-                    className="p-1.5 text-ink-300 hover:text-rose-600 rounded-item hover:bg-rose-50 transition-colors disabled:opacity-50"
+                    className="p-1.5 text-ink-300 hover:text-danger-600 rounded-item hover:bg-danger-50 transition-colors disabled:opacity-50"
                   >
                     {suppDeleting === s.id
-                      ? <div className="w-3.5 h-3.5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                      ? <div className="w-3.5 h-3.5 border-2 border-danger-400 border-t-transparent rounded-full animate-spin" />
                       : <Trash2 size={14} />}
                   </button>
                 </div>
@@ -998,16 +1010,16 @@ function DefontanaTab() {
               <label className="block text-xs font-semibold text-ink-500 mb-1">Proveedor / Comercio</label>
               <input type="text" value={newMerchant} onChange={e => setNewMerchant(e.target.value)}
                 placeholder="COPEC" required
-                className="w-full border border-ink-200 rounded-item px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                className="campo w-full px-2.5" />
             </div>
             <div className="w-36">
               <label className="block text-xs font-semibold text-ink-500 mb-1">Cuenta Defontana</label>
               <input type="text" value={newCode} onChange={e => setNewCode(e.target.value)}
                 placeholder="4.5.1030.10.13" required
-                className="w-full border border-ink-200 rounded-item px-2.5 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600" />
+                className="campo w-full px-2.5 font-mono-amount" />
             </div>
             <button type="submit" disabled={suppSaving || !newMerchant.trim() || !newCode.trim()}
-              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors shrink-0">
+              className="btn-primario px-4 py-2 text-sm shrink-0">
               {suppSaving ? '…' : '+ Agregar'}
             </button>
           </form>
@@ -1016,7 +1028,7 @@ function DefontanaTab() {
 
       {/* ── Mapeo de cuentas por categoría ── */}
       {catLoading ? <Spinner /> : (
-        <div className="bg-white rounded-card shadow-card p-5 space-y-3">
+        <div className="hoja p-5 space-y-3">
           <div>
             <h3 className="text-sm font-bold text-ink-800">Cuentas por categoría de gasto</h3>
             <p className="text-xs text-ink-400 mt-0.5">
@@ -1028,7 +1040,7 @@ function DefontanaTab() {
           <div className="space-y-2">
             {categories.map(cat => {
               const Icon = getIconByKey(cat.icon)
-              const bg   = cat.color ?? '#8A95AD'
+              const bg   = cat.color ?? NEUTRAL.muted
               return (
                 <div key={cat.id} className="flex items-center gap-3 py-2 border-b border-ink-50 last:border-0">
                   <span className="w-8 h-8 rounded-item flex items-center justify-center shrink-0"
@@ -1046,13 +1058,13 @@ function DefontanaTab() {
                       onChange={e => setCatCodes(prev => ({ ...prev, [cat.id]: e.target.value }))}
                       onBlur={() => handleSaveCatCode(cat.id)}
                       placeholder="4.x.xxx"
-                      className="w-28 border border-ink-200 rounded-item px-2.5 py-1.5 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo w-28 px-2.5 py-1.5 font-mono-amount"
                     />
                     {savingCat === cat.id && (
                       <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
                     )}
                     {savingCat !== cat.id && catCodes[cat.id] && (
-                      <Check size={14} className="text-emerald-500" />
+                      <Check size={14} className="text-success-500" />
                     )}
                   </div>
                 </div>
@@ -1110,13 +1122,13 @@ function LimitsTab() {
     <section className="space-y-4">
       <div>
         <h2 className="text-base font-display font-bold text-ink-900">Límites de gasto</h2>
-        <p className="text-sm text-ink-500 mt-0.5">
+        <p className="text-sm tor-on-gradient-soft mt-0.5">
           Configura montos máximos para ítems y fondos. Deja en blanco para no tener límite.
           Los límites son controles duros: el sistema rechaza el gasto si se excede.
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="bg-white rounded-card shadow-card p-5 space-y-5">
+      <form onSubmit={handleSave} className="hoja p-5 space-y-5">
         <div>
           <label className="block text-sm font-semibold text-ink-700 mb-1">
             Monto máximo por ítem (CLP)
@@ -1132,7 +1144,7 @@ function LimitsTab() {
               value={maxItem}
               onChange={e => setMaxItem(e.target.value.replace(/[^\d.]/g, ''))}
               placeholder="Sin límite"
-              className="w-full max-w-xs border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full max-w-xs font-mono-amount"
             />
           </div>
           {maxItem && !isNaN(parseInt(maxItem)) && (
@@ -1157,7 +1169,7 @@ function LimitsTab() {
               value={maxFund}
               onChange={e => setMaxFund(e.target.value.replace(/[^\d.]/g, ''))}
               placeholder="Sin límite"
-              className="w-full max-w-xs border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+              className="campo w-full max-w-xs font-mono-amount"
             />
           </div>
           {maxFund && !isNaN(parseInt(maxFund)) && (
@@ -1168,10 +1180,10 @@ function LimitsTab() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-item p-3">{error}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">{error}</div>
         )}
         {saved && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-item p-3">
+          <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">
             ✓ Límites guardados correctamente
           </div>
         )}
@@ -1179,7 +1191,7 @@ function LimitsTab() {
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
+          className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm"
         >
           <Check size={14} />
           {saving ? 'Guardando…' : 'Guardar límites'}
@@ -1205,9 +1217,9 @@ function enforcementBadge(e: string | null) {
     e === 'warn'                  ? 'Aviso' :
     e === 'require_justification' ? 'Justif.' : 'Bloqueo'
   const cls =
-    e === 'warn'                  ? 'bg-amber-100 text-amber-700' :
-    e === 'require_justification' ? 'bg-orange-100 text-orange-700' :
-                                    'bg-rose-100 text-rose-600'
+    e === 'warn'                  ? 'bg-warning-100 text-warning-700' :
+    e === 'require_justification' ? 'bg-warning-100 text-warning-700' :
+                                    'bg-danger-100 text-danger-600'
   return <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cls}`}>{label}</span>
 }
 
@@ -1343,7 +1355,7 @@ function PoliciesTab() {
 
   if (loading) return <Spinner />
 
-  const inputCls = 'w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls = 'campo w-full'
   const selectCls = `${inputCls} bg-white`
 
   const dimLabels: Record<string, string> = {
@@ -1356,14 +1368,14 @@ function PoliciesTab() {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-base font-display font-bold text-ink-900">Políticas de gastos</h2>
-          <p className="text-sm text-ink-500 mt-0.5">
+          <p className="text-sm tor-on-gradient-soft mt-0.5">
             Define límites por ítem o por período. Cada política puede aplicar a toda la org, un departamento o un empleado específico.
           </p>
         </div>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold transition-colors"
+            className="btn-primario shrink-0 px-4 py-2 text-sm"
           >
             Nueva política
           </button>
@@ -1371,9 +1383,9 @@ function PoliciesTab() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSave} className="bg-white rounded-card shadow-sm p-5 space-y-4 border border-ink-100 border-t-[3px] border-t-brand-600">
+        <form onSubmit={handleSave} className="hoja p-5 space-y-4 border border-ink-100 border-t-[3px] border-t-brand-600">
           <h3 className="font-semibold text-ink-900 text-sm">{editingId ? 'Editar política' : 'Nueva política'}</h3>
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {error && <p className="text-sm text-danger-600">{error}</p>}
 
           <div>
             <label className="block text-xs font-semibold text-ink-600 mb-1">Nombre *</label>
@@ -1451,11 +1463,11 @@ function PoliciesTab() {
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={cancelForm}
-              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors">
+              className="btn-secundario flex-1 py-2 text-sm">
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors">
+              className="btn-primario flex-1 py-2 text-sm">
               {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear política'}
             </button>
           </div>
@@ -1463,7 +1475,7 @@ function PoliciesTab() {
       )}
 
       {policies.length === 0 ? (
-        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+        <div className="hoja border border-ink-100 p-8 text-center text-ink-400 text-sm">
           No hay políticas configuradas. Las políticas permiten controlar los gastos por categoría, departamento o empleado.
         </div>
       ) : (
@@ -1474,7 +1486,7 @@ function PoliciesTab() {
             const scope   = p.target_user_id ? `👤 ${empName ?? p.target_user_id}`
                           : p.department     ? `🏢 ${p.department}` : '🌐 Toda la org'
             return (
-              <div key={p.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!p.is_active ? 'opacity-50' : ''}`}>
+              <div key={p.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!p.is_active ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-ink-900">{p.name}</span>
@@ -1491,14 +1503,14 @@ function PoliciesTab() {
                 <div className="flex gap-1 shrink-0">
                   <button
                     onClick={() => handleToggle(p.id, !p.is_active)}
-                    className={`px-2 py-1 rounded-item text-xs font-semibold transition-colors ${p.is_active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'}`}
+                    className={`px-2 py-1 rounded-item text-xs font-semibold transition-colors ${p.is_active ? 'bg-success-100 text-success-700 hover:bg-success-200' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'}`}
                   >
                     {p.is_active ? 'Activa' : 'Inactiva'}
                   </button>
                   <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors">
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-danger-600 transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -1548,6 +1560,8 @@ function ViaticosTab() {
     setLoading(false)
   }
 
+  /* Carga inicial. */
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   function startEdit(p: TravelPolicy) {
@@ -1590,22 +1604,22 @@ function ViaticosTab() {
     await load()
   }
 
-  const inputCls   = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm focus:outline-none focus:ring-2 focus:ring-brand-600'
-  const selectCls  = 'w-full px-3 py-2.5 border border-ink-200 rounded-item text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600'
+  const inputCls   = 'campo w-full py-2.5'
+  const selectCls  = 'campo w-full py-2.5'
 
   if (loading) return <Spinner />
 
   return (
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs text-ink-400">
+        <p className="text-xs tor-on-gradient-soft">
           Las políticas de viáticos definen montos máximos por categoría y tipo de destino.
           El empleado ve un indicador en tiempo real al ingresar un gasto que supere el límite.
         </p>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-item transition-all active:scale-[.97]"
+            className="btn-primario shrink-0 px-4 py-2 text-sm"
           >
             + Nueva política
           </button>
@@ -1613,7 +1627,7 @@ function ViaticosTab() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-card p-4 space-y-3 border border-ink-100">
+        <form onSubmit={handleSubmit} className="hoja p-4 space-y-3 border border-ink-100">
           <h3 className="font-semibold text-ink-800 text-sm">
             {editingId ? 'Editar política' : 'Nueva política de viáticos'}
           </h3>
@@ -1699,11 +1713,11 @@ function ViaticosTab() {
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={cancelForm}
-              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors">
+              className="btn-secundario flex-1 py-2 text-sm">
               Cancelar
             </button>
             <button type="submit" disabled={saving || !form.name.trim() || form.max_amount <= 0}
-              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors">
+              className="btn-primario flex-1 py-2 text-sm">
               {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear política'}
             </button>
           </div>
@@ -1711,7 +1725,7 @@ function ViaticosTab() {
       )}
 
       {policies.length === 0 ? (
-        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+        <div className="hoja border border-ink-100 p-8 text-center text-ink-400 text-sm">
           Sin políticas de viáticos. Crea una para que los empleados vean indicadores de límite al registrar gastos.
         </div>
       ) : (
@@ -1720,7 +1734,7 @@ function ViaticosTab() {
             const catName  = categories.find(c => c.id === p.category_id)?.name
             const destLabel = DEST_TYPE_OPTS.find(o => o.value === p.destination_type)?.label ?? 'Todos los destinos'
             return (
-              <div key={p.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!p.activo ? 'opacity-50' : ''}`}>
+              <div key={p.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!p.activo ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-ink-900">{p.name}</span>
@@ -1732,13 +1746,13 @@ function ViaticosTab() {
                   </p>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.activo ? 'bg-success-100 text-success-700' : 'bg-ink-100 text-ink-500'}`}>
                     {p.activo ? 'Activa' : 'Inactiva'}
                   </span>
                   <button onClick={() => startEdit(p)} className="p-1.5 text-ink-400 hover:text-brand-600 transition-colors">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors">
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-ink-400 hover:text-danger-600 transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -1813,7 +1827,7 @@ function WebhooksTab() {
     <section className="space-y-4">
       <div>
         <h3 className="text-base font-semibold text-ink-900 mb-1">Webhooks salientes</h3>
-        <p className="text-sm text-ink-500">
+        <p className="text-sm tor-on-gradient-soft">
           Envía notificaciones automáticas a sistemas externos cuando ocurran eventos.
           La firma HMAC-SHA256 va en el header{' '}
           <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">X-Signature-SHA256</code>.
@@ -1822,18 +1836,18 @@ function WebhooksTab() {
 
       {/* Lista de webhooks existentes */}
       {hooks.length === 0 ? (
-        <div className="bg-white rounded-card shadow-sm border border-ink-100 p-8 text-center text-ink-400 text-sm">
+        <div className="hoja border border-ink-100 p-8 text-center text-ink-400 text-sm">
           Sin webhooks configurados. Agrega uno para recibir notificaciones en tus sistemas externos.
         </div>
       ) : (
         <div className="space-y-2">
           {hooks.map(hook => (
-            <div key={hook.id} className={`bg-white rounded-card shadow-sm border border-ink-100 p-4 flex gap-3 items-start ${!hook.activo ? 'opacity-50' : ''}`}>
+            <div key={hook.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!hook.activo ? 'opacity-50' : ''}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Link2 size={14} className="text-ink-400 shrink-0" />
                   <span className="font-mono text-sm text-ink-900 break-all">{hook.url}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${hook.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${hook.activo ? 'bg-success-100 text-success-700' : 'bg-ink-100 text-ink-500'}`}>
                     {hook.activo ? 'Activo' : 'Inactivo'}
                   </span>
                 </div>
@@ -1847,7 +1861,7 @@ function WebhooksTab() {
               </div>
               <button
                 onClick={() => handleDelete(hook.id)}
-                className="p-1.5 text-ink-400 hover:text-rose-600 transition-colors shrink-0"
+                className="p-1.5 text-ink-400 hover:text-danger-600 transition-colors shrink-0"
                 title="Eliminar webhook"
               >
                 <Trash2 size={14} />
@@ -1861,7 +1875,7 @@ function WebhooksTab() {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-item text-sm font-semibold transition-colors"
+          className="btn-primario px-4 py-2 text-sm"
         >
           + Agregar webhook
         </button>
@@ -1869,11 +1883,11 @@ function WebhooksTab() {
 
       {/* Formulario para agregar nuevo webhook */}
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white rounded-card shadow-sm border border-ink-100 p-5 space-y-4">
+        <form onSubmit={handleCreate} className="hoja border border-ink-100 p-5 space-y-4">
           <h4 className="font-semibold text-sm text-ink-900">Nuevo webhook</h4>
 
           {error && (
-            <div className="flex items-center gap-2 text-rose-600 text-sm bg-rose-50 p-3 rounded-item">
+            <div className="flex items-center gap-2 text-danger-600 text-sm bg-danger-50 p-3 rounded-item">
               <AlertTriangle size={14} />
               {error}
             </div>
@@ -1887,7 +1901,7 @@ function WebhooksTab() {
               onChange={e => setUrl(e.target.value)}
               required
               placeholder="https://tuapp.com/webhook"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -1899,7 +1913,7 @@ function WebhooksTab() {
               onChange={e => setSecret(e.target.value)}
               required
               placeholder="Mínimo 16 caracteres recomendados"
-              className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="campo w-full"
             />
           </div>
 
@@ -1925,14 +1939,14 @@ function WebhooksTab() {
             <button
               type="button"
               onClick={() => { setShowForm(false); setError(null); setUrl(''); setSecret(''); setEvents([]) }}
-              className="flex-1 py-2 border border-ink-200 rounded-item text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors"
+              className="btn-secundario flex-1 py-2 text-sm"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving || !url.trim() || !secret.trim() || events.length === 0}
-              className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-item text-sm font-semibold transition-colors"
+              className="btn-primario flex-1 py-2 text-sm"
             >
               {saving ? 'Guardando...' : 'Crear webhook'}
             </button>

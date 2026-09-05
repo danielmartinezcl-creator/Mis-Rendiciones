@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Wallet, Plus, Filter, Trash2, SendHorizontal } from 'lucide-react'
-import { FundStatusBadge } from '@/components/petty-cash/FundStatusBadge'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { FUND_STEPS } from '@/lib/constants'
 import { formatPeriod } from '@/lib/petty-cash-helpers'
@@ -70,7 +70,7 @@ export function FundList({
         {filtered.map(f => (
           <div key={f.id} className="bg-white rounded-item border border-ink-100 hover:border-brand-200 transition-colors flex items-center">
             <Link href={`/petty-cash/${f.id}`} className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
-              <FundStatusBadge status={f.status} />
+              <InsigniaEstado tipo="fondo" estado={f.status} />
               <div className="flex-1 min-w-0">
                 <p className="text-[16px] leading-snug font-semibold text-ink-800">{f.name}</p>
                 <p className="card-meta text-ink-400">
@@ -89,7 +89,7 @@ export function FundList({
                 <button
                   onClick={() => openTransferModal({ fundId: f.id, defaultAmount: f.amount_approved ?? f.amount_requested, payerEmpId: f.employee_id })}
                   title="Registrar traspaso"
-                  className="px-2.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                  className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
                 >
                   <SendHorizontal size={14} />
                 </button>
@@ -97,7 +97,7 @@ export function FundList({
                   onClick={() => handleDeleteFund(f.id, f.name)}
                   disabled={deletingId === f.id}
                   title="Eliminar fondo"
-                  className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-item"
+                  className="px-3 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-r-item"
                 >
                   {deletingId === f.id ? <span className="text-xs">...</span> : <Trash2 size={15} />}
                 </button>
@@ -113,7 +113,7 @@ export function FundList({
   return (
     <div className="space-y-2">
       {filtered.map(f => (
-        <div key={f.id} className="bg-white rounded-card shadow-card border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex items-stretch">
+        <div key={f.id} className="hoja border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-stretch">
           <Link
             href={`/petty-cash/${f.id}`}
             className="flex-1 block p-4"
@@ -122,7 +122,7 @@ export function FundList({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-ink-900 truncate">{f.name}</p>
-                  <FundStatusBadge status={f.status} />
+                  <InsigniaEstado tipo="fondo" estado={f.status} />
                 </div>
                 <p className="card-meta text-ink-500 mt-1">
                   Empleado: <span className="font-medium text-ink-700">{f.employee_name}</span>
@@ -145,7 +145,7 @@ export function FundList({
             </div>
           </Link>
           {isManager && (
-            <div className="flex items-stretch border-l border-ink-100">
+            <div className="flex items-stretch justify-end border-t border-ink-100 sm:border-t-0 sm:border-l">
               <button
                 onClick={() => openTransferModal({
                   fundId:        f.id,
@@ -153,7 +153,7 @@ export function FundList({
                   payerEmpId:    f.employee_id,
                 })}
                 title="Registrar traspaso a otro empleado"
-                className="px-2.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
               >
                 <SendHorizontal size={14} />
               </button>
@@ -161,7 +161,7 @@ export function FundList({
                 onClick={() => handleDeleteFund(f.id, f.name)}
                 disabled={deletingId === f.id}
                 title="Eliminar fondo"
-                className="px-3 border-l border-ink-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 rounded-r-card"
+                className="px-3 py-2 sm:py-0 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-br-card sm:rounded-br-none sm:rounded-r-card"
               >
                 {deletingId === f.id
                   ? <span className="text-xs">...</span>

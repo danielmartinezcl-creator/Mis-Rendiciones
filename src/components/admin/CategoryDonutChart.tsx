@@ -2,20 +2,11 @@
 
 import { useState } from 'react'
 import type { CategoryBreakdownItem } from '@/actions/admin'
+import { CHART_SERIES, NEUTRAL } from '@/lib/design-tokens'
 
-// Paleta de 10 colores que complementa el design system (brand violeta + accent teal + 8 más)
-const PALETTE = [
-  '#4A50A0', // brand-600 violeta
-  '#3DBAB5', // accent teal
-  '#F59E0B', // ámbar
-  '#EF4444', // rojo
-  '#8B5CF6', // violeta claro
-  '#10B981', // esmeralda
-  '#F97316', // naranja
-  '#EC4899', // rosa
-  '#06B6D4', // cyan
-  '#84CC16', // lima
-]
+// El SVG recibe los colores como strings, así que no puede usar variables CSS.
+// Por eso salen de design-tokens.ts y no de globals.css.
+const PALETTE = CHART_SERIES
 
 interface Props {
   data: CategoryBreakdownItem[]
@@ -41,7 +32,7 @@ export function CategoryDonutChart({ data }: Props) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-card shadow-card p-6 flex flex-col items-center justify-center min-h-[200px] text-ink-400">
+      <div className="hoja p-6 flex flex-col items-center justify-center min-h-[200px] text-ink-400">
         <p className="text-sm">No hay gastos aprobados para mostrar</p>
       </div>
     )
@@ -74,7 +65,7 @@ export function CategoryDonutChart({ data }: Props) {
   const cx = 90, cy = 90, rOuter = 78, rInner = 50
 
   return (
-    <div className="bg-white rounded-card shadow-card p-5 space-y-4">
+    <div className="hoja p-5 space-y-4">
       <div>
         <h2 className="font-display font-bold text-lg text-ink-900">Gastos por categoría</h2>
         <p className="text-xs text-ink-400 mt-0.5">
@@ -110,10 +101,10 @@ export function CategoryDonutChart({ data }: Props) {
             {/* Círculo interior para el "hueco" del donut */}
             <circle cx={cx} cy={cy} r={rInner - 2} fill="white" />
             {/* Texto central */}
-            <text x={cx} y={cy - 8} textAnchor="middle" className="text-[10px] fill-ink-500" style={{ fontSize: '10px', fill: '#5B6883', fontFamily: 'sans-serif' }}>
+            <text x={cx} y={cy - 8} textAnchor="middle" className="text-[10px] fill-ink-500" style={{ fontSize: '10px', fill: NEUTRAL.axis, fontFamily: 'sans-serif' }}>
               Total aprobado
             </text>
-            <text x={cx} y={cy + 9} textAnchor="middle" style={{ fontSize: '12px', fill: '#0B1120', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>
+            <text x={cx} y={cy + 9} textAnchor="middle" style={{ fontSize: '12px', fill: NEUTRAL.figure, fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>
               {formatCLP(total)}
             </text>
           </svg>

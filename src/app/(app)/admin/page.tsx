@@ -50,8 +50,8 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display font-extrabold text-3xl tracking-tight text-ink-900">Dashboard Admin</h1>
-        <p className="text-base text-ink-500 mt-1">Vista general de rendiciones y caja chica</p>
+        <h1 className="font-display font-extrabold text-3xl tracking-tight tor-on-gradient">Dashboard Admin</h1>
+        <p className="text-base tor-on-gradient-soft mt-1">Vista general de rendiciones y caja chica</p>
       </div>
 
       {/* Hero KPI — saldo neto: cuánto debe la empresa a empleados menos lo pendiente de rendir */}
@@ -81,11 +81,11 @@ export default async function AdminPage() {
         {/* Reembolsadas — rendiciones pagadas + cajas chicas liquidadas */}
         <Link
           href="/admin/reports?status=reimbursed"
-          className="bg-white rounded-card shadow-card border-t-[3px] border-t-sky-400 p-5 hover:shadow-md transition-shadow"
+          className="hoja border-t-[3px] border-t-info-400 p-5 hover:shadow-md transition-shadow"
         >
           <p className="text-base font-medium text-ink-500 leading-tight mb-3">Reembolsadas</p>
           <p className="text-3xl font-bold text-ink-900 mb-0.5">{completedCount}</p>
-          <p className="text-base font-mono-amount font-semibold text-sky-600">
+          <p className="text-base font-mono-amount font-semibold text-info-600">
             {'$ ' + Math.round(completedAmount).toLocaleString('es-CL')}
           </p>
         </Link>
@@ -101,11 +101,11 @@ export default async function AdminPage() {
         <h2 className="text-lg font-semibold font-display text-ink-900 mb-4">Salud operacional</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Tasa de aprobación */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">Tasa aprobación</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.last30Days.approvalRate == null ? 'text-ink-300' :
-              health.last30Days.approvalRate > 80   ? 'text-teal-600' : 'text-amber-600'
+              health.last30Days.approvalRate > 80   ? 'text-accent-600' : 'text-warning-600'
             }`}>
               {health.last30Days.approvalRate != null ? `${health.last30Days.approvalRate}%` : '—'}
             </p>
@@ -113,12 +113,12 @@ export default async function AdminPage() {
           </div>
 
           {/* Tiempo promedio de aprobación */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">Tiempo promedio</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
               health.avgApprovalDays == null ? 'text-ink-300' :
-              health.avgApprovalDays < 3    ? 'text-teal-600' :
-              health.avgApprovalDays < 7    ? 'text-amber-600' : 'text-red-600'
+              health.avgApprovalDays < 3    ? 'text-accent-600' :
+              health.avgApprovalDays < 7    ? 'text-warning-600' : 'text-danger-600'
             }`}>
               {health.avgApprovalDays != null ? `${health.avgApprovalDays}d` : '—'}
             </p>
@@ -126,10 +126,10 @@ export default async function AdminPage() {
           </div>
 
           {/* En espera */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">En espera</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
-              health.last30Days.pending > 10 ? 'text-red-600' : 'text-ink-900'
+              health.last30Days.pending > 10 ? 'text-danger-600' : 'text-ink-900'
             }`}>
               {health.last30Days.pending}
             </p>
@@ -137,10 +137,10 @@ export default async function AdminPage() {
           </div>
 
           {/* Empleados sin actividad */}
-          <div className="bg-white rounded-card p-4 border border-ink-100 shadow-sm">
+          <div className="hoja p-4 border border-ink-100">
             <p className="card-meta text-ink-400 font-semibold">Sin actividad</p>
             <p className={`text-2xl font-bold font-mono-amount mt-1 ${
-              health.inactiveCount > 5 ? 'text-amber-600' : 'text-ink-900'
+              health.inactiveCount > 5 ? 'text-warning-600' : 'text-ink-900'
             }`}>
               {health.inactiveCount}
             </p>
@@ -159,7 +159,7 @@ export default async function AdminPage() {
           <Link
             key={link.href}
             href={link.href}
-            className="flex items-center gap-3 bg-white rounded-card shadow-card p-5 hover:bg-ink-50 transition-colors"
+            className="flex items-center gap-3 hoja p-5 hover:bg-ink-50 transition-colors"
           >
             <link.Icon size={20} className="text-brand-600 shrink-0" />
             <span className="text-base font-medium text-ink-800">{link.label}</span>

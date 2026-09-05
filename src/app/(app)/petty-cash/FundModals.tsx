@@ -116,10 +116,10 @@ export function FundModals({
       {/* ── Modal crear traspaso ─────────────────────────────────────────────── */}
       {transferSource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
-                <SendHorizontal size={18} className="text-violet-600" />
+                <SendHorizontal size={18} className="text-flare-600" />
                 Registrar traspaso
               </h2>
               <button onClick={() => setTransferSource(null)} className="text-ink-400 hover:text-ink-700">
@@ -140,7 +140,7 @@ export function FundModals({
                       type="button"
                       onClick={() => setTrDestMode(mode)}
                       className={[
-                        'py-1.5 rounded-[6px] text-xs font-semibold transition-colors',
+                        'py-1.5 rounded-xs text-xs font-semibold transition-colors',
                         trDestMode === mode
                           ? 'bg-white text-ink-900 shadow-sm'
                           : 'text-ink-500 hover:text-ink-700',
@@ -160,7 +160,7 @@ export function FundModals({
                     <select
                       value={trReceiverId}
                       onChange={e => handleTrReceiverChange(e.target.value)}
-                      className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="campo w-full"
                     >
                       <option value="">— Seleccionar empleado —</option>
                       {orgEmployees
@@ -186,7 +186,7 @@ export function FundModals({
                             setTrTargetId(e.target.value)
                             setTrTargetType('fund')
                           }}
-                          className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                          className="campo w-full"
                         >
                           <option value="">— Sin vincular (quedará pendiente) —</option>
                           {trTargets.filter(t => t.type === 'fund').map(t => (
@@ -212,7 +212,7 @@ export function FundModals({
                       <select
                         value={trReportId}
                         onChange={e => setTrReportId(e.target.value)}
-                        className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                        className="campo w-full"
                       >
                         <option value="">— Seleccionar rendición —</option>
                         {orgReports.map(r => (
@@ -241,7 +241,7 @@ export function FundModals({
                     value={trAmount}
                     onChange={e => setTrAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full font-mono-amount"
                   />
                 </div>
                 <div>
@@ -250,7 +250,7 @@ export function FundModals({
                     type="date"
                     value={trDate}
                     onChange={e => setTrDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full"
                   />
                 </div>
               </div>
@@ -261,25 +261,25 @@ export function FundModals({
                   value={trDesc}
                   onChange={e => setTrDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 />
               </div>
             </div>
             {trError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{trError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{trError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleCreateTransfer}
                 disabled={trSaving}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #7c3aed 100%)' }}
+                style={{ background: 'var(--cta-flare)' }}
               >
                 {trSaving ? 'Registrando…' : 'Registrar traspaso'}
               </button>
               <button
                 onClick={() => setTransferSource(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -291,7 +291,7 @@ export function FundModals({
       {/* ── Modal editar traspaso sin vincular ──────────────────────────────── */}
       {editingTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
                 <Pencil size={18} className="text-ink-600" />
@@ -307,7 +307,7 @@ export function FundModals({
                 <select
                   value={editReceiverId}
                   onChange={e => setEditReceiverId(e.target.value)}
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 >
                   <option value="">— Seleccionar empleado —</option>
                   {orgEmployees
@@ -325,7 +325,7 @@ export function FundModals({
                     value={editAmount}
                     onChange={e => setEditAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full font-mono-amount"
                   />
                 </div>
                 <div>
@@ -334,7 +334,7 @@ export function FundModals({
                     type="date"
                     value={editDate}
                     onChange={e => setEditDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="campo w-full"
                   />
                 </div>
               </div>
@@ -345,25 +345,25 @@ export function FundModals({
                   value={editDesc}
                   onChange={e => setEditDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 />
               </div>
             </div>
             {editError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{editError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{editError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleSaveEditTransfer}
                 disabled={editSaving}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #0D9488 100%)' }}
+                style={{ background: 'var(--cta-accent)' }}
               >
                 {editSaving ? 'Guardando…' : 'Guardar cambios'}
               </button>
               <button
                 onClick={() => setEditingTransfer(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -375,17 +375,17 @@ export function FundModals({
       {/* ── Modal editar traspaso VINCULADO ─────────────────────────────────── */}
       {editingLinkedTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
-                <ArrowRightLeft size={18} className="text-violet-600" />
+                <ArrowRightLeft size={18} className="text-flare-600" />
                 Editar traspaso vinculado
               </h2>
               <button onClick={() => setEditingLinkedTransfer(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            <div className="bg-violet-50 border border-violet-100 rounded-item px-3 py-2 text-xs text-violet-800">
+            <div className="bg-flare-50 border border-flare-100 rounded-item px-3 py-2 text-xs text-flare-800">
               Los cambios se aplicarán en ambos lados del traspaso (fondo pagador y fondo receptor).
             </div>
             <div className="space-y-3">
@@ -397,7 +397,7 @@ export function FundModals({
                     value={editLinkedAmount}
                     onChange={e => setEditLinkedAmount(e.target.value)}
                     min="1"
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm font-mono-amount focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="campo w-full font-mono-amount focus:ring-flare-500"
                   />
                 </div>
                 <div>
@@ -406,7 +406,7 @@ export function FundModals({
                     type="date"
                     value={editLinkedDate}
                     onChange={e => setEditLinkedDate(e.target.value)}
-                    className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="campo w-full focus:ring-flare-500"
                   />
                 </div>
               </div>
@@ -417,25 +417,25 @@ export function FundModals({
                   value={editLinkedDesc}
                   onChange={e => setEditLinkedDesc(e.target.value)}
                   placeholder="Motivo del traspaso…"
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="campo w-full focus:ring-flare-500"
                 />
               </div>
             </div>
             {editLinkedError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{editLinkedError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{editLinkedError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleSaveEditLinked}
                 disabled={editLinkedSaving}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #12152E 0%, #7C3AED 100%)' }}
+                style={{ background: 'var(--cta-flare)' }}
               >
                 {editLinkedSaving ? 'Guardando…' : 'Guardar cambios'}
               </button>
               <button
                 onClick={() => setEditingLinkedTransfer(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -447,24 +447,24 @@ export function FundModals({
       {/* ── Modal vincular traspaso ──────────────────────────────────────────── */}
       {linkingTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-card shadow-2xl w-full max-w-md p-6 space-y-4">
+          <div className="hoja shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg text-ink-900 flex items-center gap-2">
-                <Link2 size={18} className="text-amber-600" />
+                <Link2 size={18} className="text-warning-600" />
                 Vincular traspaso
               </h2>
               <button onClick={() => setLinkingTransfer(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-item px-3 py-2 text-xs text-amber-800 space-y-0.5">
+            <div className="bg-warning-50 border border-warning-100 rounded-item px-3 py-2 text-xs text-warning-800 space-y-0.5">
               <p><span className="font-semibold">De:</span> {linkingTransfer.payer_employee_name}
                 {linkingTransfer.payer_fund_name && ` · ${linkingTransfer.payer_fund_name}`}
                 {linkingTransfer.payer_report_title && ` · ${linkingTransfer.payer_report_title}`}
               </p>
               <p><span className="font-semibold">Para:</span> {linkingTransfer.receiver_employee_name}</p>
               <p><span className="font-semibold">Monto:</span> {fmtCLP(linkingTransfer.amount)} · {linkingTransfer.date}</p>
-              {linkingTransfer.description && <p className="text-amber-600 italic">{linkingTransfer.description}</p>}
+              {linkingTransfer.description && <p className="text-warning-600 italic">{linkingTransfer.description}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">
@@ -473,7 +473,7 @@ export function FundModals({
               {loadingTargets ? (
                 <p className="text-xs text-ink-400 py-2">Cargando fondos…</p>
               ) : linkTargets.length === 0 ? (
-                <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">
+                <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">
                   No hay fondos ni rendiciones disponibles para este empleado.
                 </p>
               ) : (
@@ -484,7 +484,7 @@ export function FundModals({
                     const target = linkTargets.find(t => t.id === e.target.value)
                     if (target) setLinkTargetType(target.type)
                   }}
-                  className="w-full border border-ink-200 rounded-item px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  className="campo w-full"
                 >
                   <option value="">— Seleccionar destino —</option>
                   {linkTargets.map(t => (
@@ -496,20 +496,20 @@ export function FundModals({
               )}
             </div>
             {linkError && (
-              <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-item">{linkError}</p>
+              <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-item">{linkError}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleLinkTransfer}
                 disabled={linkSaving || !linkTargetId || loadingTargets}
                 className="flex-1 py-2 text-sm font-bold text-white rounded-item disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(130deg, #92400e 0%, #d97706 100%)' }}
+                style={{ background: 'var(--cta-warning)' }}
               >
                 {linkSaving ? 'Vinculando…' : 'Vincular traspaso'}
               </button>
               <button
                 onClick={() => setLinkingTransfer(null)}
-                className="px-4 py-2 text-sm font-medium text-ink-600 border border-ink-200 rounded-item hover:bg-ink-50 transition-colors"
+                className="btn-secundario px-4 py-2 text-sm"
               >
                 Cancelar
               </button>

@@ -80,51 +80,51 @@ export default function NewExpensePage() {
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-ink-800">Nueva rendición</h1>
-        <p className="text-sm text-ink-500 mt-1">
+        <h1 className="text-xl font-bold tor-on-gradient">Nueva rendición</h1>
+        <p className="text-sm tor-on-gradient-soft mt-1">
           Primero dale un nombre, después vas a agregar los ítems con fotos
         </p>
       </div>
 
       {/* Banner de borrador guardado */}
       {draft && (
-        <div className="flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-card p-4">
-          <RotateCcw size={16} className="text-teal-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 bg-accent-50 border border-accent-200 rounded-card p-4">
+          <RotateCcw size={16} className="text-accent-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="card-eyebrow text-teal-800">Borrador guardado</p>
-            <p className="card-meta text-teal-600 mt-0.5">
+            <p className="card-eyebrow text-accent-800">Borrador guardado</p>
+            <p className="card-meta text-accent-600 mt-0.5">
               &ldquo;{draft.title}&rdquo; · {draftDate}
             </p>
             <div className="flex gap-2 mt-2">
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="card-meta px-3 py-2 bg-teal-600 text-white rounded-item font-semibold hover:bg-teal-700 transition-colors"
+                className="card-meta px-3 py-2 bg-accent-600 text-white rounded-item font-semibold hover:bg-accent-700 transition-colors"
               >
                 Restaurar
               </button>
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="card-meta px-3 py-2 border border-teal-300 text-teal-700 rounded-item font-semibold hover:bg-teal-100 transition-colors"
+                className="card-meta px-3 py-2 border border-accent-300 text-accent-700 rounded-item font-semibold hover:bg-accent-100 transition-colors"
               >
                 Descartar
               </button>
             </div>
           </div>
-          <button type="button" onClick={handleDiscardDraft} className="text-teal-400 hover:text-teal-600">
+          <button type="button" onClick={handleDiscardDraft} className="text-accent-400 hover:text-accent-600">
             <X size={14} />
           </button>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 card-label rounded-item p-3">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 card-label rounded-item p-3">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-card shadow-[0_1px_4px_rgba(0,0,0,.08)] border-t-[3px] border-t-brand-600 p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="hoja border-t-[3px] border-t-brand-600 p-5 space-y-4">
         <div>
           <label htmlFor="title" className="block card-label font-semibold text-ink-700 mb-1">
             Nombre de la rendición *
@@ -142,7 +142,7 @@ export default function NewExpensePage() {
             // mayúscula. Ataca el problema en el origen, en vez de corregir
             // después con formatDisplayTitle.
             autoCapitalize="sentences"
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600"
+            className="campo w-full py-2.5 text-[16px]"
           />
           <p className="card-meta text-ink-400 mt-1">
             Escribilo como una frase normal — evitá las mayúsculas completas
@@ -160,7 +160,7 @@ export default function NewExpensePage() {
             value={description}
             onChange={e => setDesc(e.target.value)}
             placeholder="Contexto adicional para quien aprueba..."
-            className="w-full px-3 py-2.5 border border-ink-200 rounded-item text-[16px] focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+            className="campo w-full py-2.5 text-[16px] resize-none"
           />
         </div>
 
@@ -169,14 +169,14 @@ export default function NewExpensePage() {
             type="button"
             onClick={() => router.back()}
             disabled={loading}
-            className="flex-1 py-3 px-4 border border-ink-200 rounded-item card-label font-semibold text-ink-600 hover:bg-ink-50 disabled:opacity-50"
+            className="btn-secundario flex-1 py-3 px-4 card-label"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={loading || !title.trim()}
-            className="flex-1 py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-item card-label font-semibold disabled:opacity-50 transition-colors"
+            className="btn-primario flex-1 py-3 px-4 card-label"
           >
             {loading ? 'Creando...' : 'Crear rendición →'}
           </button>

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { formatDate, formatCLP } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 
 interface ReportItem {
   description:  string
