@@ -124,6 +124,13 @@ export default defineConfig({
        contextOptions. Importa: globals.css tiene un bloque
        @media (prefers-reduced-motion: reduce) que apaga las transiciones. */
     contextOptions: { reducedMotion: 'reduce' },
+    /* Ningún service worker se registra en las corridas del arnés.
+       Hoy la app no tiene uno, así que esto no cambia nada — está puesto de
+       antemano: el día que se adopte `@serwist/turbopack`, un caché entre el
+       servidor y la captura volvería no determinista la comparación píxel a
+       píxel, que es justo lo que este arnés existe para evitar. Con esto, esa
+       adopción deja de ser un riesgo para la línea base. */
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'off',
     video: 'off',
