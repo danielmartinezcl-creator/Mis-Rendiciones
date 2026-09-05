@@ -123,7 +123,7 @@ export default function AdminSettingsPage() {
       <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Configuración</h1>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 bg-ink-100 p-1 rounded-item w-fit">
+      <div className="flex flex-wrap gap-1 bg-ink-100 p-1 rounded-item w-fit max-w-full">
         {([
           { id: 'categories', label: 'Categorías' },
           { id: 'employees',  label: 'Empleados' },

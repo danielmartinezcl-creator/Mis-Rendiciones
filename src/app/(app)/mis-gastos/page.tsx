@@ -73,7 +73,15 @@ export default async function MisGastosPage() {
             <BarChart3 size={16} className="text-accent-600" />
             <h2 className="text-sm font-semibold text-ink-700">Gastos por mes</h2>
           </div>
-          <div className="flex items-end gap-1.5 h-32">
+          {/* El gráfico scrollea en SU contenedor; el cuerpo de la página no.
+              Las 12 columnas no pueden encogerse —la etiqueta del mes lleva
+              `whitespace-nowrap` y fija un ancho mínimo—, así que en 390 px la
+              fila medía 430 y empujaba la pantalla entera 40 px a la derecha.
+              Un año de barras es contenido ancho de verdad: acá el
+              desplazamiento lateral es la respuesta correcta, a diferencia de
+              unas pestañas, donde esconder opciones sería peor. */}
+          <div className="overflow-x-auto -mx-1 px-1">
+          <div className="flex items-end gap-1.5 h-32 min-w-max">
             {months.map(m => {
               const val  = monthTotals[m]
               const pct  = maxMonth > 0 ? (val / maxMonth) * 100 : 0
@@ -99,6 +107,7 @@ export default async function MisGastosPage() {
             })}
           </div>
         </div>
+          </div>
       ) : (
         <div className="hoja p-12 text-center">
           <TrendingUp size={36} className="mx-auto mb-3 text-ink-200" />

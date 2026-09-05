@@ -94,7 +94,7 @@ export function TrashClient({ initialItems }: Props) {
       ) : (
         <>
           {/* Tabs */}
-          <div className="flex gap-1 bg-ink-100 p-1 rounded-item w-fit">
+          <div className="flex flex-wrap gap-1 bg-ink-100 p-1 rounded-item w-fit max-w-full">
             {tabs.map(t => (
               <button
                 key={t.id}

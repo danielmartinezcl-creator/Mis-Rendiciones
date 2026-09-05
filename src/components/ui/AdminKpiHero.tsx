@@ -26,7 +26,11 @@ interface AdminKpiHeroProps {
 const colorMap: Record<NonNullable<SecondaryMetric['color']>, string> = ON_DARK
 
 function fmtCLP(n: number): string {
-  return '$ ' + Math.round(n).toLocaleString('es-CL')
+  /* Espacio DURO entre el signo y las cifras. Con el espacio normal, en un
+     teléfono de 390 px el navegador partía «$ 1.662.564» en dos renglones:
+     el signo arriba y el número abajo. Un espacio normal es un punto de
+     corte válido; éste no lo es. */
+  return '$ ' + Math.round(n).toLocaleString('es-CL')
 }
 
 export function AdminKpiHero({
@@ -63,9 +67,11 @@ export function AdminKpiHero({
           </p>
         </div>
 
-        {/* Métricas secundarias */}
+        {/* Métricas secundarias. `flex-wrap`: si las dos no entran lado a
+            lado, se apilan. Apilar es siempre mejor que apretar una cifra
+            hasta romperla, que es lo que pasaba en 390 px. */}
         {secondary.length > 0 && (
-          <div className="flex gap-8">
+          <div className="flex flex-wrap gap-x-8 gap-y-4">
             {secondary.map((s, i) => (
               <div key={i}>
                 <p className="card-label" style={{ color: 'rgba(255,255,255,.55)', marginBottom: 4 }}>

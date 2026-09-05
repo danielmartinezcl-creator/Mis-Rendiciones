@@ -55,6 +55,54 @@ async function esperarDomQuieto(page: Page, limite = 15_000) {
   }
 }
 
+/**
+ * Ninguna pantalla puede empujar la página a lo ancho.
+ *
+ * **La captura de pantalla NO puede ver esto.** `fullPage` crece a lo alto,
+ * pero lo que se sale por el costado queda fuera del cuadro: la línea base
+ * daba verde con /admin/settings desbordando 485 px. Lo encontró Daniel en su
+ * teléfono, no el arnés.
+ *
+ * Las cuatro causas que había, por si vuelven a aparecer:
+ *   · `flex` + `w-fit` sin `flex-wrap` — una fila de pestañas que no entra
+ *   · `shrink-0` junto a `flex-wrap` EN EL MISMO elemento: se cancelan, porque
+ *     el ítem se niega a encoger y sus hijos nunca necesitan envolver
+ *   · contenido genuinamente ancho (un gráfico de 12 meses) sin
+ *     `overflow-x-auto` propio
+ *   · `whitespace-nowrap` en una etiqueta, que le fija un piso de ancho a una
+ *     columna `flex-1` que se creía encogible
+ *
+ * La regla del sistema: lo ancho scrollea en SU contenedor; el cuerpo de la
+ * página, nunca.
+ */
+async function sinDesbordeHorizontal(page: Page, ruta: string) {
+  const r = await page.evaluate(() => {
+    const ancho = document.documentElement.clientWidth
+    const desborde = document.documentElement.scrollWidth - ancho
+    if (desborde <= 1) return null
+    const culpables: string[] = []
+    for (const e of document.querySelectorAll('*')) {
+      const c = e.getBoundingClientRect()
+      if (c.right > ancho + 1 && c.width > 30) {
+        const hijoTambien = [...e.children].some(h => h.getBoundingClientRect().right > ancho + 1)
+        if (!hijoTambien) {
+          const txt = (e.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 28)
+          culpables.push(`<${e.tagName.toLowerCase()}> borde en ${Math.round(c.right)}px «${txt}» — ${(e.className?.toString?.() ?? '').slice(0, 55)}`)
+        }
+      }
+    }
+    return { ancho, desborde, culpables: culpables.slice(0, 3) }
+  })
+
+  const detalle = (r?.culpables ?? []).join("\n  ")
+  expect(
+    r,
+    `${ruta} empuja la página ${r?.desborde}px a lo ancho (viewport ${r?.ancho}px).` +
+    `\nLo ancho scrollea en su propio contenedor; el cuerpo de la página nunca.` +
+    `\n  ${detalle}`,
+  ).toBeNull()
+}
+
 async function capturar(page: Page, slug: string, mascaras: string[] = []) {
   await expect(page).toHaveScreenshot(`${slug}.png`, {
     fullPage: true,
@@ -99,6 +147,7 @@ for (const ruta of RUTAS_ESTATICAS) {
     expect(page.url(), `${ruta.path} redirigió al login — sesión perdida`).not.toContain('/login')
 
     await estabilizar(page)
+    await sinDesbordeHorizontal(page, ruta.path)
     await capturar(page, ruta.slug, ruta.mascaras)
   })
 }

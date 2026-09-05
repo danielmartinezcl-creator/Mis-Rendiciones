@@ -481,7 +481,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           <h1 className="text-xl font-bold tor-on-gradient">Rendiciones</h1>
           <p className="text-sm tor-on-gradient-soft mt-0.5">{filtered.length} de {reports.length} resultado{reports.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex gap-2 shrink-0 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => handleExport('xlsx')}
             disabled={!!exporting || filtered.length === 0}
