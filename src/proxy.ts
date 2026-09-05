@@ -23,7 +23,22 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  /* `getUser()` LANZA cuando el token de refresco caducó, y el proxy corre
+     antes que todo: no hay frontera de error que lo atrape, así que la persona
+     veía un 500 en vez del login. En producción pasó 6 veces en una semana con
+     UN solo usuario activo; con 54 dejando la pestaña abierta de un día para
+     el otro, es un llamado de soporte por día.
+
+     Un token vencido no es una falla del sistema: es exactamente lo que
+     significa «tu sesión expiró». Se trata como sesión ausente y sigue el
+     mismo camino de siempre — redirección al login. */
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    user = null
+  }
 
   const { pathname } = request.nextUrl
 
