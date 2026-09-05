@@ -317,6 +317,10 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
 
 export function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onRevertContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
+  /* La sección entera arranca plegada. Son 76 cargas importadas: 2.390 px de
+     encabezados, el 54% de una pantalla cuyo contenido son 4 fondos vivos.
+     Es archivo — se abre cuando se lo va a consultar. */
+  const [abierto,         setAbierto]         = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     // Todos los grupos inician colapsados
     const keys = new Set<string>()
@@ -444,20 +448,30 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
     <div className="mt-6 space-y-4">
       <div className="flex items-center gap-2">
         <History size={15} className="text-white/60" />
-        <h2 className="text-sm font-semibold text-ink-600">Carga histórica</h2>
-        <span className="text-xs tor-on-gradient-soft">({imports.length})</span>
         <button
-          onClick={toggleAllGroups}
-          className="ml-auto text-xs text-white/70 hover:text-white border border-white/25 rounded-item px-2.5 py-1 transition-colors flex items-center gap-1.5"
+          onClick={() => setAbierto(a => !a)}
+          aria-expanded={abierto}
+          className="flex items-center gap-2 text-left"
         >
-          {allCollapsed
-            ? <><ChevronDown size={12} /> Expandir todo</>
-            : <><ChevronRight size={12} /> Contraer todo</>
-          }
+          <span className="section-title">Carga histórica</span>
+          <span className="text-xs tor-on-gradient-soft">({imports.length})</span>
+          {abierto ? <ChevronDown size={13} className="text-white/60" /> : <ChevronRight size={13} className="text-white/60" />}
         </button>
+
+        {abierto && (
+          <button
+            onClick={toggleAllGroups}
+            className="ml-auto text-xs text-white/70 hover:text-white border border-white/25 rounded-item px-2.5 py-1 transition-colors flex items-center gap-1.5"
+          >
+            {allCollapsed
+              ? <><ChevronDown size={12} /> Expandir todo</>
+              : <><ChevronRight size={12} /> Contraer todo</>
+            }
+          </button>
+        )}
       </div>
 
-      {groups.map(([groupKey, group]) => {
+      {abierto && groups.map(([groupKey, group]) => {
         const hasFund       = !groupKey.startsWith('__solo__')
         const fundLabel     = hasFund ? `Fondo N°${groupKey}` : null
         const isCollapsed   = collapsedGroups.has(groupKey)

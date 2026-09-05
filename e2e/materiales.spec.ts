@@ -96,6 +96,11 @@ const PANELES: Panel[] = [
      casillas por persona dejarían de auditarse. */
   { ruta: '/admin/employees',      panel: 'Permisos',       pasos: [{ boton: 'Permisos' }] },
 
+  /* Caja chica: los filtros y el archivo histórico pasaron a plegarse. Sin
+     esto, 785 px de panel de filtros y 76 cargas dejarían de auditarse. */
+  { ruta: '/petty-cash', panel: 'Filtros de lista', pasos: [{ boton: 'Filtros de lista' }] },
+  { ruta: '/petty-cash', panel: 'Carga histórica',  pasos: [{ boton: 'Carga histórica' }], condicional: true },
+
   /* Las etapas de la cola bancaria: los KPI son el control, así que solo una se
      pinta por vez y las otras dos serían punto ciego. Los botones son
      `setEtapa(...)`, estado local puro. Condicionales porque un usuario sin el
@@ -111,6 +116,10 @@ const PANELES: Panel[] = [
      agregó al grupo junto con `aria-expanded` — un control que pliega tiene que
      decir si está abierto, y no lo decía. */
   { ruta: '/petty-cash', panel: 'Carga histórica expandida', condicional: true, pasos: [
+    /* TRES niveles desde que la sección entera se pliega. Sin este primer
+       paso, los otros dos controles no existen al cargar y el camino se
+       degrada a «hueco» en silencio — que es justo lo que pasó al plegarla. */
+    { boton: 'Carga histórica' },
     { boton: 'Ver movimientos del fondo', selector: 'button[title="Ver movimientos del fondo"]' },
     { boton: 'Ver ítems',                 selector: 'button[title="Ver ítems"]' },
   ] },

@@ -242,6 +242,24 @@ Vale la pena buscar este patrón antes de suponer que una pantalla es larga por
 tener demasiado contenido: acá explicaba 93 px de los 385 de cada tarjeta, y la
 pantalla tiene 57.
 
+#### Qué proporción del alto merece cada bloque
+Medir una pantalla por bloques, no entera, dice qué rediseñar. `/petty-cash`
+repartía sus 4.404 px así:
+
+| Bloque | Alto | % |
+|---|---:|---:|
+| Filtros (siempre desplegados) | 785 px | 18% |
+| **Los 4 fondos vivos** | 913 px | **21%** |
+| Carga histórica (76 importadas) | 2.390 px | 54% |
+
+El panel para elegir pesaba casi lo mismo que lo elegido, y el archivo más que
+todo lo demás junto. La pantalla se llama «Caja Chica» y dedicaba una quinta
+parte de su alto a las cajas chicas.
+
+Ambos se pliegan, con la condición de siempre: **plegar no puede esconder que
+hay algo puesto.** El encabezado de filtros muestra «con filtro puesto» cuando
+hay uno activo; el archivo dice cuántas cargas tiene. Resultado: 5,2× → 1,5×.
+
 ### Insignias de estado
 Píldora de 9px, peso 700:
 

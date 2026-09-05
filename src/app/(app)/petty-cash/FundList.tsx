@@ -113,7 +113,7 @@ export function FundList({
   return (
     <div className="space-y-2">
       {filtered.map(f => (
-        <div key={f.id} className="hoja border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex items-stretch">
+        <div key={f.id} className="hoja border-l-4 border-l-brand-600 hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-stretch">
           <Link
             href={`/petty-cash/${f.id}`}
             className="flex-1 block p-4"
@@ -145,7 +145,7 @@ export function FundList({
             </div>
           </Link>
           {isManager && (
-            <div className="flex items-stretch border-l border-ink-100">
+            <div className="flex items-stretch justify-end border-t border-ink-100 sm:border-t-0 sm:border-l">
               <button
                 onClick={() => openTransferModal({
                   fundId:        f.id,
@@ -161,7 +161,7 @@ export function FundList({
                 onClick={() => handleDeleteFund(f.id, f.name)}
                 disabled={deletingId === f.id}
                 title="Eliminar fondo"
-                className="px-3 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-r-card"
+                className="px-3 py-2 sm:py-0 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-br-card sm:rounded-br-none sm:rounded-r-card"
               >
                 {deletingId === f.id
                   ? <span className="text-xs">...</span>

@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
-import { Filter, BarChart2, ChevronDown, Search } from 'lucide-react'
+import React, { useState } from 'react'
+import { Filter, BarChart2, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { buildPeriodRange } from '@/lib/report-helpers'
 import type { PeriodPreset } from '@/lib/report-helpers'
 import { formatCLP } from '@/lib/utils'
@@ -88,15 +88,32 @@ export function FundFilters({
   clearSearchFilters,
   fetchReportItems,
 }: FundFiltersProps) {
+  /* Los filtros ocupaban 785 px SIEMPRE, encima de 913 px de fondos: el panel
+     para elegir pesaba tanto como lo elegido. Plegados por defecto; si hay
+     alguno puesto, el encabezado lo dice para que plegar no lo esconda. */
+  const [abierto, setAbierto] = useState(false)
+
   return (
     <div className="hoja overflow-hidden">
-      {/* ── Sección 1: Filtros de lista (siempre visible) ── */}
+      {/* ── Sección 1: Filtros de lista ── */}
       <div className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter size={13} className="text-ink-400" />
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={() => setAbierto(a => !a)}
+            aria-expanded={abierto}
+            className="flex items-center gap-2 min-w-0"
+          >
+            <Filter size={13} className="text-ink-400 shrink-0" />
             <span className="card-label font-bold text-ink-700">Filtros de lista</span>
-          </div>
+            {activeFilters && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 shrink-0">
+                con filtro puesto
+              </span>
+            )}
+            {abierto
+              ? <ChevronDown size={13} className="text-ink-400 shrink-0" />
+              : <ChevronRight size={13} className="text-ink-400 shrink-0" />}
+          </button>
           {activeFilters && (
             <button
               onClick={clearListFilters}
@@ -107,6 +124,7 @@ export function FundFilters({
           )}
         </div>
 
+        {abierto && (<>
         {/* Chips de estado */}
         <div className="flex gap-1.5 flex-wrap">
           {FUND_STATUSES.map(s => (
@@ -222,10 +240,11 @@ export function FundFilters({
             )}
           </div>
         )}
+        </>)}
       </div>
 
       {/* ── Sección 2: Búsqueda de ítems (solo managers, separada con borde) ── */}
-      {isManager && (
+      {isManager && abierto && (
         <div className="border-t border-ink-100 p-5 space-y-4 bg-ink-50/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
