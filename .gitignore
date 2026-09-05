@@ -62,3 +62,8 @@ next-env.d.ts
 
 # Informe generado por 'npm run audit:materiales' — se regenera en cada corrida
 e2e/reporte-materiales.md
+
+# Scripts descartables de sesiones de trabajo — no son del proyecto.
+*-tmp.mjs
+*-tmp.json
+*-tmp.png
