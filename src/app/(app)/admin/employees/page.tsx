@@ -283,7 +283,7 @@ export default function AdminEmployeesPage() {
             {employees.length} persona{employees.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
           </p>
         </div>
-        <div className="flex gap-2 shrink-0 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setPanel(p => p === 'add' ? 'none' : 'add')}
             className={[
