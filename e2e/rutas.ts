@@ -14,7 +14,17 @@ export type Ruta = {
   slug: string
   path: string
   nombre: string
-  /** Rol mínimo. Hoy capturamos todo con admin, que es quien ve las 24. */
+  /**
+   * Rol mínimo que ve esta ruta.
+   *
+   * **Hasta el 2026-09-05 este campo no lo leía nadie**: había una sola
+   * sesión en el arnés y las 52 capturas eran todas de admin. Pero 53 de los
+   * 57 usuarios son empleado simple, así que todo lo verificado valía para
+   * una configuración de permisos que usa una sola persona.
+   *
+   * Ahora `alcanceDe()` lo usa para saltear, en la corrida de empleado,
+   * las rutas que un empleado no ve.
+   */
   rol: 'admin' | 'approver' | 'employee'
   /**
    * Selectores a tapar antes de comparar, para lo que cambia SOLO con el paso
@@ -86,9 +96,26 @@ export const RUTAS_ESTATICAS: Ruta[] = [
  * Si el listado está vacío, la captura se salta (queda registrado en el
  * reporte, no falla el run).
  */
+/**
+ * Qué roles alcanzan a ver una ruta marcada con cierto rol MÍNIMO.
+ *
+ * El sentido es acumulativo hacia arriba: una ruta de empleado la ve también
+ * el aprobador y el admin; una de admin, sólo el admin. La primera versión de
+ * esta función lo tenía al revés y la corrida de admin salteaba las 30
+ * pantallas del rendidor — lo agarró `baseline:verificar` al pasar de 54
+ * pruebas en verde a 24, que es exactamente para lo que existe.
+ */
+export function alcanceDe(rol: 'admin' | 'approver' | 'employee') {
+  if (rol === 'employee') return ['employee', 'approver', 'admin']
+  if (rol === 'approver') return ['approver', 'admin']
+  return ['admin']
+}
+
 export type RutaDetalle = {
   slug: string
   nombre: string
+  /** Igual que en las estáticas. Por omisión, 'employee'. */
+  rol?: 'admin' | 'approver' | 'employee'
   /**
    * Listados donde buscar un id real, en orden. Se prueba uno por uno hasta
    * encontrar un enlace. Son varios porque un listado puede estar vacío o
@@ -122,6 +149,7 @@ export const RUTAS_DETALLE: RutaDetalle[] = [
   {
     slug: 'aprobacion-detalle',
     nombre: 'Aprobación · detalle',
+    rol: 'approver',
     // /admin como respaldo: PendingApprovalPanel también enlaza al detalle.
     listas: ['/approvals', '/admin'],
     prefijo: '/approvals/',

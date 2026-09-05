@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { RUTAS_ESTATICAS, RUTAS_DETALLE } from './rutas'
+import { RUTAS_ESTATICAS, RUTAS_DETALLE, alcanceDe } from './rutas'
 
 /**
  * Línea base visual del rediseño Tornasol — etapa 0.
@@ -78,7 +78,15 @@ test.describe('sin sesión', () => {
 
 /* ── Rutas autenticadas ────────────────────────────────────────────────── */
 for (const ruta of RUTAS_ESTATICAS) {
-  test(ruta.nombre, async ({ page }) => {
+  test(ruta.nombre, async ({ page }, info) => {
+    /* El nombre del proyecto dice con qué rol se entró. Los de empleado
+       saltean lo que un empleado no ve — que no es lo mismo que "no puede":
+       el proxy sólo verifica sesión, así que /admin le RESPONDE y es la
+       acción del servidor la que lo rechaza. Capturar eso sería capturar la
+       frontera de error, no la pantalla. */
+    const rolCorrida = info.project.name.endsWith('-empleado') ? 'employee' : 'admin'
+    test.skip(!alcanceDe(ruta.rol).includes(rolCorrida), `un ${rolCorrida} no ve ${ruta.path}`)
+
     const respuesta = await page.goto(ruta.path, { waitUntil: 'domcontentloaded' })
 
     if (ruta.estadoEsperado) {
@@ -97,7 +105,10 @@ for (const ruta of RUTAS_ESTATICAS) {
 
 /* ── Rutas de detalle ──────────────────────────────────────────────────── */
 for (const detalle of RUTAS_DETALLE) {
-  test(detalle.nombre, async ({ page }) => {
+  test(detalle.nombre, async ({ page }, info) => {
+    const rolCorrida = info.project.name.endsWith('-empleado') ? 'employee' : 'admin'
+    test.skip(!alcanceDe(detalle.rol ?? 'employee').includes(rolCorrida), `un ${rolCorrida} no ve ${detalle.slug}`)
+
     let destino: string | undefined
 
     // Se prueban los listados en orden hasta que uno dé un enlace utilizable.

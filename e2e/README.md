@@ -355,3 +355,41 @@ probó en verde no prueba nada.
 
 Agregala a `rutas.ts`. Una ruta que falta acá es una ruta que se puede romper sin
 que nadie se entere.
+
+---
+
+## Segunda sesión: verificar como EMPLEADO SIMPLE
+
+**Por qué existe.** Hasta el 2026-09-05 el arnés tenía una sola sesión y todas
+las capturas eran de admin. Pero de los 57 usuarios de PENTA, **53 son empleado
+simple** (sólo `can_submit`). Todo lo verificado —las 54 capturas píxel a píxel,
+los 0 hallazgos de material— valía para una configuración de permisos que usa
+una sola persona.
+
+**Cómo se enciende.** Los proyectos `ingreso-empleado`, `movil-empleado` y
+`materiales-empleado` sólo existen si hay credenciales; si faltan, el arnés
+corre como siempre y no se pone rojo. Para encenderlos, agregá a
+`e2e/.env.e2e` (que no se commitea):
+
+```
+E2E_EMPLEADO_EMAIL=...
+E2E_EMPLEADO_PASSWORD=...
+```
+
+**Qué cuenta usar — importa.** Tiene que ser un **empleado simple de verdad**:
+sólo `can_submit`, con `can_approve` y `can_manage_petty_cash` en falso. Las dos
+cuentas de prueba (`1 Daniel Prueba`, `2- Jul Prueba`) traen esas dos banderas
+en verdadero, así que con ellas se verificaría una cuarta configuración de
+permisos que tampoco usa nadie.
+
+Lo más limpio: destildar esas dos banderas en una cuenta de prueba desde
+`/admin/employees` → Permisos, ponerle contraseña con el botón de la llave, y
+volver a tildarlas cuando termine.
+
+**Qué captura.** Sólo móvil, que es donde el empleado usa la app. El escritorio
+con permisos de empleado queda cubierto por `materiales-empleado`, que corre a
+1440 y es la que atrapa los problemas de legibilidad.
+
+Las rutas que un empleado no ve se saltean solas: `rutas.ts` marca el rol mínimo
+de cada una y `alcanceDe()` decide. Ese campo existía desde el principio pero no
+lo leía nadie.

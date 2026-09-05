@@ -55,6 +55,12 @@ const PUERTO = Number(process.env.BASELINE_PORT ?? 3100)
    configuración de la app para acomodar el arnés de tests. */
 const BASE   = `http://localhost:${PUERTO}`
 const SESION = path.join(__dirname, 'e2e', '.auth', 'admin.json')
+const SESION_EMPLEADO = path.join(__dirname, 'e2e', '.auth', 'empleado.json')
+
+/* ¿Hay credenciales de empleado? De eso depende que existan sus proyectos. */
+const HAY_EMPLEADO = !!(process.env.E2E_EMPLEADO_EMAIL && process.env.E2E_EMPLEADO_PASSWORD)
+
+const TEST_SETUP = new RegExp('auth' + String.fromCharCode(92) + '.setup' + String.fromCharCode(92) + '.ts')
 
 export default defineConfig({
   testDir: './e2e',
@@ -140,7 +146,18 @@ export default defineConfig({
     {
       name: 'ingreso',
       testMatch: /auth\.setup\.ts/,
+      grep: /ingresar como admin/,
     },
+    /* Los proyectos de empleado sólo EXISTEN si hay credenciales cargadas.
+       Si el proyecto se armara igual y faltaran, el arnés entero quedaría
+       rojo hasta que alguien las ponga — y un rojo que no significa nada
+       entrena a ignorar los rojos. Con esto aparecen solos el día que se
+       agreguen las dos líneas a e2e/.env.e2e. */
+    ...(HAY_EMPLEADO ? [{
+      name: 'ingreso-empleado',
+      testMatch: TEST_SETUP,
+      grep: /ingresar como empleado/,
+    }] : []),
     {
       name: 'movil',
       dependencies: ['ingreso'],
@@ -177,6 +194,40 @@ export default defineConfig({
         deviceScaleFactor: 1,
       },
     },
+
+    /* ── Corrida de EMPLEADO SIMPLE ──────────────────────────────────
+       53 de los 57 usuarios de PENTA son empleado simple, y hasta el
+       2026-09-05 su configuración de permisos no se había dibujado nunca:
+       las 54 capturas y los 0 hallazgos de material valían todos para una
+       cuenta de admin, que la usa una sola persona.
+
+       Sólo móvil: es donde el empleado usa la app de verdad. El escritorio
+       con permisos de empleado queda cubierto por la auditoría de material,
+       que corre a 1440 y es la que atrapa problemas de legibilidad. */
+    ...(HAY_EMPLEADO ? [
+      {
+        name: 'movil-empleado',
+        dependencies: ['ingreso-empleado'],
+        testMatch: new RegExp('baseline' + String.fromCharCode(92) + '.spec'),
+        use: {
+          storageState: SESION_EMPLEADO,
+          viewport: { width: 390, height: 844 },
+          deviceScaleFactor: 1,
+          isMobile: true,
+          hasTouch: true,
+        },
+      },
+      {
+        name: 'materiales-empleado',
+        dependencies: ['ingreso-empleado'],
+        testMatch: new RegExp('materiales' + String.fromCharCode(92) + '.spec'),
+        use: {
+          storageState: SESION_EMPLEADO,
+          viewport: { width: 1440, height: 900 },
+          deviceScaleFactor: 1,
+        },
+      },
+    ] : []),
   ],
 
   webServer: {
