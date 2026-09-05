@@ -97,6 +97,8 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
     if (step !== 'results') return
     const errors = results.filter(r => !r.success)
     if (errors.length === 0) return
+    /* Arranca la cuenta regresiva de cierre. Es un temporizador, no un estado sincronizado con otro. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCloseCountdown(10)
     const iv = setInterval(() => {
       setCloseCountdown(prev => {

@@ -223,11 +223,18 @@ export function AdminReportsClient({ initialReports }: Props) {
     return list
   }, [employees, empSearch])
 
+  /* El reloj se lee UNA vez, al montar, no en cada render. Leerlo durante el
+     render hace que el mismo estado de datos pueda dar dos resultados
+     distintos — y este KPI entra en la captura de la línea base, así que
+     además era un rojo latente que aparecería solo el día que una rendición
+     cruzara los 5 días. */
+  const [montadoEn] = useState(() => Date.now())
+
   // KPI: rendiciones en revisión con más de 5 días de espera
   const staleSubmitted = useMemo(() => {
-    const cutoff = new Date(Date.now() - 5 * 86_400_000).toISOString()
+    const cutoff = new Date(montadoEn - 5 * 86_400_000).toISOString()
     return reports.filter(r => r.status === 'submitted' && r.submitted_at && r.submitted_at < cutoff).length
-  }, [reports])
+  }, [reports, montadoEn])
 
   // KPIs del filtro actual
   const totalMonto    = filtered.reduce((s, r) => s + r.total_amount, 0)

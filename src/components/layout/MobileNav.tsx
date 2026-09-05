@@ -71,10 +71,12 @@ function getPrimaryHrefs(user: UserProfile): string[] {
 
 export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
-
-  // Cerrar el sheet al navegar
-  useEffect(() => { setOpen(false) }, [pathname])
+  /* Se guarda EN QUÉ ruta se abrió la hoja, no si está abierta. Al navegar,
+     la ruta deja de coincidir y la hoja queda cerrada sola — sin el efecto
+     `setOpen(false)` que disparaba un render en cascada en cada navegación
+     de toda la app. Estado derivado en vez de estado sincronizado. */
+  const [abiertaEn, setAbiertaEn] = useState<string | null>(null)
+  const open = abiertaEn === pathname
 
   // Bloquear scroll del body mientras el sheet está abierto
   useEffect(() => {
@@ -131,7 +133,7 @@ export function MobileNav({ user }: MobileNavProps) {
 
           {/* Botón "Más" */}
           <button
-            onClick={() => setOpen(v => !v)}
+            onClick={() => setAbiertaEn(open ? null : pathname)}
             className={cn(
               'flex-1 flex flex-col items-center justify-center gap-1.5 transition-colors',
               open || moreIsActive ? 'text-brand-300' : 'text-white/55'
@@ -156,7 +158,7 @@ export function MobileNav({ user }: MobileNavProps) {
             'absolute inset-0 bg-black/50 transition-opacity duration-300',
             open ? 'opacity-100' : 'opacity-0',
           )}
-          onClick={() => setOpen(false)}
+          onClick={() => setAbiertaEn(null)}
         />
 
         {/* Hoja */}
@@ -177,7 +179,7 @@ export function MobileNav({ user }: MobileNavProps) {
           <div className="flex items-center justify-between px-5 pt-3 pb-3">
             <span className="font-display font-bold text-ink-900 text-[19px]">Menú</span>
             <button
-              onClick={() => setOpen(false)}
+              onClick={() => setAbiertaEn(null)}
               className="w-10 h-10 rounded-full bg-ink-100 flex items-center justify-center text-ink-500 transition-colors hover:bg-ink-200"
               aria-label="Cerrar menú"
             >

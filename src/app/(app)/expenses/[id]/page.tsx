@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import type { ReportStatus } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { ExpenseItemForm, type ItemFormData } from '@/components/expenses/ExpenseItemForm'
 import { ExpenseItemCard } from '@/components/expenses/ExpenseItemCard'
@@ -97,6 +98,8 @@ export default function ExpenseDetailPage() {
   }
 
   useEffect(() => {
+    /* Carga inicial de la rendición, sus adjuntos y su línea de tiempo. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     loadApprovalAtts()
     getReportTimeline(id).then(setTimeline)
@@ -282,7 +285,7 @@ export default function ExpenseDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <InsigniaEstado tipo="reporte" estado={report.status as any} />
+          <InsigniaEstado tipo="reporte" estado={report.status as ReportStatus} />
           {report.status !== 'draft' && (
             <button
               onClick={() => exportEmployeeReportPdf(

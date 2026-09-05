@@ -727,8 +727,36 @@ export async function getPettyCashItemsForReport(filters: {
   const histReportIds = (histReports ?? []).map(r => r.id)
   const histReportMap = Object.fromEntries((histReports ?? []).map(r => [r.id, r]))
 
+  /* Las filas vuelven sin tipo porque la consulta pasa por
+     `applyItemFilters`, que no se puede tipar sin pelearse con los genéricos
+     del constructor de Supabase. Declarar la forma acá NO es cosmético: sin
+     esto, un campo mal escrito —`amount_CLP`, `doc_num`— sale `undefined`
+     en un informe de plata y nadie se entera. */
+  type FilaItem = {
+    description:      string | null
+    merchant:         string | null
+    date:             string
+    category_id:      string | null
+    amount:           number
+    currency:         string
+    amount_clp:       number
+    doc_type:         string | null
+    doc_number:       string | null
+    status:           string
+    rejection_reason: string | null
+    notes:            string | null
+  }
+  type FilaReal = FilaItem & { fund_id:   string }
+  type FilaHist = FilaItem & { report_id: string }
+
   // Consultas de ítems en paralelo
   function applyItemFilters<T extends ReturnType<typeof supabase.from>>(q: T) {
+    /* Este `any` se queda a propósito. Cada `.gte()`/`.eq()` devuelve un tipo
+       distinto del anterior, y acumular esa cadena en una variable no se puede
+       expresar con los genéricos del constructor de Supabase sin escribir más
+       tipos que código. Las filas que salen SÍ están tipadas (FilaReal /
+       FilaHist más abajo), que es donde un error costaría plata. */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let r = q as any
     if (filters.dateFrom) r = r.gte('date', filters.dateFrom)
     if (filters.dateTo)   r = r.lte('date', filters.dateTo)
@@ -765,8 +793,8 @@ export async function getPettyCashItemsForReport(filters: {
 
   // ── Enriquecer con categorías y empleados ─────────────────────────────────
   const allCatIds = [...new Set([
-    ...(realItems ?? []).map((i: any) => i.category_id),
-    ...(histItems ?? []).map((i: any) => i.category_id),
+    ...(realItems ?? []).map((i: FilaReal) => i.category_id),
+    ...(histItems ?? []).map((i: FilaHist) => i.category_id),
   ].filter(Boolean))] as string[]
 
   const allEmpIds = [...new Set([
@@ -786,7 +814,7 @@ export async function getPettyCashItemsForReport(filters: {
   const catMap  = Object.fromEntries((catsRes.data ?? []).map(c => [c.id, c]))
   const userMap = Object.fromEntries((usersRes.data ?? []).map(u => [u.id, u.full_name]))
 
-  const normalizedReal = (realItems ?? []).map((i: any) => ({
+  const normalizedReal = (realItems ?? []).map((i: FilaReal) => ({
     fund_name:        fundMap[i.fund_id]?.name ?? 'Desconocido',
     employee_name:    fundMap[i.fund_id] ? (userMap[fundMap[i.fund_id].employee_id] ?? 'Desconocido') : 'Desconocido',
     description:      i.description,
@@ -804,7 +832,7 @@ export async function getPettyCashItemsForReport(filters: {
     notes:            i.notes,
   }))
 
-  const normalizedHist = (histItems ?? []).map((i: any) => {
+  const normalizedHist = (histItems ?? []).map((i: FilaHist) => {
     const report = histReportMap[i.report_id]
     return {
       fund_name:        report?.title ?? 'Carga Histórica',

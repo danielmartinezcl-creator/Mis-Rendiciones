@@ -12,6 +12,7 @@ import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDate, formatDisplayTitle } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
+import type { ReportStatus } from '@/lib/constants'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
 import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment, TravelPolicy } from '@/lib/supabase/types'
 
@@ -254,7 +255,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               </p>
             )}
           </div>
-          <InsigniaEstado tipo="reporte" estado={report.status as any} />
+          <InsigniaEstado tipo="reporte" estado={report.status as ReportStatus} />
         </div>
       </div>
 

@@ -96,6 +96,8 @@ export function Sidebar({ user, marca }: SidebarProps) {
       const raw = localStorage.getItem(orderKey(user.id))
       if (raw) {
         const saved: string[] = JSON.parse(raw)
+        /* Hidrata el orden guardado en localStorage. NO se puede inicializar de forma perezosa: el primer render del cliente debe coincidir con el HTML del servidor o Next tira error de hidratación. */
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setItems(applyOrder(visible, saved))
         setIsCustomized(true)
       }

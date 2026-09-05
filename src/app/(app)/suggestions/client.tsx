@@ -52,6 +52,8 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
 
   // Reload when toggling admin view
   useEffect(() => {
+    /* Recarga al cambiar entre «mis sugerencias» y «todas»: son dos consultas distintas, no un estado derivable. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAll])

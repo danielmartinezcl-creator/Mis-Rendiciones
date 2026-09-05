@@ -86,6 +86,8 @@ export default function AdminEmployeesPage() {
   }
 
   useEffect(() => {
+    /* Carga inicial: `load()` prende su propio indicador de carga. Es el render en cascada que cuesta traer datos desde un componente de cliente. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
   }, [])

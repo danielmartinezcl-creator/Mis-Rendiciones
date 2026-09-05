@@ -115,6 +115,8 @@ export function ExpenseItemForm({
 
   useEffect(() => {
     if (form.currency === 'CLP') {
+      /* Busca el tipo de cambio al cambiar moneda o fecha. Es una consulta asíncrona a una API externa; derivarlo en el render no es posible. */
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       set('exchange_rate', 1)
       set('exchange_rate_source', 'api')
       recalcAmountClp(form.amount, 1)

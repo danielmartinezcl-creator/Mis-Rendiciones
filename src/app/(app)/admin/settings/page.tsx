@@ -67,6 +67,10 @@ function CategoryIcon({ icon, color }: { icon?: string | null; color?: string | 
   return (
     <span className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
           style={{ backgroundColor: bg + '22', color: bg }}>
+      {/* `Icon` sale de ICON_CATALOG, un catálogo de nivel de módulo con
+          referencias fijas de lucide-react: el componente NO se recrea en cada
+          render, pero el linter no puede probar esa estabilidad. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
       <Icon size={17} strokeWidth={2} />
     </span>
   )
@@ -182,6 +186,8 @@ function CategoriesTab() {
     setCategories(await getOrgCategories())
     setLoading(false)
   }
+  /* Carga inicial. */
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   async function handleAdd(e: React.FormEvent) {
@@ -430,6 +436,8 @@ function EmployeesTab() {
     setLoading(false)
   }
   useEffect(() => {
+    /* Carga inicial. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     getCostCenters().then(cc => setCostCenters(cc.filter(c => c.imputable)))
   }, [])
@@ -1552,6 +1560,8 @@ function ViaticosTab() {
     setLoading(false)
   }
 
+  /* Carga inicial. */
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   function startEdit(p: TravelPolicy) {
