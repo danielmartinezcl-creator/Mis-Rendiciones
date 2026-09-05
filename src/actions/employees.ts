@@ -3,6 +3,7 @@
 import { BRAND } from '@/lib/design-tokens'
 
 import { createClient } from '@/lib/supabase/server'
+import { revisarConfigCorreo } from '@/lib/email-helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { validateRut } from '@/lib/validators'
@@ -119,9 +120,29 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
   const results: InviteResult[] = []
 
   const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const resendKey   = process.env.RESEND_API_KEY
-  const fromEmail   = process.env.RESEND_FROM_EMAIL ?? 'noreply@mi-rendicion.com'
+  const correo      = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
   const redirectTo  = `${appUrl}/api/auth/callback?next=/set-password`
+
+  /* Si el correo no puede salir, se corta ACÁ y no se toca el `invited_at` de
+     nadie. Antes se seguía igual: se marcaba a los 54 como invitados y se
+     devolvía éxito aunque no saliera un solo mail. Ese campo solo se puede
+     escribir bien UNA vez —después el botón desaparece y no hay forma de
+     distinguir «llegó» de «se perdió»—, así que fallar acá es lo barato. */
+  if (!correo.puedeEnviar) {
+    const { data: perfiles } = await adminClient.from('users').select('id, full_name').in('id', userIds)
+    const nombres = Object.fromEntries((perfiles ?? []).map(p => [p.id, p.full_name]))
+    return userIds.map(userId => ({
+      userId,
+      email:     '',
+      full_name: nombres[userId] ?? '',
+      success:   false,
+      error:     `No se envió ninguna invitación: ${correo.motivo}`,
+    }))
+  }
+
+  /* Un solo cliente para las 54, no uno por vuelta. */
+  const { Resend } = await import('resend')
+  const resend = new Resend((process.env.RESEND_API_KEY ?? '').trim())
 
   for (const userId of userIds) {
     try {
@@ -153,12 +174,11 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
 
       const actionLink = linkData.properties.action_link
 
-      // Enviar email via Resend si está configurado
-      if (resendKey && resendKey !== 'placeholder') {
-        const { Resend } = await import('resend')
-        const resend = new Resend(resendKey)
-        await resend.emails.send({
-          from:    `Mi Rendición <${fromEmail}>`,
+
+      /* El envío DECIDE el resultado. Antes iba con `.catch(() => {})` y las
+         dos líneas de abajo corrían igual, pasara lo que pasara. */
+      const { error: errorEnvio } = await resend.emails.send({
+          from:    `Mi Rendición <${correo.desde}>`,
           to:      [email],
           subject: 'Mi Rendición — Configura tu acceso',
           html:    `<p>Hola ${full_name},</p>
@@ -169,10 +189,14 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
                       </a>
                     </p>
                     <p style="color:#888;font-size:12px">Este enlace expira en 24 horas. Si no solicitaste esto, podés ignorar este correo.</p>`,
-        }).catch(() => {})
+      })
+
+      if (errorEnvio) {
+        results.push({ userId, email, full_name, success: false, error: `Resend rechazó el envío: ${errorEnvio.message}` })
+        continue
       }
 
-      // Marcar como invitado
+      // Marcar como invitado — solo se llega acá si el correo salió de verdad.
       await adminClient.from('users').update({ invited_at: new Date().toISOString() }).eq('id', userId)
 
       results.push({ userId, email, full_name, success: true })

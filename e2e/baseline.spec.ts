@@ -81,7 +81,11 @@ for (const ruta of RUTAS_ESTATICAS) {
   test(ruta.nombre, async ({ page }) => {
     const respuesta = await page.goto(ruta.path, { waitUntil: 'domcontentloaded' })
 
-    expect(respuesta?.status(), `${ruta.path} respondió con error HTTP`).toBeLessThan(400)
+    if (ruta.estadoEsperado) {
+      expect(respuesta?.status(), `${ruta.path} debía responder ${ruta.estadoEsperado}`).toBe(ruta.estadoEsperado)
+    } else {
+      expect(respuesta?.status(), `${ruta.path} respondió con error HTTP`).toBeLessThan(400)
+    }
     // Si el proxy nos mandó al login, la sesión se cayó: mejor fallar fuerte
     // que guardar 24 capturas de la pantalla de login.
     expect(page.url(), `${ruta.path} redirigió al login — sesión perdida`).not.toContain('/login')

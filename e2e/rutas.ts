@@ -29,6 +29,12 @@ export type Ruta = {
    * achica, corre todo lo de abajo y la máscara no alcanza.
    */
   mascaras?: string[]
+  /**
+   * Código HTTP que se espera. Por omisión se exige < 400, que es lo correcto
+   * para toda ruta real. La pantalla de «no existe» es la excepción legítima:
+   * DEBE responder 404, y un 200 ahí sería el defecto.
+   */
+  estadoEsperado?: number
 }
 
 export const RUTAS_ESTATICAS: Ruta[] = [
@@ -65,6 +71,13 @@ export const RUTAS_ESTATICAS: Ruta[] = [
      ignorar los rojos. */
   { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin',
     mascaras: ['[data-cuenta-regresiva]'] },
+
+  /* Una pantalla que la gente va a ver —enlace viejo, URL mal escrita— y que
+     hasta ayer no existía: caía en la pantalla genérica de Next. Entra a la
+     base como cualquier otra, porque una pantalla fuera de la base es una
+     pantalla que se puede romper en silencio. */
+  { slug: 'no-encontrada',       path: '/esta-ruta-no-existe',    nombre: 'Página no encontrada',         rol: 'employee',
+    estadoEsperado: 404 },
 ]
 
 /**
