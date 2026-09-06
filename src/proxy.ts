@@ -1,7 +1,32 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
+/**
+ * Dominios viejos que TODAVÍA apuntan a este proyecto en Vercel.
+ *
+ * `rindegastos.vercel.app` era el nombre de prueba y sigue respondiendo 200,
+ * así que quien tenga ese marcador —o la app instalada desde ahí— sigue
+ * usándola por ese dominio sin enterarse. Se nota en los diálogos nativos del
+ * navegador, que muestran el origen: «rindegastos.vercel.app dice: ¿Enviar
+ * esta rendición a revisión?». Así lo detectó Daniel.
+ *
+ * Se redirige SOLO esta lista, nunca «cualquier host que no sea el canónico»:
+ * cada despliegue de vista previa de Vercel tiene su propia URL y hay que
+ * poder usarla para probar antes de mezclar.
+ */
+const HOSTS_VIEJOS = new Set(['rindegastos.vercel.app'])
+
 export async function proxy(request: NextRequest) {
+  /* Antes que nada: si viene por un dominio viejo, se lo manda al bueno
+     conservando ruta y parámetros. 308 y no 302 para que el navegador lo
+     recuerde y no repita el salto en cada carga. */
+  const host = request.headers.get('host') ?? ''
+  const canonico = process.env.NEXT_PUBLIC_APP_URL
+  if (canonico && HOSTS_VIEJOS.has(host)) {
+    const destino = new URL(request.nextUrl.pathname + request.nextUrl.search, canonico)
+    return NextResponse.redirect(destino, 308)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
