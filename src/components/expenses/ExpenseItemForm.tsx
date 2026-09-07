@@ -15,6 +15,7 @@ import type { PolicyCheckResult, TravelPolicyCheckResult } from '@/actions/polic
 import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { DuplicateMatch } from '@/lib/duplicate-detection'
 import type { ExpenseCategory, CostCenter, Json } from '@/lib/supabase/types'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 type DuplicateResult = Awaited<ReturnType<typeof checkItemDuplicate>>
 

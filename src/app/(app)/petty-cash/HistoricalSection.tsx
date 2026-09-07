@@ -24,6 +24,7 @@ import { updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/acti
 import { deleteExpenseItem } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import type { HistoricalImport, HistItem, ItemSavedPatch } from './usePettyCashState'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
   onEditLinkedTransfer?:     (transferId: string, amount: number, date: string, description: string | null) => void
   onDeleteLinkedTransfer?:   (transferId: string) => void
 }) {
+  const { confirmar, avisar } = useDialogos()
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [editType,     setEditType]     = useState<'expense' | 'advance' | 'return'>('expense')
   const [editDesc,     setEditDesc]     = useState('')
@@ -117,13 +119,18 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
   }
 
   async function deleteItem(item: HistItem) {
-    if (!confirm(`¿Eliminar "${item.description || 'este ítem'}"?\n\nEsta acción no se puede deshacer.`)) return
+    if (!await confirmar({
+      titulo:  `¿Eliminar "${item.description || 'este ítem'}"?`,
+      detalle: `Esta acción no se puede deshacer.`,
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingItemId(item.id)
     try {
       await deleteExpenseItem(item.id, reportId)
       onItemDeleted?.(reportId, item.id)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setDeletingItemId(null)
     }
@@ -316,6 +323,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
 // ── HistoricalSection ─────────────────────────────────────────────────────────
 
 export function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onRevertContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
+  const { avisar } = useDialogos()
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   /* La sección entera arranca plegada. Son 76 cargas importadas: 2.390 px de
      encabezados, el 54% de una pantalla cuyo contenido son 4 fondos vivos.
@@ -367,7 +375,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
       if (result.warnings) setDefExportWarnings(result.warnings)
       // No cerramos el panel — el usuario debe confirmar la contabilización por separado
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al exportar')
+      avisar(err instanceof Error ? err.message : 'Error al exportar')
     } finally {
       setDefExporting(false)
     }
@@ -381,7 +389,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
       setDefPanelId(null)
       setDefComprobante('')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al confirmar contabilización')
+      avisar(err instanceof Error ? err.message : 'Error al confirmar contabilización')
     } finally {
       setDefConfirming(false)
     }

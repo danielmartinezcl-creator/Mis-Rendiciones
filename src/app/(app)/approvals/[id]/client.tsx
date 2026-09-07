@@ -13,6 +13,7 @@ import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDate, formatDisplayTitle } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
 import type { ReportStatus } from '@/lib/constants'
+import { useDialogos } from '@/components/ui/Dialogos'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
 import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment, TravelPolicy } from '@/lib/supabase/types'
 
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function ApprovalDetailClient({ id, initialReport, initialAttachments, analysis }: Props) {
+  const { confirmar } = useDialogos()
   const router = useRouter()
 
   const [report,    setReport]    = useState<ReportData>(initialReport)
@@ -156,7 +158,11 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
   }
 
   async function handleApproveAll() {
-    if (!confirm(`¿Aprobar TODOS los ${items.length} ítems de esta rendición? Esta acción no se puede deshacer.`)) return
+    if (!await confirmar({
+      titulo:  `¿Aprobar los ${items.length} ítems de esta rendición?`,
+      detalle: 'Se aprueban todos de una vez. No se puede deshacer.',
+      aceptar: 'Aprobar todo',
+    })) return
     setSubmitting(true)
     setError(null)
     try {

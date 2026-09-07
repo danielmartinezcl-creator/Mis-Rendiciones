@@ -26,6 +26,7 @@ import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
 import type { TravelPolicy } from '@/lib/supabase/types'
 import { NEUTRAL, BRAND } from '@/lib/design-tokens'
 import { MarcaTab } from '@/components/admin/MarcaTab'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks' | 'marca'
 type EmployeeWithEmail = UserProfile & { email: string }
@@ -1253,6 +1254,7 @@ function parseLimitNum(s: string): number | null {
 }
 
 function PoliciesTab() {
+  const { confirmar } = useDialogos()
   const [policies,   setPolicies]   = useState<ExpensePolicy[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [employees,  setEmployees]  = useState<{ id: string; full_name: string; department: string | null }[]>([])
@@ -1348,7 +1350,11 @@ function PoliciesTab() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar esta política? Los ítems existentes conservan sus violaciones registradas.')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar esta política? Los ítems existentes conservan sus violaciones registradas.',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     await deletePolicy(id)
     setPolicies(prev => prev.filter(p => p.id !== id))
   }
@@ -1531,6 +1537,7 @@ const DEST_TYPE_OPTS: Array<{ value: 'local' | 'regional' | 'exterior'; label: s
 ]
 
 function ViaticosTab() {
+  const { confirmar } = useDialogos()
   const [policies,    setPolicies]    = useState<TravelPolicy[]>([])
   const [categories,  setCategories]  = useState<ExpenseCategory[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -1599,7 +1606,11 @@ function ViaticosTab() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar esta política de viáticos?')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar esta política de viáticos?',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     await deleteTravelPolicy(id)
     await load()
   }
@@ -1775,6 +1786,7 @@ const WEBHOOK_EVENTS = [
 ]
 
 function WebhooksTab() {
+  const { confirmar, avisar } = useDialogos()
   const [hooks,   setHooks]   = useState<Webhook[]>([])
   const [loading, setLoading] = useState(true)
   const [saving,  setSaving]  = useState(false)
@@ -1812,12 +1824,16 @@ function WebhooksTab() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar este webhook?')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar este webhook?',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     try {
       await deleteWebhook(id)
       setHooks(prev => prev.filter(h => h.id !== id))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar webhook')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar webhook')
     }
   }
 

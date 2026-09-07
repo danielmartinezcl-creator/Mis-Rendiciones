@@ -16,6 +16,7 @@ import { REPORT_STEPS } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
 import { SEMANTIC } from '@/lib/design-tokens'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
 type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
@@ -37,6 +38,7 @@ function statusCls(s: string)   { return STATUS_OPTS.find(o => o.value === s)?.c
 interface Props { initialReports: Report[] }
 
 export function AdminReportsClient({ initialReports }: Props) {
+  const { confirmar, avisar } = useDialogos()
   const [reports,  setReports]  = useState<Report[]>(initialReports)
   const [details,  setDetails]  = useState<Record<string, Detail>>({})
   const [expanding, setExpanding] = useState<string | null>(null)
@@ -132,7 +134,7 @@ export function AdminReportsClient({ initialReports }: Props) {
     try {
       const urls = await getReportAttachmentUrls(reportId)
       if (!urls.length) {
-        alert('Esta rendición no tiene comprobantes adjuntos.')
+        avisar('Esta rendición no tiene comprobantes adjuntos.')
         return
       }
       const JSZip = (await import('jszip')).default
@@ -266,20 +268,29 @@ export function AdminReportsClient({ initialReports }: Props) {
   }
 
   async function handleBankInit(reportId: string, title: string) {
-    if (!confirm(`¿Enviar "${title}" al proceso bancario?\n\nLa rendición pasará al estado "En banco (carga)" y los operadores bancarios podrán confirmar la transferencia.`)) return
+    if (!await confirmar({
+      titulo:  `¿Enviar "${title}" al proceso bancario?`,
+      detalle: `La rendición pasará al estado "En banco (carga)" y los operadores bancarios podrán confirmar la transferencia.`,
+      aceptar: 'Enviar',
+    })) return
     setBankInitId(reportId)
     try {
       await requestReportBankLoad(reportId)
       await load()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Error al iniciar el proceso bancario')
+      avisar(e instanceof Error ? e.message : 'Error al iniciar el proceso bancario')
     } finally {
       setBankInitId(null)
     }
   }
 
   async function handleRevert(reportId: string, title: string) {
-    if (!confirm(`¿Revertir el reembolso de "${title}"?\n\nLa rendición volverá a estado Aprobada y se podrá marcar como reembolsada nuevamente.`)) return
+    if (!await confirmar({
+      titulo:  `¿Revertir el reembolso de "${title}"?`,
+      detalle: `La rendición volverá a estado Aprobada y se podrá marcar como reembolsada nuevamente.`,
+      aceptar: 'Revertir',
+      peligro: true,
+    })) return
     setRevertingId(reportId)
     try {
       await revertReimbursement(reportId)
@@ -337,13 +348,13 @@ export function AdminReportsClient({ initialReports }: Props) {
         dateTo:    scoped ? undefined : (dateTo   || undefined),
       })
       if (!defReports.length) {
-        alert(scoped && targetIds.length === 1
+        avisar(scoped && targetIds.length === 1
           ? 'Esta rendición no tiene ítems aprobados para exportar a Defontana.\n\nSolo se exportan rendiciones aprobadas, aprobadas parcialmente o reembolsadas.'
           : 'No hay rendiciones aprobadas en la selección para exportar a Defontana.')
         return
       }
       if (!settings?.contraAccount) {
-        alert('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
+        avisar('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
         return
       }
       // Advertir si alguna rendición ya fue exportada antes
@@ -374,7 +385,7 @@ export function AdminReportsClient({ initialReports }: Props) {
         setDefontanaWarnings(result.warnings.map(w => ({ reportTitle: w.reportTitle, categories: w.categories })))
       }
       if (vouchers > 1) {
-        alert(
+        avisar(
           `Se generó un ZIP con ${vouchers} comprobantes, uno por archivo.\n\n` +
           `Defontana importa un comprobante por archivo, así que hay que subirlos de a uno.\n` +
           `Están numerados en el orden en que conviene importarlos.`
@@ -392,7 +403,7 @@ export function AdminReportsClient({ initialReports }: Props) {
   function openRevertDefontana(rows: Report[]) {
     const contabilizadas = rows.filter(r => r.defontana_exported_at)
     if (!contabilizadas.length) {
-      alert('Ninguna de las rendiciones seleccionadas está contabilizada.')
+      avisar('Ninguna de las rendiciones seleccionadas está contabilizada.')
       return
     }
     const refs = [...new Set(contabilizadas.map(r => r.defontana_export_ref).filter(Boolean))]
@@ -423,14 +434,19 @@ export function AdminReportsClient({ initialReports }: Props) {
   }
 
   async function handleDelete(id: string, title: string) {
-    if (!confirm(`¿Mover a la papelera la rendición "${title}"?\n\nPodrás recuperarla desde Admin → Papelera durante 90 días.`)) return
+    if (!await confirmar({
+      titulo:  `¿Mover a la papelera la rendición "${title}"?`,
+      detalle: `Podrás recuperarla desde Admin → Papelera durante 90 días.`,
+      aceptar: 'Mover a la papelera',
+      peligro: true,
+    })) return
     setDeletingId(id)
     try {
       await adminDeleteExpenseReport(id)
       await load()
       if (expanded === id) setExpanded(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setDeletingId(null)
     }
@@ -447,21 +463,25 @@ export function AdminReportsClient({ initialReports }: Props) {
       await load()
       setExpanded(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setDeletingAll(false)
     }
   }
 
   async function handleMoveModule(reportId: string, title: string) {
-    if (!confirm(`¿Mover "${title}" al módulo Caja Chica?\n\nDesaparecerá de Rendiciones y aparecerá en Caja Chica → Carga histórica.`)) return
+    if (!await confirmar({
+      titulo:  `¿Mover "${title}" al módulo Caja Chica?`,
+      detalle: `Desaparecerá de Rendiciones y aparecerá en Caja Chica → Carga histórica.`,
+      aceptar: 'Mover',
+    })) return
     setMovingId(reportId)
     try {
       await changeHistoricalImportType(reportId, 'caja_chica')
       setReports(prev => prev.filter(r => r.id !== reportId))
       setExpanded(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al mover')
+      avisar(err instanceof Error ? err.message : 'Error al mover')
     } finally {
       setMovingId(null)
     }

@@ -4,6 +4,7 @@ import { useState, useRef, useTransition, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { addExpenseItemAttachment, addPettyCashItemAttachment, deleteItemAttachment } from '@/actions/expenses'
 import { Paperclip, Trash2, FileText, Camera, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { useDialogos } from './Dialogos'
 
 interface AttachmentRow {
   id: string
@@ -28,6 +29,7 @@ export function ItemAttachmentZone({
   canUpload = true,
   startExpanded = false,
 }: Props) {
+  const { confirmar } = useDialogos()
   const [attachments, setAttachments] = useState<AttachmentRow[]>(initialAttachments)
   const [urls, setUrls]               = useState<Record<string, string>>({})
   const [expanded, setExpanded]       = useState(startExpanded || initialAttachments.length > 0)
@@ -87,7 +89,11 @@ export function ItemAttachmentZone({
   }
 
   async function handleDelete(att: AttachmentRow) {
-    if (!confirm('¿Eliminar este adjunto?')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar este adjunto?',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingId(att.id)
     try {
       await deleteItemAttachment(att.id, att.storage_path)

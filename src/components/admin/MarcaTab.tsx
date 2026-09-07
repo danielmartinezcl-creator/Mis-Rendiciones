@@ -10,6 +10,7 @@ import {
   updateOrgName,
   type MarcaOrg,
 } from '@/actions/organizations'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 /**
  * Marca de la organización — la pestaña donde un admin la cambia.
@@ -20,6 +21,9 @@ import {
  * bordes claros parece perfecto y después desaparece.
  */
 export function MarcaTab() {
+  /* Sólo `confirmar`: este componente ya tiene su propio `avisar()`, que
+     enciende el tilde de «listo» junto al campo. */
+  const { confirmar } = useDialogos()
   const [marca,    setMarca]    = useState<MarcaOrg | null>(null)
   const [nombre,   setNombre]   = useState('')
   const [cargando, setCargando] = useState(true)
@@ -72,7 +76,10 @@ export function MarcaTab() {
   }
 
   async function handleQuitar() {
-    if (!confirm('¿Quitar el logo? Se vuelve al cuadrado con la inicial. El archivo no se borra.')) return
+    if (!await confirmar({
+      titulo:  '¿Quitar el logo? Se vuelve al cuadrado con la inicial. El archivo no se borra.',
+      aceptar: 'Quitar',
+    })) return
     setError(null); setGuardando(true)
     try {
       await removeOrgLogo()

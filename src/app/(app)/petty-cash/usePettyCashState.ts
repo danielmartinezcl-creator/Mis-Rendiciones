@@ -24,6 +24,7 @@ import {
 import type { FundListItem } from '@/actions/petty-cash'
 import type { FundTransferRow, EmployeeTarget, OrgReportSimple } from '@/actions/fund-transfers'
 import type { PeriodPreset } from '@/lib/report-helpers'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export function usePettyCashState({
   orgEmployees,
   initialPendingTransfers,
 }: UsePettyCashStateProps) {
+  const { confirmar, avisar } = useDialogos()
 
   // ── Estado local de fondos ────────────────────────────────────────────────
   const [funds,     setFunds]     = useState<FundListItem[]>(initialFunds)
@@ -215,13 +217,18 @@ export function usePettyCashState({
   // ── Handlers de traspasos vinculados ──────────────────────────────────────
 
   async function handleDeleteLinkedTransfer(transferId: string) {
-    if (!confirm('¿Eliminar este traspaso?\n\nSe eliminarán los ítems de traspaso en ambos fondos y el registro quedará deshecho.')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar este traspaso?',
+      detalle: 'Se eliminarán los ítems de traspaso en ambos fondos y el registro quedará deshecho.',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     try {
       await deleteLinkedFundTransfer(transferId)
       // Recargar para reflejar los cambios en transfer_in/out totals
       window.location.reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar traspaso')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar traspaso')
     }
   }
 
@@ -392,13 +399,18 @@ export function usePettyCashState({
   }
 
   async function handleDeleteHistorical(id: string, title: string) {
-    if (!confirm(`¿Eliminar la carga histórica "${title}"?\n\nEsta acción la moverá a la papelera.`)) return
+    if (!await confirmar({
+      titulo:  `¿Eliminar la carga histórica "${title}"?`,
+      detalle: `Esta acción la moverá a la papelera.`,
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingHistId(id)
     try {
       await adminDeleteExpenseReport(id)
       setHistoricalImports(prev => prev.filter(h => h.id !== id))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setDeletingHistId(null)
     }
@@ -416,7 +428,7 @@ export function usePettyCashState({
           : h
       ))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al marcar')
+      avisar(err instanceof Error ? err.message : 'Error al marcar')
     } finally {
       setDefontanaMarkingId(null)
     }
@@ -432,18 +444,18 @@ export function usePettyCashState({
     const { report, settings, itemIds } = await getHistoricalFundDefontanaData(reportId, itemTypes)
 
     if (!settings.contraAccount) {
-      alert('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
+      avisar('Configura la cuenta contraparte en Configuración → Defontana antes de exportar.')
       return { warnings: null }
     }
     if (!itemIds.length) {
-      alert('No hay ítems pendientes de contabilizar para los tipos seleccionados.')
+      avisar('No hay ítems pendientes de contabilizar para los tipos seleccionados.')
       return { warnings: null }
     }
 
     const { buildDefontanaEntries, exportDefontanaAuto } = await import('@/lib/export/defontana')
     const result = buildDefontanaEntries([report], settings)
     const vouchers = await exportDefontanaAuto(result, `caja-chica-defontana-CC-${title.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}`)
-    if (vouchers > 1) alert(`Se generó un ZIP con ${vouchers} comprobantes, uno por archivo — Defontana importa uno por vez.`)
+    if (vouchers > 1) avisar(`Se generó un ZIP con ${vouchers} comprobantes, uno por archivo — Defontana importa uno por vez.`)
 
     const w = result.warnings[0]
     return { warnings: w ? { categories: w.categories, unmappedCLP: w.unmappedCLP } : null }
@@ -508,26 +520,35 @@ export function usePettyCashState({
   }
 
   async function handleDeleteFund(id: string, name: string) {
-    if (!confirm(`¿Eliminar el fondo "${name}"?\n\nSe eliminarán todos sus ítems y aprobaciones.\nEsta acción no se puede deshacer.`)) return
+    if (!await confirmar({
+      titulo:  `¿Eliminar el fondo "${name}"?`,
+      detalle: `Se eliminarán todos sus ítems y aprobaciones.\nEsta acción no se puede deshacer.`,
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingId(id)
     try {
       await deletePettyCashFund(id)
       setFunds(prev => prev.filter(f => f.id !== id))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar el fondo')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar el fondo')
     } finally {
       setDeletingId(null)
     }
   }
 
   async function handleMoveToRendicion(id: string, title: string) {
-    if (!confirm(`¿Mover "${title}" al módulo Rendiciones?\n\nDesaparecerá de Caja Chica y aparecerá en Admin → Rendiciones.`)) return
+    if (!await confirmar({
+      titulo:  `¿Mover "${title}" al módulo Rendiciones?`,
+      detalle: `Desaparecerá de Caja Chica y aparecerá en Admin → Rendiciones.`,
+      aceptar: 'Mover',
+    })) return
     setMovingHistId(id)
     try {
       await changeHistoricalImportType(id, 'rendicion')
       setHistoricalImports(prev => prev.filter(h => h.id !== id))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al mover')
+      avisar(err instanceof Error ? err.message : 'Error al mover')
     } finally {
       setMovingHistId(null)
     }
@@ -574,13 +595,18 @@ export function usePettyCashState({
   }
 
   async function handleDeleteTransfer(t: FundTransferRow) {
-    if (!confirm(`¿Eliminar el traspaso de ${fmtCLP(t.amount)} hacia ${t.receiver_employee_name}?\n\nSe eliminará también el ítem correspondiente en el fondo origen.`)) return
+    if (!await confirmar({
+      titulo:  `¿Eliminar el traspaso de ${fmtCLP(t.amount)} hacia ${t.receiver_employee_name}?`,
+      detalle: `Se eliminará también el ítem correspondiente en el fondo origen.`,
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingTransferId(t.id)
     try {
       await deleteFundTransfer(t.id)
       setPendingTransfers(prev => prev.filter(x => x.id !== t.id))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar el traspaso')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar el traspaso')
     } finally {
       setDeletingTransferId(null)
     }

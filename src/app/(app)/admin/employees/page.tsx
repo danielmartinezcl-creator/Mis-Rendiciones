@@ -9,6 +9,7 @@ import { ApproverConfig } from '@/components/admin/ApproverConfig'
 import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff, Search, ShieldCheck } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 type EmployeeWithEmail = UserProfile & { email: string }
 
@@ -40,6 +41,7 @@ function formatDate(iso: string) {
 }
 
 export default function AdminEmployeesPage() {
+  const { confirmar, avisar } = useDialogos()
   const [employees,        setEmployees]        = useState<EmployeeWithEmail[]>([])
   const [loading,          setLoading]          = useState(true)
   const [saving,           setSaving]           = useState<string | null>(null)
@@ -121,11 +123,16 @@ export default function AdminEmployeesPage() {
   async function handleSendInvitations(userIds: string[]) {
     const alreadyInvited = employees.filter(e => userIds.includes(e.id) && e.invited_at)
     if (alreadyInvited.length > 0) {
+      /* La pregunta va en el título y la explicación abajo: al revés —como
+         estaba— lo importante quedaba al final de un párrafo largo. */
       const detalle = alreadyInvited.map(e => `· ${e.full_name} (invitado el ${formatDate(e.invited_at!)})`).join('\n')
-      const msg = alreadyInvited.length === 1
-        ? `${alreadyInvited[0].full_name} ya fue invitado el ${formatDate(alreadyInvited[0].invited_at!)}.\n\nEl nuevo correo llega como "restablecer contraseña" — puede ignorarlo si no quiere cambiar su clave.\n\n¿Continuar de todas formas?`
-        : `${alreadyInvited.length} de los seleccionados ya recibieron una invitación:\n${detalle}\n\nEl correo llegará como "restablecer contraseña".\n\n¿Continuar de todas formas?`
-      if (!confirm(msg)) return
+      const titulo = alreadyInvited.length === 1
+        ? `${alreadyInvited[0].full_name} ya fue invitado el ${formatDate(alreadyInvited[0].invited_at!)}. ¿Reenviar igual?`
+        : `${alreadyInvited.length} de los seleccionados ya recibieron una invitación. ¿Reenviar igual?`
+      const cuerpo = alreadyInvited.length === 1
+        ? 'El nuevo correo llega como «restablecer contraseña» — puede ignorarlo si no quiere cambiar su clave.'
+        : `${detalle}\n\nEl correo llegará como «restablecer contraseña».`
+      if (!await confirmar({ titulo, detalle: cuerpo, aceptar: 'Reenviar' })) return
     }
     const key = userIds.length > 1 ? 'bulk' : userIds[0]
     setInviting(key)
@@ -143,7 +150,10 @@ export default function AdminEmployeesPage() {
   }
 
   async function handleDeactivate(userId: string, name: string) {
-    if (!confirm(`¿Inactivar a ${name}? Seguirá en el sistema pero no aparecerá en listas activas.`)) return
+    if (!await confirmar({
+      titulo:  `¿Inactivar a ${name}? Seguirá en el sistema pero no aparecerá en listas activas.`,
+      aceptar: 'Inactivar',
+    })) return
     setDeactivatingId(userId)
     try {
       await deactivateEmployee(userId)
@@ -154,13 +164,18 @@ export default function AdminEmployeesPage() {
   }
 
   async function handleDelete(userId: string, name: string) {
-    if (!confirm(`¿Eliminar a ${name} definitivamente?\n\nSe eliminará su cuenta y acceso. Sus rendiciones quedarán en el historial sin nombre asignado.\n\nEsta acción no se puede deshacer.`)) return
+    if (!await confirmar({
+      titulo:  `¿Eliminar a ${name} definitivamente?`,
+      detalle: `Se eliminará su cuenta y acceso. Sus rendiciones quedarán en el historial sin nombre asignado.\nEsta acción no se puede deshacer.`,
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingId(userId)
     try {
       await deleteEmployee(userId)
       await load()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar empleado')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar empleado')
     } finally {
       setDeletingId(null)
     }
@@ -168,12 +183,17 @@ export default function AdminEmployeesPage() {
 
   async function handleDeleteSelected() {
     const names = [...selected].map(id => employees.find(e => e.id === id)?.full_name ?? id).join(', ')
-    if (!confirm(`¿Eliminar ${selected.size} empleado${selected.size !== 1 ? 's' : ''}?\n\n${names}\n\nSe eliminará su acceso. Sus rendiciones quedarán en el historial sin nombre asignado.\n\nEsta acción no se puede deshacer.`)) return
+    if (!await confirmar({
+      titulo:  `¿Eliminar ${selected.size} empleado${selected.size !== 1 ? 's' : ''}?`,
+      detalle: `${names}\nSe eliminará su acceso. Sus rendiciones quedarán en el historial sin nombre asignado.\nEsta acción no se puede deshacer.`,
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeletingBulk(true)
     try {
       const results = await deleteEmployees([...selected])
       const errors = results.filter(r => r.error)
-      if (errors.length > 0) alert(`${errors.length} error(es) al eliminar:\n${errors.map(e => e.error).join('\n')}`)
+      if (errors.length > 0) avisar(`${errors.length} error(es) al eliminar:\n${errors.map(e => e.error).join('\n')}`)
       setSelected(new Set())
       await load()
     } finally {
