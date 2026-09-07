@@ -103,14 +103,32 @@ async function sinDesbordeHorizontal(page: Page, ruta: string) {
   ).toBeNull()
 }
 
-async function capturar(page: Page, slug: string, mascaras: string[] = []) {
+async function capturar(page: Page, slug: string, mascaras: string[] = [], datosVivos = false) {
+  try {
   await expect(page).toHaveScreenshot(`${slug}.png`, {
     fullPage: true,
     /* Playwright pinta las máscaras de rosa antes de comparar, así lo tapado
        es idéntico entre corridas. Ver `mascaras` en rutas.ts para cuándo
        corresponde usarlas — y cuándo no. */
-    mask: mascaras.map(sel => page.locator(sel)),
-  })
+      mask: mascaras.map(sel => page.locator(sel)),
+    })
+  } catch (e) {
+    /* Sigue fallando —una regresión real acá tiene que verse— pero el
+       mensaje dice qué significa. Sin esto, un rojo porque se movió un peso
+       es indistinguible de uno porque algo se rompió, y un rojo que no
+       significa nada entrena a ignorar los rojos. */
+    if (!datosVivos) throw e
+    throw new Error(
+      `«${slug}» muestra CIFRAS EN VIVO y no coincide con la línea base.\n\n` +
+      'Mirá el diff antes de decidir:' + `\n` +
+      '  · si sólo cambiaron números, nombres o el largo de una lista, es que' + `\n` +
+      '    alguien usó la app: regenerá con npm run baseline:crear.' + `\n` +
+      '  · si cambió la MAQUETA (posiciones, colores, tamaños) es una' + `\n` +
+      '    regresión de verdad y hay que mirarla.' + `\n\n` +
+      'El arreglo de fondo es un juego de datos congelado; ver e2e/README.md.' + `\n\n` +
+      (e instanceof Error ? e.message : String(e)),
+    )
+  }
 }
 
 /* ── Pantalla pública ──────────────────────────────────────────────────── */
@@ -148,7 +166,7 @@ for (const ruta of RUTAS_ESTATICAS) {
 
     await estabilizar(page)
     await sinDesbordeHorizontal(page, ruta.path)
-    await capturar(page, ruta.slug, ruta.mascaras)
+    await capturar(page, ruta.slug, ruta.mascaras, ruta.datosVivos)
   })
 }
 
@@ -196,6 +214,6 @@ for (const detalle of RUTAS_DETALLE) {
       return
     }
 
-    await capturar(page, detalle.slug)
+    await capturar(page, detalle.slug, [], detalle.datosVivos)
   })
 }

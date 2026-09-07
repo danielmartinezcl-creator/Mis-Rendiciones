@@ -40,6 +40,21 @@ export type Ruta = {
    */
   mascaras?: string[]
   /**
+   * La pantalla muestra CIFRAS EN VIVO: saldos, contadores, listas que crecen.
+   *
+   * No cambia lo que se compara —sigue siendo píxel a píxel, y una regresión
+   * real acá se ve igual—. Cambia lo que dice el error: sin esto, un rojo por
+   * un peso que se movió es indistinguible de un rojo por algo roto, y un
+   * rojo que no significa nada entrena a ignorar los rojos.
+   *
+   * Se marcó el 2026-09-05, cuando la app entró en uso real: 16 de 54
+   * comparaciones fallaron y las 8 pantallas eran exactamente éstas.
+   *
+   * El arreglo de fondo es un juego de datos propio, congelado, en una
+   * organización aparte — ver e2e/README.md.
+   */
+  datosVivos?: boolean
+  /**
    * Código HTTP que se espera. Por omisión se exige < 400, que es lo correcto
    * para toda ruta real. La pantalla de «no existe» es la excepción legítima:
    * DEBE responder 404, y un 200 ahí sería el defecto.
@@ -49,11 +64,11 @@ export type Ruta = {
 
 export const RUTAS_ESTATICAS: Ruta[] = [
   // ── Rendidor ──────────────────────────────────────────────────────────
-  { slug: 'estado',              path: '/',                       nombre: 'Estado (dashboard rendidor)',  rol: 'employee' },
+  { slug: 'estado',              path: '/',                       nombre: 'Estado (dashboard rendidor)',  rol: 'employee', datosVivos: true },
   { slug: 'mis-gastos',          path: '/mis-gastos',             nombre: 'Mis gastos',                   rol: 'employee' },
   { slug: 'gasto-rapido',        path: '/quick',                  nombre: 'Gasto rápido (3 pasos)',       rol: 'employee' },
   { slug: 'rendicion-nueva',     path: '/expenses/new',           nombre: 'Nueva rendición',              rol: 'employee' },
-  { slug: 'reembolsos',          path: '/reimbursements',         nombre: 'Historial de reembolsos',      rol: 'employee' },
+  { slug: 'reembolsos',          path: '/reimbursements',         nombre: 'Historial de reembolsos',      rol: 'employee', datosVivos: true },
   { slug: 'perfil',              path: '/profile',                nombre: 'Perfil y datos bancarios',     rol: 'employee' },
   { slug: 'sugerencias',         path: '/suggestions',            nombre: 'Sugerencias',                  rol: 'employee' },
 
@@ -62,24 +77,24 @@ export const RUTAS_ESTATICAS: Ruta[] = [
   { slug: 'caja-chica-nueva',    path: '/petty-cash/new',         nombre: 'Caja chica · nuevo fondo',     rol: 'employee' },
 
   // ── Aprobador ─────────────────────────────────────────────────────────
-  { slug: 'aprobaciones',        path: '/approvals',              nombre: 'Bandeja de aprobaciones',      rol: 'approver' },
-  { slug: 'informes',            path: '/informes',               nombre: 'Informes unificados',          rol: 'approver' },
+  { slug: 'aprobaciones',        path: '/approvals',              nombre: 'Bandeja de aprobaciones',      rol: 'approver', datosVivos: true },
+  { slug: 'informes',            path: '/informes',               nombre: 'Informes unificados',          rol: 'approver', datosVivos: true },
 
   // ── Operación bancaria y admin ────────────────────────────────────────
   { slug: 'banco',               path: '/banco',                  nombre: 'Cola bancaria',                rol: 'admin' },
-  { slug: 'admin',               path: '/admin',                  nombre: 'Dashboard admin',              rol: 'admin' },
-  { slug: 'admin-rendiciones',   path: '/admin/reports',          nombre: 'Admin · rendiciones',          rol: 'admin' },
+  { slug: 'admin',               path: '/admin',                  nombre: 'Dashboard admin',              rol: 'admin', datosVivos: true },
+  { slug: 'admin-rendiciones',   path: '/admin/reports',          nombre: 'Admin · rendiciones',          rol: 'admin', datosVivos: true },
   { slug: 'admin-empleados',     path: '/admin/employees',        nombre: 'Admin · empleados',            rol: 'admin' },
   { slug: 'admin-configuracion', path: '/admin/settings',         nombre: 'Admin · configuración',        rol: 'admin' },
   { slug: 'admin-fondos',        path: '/admin/fondos',           nombre: 'Admin · saldos de caja chica', rol: 'admin' },
-  { slug: 'admin-analisis',      path: '/admin/analisis',         nombre: 'Admin · análisis por CC',      rol: 'admin' },
+  { slug: 'admin-analisis',      path: '/admin/analisis',         nombre: 'Admin · análisis por CC',      rol: 'admin', datosVivos: true },
   { slug: 'admin-carga-hist',    path: '/admin/carga-historica',  nombre: 'Admin · carga histórica',      rol: 'admin' },
-  { slug: 'admin-auditoria',     path: '/admin/auditoria',        nombre: 'Admin · auditoría',            rol: 'admin' },
+  { slug: 'admin-auditoria',     path: '/admin/auditoria',        nombre: 'Admin · auditoría',            rol: 'admin', datosVivos: true },
   /* La papelera muestra «N días restantes» hasta el borrado definitivo. Ese
      número baja cada día, así que sin máscara esta ruta falla TODOS LOS DÍAS
      sin que nadie toque código — y un rojo que no significa nada entrena a
      ignorar los rojos. */
-  { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin',
+  { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin', datosVivos: true,
     mascaras: ['[data-cuenta-regresiva]'] },
 
   /* Una pantalla que la gente va a ver —enlace viejo, URL mal escrita— y que
@@ -122,6 +137,8 @@ export type RutaDetalle = {
    * enlazar al detalle solo en ciertos estados.
    */
   listas: string[]
+  /** Igual que en las estáticas: la pantalla muestra cifras en vivo. */
+  datosVivos?: boolean
   /** Prefijo del href a buscar */
   prefijo: string
   /** Hrefs a ignorar (páginas de creación, etc.) */
@@ -138,6 +155,7 @@ export const RUTAS_DETALLE: RutaDetalle[] = [
   {
     slug: 'rendicion-detalle',
     nombre: 'Rendición · detalle',
+    datosVivos: true,
     // /admin/reports va último a propósito: su único enlace a /expenses/:id
     // está dentro de `{r.status === 'draft' && …}`, así que solo aparece si
     // hay borradores. /reimbursements y / usan ExpenseReportCard, que enlaza
@@ -149,6 +167,7 @@ export const RUTAS_DETALLE: RutaDetalle[] = [
   {
     slug: 'aprobacion-detalle',
     nombre: 'Aprobación · detalle',
+    datosVivos: true,
     rol: 'approver',
     // /admin como respaldo: PendingApprovalPanel también enlaza al detalle.
     listas: ['/approvals', '/admin'],
@@ -176,6 +195,7 @@ export const RUTAS_DETALLE: RutaDetalle[] = [
   {
     slug: 'caja-chica-detalle',
     nombre: 'Caja chica · detalle del fondo',
+    datosVivos: true,
     listas: ['/petty-cash'],
     prefijo: '/petty-cash/',
     ignorar: ['/petty-cash/new'],

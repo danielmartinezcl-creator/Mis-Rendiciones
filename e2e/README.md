@@ -393,3 +393,47 @@ con permisos de empleado queda cubierto por `materiales-empleado`, que corre a
 Las rutas que un empleado no ve se saltean solas: `rutas.ts` marca el rol mínimo
 de cada una y `alcanceDe()` decide. Ese campo existía desde el principio pero no
 lo leía nadie.
+
+---
+
+## Las pantallas con cifras en vivo
+
+**El síntoma.** Desde que la app está en uso real, `baseline:verificar` empezó
+a fallar 16 de 54 comparaciones sin que nadie tocara código. Las 8 pantallas
+eran siempre las mismas —dashboards, listados, bandejas— y los diffs, siempre
+números: saldos, contadores, listas que crecieron.
+
+No es un error del arnés. Es que **una comparación píxel a píxel contra datos
+que cambian no puede quedarse en verde.**
+
+**Lo que se hizo (2026-09-05).** Esas rutas llevan `datosVivos: true` en
+`rutas.ts`. Siguen comparándose —una regresión real ahí tiene que verse
+igual—, pero cuando fallan el error explica qué mirar: si cambiaron sólo
+cifras, se regenera; si cambió la maqueta, es una regresión.
+
+Es una mejora de señal, no una solución. **El rojo sigue apareciendo.**
+
+**El arreglo de fondo: un juego de datos congelado.**
+
+La única forma robusta es que el arnés no mire los datos de PENTA. La vía
+está despejada y verificada:
+
+- `public.users` **no** tiene clave foránea contra `auth.users`. O sea que se
+  pueden sembrar empleados, rendiciones y fondos como datos puros, sin crear
+  cuentas.
+- RLS está activo con políticas en las siete tablas del dominio, así que una
+  segunda organización queda aislada: nadie de PENTA la ve, y ella no ve a
+  PENTA.
+
+Falta **una sola cosa, y es de Daniel**: una cuenta que pueda iniciar sesión
+en esa organización de prueba. Crear cuentas y manejar contraseñas no lo hace
+el agente. El camino más corto:
+
+1. Crear un empleado cualquiera desde `/admin/employees` → «Agregar empleado».
+2. Ponerle contraseña con el botón de la llave.
+3. Avisar cuál es, para moverlo por SQL a la organización de prueba y sembrar
+   ahí los datos fijos.
+
+Con eso, las 54 capturas dejan de depender de que nadie use la app — y el
+mismo movimiento resuelve la sesión de empleado descrita más arriba, porque
+esa cuenta puede ser la del empleado simple.
