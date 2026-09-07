@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { runOcr } from '@/actions/ocr'
 import type { OcrResult } from '@/lib/ocr-helpers'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 interface PhotoUploadProps {
   onOcrResult: (result: OcrResult | null, file: File) => void
@@ -48,6 +49,7 @@ async function resizeIfNeeded(file: File): Promise<{ base64: string; mimeType: s
 }
 
 export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
+  const { avisar } = useDialogos()
   const [status, setStatus] = useState<'idle' | 'reading' | 'processing' | 'done' | 'error'>('idle')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -57,12 +59,12 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
 
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
     if (!allowed.includes(file.type)) {
-      alert('Solo se aceptan imágenes JPG, PNG, WebP o PDF')
+      avisar('Solo se aceptan imágenes JPG, PNG, WebP o PDF')
       return
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      alert('El archivo no puede superar 20 MB')
+      avisar('El archivo no puede superar 20 MB')
       return
     }
 

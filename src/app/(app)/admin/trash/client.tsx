@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { getTrashItems, restoreFromTrash, permanentlyDeleteFromTrash } from '@/actions/admin'
 import { formatDate, formatCLP } from '@/lib/utils'
 import { Trash2, RotateCcw, AlertTriangle, Archive, Users, Wallet } from 'lucide-react'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 type TrashItems = Awaited<ReturnType<typeof getTrashItems>>
 type Tab = 'reports' | 'funds' | 'users'
@@ -24,6 +25,7 @@ function DaysLeftBadge({ deletedAt }: { deletedAt: string }) {
 interface Props { initialItems: TrashItems }
 
 export function TrashClient({ initialItems }: Props) {
+  const { confirmar, avisar } = useDialogos()
   const [items,    setItems]    = useState<TrashItems>(initialItems)
   const [tab,      setTab]      = useState<Tab>('reports')
   const [loading,  setLoading]  = useState<string | null>(null)
@@ -34,13 +36,16 @@ export function TrashClient({ initialItems }: Props) {
   }
 
   async function handleRestore(type: 'report' | 'fund' | 'user', id: string, label: string) {
-    if (!confirm(`¿Restaurar "${label}"? El ítem volverá a su módulo original.`)) return
+    if (!await confirmar({
+      titulo:  `¿Restaurar "${label}"? El ítem volverá a su módulo original.`,
+      aceptar: 'Restaurar',
+    })) return
     setLoading(id)
     try {
       await restoreFromTrash(type, id)
       await reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al restaurar')
+      avisar(err instanceof Error ? err.message : 'Error al restaurar')
     } finally {
       setLoading(null)
     }
@@ -56,7 +61,7 @@ export function TrashClient({ initialItems }: Props) {
       await permanentlyDeleteFromTrash(type, id)
       await reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      avisar(err instanceof Error ? err.message : 'Error al eliminar')
     } finally {
       setLoading(null)
     }

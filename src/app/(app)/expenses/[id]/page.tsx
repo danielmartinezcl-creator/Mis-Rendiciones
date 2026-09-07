@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import type { ReportStatus } from '@/lib/constants'
+import { useDialogos } from '@/components/ui/Dialogos'
 import { createClient } from '@/lib/supabase/client'
 import { ExpenseItemForm, type ItemFormData } from '@/components/expenses/ExpenseItemForm'
 import { ExpenseItemCard } from '@/components/expenses/ExpenseItemCard'
@@ -36,6 +37,7 @@ type ItemWithRelations = ExpenseItem & {
 }
 
 export default function ExpenseDetailPage() {
+  const { confirmar } = useDialogos()
   const { id } = useParams<{ id: string }>()
   const router  = useRouter()
 
@@ -178,13 +180,18 @@ export default function ExpenseDetailPage() {
   }
 
   async function handleDeleteItem(itemId: string) {
-    if (!confirm('¿Eliminar este ítem?')) return
+    if (!await confirmar({ titulo: '¿Eliminar este ítem?', aceptar: 'Eliminar', peligro: true })) return
     await deleteExpenseItem(itemId, id)
     await load()
   }
 
   async function handleDeleteReport() {
-    if (!confirm('¿Eliminar esta rendición? Esta acción no se puede deshacer.')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar esta rendición?',
+      detalle: 'Se borra con todos sus ítems. No se puede deshacer.',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeleting(true)
     setError(null)
     try {
@@ -197,7 +204,11 @@ export default function ExpenseDetailPage() {
   }
 
   async function handleSubmit() {
-    if (!confirm('¿Enviar esta rendición a revisión? No podrás editarla después.')) return
+    if (!await confirmar({
+      titulo:  '¿Enviar esta rendición a revisión?',
+      detalle: 'No vas a poder editarla después.',
+      aceptar: 'Enviar',
+    })) return
     setSubmitting(true)
     setError(null)
     try {

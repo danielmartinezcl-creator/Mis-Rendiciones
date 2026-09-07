@@ -96,6 +96,15 @@ const PANELES: Panel[] = [
      casillas por persona dejarían de auditarse. */
   { ruta: '/admin/employees',      panel: 'Permisos',       pasos: [{ boton: 'Permisos' }] },
 
+  /* El diálogo de confirmación: sólo existe abierto, así que sin esto sus
+     colores no los mira nadie. Se abre el de eliminar un empleado porque es
+     el más alcanzable con cualquier juego de datos.
+
+     ⚠ Este paso ABRE el diálogo y nada más. NUNCA agregar acá un paso que
+     toque «Eliminar»: la auditoría corre sobre datos reales. */
+  { ruta: '/admin/employees',      panel: 'Diálogo de confirmación',
+    pasos: [{ boton: 'Eliminar empleado', selector: 'button[title="Eliminar empleado definitivamente"]' }] },
+
   /* Caja chica: los filtros y el archivo histórico pasaron a plegarse. Sin
      esto, 785 px de panel de filtros y 76 cargas dejarían de auditarse. */
   { ruta: '/petty-cash', panel: 'Filtros de lista', pasos: [{ boton: 'Filtros de lista' }] },

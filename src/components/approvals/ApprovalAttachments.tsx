@@ -5,6 +5,7 @@ import { uploadApprovalAttachment, deleteApprovalAttachment } from '@/actions/ap
 import { Paperclip, Trash2, ExternalLink, Upload } from 'lucide-react'
 import type { ApprovalAttachment } from '@/lib/supabase/types'
 import { formatDate } from '@/lib/utils'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 type AttachmentWithMeta = ApprovalAttachment & {
   uploader_name: string
@@ -25,6 +26,7 @@ function formatBytes(n: number | null) {
 }
 
 export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
+  const { confirmar } = useDialogos()
   const [description, setDescription] = useState('')
   const [uploading, startUpload] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +57,11 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
   }
 
   async function handleDelete(id: string, storagePath: string) {
-    if (!confirm('¿Eliminar este adjunto?')) return
+    if (!await confirmar({
+      titulo:  '¿Eliminar este adjunto?',
+      aceptar: 'Eliminar',
+      peligro: true,
+    })) return
     setDeleting(id)
     try {
       await deleteApprovalAttachment(id, storagePath)

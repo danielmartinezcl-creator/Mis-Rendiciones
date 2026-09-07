@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getAuthUser, getAuthProfile } from '@/lib/auth'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { MobileNav } from '@/components/layout/MobileNav'
+import { ProveedorDialogos } from '@/components/ui/Dialogos'
 import { LogoutButton } from '@/components/layout/LogoutButton'
 import { RealtimeProvider } from './RealtimeProvider'
 import { Marca, MarcaProducto } from '@/components/layout/Marca'
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <RealtimeProvider userId={profile.id}>
+      <ProveedorDialogos>
       <div className="flex min-h-screen">
         <Sidebar user={profile} marca={marca} />
         <div className="flex-1 flex flex-col min-w-0">
@@ -46,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <MobileNav user={profile} />
       </div>
+      </ProveedorDialogos>
     </RealtimeProvider>
   )
 }
