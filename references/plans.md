@@ -1,6 +1,6 @@
 # Mi rendición — Estado de implementación y backlog
 
-> Última actualización: 2026-08-11
+> Última actualización: 2026-09-21
 > Ver SKILL.md para contexto completo del proyecto.
 
 ---
@@ -118,6 +118,8 @@ Todos los paths de email usan `createAdminClient()` para resolver `auth.users.em
 | `020_reimbursed_amount.sql` | Monto reembolsado |
 | `021_defontana_movements.sql` | Cuenta banco + tipo de comprobante/documento por movimiento |
 | `022_petty_cash_defontana_by_movement.sql` | Marca Defontana por ítem y por transferencia de fondo vivo |
+| `023_org_logos.sql` | Bucket `org-logos` + políticas (white-label). No altera tablas: `organizations.name` y `logo_url` existen desde `001` |
+| `024_invalidar_analisis_ia.sql` | Trigger sobre `expense_items` que anula `ai_analysis` donde cambian los datos — el caché comparaba contra `updated_at` y no acertaba nunca |
 
 **Nota:** hay **dos pares** con prefijo duplicado — `011_bank_authorization_workflow` /
 `011_expense_policies_and_ai_analysis` y `016_audit_log` /
