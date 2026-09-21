@@ -80,7 +80,32 @@ export function Marca({ nombre, logo, tamano = 'riel' }: Props) {
  * La marca del producto, para las pantallas sin sesión — el login no sabe
  * todavía a qué organización pertenece quien está mirando.
  */
-export function MarcaProducto({ tamano = 'riel' }: { tamano?: 'riel' | 'barra' }) {
+export function MarcaProducto({ tamano = 'riel' }: { tamano?: 'riel' | 'barra' | 'acceso' }) {
+  /* El acceso es el único lugar donde la marca no acompaña a una navegación:
+     hasta que la persona entra, es lo único que hay en la pantalla. Por eso va
+     en vertical y al tamaño en que se MIRA, no al que se reconoce de reojo.
+
+     Es una variante del mismo componente y no uno nuevo a propósito: el riel y
+     la barra del teléfono ya habían divergido una vez —dos marcas distintas en
+     la misma app, que nadie notaba porque nunca se ven juntas—. Una tercera
+     copia para el acceso repetiría exactamente ese error. */
+  if (tamano === 'acceso') {
+    return (
+      <div className="flex flex-col items-center text-center">
+        <div
+          className="w-16 h-16 rounded-card flex items-center justify-center mb-4"
+          style={{ background: 'var(--cta-brand)' }}
+        >
+          <ReceiptText size={30} className="text-white" />
+        </div>
+        <span className="font-display font-extrabold tracking-tight leading-none text-2xl">
+          <span style={{ color: BRAND.accentBright }}>Mi</span>
+          <span className="text-white"> Rendición</span>
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-3 min-w-0">
       <div className="w-9 h-9 rounded-item flex items-center justify-center shrink-0"
