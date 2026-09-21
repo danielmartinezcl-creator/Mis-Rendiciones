@@ -19,6 +19,12 @@ description: >
 > Para detalles de schema SQL, ver `references/schema.md`.
 > Para planes de implementación, ver `references/plans.md`.
 
+> **Contrastado contra el disco el 2026-09-21** (migraciones, rutas, capturas, tests y
+> backlog). Este archivo se carga en cada sesión, así que cuando envejece **desvía todas
+> las sesiones a la vez**: eso ya pasó con el service worker, con el conteo de pantallas
+> rediseñadas y con dos migraciones que no figuraban. Si una sesión descubre que un hecho
+> de acá es falso, **corregirlo acá en el momento**, no solo en el commit.
+
 ---
 
 ## Stack
@@ -63,6 +69,21 @@ description: >
 - Clientes: `src/lib/supabase/client.ts` (browser) y `src/lib/supabase/server.ts` (server)
 - **Admin client**: `src/lib/supabase/admin.ts` → `createAdminClient()` con `SUPABASE_SERVICE_ROLE_KEY` — usar solo en Server Actions para operaciones que requieren bypass de RLS (crear usuarios, operaciones cross-org)
 - **Variables de entorno requeridas**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (sin NEXT_PUBLIC — nunca exponer al browser)
+
+> **⚠️ La organización está en plan FREE y el proyecto se pausa solo tras ~7 días
+> sin uso.** Al pausarse, Supabase **retira el registro DNS** del subdominio: no es
+> que la base responda lento, es que el dominio deja de existir.
+>
+> **Si alguien dice «no puedo iniciar sesión», sospechar esto PRIMERO.** Un solo
+> `get_project` del MCP de Supabase lo confirma o lo descarta: `status` distinto de
+> `ACTIVE_HEALTHY` es la respuesta, y entonces el código, las variables y el deploy
+> están todos sanos y no hay que revisarlos. Detalle completo en
+> [[project-supabase-plan-free-pausa]] en la memoria.
+>
+> Pasó el 2026-09-21 tras catorce días de silencio. Se restaura con `restore_project`
+> y tarda ~8 minutos. **Durante ese rato el esquema se ve VACÍO —`public.users` no
+> existe— y eso es normal, no es pérdida de datos:** no declarar nada roto hasta que
+> `/rest/v1/` devuelva 200 (la secuencia es 521 → 404 → 200).
 
 ### Tipografía (rediseño Tornasol, 2026-09-02)
 - **Display / títulos:** `Bricolage Grotesque` — variable `--font-bricolage`, clases `font-display` / `font-bricolage`
@@ -176,6 +197,7 @@ src/
 │   │   │   ├── fondos/                   ← Dashboard saldos caja chica activos
 │   │   │   ├── analisis/                 ← Pivot gastos por centro de costo
 │   │   │   ├── carga-historica/          ← Importador histórico Excel
+│   │   │   ├── auditoria/                ← Registro append-only (incluye reversas Defontana)
 │   │   │   └── trash/                    ← Papelera (soft delete, 90 días)
 │   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica (flujo bancario)
 │   │   ├── profile/                      ← Perfil + datos bancarios
@@ -249,7 +271,9 @@ supabase/
 │   ├── 019_security_fixes.sql                        ← RLS en rate_limit_log, notifications en realtime
 │   ├── 020_reimbursed_amount.sql                     ← monto reembolsado
 │   ├── 021_defontana_movements.sql                   ← cuenta banco + tipo comprobante/documento por movimiento
-│   └── 022_petty_cash_defontana_by_movement.sql      ← marca Defontana por ítem y por transferencia de fondo vivo
+│   ├── 022_petty_cash_defontana_by_movement.sql      ← marca Defontana por ítem y por transferencia de fondo vivo
+│   ├── 023_org_logos.sql                             ← bucket `org-logos` (white-label); no toca tablas
+│   └── 024_invalidar_analisis_ia.sql                 ← el caché del análisis IA se invalida donde cambian los datos
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -271,7 +295,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- 32+ tests Vitest pasando · build TypeScript limpio
+- **199 tests Vitest en 17 archivos**, todos pasando · build TypeScript limpio · 0 errores de lint
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -307,10 +331,25 @@ Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
 **Antes de tocar estilos, leer `docs/Rediseño/tornasol-spec.md` — empezando por su fe de
 erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
 
-**Hay una línea base visual de 50 capturas** (`e2e/`, `npm run baseline:verificar`). Un
-cambio de estilo que la deje en verde no tocó nada visible; si la ensucia, el reporte
-dice dónde. Leer `e2e/README.md` antes de confiar en un resultado: solo captura el
-estado de reposo, así que errores, hover y modales no se ven.
+**Hay una línea base visual de 52 capturas** (26 escritorio + 26 móvil — `e2e/`,
+`npm run baseline:verificar`). Un cambio de estilo que la deje en verde no tocó nada
+visible; si la ensucia, el reporte dice dónde. Leer `e2e/README.md` antes de confiar
+en un resultado: solo captura el estado de reposo, así que errores y hover no se ven.
+Los paneles y formularios cerrados sí se auditan aparte (`npm run audit:materiales`),
+y la deuda de sistema tiene su propio detector (`npm run audit:deuda`, hoy en **cero**).
+
+**Los diálogos del sistema ya no existen en esta app** (commit `a1edf8f`). Los 56
+`confirm()` y `alert()` nativos se reemplazaron por dos piezas propias:
+
+| Pieza | Qué es |
+|---|---|
+| `confirmar()` | Modal, siguiendo a `RevertDefontanaDialog`. **Devuelve una promesa**, así que el sitio de llamada casi no cambia: `if (!await confirmar('¿Eliminar?')) return` |
+| `avisar()` | El «aviso flotante» de la §5 de la spec: píldora blanca abajo al centro con punto aqua. 2,6 s; 7 s cuando es error, porque casi siempre trae algo que leer |
+
+**Nunca volver a escribir `confirm()` o `alert()`**: el navegador les antepone el
+dominio («mi-rendicion.com dice:») y en Android se ven como avisos de error aunque
+pregunten algo inofensivo. Un borrado usa el diálogo en rojo, con ícono de alerta y
+el verbo real en el botón («Eliminar», no «Confirmar»).
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -410,10 +449,27 @@ la liquidación (`FundDefontanaPanel`).
 - Badge por ítem en bandeja aprobador `/approvals/[id]`
 - Tab "Viáticos" en `/admin/settings` — CRUD completo con destino, categoría, monto, moneda
 
-### ✅ Análisis IA para aprobador (R14)
+### ✅ Análisis IA para aprobador (R14) — caché arreglado en la migración 024
 - `generateApprovalAnalysis(reportId)` — Claude Sonnet 4.6: historial 6 meses + violaciones → `{ risk_level, headline, routine_item_ids[], attention_items[] }`
-- Cache en `expense_reports.ai_analysis / ai_analysis_at`; se invalida si el reporte vuelve a draft
-- Costo: ~$0.008/rendición
+- Caché en `expense_reports.ai_analysis / ai_analysis_at`. Costo: ~$0.008/rendición
+
+**El caché no acertaba NUNCA y cada vista pagaba de nuevo** (`f44aba3` + migración
+`024`). Vale la pena entender por qué, porque el patrón se repite:
+
+> La validez se decidía comparando `ai_analysis_at > updated_at`. Pero **guardar el
+> análisis ES un UPDATE** sobre `expense_reports`, y esa tabla tiene el trigger
+> `set_updated_at()` en cada UPDATE: la escritura del caché pisaba la misma marca
+> contra la que después se comparaba. Medido: 0 de 4 rendiciones con caché válido.
+
+La invalidación **se movió a la base, con un trigger sobre `expense_items`**. No fue
+por elegancia: `expenses.ts` anulaba el análisis en 2 sitios, pero hay ~11 lugares que
+modifican ítems (reclasificar desde admin, traspasos, carga histórica) y los otros
+nueve dejaban el caché viejo. Un trigger cubre los caminos de hoy, los de mañana y el
+SQL manual.
+
+**El guard `and ai_analysis is not null` no es decorativo:** sin él, una carga histórica
+de 300 ítems dispara 300 UPDATE sobre la misma rendición, cada uno arrastrando su propio
+trigger de `updated_at`.
 
 ### ✅ Kilometraje (R1)
 - `expense_items.mileage_km`, `mileage_rate`; `organizations.mileage_rate_per_km` (default $136/km SII)
@@ -436,6 +492,29 @@ la liquidación (`FundDefontanaPanel`).
 - `/quick` — 3 pasos optimizados para mobile: foto → OCR → confirmar monto/cat → seleccionar fondo → enviar
 - Shortcut en `manifest.json` para acceso directo desde el ícono de la PWA
 
+### ✅ El dominio viejo redirige al canónico (`6db0a42`)
+- `rindegastos.vercel.app` —el nombre de prueba— **sigue respondiendo y apuntando a
+  este proyecto**. Quien tenga ese marcador, o la PWA instalada desde ahí, la usa por
+  ese dominio sin enterarse
+- `src/proxy.ts` lo redirige con **308** (no 302: para que el navegador lo recuerde),
+  conservando ruta y parámetros. El canónico sale de `NEXT_PUBLIC_APP_URL`
+- Se redirige **solo una lista explícita** (`HOSTS_VIEJOS`), nunca «cualquier host que
+  no sea el canónico»: cada despliegue de vista previa de Vercel tiene su propia URL y
+  hay que poder usarla antes de mezclar
+
+### ✅ Fronteras de error (`b9e2cff`)
+- `(app)/error.tsx` — dentro del área autenticada, así el menú sigue ahí y la persona
+  puede irse a otro lado en vez de quedar varada con un botón de recargar
+- `global-error.tsx` — último recurso, con estilos **en línea**: reemplaza al layout
+  raíz, así que `globals.css` no aplica y depender de él sería depender de lo que falló
+- `not-found.tsx` — 404 propia, que entra a la línea base con `estadoEsperado` en
+  `e2e/rutas.ts` (es la única ruta que DEBE responder 404)
+- Las tres muestran el `digest`: en producción es lo único que permite cruzar el error
+  con el registro de Vercel, porque Next redacta `error.message`
+- **`getUser()` LANZA con el token de refresco caducado** y el proxy corre antes que
+  todo, así que ninguna frontera lo atrapa: por eso va en `try/catch` y un token vencido
+  se trata como sesión ausente → redirección al login, no un 500
+
 ### ✅ Cola Bancaria (2026-08-14)
 - `/banco` — vista centralizada de rendiciones en proceso de transferencia, para operadores bancarios
 - `getBankQueue()` en `actions/admin.ts` resuelve `isAdmin` / `canLoad` / `canAuth` y devuelve **solo los estados que ese rol puede accionar**: admin ve `approved` + `partially_approved`; `canLoad` ve `pending_bank_load`; `canAuth` ve `pending_bank_auth`
@@ -449,7 +528,7 @@ la liquidación (`FundDefontanaPanel`).
 - **Resumen mensual empleado** (`/mis-gastos`): gráfico últimos 12 meses por categoría
 - **Firma digital PDF (R17)**: SHA-256 del payload de ítems al final del PDF exportado
 - **Borrador offline (R18)**: `localStorage` autosave cada 30s en nueva rendición; banner "¿Restaurar borrador?"
-- **Aprobación rápida (R9)**: botón "Aprobar todo" con confirm() en bandeja aprobador
+- **Aprobación rápida (R9)**: botón "Aprobar todo" con `await confirmar()` en bandeja aprobador
 - **ZIP comprobantes (R7)**: `exportReportWithAttachments(reportId)` → descarga JSZip con adjuntos
 - **Dashboard saldos caja chica (R16)**: `/admin/fondos` con saldo disponible + días sin actividad
 - **Perfil** (`/profile`): nombre, RUT, email readonly, datos bancarios (banco, tipo cuenta, número)
@@ -457,7 +536,29 @@ la liquidación (`FundDefontanaPanel`).
 - **Invitación empleados**: `set-password` flow — empleado recibe link, establece contraseña
 
 ### ⏳ Pendiente / Backlog
-1. **Service worker offline**: `next-pwa` incompatible con Turbopack (Next.js 16). La app es instalable vía `manifest.json` pero sin cache offline. Sin solución disponible sin cambiar la arquitectura de build.
+
+> Revisado contra el disco el **2026-09-21**. Lo que está acá está pendiente de verdad;
+> lo que se completó salió de la lista.
+
+1. **`RESEND_API_KEY` inválida — bloqueante del lanzamiento, POSTERGADO a propósito.**
+
+   > **Decisión de Daniel, 2026-09-21: no tocarlo por ahora.** Todavía no va a invitar
+   > a los empleados, así que no corre apuro. **No insistir con esto en cada sesión**;
+   > vuelve a ser prioridad recién cuando se decida lanzar.
+
+   La clave cargada en Vercel tiene **9 caracteres**; una real de Resend tiene ~36
+   (`re_` + token). No se toca desde el 2026-08-11, o sea que **sigue rota**. Sin ella
+   no sale ninguna invitación a los 54 empleados ni ninguna notificación.
+
+   **No es un bug de código y no se arregla programando**: es una credencial que tiene
+   que pegar Daniel, en dos lados (`.env.local` y las variables de Vercel).
+
+   El código ya no miente al respecto (`b9e2cff`): `revisarConfigCorreo` en
+   `src/lib/email-helpers.ts` valida ANTES del bucle de envío, así que si el correo no
+   puede salir se corta sin tocar a nadie y sin quemar los `invited_at` — ese campo solo
+   se escribe bien una vez. Ocho tests lo fijan, uno de ellos con el caso exacto de
+   producción.
+
 2. **Marca por organización (white-label)** — **nombre y logo: HECHOS** (2026-09-04).
    `organizations.name` y `logo_url` ya existían desde `001` y no los leía nadie, así
    que no hizo falta migración de tablas. El riel y el encabezado móvil los leen vía
@@ -483,12 +584,53 @@ la liquidación (`FundDefontanaPanel`).
    **Sigue faltando**: el favicon y el `manifest.json` de la PWA, que son archivos
    estáticos y necesitarían rutas de metadata dinámicas.
 3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
-4. **Rediseño Tornasol**: el chasis y la regla de materiales están completos y verificados en las 24 pantallas (`npm run audit:materiales`). Falta el rediseño *conceptual* pantalla por pantalla — sólo `/petty-cash/[id]` pasó por eso. Ver [[project-rediseno-tornasol]] en la memoria.
+
+4. **Rediseño Tornasol — el rediseño *conceptual*, pantalla por pantalla.**
+   El chasis y la regla de materiales están **completos y verificados en las 23
+   pantallas** (`npm run audit:materiales`), con deuda de sistema en cero. Lo que falta
+   es repensar cada pantalla, que es otra cosa y es la parte que rinde.
+
+   **Pasaron 5 de 23** (no una sola, como decía este archivo hasta el 2026-09-21):
+
+   | Pantalla | Resultado medido |
+   |---|---|
+   | `/petty-cash/[id]` | el piloto — tarjeta héroe + recorrido |
+   | `/banco` | 14,9× → **2,2×** pantallas de scroll |
+   | `/petty-cash` | 5,2× → **1,5×** |
+   | `/admin/employees` | la nómina dejó de ser 34 scrolls |
+   | `/admin/reports` | trampa de `min-w-0` + paginado de a 25 |
+
+   Las **18 restantes** tienen el chasis correcto pero nunca se pensaron de nuevo.
+   Las herramientas para hacerlo ya existen: medir por bloques (§5 de la spec), el
+   detector de deuda y la línea base visual. Ver [[project-rediseno-tornasol]].
+
+5. **Plan de Supabase — decisión abierta (2026-09-21).**
+   La organización está en **free** y el proyecto se pausa solo tras ~7 días sin uso
+   (ver la advertencia en «Reglas críticas → Supabase»). Con 54 empleados en producción
+   dejaría de pasar por uso natural, pero **hasta el lanzamiento va a repetirse**.
+
+   Opciones: plan Pro (~US$25/mes, un proyecto en Pro nunca se pausa) o averiguar por
+   qué el cron diario de `vercel.json` —que consulta la base a las 9AM— no alcanzó para
+   mantenerlo vivo. Eso último quedó **sin explicar** y es lo primero a revisar.
 
 > **Ya NO están pendientes, aunque documentos viejos lo digan:**
-> · *Notificaciones email* — completo desde el 2026-08-12. `lookupEmails()` en
->   `actions/notifications.ts` usa `createAdminClient()` + `getUserById()`, y todos los
->   paths de envío pasan por ahí.
+>
+> · *Service worker / caché offline* — **ya NO está bloqueado técnicamente** (resuelto
+>   el 2026-09-04). El motivo histórico —«`next-pwa` v5 no es compatible con Turbopack»—
+>   era cierto y dejó de serlo: `@serwist/turbopack`, su sucesor mantenido, tiene soporte
+>   explícito. `next-pwa` quedó huérfano en `package.json` durante meses y se eliminó.
+>   El arnés ya corre con `serviceWorkers: 'block'` en `playwright.config.ts`, así que
+>   la línea base sigue siendo determinista.
+>   **Lo que queda es una decisión de producto, no técnica**, y es de Daniel: caché
+>   offline —valioso para fotografiar boletas donde no hay señal— a cambio del riesgo
+>   clásico de servir assets viejos después de un deploy. El razonamiento completo está
+>   en el comentario de cabecera de `next.config.ts`.
+>
+> · *Notificaciones email* — **el código** está completo desde el 2026-08-12:
+>   `lookupEmails()` en `actions/notifications.ts` usa `createAdminClient()` +
+>   `getUserById()`, y todos los paths de envío pasan por ahí. Lo que falta no es
+>   código sino **la credencial** (punto 1 del backlog): no confundir una cosa con otra.
+>
 > · *«Penta Rend» hardcodeado* — el nombre no existe en ningún archivo desde `46d62ab`.
 >   Lo que sigue pendiente es el white-label (punto 2), no ese literal.
 
@@ -629,7 +771,7 @@ la liquidación (`FundDefontanaPanel`).
 | `types.ts` sin `Relationships` en tablas | `Schema = never`, `.insert()` acepta `never[]` | Agregar `Relationships: []` a cada tabla |
 | `Update: never` en tabla append-only | Rompe `GenericTable` constraint de Supabase | Usar `Update: Record<string, never>` |
 | Selects anidados sin tipo explícito | `item.id` falla: "does not exist on type never" | Tipar el array con cast explícito |
-| `next-pwa` v5 con Next.js 16 | `webpack` config + Turbopack → build error | Eliminar `withPWA`; usar solo `manifest.json` + metadata en `layout.tsx` |
+| `next-pwa` v5 con Next.js 16 | `webpack` config + Turbopack → build error | Ya no aplica: `next-pwa` se eliminó el 2026-09-04. Si hace falta un service worker, el camino es `@serwist/turbopack` — **no** reinstalar `next-pwa` |
 | `.eq('status', stringVar)` con literal union | TS: "Argument of type 'string' is not assignable" | Castear el valor: `.eq('status', status as any)` |
 | `export type { X }` en archivo `'use server'` | Turbopack intenta serializar el tipo → "X is not defined" runtime | Importar tipos directo desde `@/lib/`, nunca re-exportar desde `'use server'` |
 | RLS auto-referencial en `users` → redirect loop | Recursión → devuelve vacío → layout redirige a /login | Usar `get_my_org_id()` (security definer) en todas las políticas |
@@ -649,7 +791,7 @@ la liquidación (`FundDefontanaPanel`).
 | `window.location.reload()` después de createFundTransfer | `revalidatePath` server-side no actualiza estado client-side de fondos ya renderizados | Reload forzado es el patrón correcto para esta situación |
 | Notificaciones email sin service role | `auth.users.email` inaccesible con anon key | Usar `createAdminClient()` para el lookup del email del destinatario antes de `resend.emails.send()` |
 | Link de invitación apunta a localhost | `NEXT_PUBLIC_APP_URL=http://localhost:3000` en `.env.local` → el `redirectTo` de Supabase `generateLink` embebe la URL local | Setear `NEXT_PUBLIC_APP_URL=https://www.mi-rendicion.com` en Vercel + Supabase Site URL + Redirect URLs |
-| Botón "Invitar" individual desaparece para usuarios ya invitados | `{!emp.invited_at && <button>}` oculta el botón — admin no puede reenviar | Siempre mostrar el botón; usar `emp.invited_at` para cambiar estilo (teal→ámbar) y texto (Invitar→Reenviar). Agregar `confirm()` en `handleSendInvitations` si algún seleccionado ya tiene `invited_at` |
+| Botón "Invitar" individual desaparece para usuarios ya invitados | `{!emp.invited_at && <button>}` oculta el botón — admin no puede reenviar | Siempre mostrar el botón; usar `emp.invited_at` para cambiar estilo (teal→ámbar) y texto (Invitar→Reenviar), y `await confirmar()` en `handleSendInvitations` si algún seleccionado ya tiene `invited_at` |
 | Reenviar invitación llega como "restablecer contraseña" | Supabase no distingue invitación de reset en el email | Es el comportamiento esperado. Informar al empleado con el confirm() que el nuevo correo llegará así |
 | `getEmployeeTargets` retornaba solo caja chica histórica | `is_historical_import` y `historical_type` filtraban demasiado | Eliminar esos filtros — retornar todos los expense_reports del empleado para poder vincular traspasos a rendiciones regulares |
 | `lookupEmails()` en notifications.ts carga todos los usuarios | `listUsers({ perPage: 1000 })` en cada envío de email — ineficiente a escala | Migrar a `getUserById()` individual por cada destinatario, o cachear el mapa user_id→email |
@@ -665,3 +807,8 @@ la liquidación (`FundDefontanaPanel`).
 | Texto tenue dentro de un contenedor con `opacity` | El contraste se **multiplica**: `text-white/70` dentro de una tarjeta al 60% da 42% efectivo, ilegible | Al bajar la opacidad de un contenedor, subir la de su texto para compensar |
 | `strokeLinecap="round"` con un arco de largo cero | Igual pinta el redondeo de las puntas: un punto que se lee como un 1% inexistente | No renderizar el trazo cuando el valor es 0 |
 | Crear un componente de React para una superficie visual nueva | El selector de legibilidad de `globals.css` excluye superficies **por nombre de clase**; una clase nueva no excluida vuelve blancos sobre blanco los encabezados de adentro | Preferir la clase de material existente (`.hoja`, `.tor-glass`). Si de verdad hace falta una clase nueva, agregarla al `:not()` |
+| Buscar en el código por qué «no se puede iniciar sesión» | El proyecto Supabase se pausó solo (plan free, ~7 días sin uso) y **el DNS del subdominio deja de existir**. El `try/catch` del proxy lo degrada a redirección al login, así que no se ve ningún error: parece un problema de credenciales | `get_project` del MCP de Supabase **antes** de mirar código, variables o deploys. `status` ≠ `ACTIVE_HEALTHY` es la respuesta. La firma en los logs de Vercel es `getaddrinfo ENOTFOUND` + `AuthRetryableFetchError` |
+| Dar por perdidos los datos durante un `restore_project` | Supabase levanta la infraestructura primero y restaura el esquema después: hay varios minutos en que `public.users` no existe y la base se ve vacía | Esperar a que `/rest/v1/` devuelva 200 (la secuencia es 521 → 404 → 200). El puerto 5432 abre MUCHO antes de que se pueda leer una fila |
+| Validar un caché contra `updated_at` en una tabla con trigger `set_updated_at()` | Guardar el caché **es** un UPDATE, así que pisa la misma marca contra la que se compara: la condición no se cumple nunca y cada vista recalcula | Invalidar con un trigger donde cambian los datos de verdad, no comparando marcas de tiempo en la misma fila. Ver migración `024` |
+| Repartir la invalidación de un caché entre los llamadores | `expenses.ts` la hacía en 2 sitios, pero ~11 lugares modifican ítems (admin, traspasos, carga histórica): los otros nueve dejaban el caché viejo | Un trigger en la base cubre los caminos de hoy, los de mañana y el SQL manual |
+| Escribir `confirm()` o `alert()` en un componente | Son cajas del sistema operativo sin nada del diseño; el navegador les antepone el dominio («mi-rendicion.com dice:») y en Android parecen avisos de error | `await confirmar()` y `avisar()`. Quedan **0** nativos en `src/` desde `a1edf8f` — que no vuelva a entrar uno |
