@@ -604,7 +604,20 @@ trigger de `updated_at`.
    Las herramientas para hacerlo ya existen: medir por bloques (§5 de la spec), el
    detector de deuda y la línea base visual. Ver [[project-rediseno-tornasol]].
 
-5. **Plan de Supabase — decisión abierta (2026-09-21).**
+5. **Landing comercial en la raíz — pedida por Daniel el 2026-09-21.**
+   Una página pública que **venda el sistema**: qué hace, sus características, sus
+   ventajas, y un botón de «Iniciar sesión» que derive a `/login`.
+
+   Hoy la raíz `/` es el dashboard del empleado y el proxy manda al login a cualquiera
+   sin sesión, así que **la app no tiene ninguna superficie pública**: quien llega sin
+   cuenta solo ve un formulario. Es la pieza que falta para que Mi Rendición se pueda
+   mostrar a un cliente que todavía no la usa.
+
+   Decisiones que hay que tomar antes de construirla: en qué ruta vive (la raíz
+   pública con el dashboard movido, o `/inicio`), y cómo se comporta el proxy con
+   alguien que SÍ tiene sesión y cae ahí. Nada de esto está decidido todavía.
+
+6. **Plan de Supabase — decisión abierta (2026-09-21).**
    La organización está en **free** y el proyecto se pausa solo tras ~7 días sin uso
    (ver la advertencia en «Reglas críticas → Supabase»). Con 54 empleados en producción
    dejaría de pasar por uso natural, pero **hasta el lanzamiento va a repetirse**.
