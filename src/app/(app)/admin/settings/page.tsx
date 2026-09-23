@@ -1,14 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  Utensils, Building2, GraduationCap, Fuel, Smartphone,
-  Clapperboard, Package, Tag, Wrench, Car, Link2,
-  Mail, Pencil, Check, X, Send, Trash2, AlertTriangle,
-  Briefcase, Coffee, Home, Heart, ShoppingBag, Plane,
-  Globe, DollarSign, FileText, Stethoscope, Hotel, Bus,
-  type LucideIcon,
-} from 'lucide-react'
+import { Link2, Mail, Pencil, Check, X, Send, Trash2, AlertTriangle } from 'lucide-react'
+import { ICON_CATALOG, getIconByKey } from '@/components/ui/IconoCategoria'
 import {
   getOrgCategories, addCategory, toggleCategoryActive,
   updateCategory, deleteCategory,
@@ -30,37 +24,6 @@ import { useDialogos } from '@/components/ui/Dialogos'
 
 type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks' | 'marca'
 type EmployeeWithEmail = UserProfile & { email: string }
-
-/* ── Catálogo de íconos seleccionables ─────────────────────────────────── */
-export const ICON_CATALOG: Array<{ key: string; Icon: LucideIcon; label: string }> = [
-  { key: 'utensils',       Icon: Utensils,      label: 'Alimentación' },
-  { key: 'coffee',         Icon: Coffee,        label: 'Café' },
-  { key: 'building2',      Icon: Building2,     label: 'Alojamiento' },
-  { key: 'hotel',          Icon: Hotel,         label: 'Hotel' },
-  { key: 'graduation-cap', Icon: GraduationCap, label: 'Capacitación' },
-  { key: 'fuel',           Icon: Fuel,          label: 'Combustible' },
-  { key: 'smartphone',     Icon: Smartphone,    label: 'Comunicaciones' },
-  { key: 'clapperboard',   Icon: Clapperboard,  label: 'Entretenimiento' },
-  { key: 'package',        Icon: Package,       label: 'Materiales' },
-  { key: 'wrench',         Icon: Wrench,        label: 'Servicios' },
-  { key: 'car',            Icon: Car,           label: 'Vehículo' },
-  { key: 'bus',            Icon: Bus,           label: 'Transporte' },
-  { key: 'plane',          Icon: Plane,         label: 'Viajes' },
-  { key: 'briefcase',      Icon: Briefcase,     label: 'Negocio' },
-  { key: 'shopping-bag',   Icon: ShoppingBag,   label: 'Compras' },
-  { key: 'home',           Icon: Home,          label: 'Inmueble' },
-  { key: 'heart',          Icon: Heart,         label: 'Salud' },
-  { key: 'stethoscope',    Icon: Stethoscope,   label: 'Médico' },
-  { key: 'dollar-sign',    Icon: DollarSign,    label: 'Financiero' },
-  { key: 'globe',          Icon: Globe,         label: 'Internacional' },
-  { key: 'file-text',      Icon: FileText,      label: 'Documentos' },
-  { key: 'tag',            Icon: Tag,           label: 'Otro' },
-]
-
-function getIconByKey(key: string | null | undefined): LucideIcon {
-  if (!key) return Tag
-  return ICON_CATALOG.find(e => e.key === key)?.Icon ?? Tag
-}
 
 function CategoryIcon({ icon, color }: { icon?: string | null; color?: string | null }) {
   const Icon = getIconByKey(icon)

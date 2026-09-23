@@ -5,9 +5,9 @@ import { TrendingUp, BarChart3 } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 function monthLabel(ym: string) {
-  const [y, m] = ym.split('-')
+  const m = ym.split('-')[1]
   const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-  return `${names[parseInt(m, 10) - 1]} ${y.slice(2)}`
+  return names[parseInt(m, 10) - 1]
 }
 
 export default async function MisGastosPage() {
@@ -73,21 +73,19 @@ export default async function MisGastosPage() {
             <BarChart3 size={16} className="text-accent-600" />
             <h2 className="text-sm font-semibold text-ink-700">Gastos por mes</h2>
           </div>
-          {/* El gráfico scrollea en SU contenedor; el cuerpo de la página no.
-              Las 12 columnas no pueden encogerse —la etiqueta del mes lleva
-              `whitespace-nowrap` y fija un ancho mínimo—, así que en 390 px la
-              fila medía 430 y empujaba la pantalla entera 40 px a la derecha.
-              Un año de barras es contenido ancho de verdad: acá el
-              desplazamiento lateral es la respuesta correcta, a diferencia de
-              unas pestañas, donde esconder opciones sería peor. */}
-          <div className="overflow-x-auto -mx-1 px-1">
-          <div className="flex items-end gap-1.5 h-32 min-w-max">
-            {months.map(m => {
+          {/* Los 12 meses entran SIN desplazamiento lateral. Antes cada etiqueta
+              decía «Oct 25» con `whitespace-nowrap`, la fila medía 430 px en un
+              celular de 390 y el desplazamiento arrancaba a la izquierda: se veían
+              los meses viejos en cero y los recientes —los únicos con gastos—
+              quedaban escondidos a la derecha. Parecía un gráfico vacío.
+              Ahora el mes va en tres letras y el año solo donde cambia. */}
+          <div className="flex items-end gap-1 sm:gap-1.5 h-36">
+            {months.map((m, i) => {
               const val  = monthTotals[m]
               const pct  = maxMonth > 0 ? (val / maxMonth) * 100 : 0
               const isThisMonth = m === months[months.length - 1]
               return (
-                <div key={m} className="flex-1 flex flex-col items-center gap-1 group relative">
+                <div key={m} className="flex-1 min-w-0 flex flex-col items-center gap-1 group relative">
                   {val > 0 && (
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-ink-800 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                       {formatCLP(val)}
@@ -101,13 +99,15 @@ export default async function MisGastosPage() {
                       style={{ height: `${Math.max(pct, val > 0 ? 4 : 0)}%` }}
                     />
                   </div>
-                  <span className="text-[9px] text-ink-400 whitespace-nowrap">{monthLabel(m)}</span>
+                  <span className="text-[9px] leading-tight text-ink-400 text-center">
+                    {monthLabel(m)}
+                    <span className="block h-3">{(i === 0 || m.endsWith('-01')) ? m.slice(2, 4) : ''}</span>
+                  </span>
                 </div>
               )
             })}
           </div>
         </div>
-          </div>
       ) : (
         <div className="hoja p-12 text-center">
           <TrendingUp size={36} className="mx-auto mb-3 text-ink-200" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import type { ReportStatus } from '@/lib/constants'
+import { STATUS_LABELS, type ReportStatus } from '@/lib/constants'
 import { useDialogos } from '@/components/ui/Dialogos'
 import { createClient } from '@/lib/supabase/client'
 import { ExpenseItemForm, type ItemFormData } from '@/components/expenses/ExpenseItemForm'
@@ -493,7 +493,7 @@ export default function ExpenseDetailPage() {
       {/* Estado informativo (no borrador, sin rechazo) */}
       {!isDraft && !showRejectionBanner && (
         <div className="bg-ink-50 rounded-card p-4 text-center card-label text-ink-500">
-          Esta rendición está en estado <strong>{report.status}</strong> y no puede editarse.
+          Estado: <strong>{STATUS_LABELS[report.status as ReportStatus] ?? report.status}</strong>. Esta rendición ya no se puede editar.
         </div>
       )}
     </div>

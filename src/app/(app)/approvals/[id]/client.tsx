@@ -14,6 +14,7 @@ import { formatDate, formatDisplayTitle } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
 import type { ReportStatus } from '@/lib/constants'
 import { useDialogos } from '@/components/ui/Dialogos'
+import { IconoCategoria } from '@/components/ui/IconoCategoria'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
 import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment, TravelPolicy } from '@/lib/supabase/types'
 
@@ -386,7 +387,10 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               <div className="flex flex-wrap gap-x-3 gap-y-1 card-meta text-ink-500">
                 <span>{formatDate(item.date)}</span>
                 {item.expense_categories && (
-                  <span>{item.expense_categories.icon} {item.expense_categories.name}</span>
+                  <span className="flex items-center gap-1">
+                    <IconoCategoria icon={item.expense_categories.icon} />
+                    {item.expense_categories.name}
+                  </span>
                 )}
                 {docLabel && <span>{docLabel}</span>}
                 {item.doc_number && <span>N° {item.doc_number}</span>}

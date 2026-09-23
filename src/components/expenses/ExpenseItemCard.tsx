@@ -4,6 +4,7 @@ import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemStatusAccent } from '@/components/ui/Badge'
 import { formatDate } from '@/lib/utils'
 import { DOC_TYPES } from '@/lib/constants'
+import { IconoCategoria } from '@/components/ui/IconoCategoria'
 import type { ExpenseItem, ExpenseCategory, Attachment } from '@/lib/supabase/types'
 import type { ItemStatus } from '@/lib/constants'
 
@@ -46,7 +47,7 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
           <span>{formatDate(item.date)}</span>
           {item.expense_categories && (
             <span className="flex items-center gap-1">
-              <span>{item.expense_categories.icon}</span>
+              <IconoCategoria icon={item.expense_categories.icon} />
               {item.expense_categories.name}
             </span>
           )}
