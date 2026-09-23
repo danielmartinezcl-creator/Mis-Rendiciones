@@ -169,7 +169,7 @@ export default async function MisGastosPage() {
             <tbody>
               {months.filter(m => monthTotals[m] > 0).reverse().map(m => (
                 <tr key={m} className="border-b border-ink-50 hover:bg-ink-50/40">
-                  <td className="px-5 py-3 text-ink-700">{monthLabel(m)}</td>
+                  <td className="px-5 py-3 text-ink-700">{monthLabel(m)} {m.slice(2, 4)}</td>
                   <td className="px-5 py-3 text-right font-mono-amount text-ink-700">{formatCLP(monthTotals[m])}</td>
                 </tr>
               ))}
