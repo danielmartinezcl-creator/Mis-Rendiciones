@@ -551,6 +551,36 @@ export async function resendInvitation(userId: string) {
   if (error) throw new Error(error.message)
 }
 
+/** Devuelve el acceso a un empleado bloqueado desde la papelera. Solo admin. */
+export async function enableBlockedEmployee(userId: string) {
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  const { data: emp, error } = await supabase
+    .from('users')
+    .update({ blocked_at: null, is_active: true })
+    .eq('id', userId)
+    .eq('org_id', orgId)
+    .not('blocked_at', 'is', null)
+    .select('full_name')
+  if (error) throw new Error(error.message)
+  if (!emp?.length) throw new Error('El empleado no está bloqueado')
+
+  const adminClient = createAdminClient()
+  const { error: banError } = await adminClient.auth.admin.updateUserById(userId, { ban_duration: 'none' })
+  if (banError) throw new Error(banError.message)
+
+  await logAudit({
+    orgId, actorId, actorName,
+    action:      'restored',
+    entityType:  'user',
+    entityId:    userId,
+    entityLabel: emp[0].full_name ?? userId,
+    notes:       'Habilitado tras bloqueo permanente',
+  })
+
+  revalidatePath('/admin/employees')
+}
+
 export async function deactivateEmployee(userId: string) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   await supabase.from('users').update({ is_active: false }).eq('id', userId)
@@ -664,9 +694,14 @@ export async function updateEmployee(
   // Capture before state
   const { data: before } = await supabase
     .from('users')
-    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, rut, bank_account')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, rut, bank_account, blocked_at')
     .eq('id', userId)
     .single()
+
+  // Activar a un bloqueado lo dejaría activo pero todavía baneado en auth.
+  if (updates.is_active && before?.blocked_at) {
+    throw new Error('Este empleado está bloqueado: usá «Habilitar» para devolverle el acceso')
+  }
 
   const { error } = await supabase
     .from('users')
@@ -1526,7 +1561,7 @@ export async function restoreFromTrash(type: 'report' | 'fund' | 'user', id: str
       .from('users').select('full_name').eq('id', id).single()
     const { error } = await supabase
       .from('users')
-      .update({ deleted_at: null, is_active: true })
+      .update({ deleted_at: null, is_active: true, blocked_at: null })
       .eq('id', id)
     if (error) throw new Error(error.message)
     // Desbanear en auth
@@ -1550,11 +1585,17 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   if (type === 'report') {
     const { data: before } = await supabase
       .from('expense_reports').select('title').eq('id', id).single()
-    const { error } = await adminClient
+    // Con el cliente del admin, no con la service role: si la rendición tiene
+    // aprobaciones, la base exige is_admin() y con la service role auth.uid()
+    // es null (migración 026). La política RLS del admin ya cubre el borrado.
+    const { data: deleted, error } = await supabase
       .from('expense_reports')
       .delete()
       .eq('id', id)
+      .eq('org_id', orgId)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!deleted?.length) throw new Error('No se pudo eliminar la rendición')
     await logAudit({
       orgId, actorId, actorName,
       action: 'permanently_deleted', entityType: 'expense_report', entityId: id,
@@ -1576,16 +1617,29 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
       notes: 'Eliminación definitiva desde papelera',
     })
   } else if (type === 'user') {
+    // Un usuario no se borra: bloquea. Su historial (auditoría, rendiciones) lo
+    // referencia y audit_log no admite el SET NULL de la cascada (migración 027).
+    // Sale de la papelera y solo un admin lo habilita desde la nómina.
     const { data: before } = await supabase
       .from('users').select('full_name').eq('id', id).single()
-    const { error } = await adminClient.auth.admin.deleteUser(id)
+    const { data: blocked, error } = await supabase
+      .from('users')
+      .update({ deleted_at: null, is_active: false, blocked_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!blocked?.length) throw new Error('No se pudo bloquear al empleado')
+    // El ban ya viene del borrado a la papelera; se reaplica por si faltara.
+    const { error: banError } = await adminClient.auth.admin.updateUserById(id, { ban_duration: '876000h' })
+    if (banError) throw new Error(banError.message)
     await logAudit({
       orgId, actorId, actorName,
       action: 'permanently_deleted', entityType: 'user', entityId: id,
       entityLabel: before?.full_name ?? id,
-      notes: 'Eliminación definitiva desde papelera',
+      notes: 'Bloqueado de forma permanente desde la papelera — solo un admin puede habilitarlo',
     })
+    revalidatePath('/admin/employees')
   }
 
   revalidatePath('/admin/trash')

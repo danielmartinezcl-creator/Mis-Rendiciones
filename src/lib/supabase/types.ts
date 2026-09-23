@@ -101,6 +101,7 @@ export interface Database {
           backup_active_until:    string | null
           cost_center_id: string | null
           invited_at: string | null
+          blocked_at: string | null
           is_active: boolean
           created_at: string
           deleted_at: string | null
@@ -127,6 +128,7 @@ export interface Database {
           backup_active_until?:    string | null
           cost_center_id?: string | null
           invited_at?: string | null
+          blocked_at?: string | null
           is_active?: boolean
           created_at?: string
           deleted_at?: string | null
@@ -153,6 +155,7 @@ export interface Database {
           backup_active_until?:    string | null
           cost_center_id?: string | null
           invited_at?: string | null
+          blocked_at?: string | null
           is_active?: boolean
           created_at?: string
           deleted_at?: string | null
