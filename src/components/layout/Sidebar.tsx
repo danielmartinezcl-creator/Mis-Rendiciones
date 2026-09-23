@@ -42,7 +42,8 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { href: '/',                label: 'Estado',          Icon: LayoutDashboard, roles: ['admin','approver','employee'] as const },
   { href: '/expenses/new',    label: 'Nueva rendición', Icon: ScanLine,         roles: ['admin','employee'] as const },
-  { href: '/quick',           label: 'Gasto rápido',    Icon: Zap,              roles: ['admin','approver','employee'] as const },
+  /* Solo admin mientras no sirva para rendiciones — ver (app)/quick/layout.tsx. */
+  { href: '/quick',           label: 'Gasto rápido',    Icon: Zap,              roles: ['admin'] as const },
   { href: '/petty-cash',      label: 'Caja Chica',      Icon: Wallet,           roles: ['admin','approver','employee'] as const },
   { href: '/mis-gastos',      label: 'Mis gastos',      Icon: TrendingUp,       roles: ['admin','approver','employee'] as const },
   { href: '/approvals',       label: 'Aprobaciones',    Icon: CheckCircle2,     roles: ['admin','approver'] as const },

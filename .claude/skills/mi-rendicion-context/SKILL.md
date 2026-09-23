@@ -491,9 +491,14 @@ trigger de `updated_at`.
 - Export Excel (3 hojas: Detalle / Por Empleado / Por Categoría) + PDF landscape
 - Sidebar: entrada "Informes" con ícono BarChart3, visible para admin + approver
 
-### ✅ Flujo rápido móvil (R20)
-- `/quick` — 3 pasos optimizados para mobile: foto → OCR → confirmar monto/cat → seleccionar fondo → enviar
-- Shortcut en `manifest.json` para acceso directo desde el ícono de la PWA
+### ⏸ Flujo rápido móvil (R20) — OCULTO para empleados desde el 2026-09-23
+- `/quick` — 3 pasos: foto → OCR → confirmar monto/cat → seleccionar fondo → registrar
+- **Solo registra en caja chica**: sin un fondo `funds_sent` dice «Sin fondos activos»
+- **Decisión de Daniel (2026-09-23): invisible para empleados hasta que sirva también
+  para rendiciones.** Solo admin lo ve: `roles: ['admin']` en `MobileNav.tsx` y
+  `Sidebar.tsx`, y `(app)/quick/layout.tsx` redirige a `/` a cualquier otro rol (el
+  menú no alcanza: la ruta se puede escribir a mano). El shortcut del `manifest.json`
+  ahora apunta a `/expenses/new`. Ver backlog punto 7
 
 ### ✅ El dominio viejo redirige al canónico (`6db0a42`)
 - `rindegastos.vercel.app` —el nombre de prueba— **sigue respondiendo y apuntando a
@@ -559,7 +564,10 @@ trigger de `updated_at`.
    todo link de contraseña —invitación, reenvío, «¿Olvidaste tu contraseña?», perfil—
    sale por Resend y apunta a `/set-password?token_hash=…`, que canjea el token
    recién al GUARDAR (`verifyOtp`). `/set-password` es pública en `proxy.ts`. El SMTP
-   de Supabase ya no se usa desde el código; arreglarlo en el dashboard es opcional.
+   de Supabase ya no se usa desde el código. **SMTP de Supabase también arreglado
+   el mismo día** (host `smtp.resend.com`, puerto 465, usuario `resend`, password =
+   la clave `mi-rendicion-app`, la misma de Vercel): «Send password recovery» del
+   dashboard llegó. Ojo: esa clave vive en DOS lados; si se rota, cambiarla en ambos.
    `resendInvitation` tampoco enviaba nada (solo generaba el link): corregido.
    El `.env.local` sigue con la clave vieja → en local la recuperación dice que no
    puede enviar, y es lo correcto.
@@ -651,6 +659,18 @@ trigger de `updated_at`.
    Opciones: plan Pro (~US$25/mes, un proyecto en Pro nunca se pausa) o averiguar por
    qué el cron diario de `vercel.json` —que consulta la base a las 9AM— no alcanzó para
    mantenerlo vivo. Eso último quedó **sin explicar** y es lo primero a revisar.
+
+7. **Gasto rápido para rendiciones Y caja chica — pedido por Daniel el 2026-09-23.**
+   Hoy `/quick` solo registra en un fondo de caja chica, y por eso está oculto para
+   empleados (ver «Flujo rápido móvil»). Lo pedido: después de la foto y la
+   confirmación, el paso 3 deja **elegir el destino**:
+   - **una rendición** — un borrador propio existente, o crear uno nuevo ahí mismo;
+   - **un fondo de caja chica** previamente asignado al empleado (`funds_sent`).
+
+   Cuando esté, se vuelve a abrir a empleados: `roles` en `MobileNav.tsx` y
+   `Sidebar.tsx`, borrar `(app)/quick/layout.tsx`, el tab en `getPrimaryHrefs`, el
+   shortcut del `manifest.json`, `rol` en `e2e/rutas.ts` y la sección en
+   `docs/manual/manual.html`.
 
 > **Ya NO están pendientes, aunque documentos viejos lo digan:**
 >
