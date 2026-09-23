@@ -33,7 +33,8 @@ interface NavItemDef {
 const ALL_ITEMS: NavItemDef[] = [
   { href: '/',                      label: 'Estado',          shortLabel: 'Estado',   Icon: LayoutDashboard, roles: ['admin','approver','employee'], section: 'primary' },
   { href: '/expenses/new',          label: 'Nueva rendición', shortLabel: 'Rendir',   Icon: ScanLine,        roles: ['admin','employee'],           section: 'primary', requiresSubmit: true },
-  { href: '/quick',                 label: 'Gasto rápido',    shortLabel: 'Rápido',   Icon: Zap,             roles: ['admin','approver','employee'], section: 'primary' },
+  /* Solo admin mientras no sirva para rendiciones — ver (app)/quick/layout.tsx. */
+  { href: '/quick',                 label: 'Gasto rápido',    shortLabel: 'Rápido',   Icon: Zap,             roles: ['admin'],                     section: 'primary' },
   { href: '/petty-cash',            label: 'Caja Chica',      shortLabel: 'C. Chica', Icon: Wallet,          roles: ['admin','approver','employee'], section: 'primary' },
   { href: '/approvals',             label: 'Aprobaciones',    shortLabel: 'Aprobar',  Icon: CheckCircle2,    roles: ['admin','approver'],           section: 'primary', requiresApprove: true },
   { href: '/mis-gastos',            label: 'Mis gastos',      shortLabel: 'Gastos',   Icon: TrendingUp,      roles: ['admin','approver','employee'], section: 'personal' },
@@ -61,11 +62,11 @@ function isVisible(item: NavItemDef, user: UserProfile): boolean {
 // 4 hrefs prioritarios según rol — el resto va al sheet "Más"
 function getPrimaryHrefs(user: UserProfile): string[] {
   if (user.role === 'admin')    return ['/', '/admin/reports', '/petty-cash', '/approvals']
-  if (user.role === 'approver') return ['/', '/approvals', '/petty-cash', user.can_submit ? '/expenses/new' : '/quick']
+  if (user.role === 'approver') return ['/', '/approvals', '/petty-cash', user.can_submit ? '/expenses/new' : '/mis-gastos']
   // employee
   const tabs: string[] = ['/']
   if (user.can_submit) tabs.push('/expenses/new')
-  tabs.push('/quick', '/petty-cash')
+  tabs.push('/petty-cash', '/mis-gastos')
   return tabs.slice(0, 4)
 }
 

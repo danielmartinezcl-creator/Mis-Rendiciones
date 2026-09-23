@@ -71,7 +71,7 @@ export default async function DashboardPage() {
       )}
 
       {/* El CTA "Tomá la foto y listo" se quitó a pedido. La entrada para crear
-          una rendición sigue disponible en la barra inferior ("Rendir") y en /quick. */}
+          una rendición sigue disponible en la barra inferior ("Rendir"). */}
 
       {/* Rendiciones recientes */}
       {recent.length > 0 && (

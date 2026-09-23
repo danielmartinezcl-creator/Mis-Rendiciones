@@ -23,10 +23,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Gasto rápido",
-      "short_name": "Rápido",
-      "description": "Registrar un gasto de caja chica en 3 pasos",
-      "url": "/quick",
+      "name": "Nueva rendición",
+      "short_name": "Rendir",
+      "description": "Crear una rendición de gastos",
+      "url": "/expenses/new",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ],
