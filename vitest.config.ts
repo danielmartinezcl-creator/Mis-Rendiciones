@@ -10,7 +10,7 @@ export default defineConfig({
     globals: true,
     // Sin esto Vitest levanta también e2e/baseline.spec.ts y explota:
     // esos tests son de Playwright y necesitan un navegador de verdad.
-    include: ['src/tests/**/*.test.ts'],
+    include: ['src/tests/**/*.test.{ts,tsx}'],
   },
   resolve: {
     alias: {

@@ -31,6 +31,9 @@ type OpcionesConfirmar = {
   aceptar?:   string
   /** `true` cuando la acción destruye algo o no se puede deshacer. */
   peligro?:   boolean
+  /** Palabra que hay que escribir para habilitar el botón (p. ej. «ELIMINAR»).
+   *  Para lo irreversible: un clic distraído no alcanza. */
+  palabra?:   string
 }
 
 type Aviso = { id: number; mensaje: string; tono: 'info' | 'error' }
@@ -55,6 +58,7 @@ const DURACION = { info: 2_600, error: 7_000 }
 export function ProveedorDialogos({ children }: { children: React.ReactNode }) {
   const [pregunta, setPregunta] = useState<OpcionesConfirmar | null>(null)
   const [avisos,   setAvisos]   = useState<Aviso[]>([])
+  const [escrito,  setEscrito]  = useState('')
   /* El `resolve` de la promesa en curso. En una ref y no en estado: cambiarlo
      no tiene que redibujar nada, y guardarlo en estado obligaría al truco de
      `useState(() => fn)` para que React no lo confunda con un actualizador. */
@@ -63,6 +67,7 @@ export function ProveedorDialogos({ children }: { children: React.ReactNode }) {
 
   const confirmar = useCallback((opciones: string | OpcionesConfirmar) => {
     setPregunta(typeof opciones === 'string' ? { titulo: opciones } : opciones)
+    setEscrito('')
     return new Promise<boolean>(resolve => { responder.current = resolve })
   }, [])
 
@@ -114,14 +119,32 @@ export function ProveedorDialogos({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
+            {pregunta.palabra && (
+              <label className="block space-y-1.5">
+                <span className="text-sm text-ink-600">
+                  Escribí <strong className="font-semibold text-ink-800">{pregunta.palabra}</strong> para confirmar
+                </span>
+                <input
+                  value={escrito}
+                  onChange={e => setEscrito(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && escrito === pregunta.palabra) cerrar(true) }}
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="campo w-full"
+                />
+              </label>
+            )}
+
             <div className="flex gap-2 pt-1">
               <button onClick={() => cerrar(false)} className="btn-secundario flex-1 py-2 text-sm">
                 Cancelar
               </button>
               <button
                 onClick={() => cerrar(true)}
-                autoFocus
-                className={`flex-1 py-2 rounded-item text-sm font-semibold text-white transition-colors ${
+                autoFocus={!pregunta.palabra}
+                disabled={!!pregunta.palabra && escrito !== pregunta.palabra}
+                className={`flex-1 py-2 rounded-item text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                   pregunta.peligro
                     ? 'bg-danger-600 hover:bg-danger-700'
                     : 'bg-brand-600 hover:bg-brand-700'

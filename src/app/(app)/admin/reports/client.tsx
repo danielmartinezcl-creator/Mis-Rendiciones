@@ -453,10 +453,13 @@ export function AdminReportsClient({ initialReports }: Props) {
   }
 
   async function handleDeleteAll() {
-    const confirmed = window.prompt(
-      `⚠ Esta acción moverá TODAS las rendiciones a la papelera.\n\nPodrás recuperarlas desde Admin → Papelera durante 90 días.\n\nEscribí ELIMINAR para confirmar:`
-    )
-    if (confirmed !== 'ELIMINAR') return
+    if (!await confirmar({
+      titulo:  '¿Mover TODAS las rendiciones a la papelera?',
+      detalle: 'Podrás recuperarlas desde Admin → Papelera durante 90 días.',
+      aceptar: 'Mover todo a la papelera',
+      peligro: true,
+      palabra: 'ELIMINAR',
+    })) return
     setDeletingAll(true)
     try {
       await adminDeleteAllReports()

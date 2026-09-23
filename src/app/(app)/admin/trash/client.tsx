@@ -51,11 +51,33 @@ export function TrashClient({ initialItems }: Props) {
     }
   }
 
-  async function handlePermanentDelete(type: 'report' | 'fund' | 'user', id: string, label: string) {
-    const confirmed = window.prompt(
-      `⚠ ELIMINACIÓN PERMANENTE\n\n"${label}"\n\nEsta acción NO tiene vuelta atrás. Todos los datos asociados se borrarán definitivamente.\n\nEscribí ELIMINAR para confirmar:`
-    )
-    if (confirmed !== 'ELIMINAR') return
+  async function handleBlockUser(id: string, label: string) {
+    if (!await confirmar({
+      titulo:  `¿Bloquear a ${label} de forma permanente?`,
+      detalle: 'Sale de la papelera y ya no se puede restaurar desde acá. No podrá iniciar sesión y su historial se conserva.\nSolo un administrador puede habilitarlo desde Empleados.',
+      aceptar: 'Bloquear',
+      peligro: true,
+      palabra: 'ELIMINAR',
+    })) return
+    setLoading(id)
+    try {
+      await permanentlyDeleteFromTrash('user', id)
+      await reload()
+    } catch (err) {
+      avisar(err instanceof Error ? err.message : 'Error al bloquear')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handlePermanentDelete(type: 'report' | 'fund', id: string, label: string) {
+    if (!await confirmar({
+      titulo:  `¿Eliminar "${label}" de forma permanente?`,
+      detalle: 'Esta acción NO tiene vuelta atrás. Todos los datos asociados se borrarán definitivamente.',
+      aceptar: 'Eliminar',
+      peligro: true,
+      palabra: 'ELIMINAR',
+    })) return
     setLoading(id)
     try {
       await permanentlyDeleteFromTrash(type, id)
@@ -218,7 +240,7 @@ export function TrashClient({ initialItems }: Props) {
             <div className="space-y-2">
               <div className="flex items-start gap-2 p-3 bg-warning-50 border border-warning-100 rounded-item text-warning-700 text-sm">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                <span>Los empleados eliminados no pueden iniciar sesión. Al restaurar recuperan el acceso automáticamente.</span>
+                <span>Los empleados eliminados no pueden iniciar sesión. Al restaurar recuperan el acceso automáticamente. Al eliminarlos definitivamente quedan bloqueados, y solo un administrador puede habilitarlos desde Empleados.</span>
               </div>
               {items.users.length === 0 ? (
                 <EmptyTab label="empleados eliminados" />
@@ -250,9 +272,9 @@ export function TrashClient({ initialItems }: Props) {
                         <RotateCcw size={15} />
                       </button>
                       <button
-                        onClick={() => handlePermanentDelete('user', u.id, u.full_name)}
+                        onClick={() => handleBlockUser(u.id, u.full_name)}
                         disabled={loading === u.id}
-                        title="Eliminar permanentemente"
+                        title="Eliminar definitivamente (bloquear)"
                         className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
                       >
                         <Trash2 size={15} />
