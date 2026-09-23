@@ -67,7 +67,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  const publicPaths = ['/login', '/register', '/api/auth']
+  /* `/set-password` es pública: la sesión se crea DENTRO de la página, al
+     canjear el token del correo (ver `src/lib/access-link.ts`). Sin sesión y
+     sin token, la propia página devuelve al login. */
+  const publicPaths = ['/login', '/register', '/api/auth', '/set-password']
   const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
   if (!user && !isPublic) {

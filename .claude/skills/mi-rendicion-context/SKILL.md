@@ -543,7 +543,30 @@ trigger de `updated_at`.
 > Revisado contra el disco el **2026-09-21**. Lo que está acá está pendiente de verdad;
 > lo que se completó salió de la lista.
 
-1. **`RESEND_API_KEY` inválida — bloqueante del lanzamiento, POSTERGADO a propósito.**
+1. **Correo — ACTUALIZADO 2026-09-23: la `RESEND_API_KEY` de Vercel YA FUNCIONA.**
+   Se invitó a `rhagar@` y el correo llegó (`invited_at` solo se escribe si Resend
+   aceptó el envío). Lo que sigue roto:
+   - **SMTP de Supabase Auth** (el de «¿Olvidaste tu contraseña?»): `/recover` da
+     `535 5.7.8 Authentication failed` → la contraseña SMTP configurada en el
+     dashboard de Supabase sigue siendo la clave vieja.
+   - **El link de invitación nunca pudo funcionar**: `generateLink` (admin) redirige
+     con los tokens en el `#hash` (flujo implícito) y `/api/auth/callback` exige
+     `?code=` → siempre termina en `/login?error=missing_code`.
+   - **Los escáneres de Outlook/Microsoft consumen el token de un solo uso** antes
+     que la persona (visto en auth logs: HEAD/GET a `/verify` desde IPs de Microsoft).
+
+   **Arreglado en código el mismo día** (`src/lib/access-link.ts` + `access-email.ts`):
+   todo link de contraseña —invitación, reenvío, «¿Olvidaste tu contraseña?», perfil—
+   sale por Resend y apunta a `/set-password?token_hash=…`, que canjea el token
+   recién al GUARDAR (`verifyOtp`). `/set-password` es pública en `proxy.ts`. El SMTP
+   de Supabase ya no se usa desde el código; arreglarlo en el dashboard es opcional.
+   `resendInvitation` tampoco enviaba nada (solo generaba el link): corregido.
+   El `.env.local` sigue con la clave vieja → en local la recuperación dice que no
+   puede enviar, y es lo correcto.
+
+   Lo de abajo es el estado previo, se conserva como historia:
+
+   **`RESEND_API_KEY` inválida — bloqueante del lanzamiento, POSTERGADO a propósito.**
 
    > **Decisión de Daniel, 2026-09-21: no tocarlo por ahora.** Todavía no va a invitar
    > a los empleados, así que no corre apuro. **No insistir con esto en cada sesión**;

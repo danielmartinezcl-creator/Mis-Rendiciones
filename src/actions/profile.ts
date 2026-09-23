@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validateRut, validateStringLength } from '@/lib/validators'
+import { enviarRecuperacion } from '@/lib/access-email'
 
 export async function getMyProfile() {
   const supabase = await createClient()
@@ -57,8 +58,6 @@ export async function sendPasswordReset() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) throw new Error('No se pudo obtener el email del usuario')
 
-  const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/set-password`,
-  })
-  if (error) throw new Error(error.message)
+  const { ok } = await enviarRecuperacion(user.email)
+  if (!ok) throw new Error('No se pudo enviar el correo')
 }

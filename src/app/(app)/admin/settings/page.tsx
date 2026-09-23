@@ -425,6 +425,7 @@ function EmployeesTab() {
   const [editSaving, setEditSaving] = useState(false)
 
   /* Resend */
+  const { avisar } = useDialogos()
   const [resending, setResending] = useState<string | null>(null)
   const [resendOk,  setResendOk]  = useState<string | null>(null)
 
@@ -478,10 +479,14 @@ function EmployeesTab() {
   async function handleResend(userId: string) {
     setResending(userId)
     try {
-      await resendInvitation(userId)
+      /* Antes el fallo era silencioso y el botón mostraba éxito igual. */
+      const { error } = await resendInvitation(userId)
+      if (error) { avisar(error, 'error'); return }
       setResendOk(userId)
       setTimeout(() => setResendOk(null), 3000)
-    } catch { /* silencioso */ }
+    } catch {
+      avisar('No se pudo reenviar la invitación', 'error')
+    }
     finally { setResending(null) }
   }
 

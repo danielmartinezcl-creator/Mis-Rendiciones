@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
+import { requestPasswordReset } from '@/actions/auth'
 
 function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
@@ -47,9 +48,11 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
     <div className="hoja p-6">
       <h2 className="text-lg font-bold text-ink-900 mb-5">Iniciar sesión</h2>
 
-      {urlError === 'session_expired' && (
+      {/* `missing_code` y `auth_error` son de los links anteriores al 2026-09-23,
+          que pueden seguir en bandejas de entrada. */}
+      {(urlError === 'session_expired' || urlError === 'missing_code' || urlError === 'auth_error') && (
         <div className="bg-warning-50 border border-warning-200 text-warning-700 text-sm rounded-item p-3 mb-4">
-          El link expiró. Pedí que te reenvíen la invitación.
+          Ese link ya no sirve. Tocá «¿Olvidaste tu contraseña?» y te mandamos uno nuevo.
         </div>
       )}
 
@@ -123,15 +126,11 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+    /* Por Resend desde el servidor, no por el SMTP de Supabase: ver `enviarRecuperacion`. */
+    const { ok } = await requestPasswordReset(email).catch(() => ({ ok: false }))
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/api/auth/callback?next=/set-password`,
-    })
-
-    if (error) {
-      setError('No se pudo enviar el correo. Verificá la dirección.')
+    if (!ok) {
+      setError('No pudimos enviar el correo en este momento. Intentá de nuevo en unos minutos o avisale al administrador.')
       setLoading(false)
       return
     }

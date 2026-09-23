@@ -1,11 +1,38 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
-import { KeyRound, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { KeyRound, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export default function SetPasswordPage() {
+  return (
+    <Suspense fallback={<Cargando />}>
+      <SetPasswordForm />
+    </Suspense>
+  )
+}
+
+function Cargando() {
+  return (
+    <div className="flex justify-center py-8">
+      <div className="w-7 h-7 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
+
+function SetPasswordForm() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const supabase     = createClient()
+
+  /* Con `token_hash` (los correos desde el 2026-09-23) NO se canjea nada al
+     abrir la página: el filtro de Outlook abre cada link para revisarlo y se
+     gastaría el token antes que la persona. Se canjea al guardar, y un
+     escáner nunca envía formularios. Ver `src/lib/access-link.ts`. */
+  const tokenHash = searchParams.get('token_hash')
+
   const [password,        setPassword]        = useState('')
   const [confirm,         setConfirm]         = useState('')
   const [showPass,        setShowPass]        = useState(false)
@@ -13,13 +40,13 @@ export default function SetPasswordPage() {
   const [error,           setError]           = useState<string | null>(null)
   const [done,            setDone]            = useState(false)
   const [userEmail,       setUserEmail]       = useState<string | null>(null)
-  const [checkingSession, setCheckingSession] = useState(true)
+  const [checkingSession, setCheckingSession] = useState(!tokenHash)
+  const [linkInvalido,    setLinkInvalido]    = useState(false)
+  const [verificado,      setVerificado]      = useState(false)
 
-  const router  = useRouter()
-  const supabase = createClient()
-
-  /* Verificar que hay sesión activa (llega desde el link de invitación o reset) */
+  /* Sin token: hace falta una sesión ya abierta. */
   useEffect(() => {
+    if (tokenHash) return
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) {
         router.replace('/login?error=session_expired')
@@ -43,6 +70,19 @@ export default function SetPasswordPage() {
     setLoading(true)
     setError(null)
 
+    /* `verificado` evita canjear dos veces: si el paso siguiente falla (una
+       contraseña rechazada, por ejemplo), el reintento ya tiene sesión y el
+       token quedó gastado. */
+    if (tokenHash && !verificado) {
+      const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+      if (otpError) {
+        setLinkInvalido(true)
+        setLoading(false)
+        return
+      }
+      setVerificado(true)
+    }
+
     const { error: updateError } = await supabase.auth.updateUser({ password })
 
     if (updateError) {
@@ -52,13 +92,24 @@ export default function SetPasswordPage() {
     }
 
     setDone(true)
-    setTimeout(() => router.push('/'), 2000)
+    setTimeout(() => { router.push('/'); router.refresh() }, 2000)
   }
 
-  if (checkingSession) {
+  if (checkingSession) return <Cargando />
+
+  if (linkInvalido) {
     return (
-      <div className="flex justify-center py-8">
-        <div className="w-7 h-7 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+      <div className="hoja p-6 text-center space-y-4">
+        <AlertTriangle size={40} className="text-warning-500 mx-auto" />
+        <div>
+          <p className="font-bold text-ink-900">Este link ya no sirve</p>
+          <p className="text-sm text-ink-500 mt-1">
+            Venció o ya se usó. Pedí uno nuevo con «¿Olvidaste tu contraseña?» en la pantalla de ingreso.
+          </p>
+        </div>
+        <Link href="/login" className="btn-primario inline-block w-full py-2.5 px-4">
+          Ir al inicio de sesión
+        </Link>
       </div>
     )
   }
@@ -86,7 +137,7 @@ export default function SetPasswordPage() {
       </div>
 
       <p className="text-sm text-ink-500">
-        Es tu primera vez aquí. Elegí una contraseña para acceder a la app desde ahora.
+        Elegí una contraseña para acceder a la app desde ahora.
       </p>
 
       {error && (
@@ -104,6 +155,7 @@ export default function SetPasswordPage() {
             <input
               type={showPass ? 'text' : 'password'}
               required
+              autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Mínimo 8 caracteres"
@@ -126,6 +178,7 @@ export default function SetPasswordPage() {
           <input
             type={showPass ? 'text' : 'password'}
             required
+            autoComplete="new-password"
             value={confirm}
             onChange={e => setConfirm(e.target.value)}
             placeholder="Repetí la contraseña"

@@ -1,6 +1,6 @@
 'use server'
 
-import { BRAND } from '@/lib/design-tokens'
+import { enviarLinkDeAcceso } from '@/lib/access-email'
 
 import { createClient } from '@/lib/supabase/server'
 import { revisarConfigCorreo } from '@/lib/email-helpers'
@@ -136,7 +136,6 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
 
   const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const correo      = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
-  const redirectTo  = `${appUrl}/api/auth/callback?next=/set-password`
 
   /* Si el correo no puede salir, se corta ACÁ y no se toca el `invited_at` de
      nadie. Antes se seguía igual: se marcaba a los 54 como invitados y se
@@ -174,40 +173,17 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
       const { data: profile } = await adminClient.from('users').select('full_name').eq('id', userId).single()
       const full_name = profile?.full_name ?? email
 
-      // Los empleados importados ya tienen cuenta en auth (creada por importEmployees con createUser).
-      // inviteUserByEmail falla para usuarios existentes — usamos generateLink(recovery) en su lugar.
-      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-        type:    'recovery',
-        email,
-        options: { redirectTo },
-      })
-
-      if (linkError || !linkData?.properties?.action_link) {
-        results.push({ userId, email, full_name, success: false, error: linkError?.message ?? 'Error generando link de acceso' })
-        continue
-      }
-
-      const actionLink = linkData.properties.action_link
-
-
       /* El envío DECIDE el resultado. Antes iba con `.catch(() => {})` y las
          dos líneas de abajo corrían igual, pasara lo que pasara. */
-      const { error: errorEnvio } = await resend.emails.send({
-          from:    `Mi Rendición <${correo.desde}>`,
-          to:      [email],
-          subject: 'Mi Rendición — Configura tu acceso',
-          html:    `<p>Hola ${full_name},</p>
-                    <p>Tienes acceso a <strong>Mi Rendición</strong>, el sistema de rendición de gastos de tu empresa. Haz clic en el botón para crear tu contraseña.</p>
-                    <p style="margin:24px 0">
-                      <a href="${actionLink}" style="background:${BRAND.accent};color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
-                        Crear contraseña →
-                      </a>
-                    </p>
-                    <p style="color:#888;font-size:12px">Este enlace expira en 24 horas. Si no solicitaste esto, podés ignorar este correo.</p>`,
+      const envio = await enviarLinkDeAcceso({
+        adminClient, resend, appUrl, email,
+        desde:  correo.desde,
+        nombre: full_name,
+        motivo: 'invitacion',
       })
 
-      if (errorEnvio) {
-        results.push({ userId, email, full_name, success: false, error: `Resend rechazó el envío: ${errorEnvio.message}` })
+      if (!envio.ok) {
+        results.push({ userId, email, full_name, success: false, error: envio.error })
         continue
       }
 
