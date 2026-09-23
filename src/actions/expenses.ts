@@ -443,13 +443,18 @@ export async function deleteExpenseReport(reportId: string) {
   const { data: actorProfile } = await supabase
     .from('users').select('full_name').eq('id', user.id).single()
 
-  const { error } = await supabase
+  // `.select()` para saber cuántas filas cayeron: si RLS no deja borrar, Supabase
+  // no devuelve error sino 0 filas, y sin esta verificación se auditaba un borrado
+  // que no había ocurrido (migración 025).
+  const { data: deleted, error } = await supabase
     .from('expense_reports')
     .delete()
     .eq('id', reportId)
     .eq('submitter_id', user.id)
+    .select('id')
 
   if (error) throw new Error(error.message)
+  if (!deleted?.length) throw new Error('No se pudo eliminar la rendición')
 
   await logAudit({
     orgId:       report.org_id,
