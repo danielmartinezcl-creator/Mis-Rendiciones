@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+import { revisarConfigCorreo } from '@/lib/email-helpers'
+import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaMovement } from '@/lib/export/defontana'
@@ -548,19 +550,33 @@ export async function updateEmployeeEmail(userId: string, newEmail: string): Pro
   return {}
 }
 
-export async function resendInvitation(userId: string) {
+export async function resendInvitation(userId: string): Promise<{ error?: string }> {
   await requireAdmin()
   const adminClient = createAdminClient()
 
   const { data: authUser } = await adminClient.auth.admin.getUserById(userId)
-  if (!authUser?.user?.email) throw new Error('No se encontró el correo del empleado')
+  if (!authUser?.user?.email) return { error: 'No se encontró el correo del empleado' }
 
-  const { error } = await adminClient.auth.admin.generateLink({
-    type: 'invite',
-    email: authUser.user.email,
-    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/callback?next=/set-password` },
+  /* Hasta el 2026-09-23 esto llamaba solo a `generateLink`, que GENERA el link
+     pero no lo manda: el botón decía «reenviado» y no salía ningún correo. */
+  const correo = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
+  if (!correo.puedeEnviar) return { error: `No se envió la invitación: ${correo.motivo}` }
+
+  const { data: perfil } = await adminClient.from('users').select('full_name').eq('id', userId).single()
+  const { Resend } = await import('resend')
+  const envio = await enviarLinkDeAcceso({
+    adminClient,
+    resend: new Resend((process.env.RESEND_API_KEY ?? '').trim()),
+    desde:  correo.desde,
+    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? '',
+    email:  authUser.user.email,
+    nombre: perfil?.full_name ?? authUser.user.email,
+    motivo: 'invitacion',
   })
-  if (error) throw new Error(error.message)
+  if (!envio.ok) return { error: envio.error }
+
+  await adminClient.from('users').update({ invited_at: new Date().toISOString() }).eq('id', userId)
+  return {}
 }
 
 /** Devuelve el acceso a un empleado bloqueado desde la papelera. Solo admin. */
