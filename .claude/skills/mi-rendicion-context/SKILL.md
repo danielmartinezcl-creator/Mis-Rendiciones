@@ -273,7 +273,10 @@ supabase/
 │   ├── 021_defontana_movements.sql                   ← cuenta banco + tipo comprobante/documento por movimiento
 │   ├── 022_petty_cash_defontana_by_movement.sql      ← marca Defontana por ítem y por transferencia de fondo vivo
 │   ├── 023_org_logos.sql                             ← bucket `org-logos` (white-label); no toca tablas
-│   └── 024_invalidar_analisis_ia.sql                 ← el caché del análisis IA se invalida donde cambian los datos
+│   ├── 024_invalidar_analisis_ia.sql                 ← el caché del análisis IA se invalida donde cambian los datos
+│   ├── 025_empleado_borra_sus_borradores.sql         ← política DELETE del rendidor (solo borradores propios)
+│   ├── 026_aprobaciones_append_only.sql              ← historial de aprobaciones inmutable; rendición con aprobaciones solo la borra un admin
+│   └── 027_usuario_bloqueado.sql                     ← users.blocked_at: «eliminar definitivamente» un empleado lo bloquea, no lo borra
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -295,7 +298,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **199 tests Vitest en 17 archivos**, todos pasando · build TypeScript limpio · 0 errores de lint
+- **204 tests Vitest en 18 archivos** (`.test.ts` y `.test.tsx`), todos pasando · build TypeScript limpio · 0 errores de lint
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -343,7 +346,7 @@ y la deuda de sistema tiene su propio detector (`npm run audit:deuda`, hoy en **
 
 | Pieza | Qué es |
 |---|---|
-| `confirmar()` | Modal, siguiendo a `RevertDefontanaDialog`. **Devuelve una promesa**, así que el sitio de llamada casi no cambia: `if (!await confirmar('¿Eliminar?')) return` |
+| `confirmar()` | Modal, siguiendo a `RevertDefontanaDialog`. **Devuelve una promesa**, así que el sitio de llamada casi no cambia: `if (!await confirmar('¿Eliminar?')) return`. Con `palabra: 'ELIMINAR'` pide escribirla para habilitar el botón — así reemplazó a los `window.prompt` de los borrados irreversibles (decisión de Daniel: la palabra escrita se queda) |
 | `avisar()` | El «aviso flotante» de la §5 de la spec: píldora blanca abajo al centro con punto aqua. 2,6 s; 7 s cuando es error, porque casi siempre trae algo que leer |
 
 **Nunca volver a escribir `confirm()` o `alert()`**: el navegador les antepone el
@@ -651,11 +654,14 @@ trigger de `updated_at`.
 
 ## Supabase — puntos no obvios
 
-1. **`expense_report_approvals` es append-only a nivel PostgreSQL** (no solo RLS):
-   ```sql
-   create rule no_update_approvals as on update to expense_report_approvals do instead nothing;
-   create rule no_delete_approvals as on delete to expense_report_approvals do instead nothing;
-   ```
+1. **`expense_report_approvals` es append-only a nivel PostgreSQL** (no solo RLS) —
+   con triggers de la migración `026`. Hasta el 2026-09-23 este archivo decía que lo
+   hacían dos `create rule ... do instead nothing`, **que nunca existieron en la base**.
+   - Editar una aprobación → error, siempre (también con service role o SQL manual)
+   - Borrar una aprobación suelta → error. Solo cae por la cascada de su rendición
+   - Borrar una rendición **con aprobaciones** → solo si `is_admin()`. Con la service
+     role `auth.uid()` es null y se rechaza: por eso `permanentlyDeleteFromTrash`
+     borra rendiciones con el cliente del admin, no con `createAdminClient()`
 
 2. **`amount_clp` en `expense_items` es inmutable post-aprobación** — el TC histórico no se recalcula
 
@@ -824,4 +830,6 @@ trigger de `updated_at`.
 | Dar por perdidos los datos durante un `restore_project` | Supabase levanta la infraestructura primero y restaura el esquema después: hay varios minutos en que `public.users` no existe y la base se ve vacía | Esperar a que `/rest/v1/` devuelva 200 (la secuencia es 521 → 404 → 200). El puerto 5432 abre MUCHO antes de que se pueda leer una fila |
 | Validar un caché contra `updated_at` en una tabla con trigger `set_updated_at()` | Guardar el caché **es** un UPDATE, así que pisa la misma marca contra la que se compara: la condición no se cumple nunca y cada vista recalcula | Invalidar con un trigger donde cambian los datos de verdad, no comparando marcas de tiempo en la misma fila. Ver migración `024` |
 | Repartir la invalidación de un caché entre los llamadores | `expenses.ts` la hacía en 2 sitios, pero ~11 lugares modifican ítems (admin, traspasos, carga histórica): los otros nueve dejaban el caché viejo | Un trigger en la base cubre los caminos de hoy, los de mañana y el SQL manual |
+| Un `.delete()` / `.update()` del cliente Supabase «funciona» pero no cambia nada | Si RLS no tiene política para esa operación, Postgres no da error: afecta 0 filas y Supabase devuelve éxito. Pasó con el borrado de borradores del empleado (sin política DELETE) | Encadenar `.select('id')` y lanzar si vuelve vacío. Y crear la política que falta (migración `025`) |
+| Borrar de verdad un usuario (`auth.admin.deleteUser`) | `audit_log.actor_id` es ON DELETE SET NULL y `audit_log` tiene la regla `no_update_audit_log`: la cascada choca y Postgres aborta («referential integrity query ... gave unexpected result») | Un usuario no se borra, se **bloquea**: `blocked_at` + ban en auth. Sale de la papelera y solo un admin lo habilita (`enableBlockedEmployee`). Migración `027` |
 | Escribir `confirm()` o `alert()` en un componente | Son cajas del sistema operativo sin nada del diseño; el navegador les antepone el dominio («mi-rendicion.com dice:») y en Android parecen avisos de error | `await confirmar()` y `avisar()`. Quedan **0** nativos en `src/` desde `a1edf8f` — que no vuelva a entrar uno |

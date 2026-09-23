@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, getCostCenters } from '@/actions/admin'
+import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, enableBlockedEmployee, getCostCenters } from '@/actions/admin'
 import { sendInvitations, setEmployeePassword } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, KeyRound, Eye, EyeOff, Search, ShieldCheck } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 import { useDialogos } from '@/components/ui/Dialogos'
@@ -66,6 +66,7 @@ export default function AdminEmployeesPage() {
 
   const [deletingId,     setDeletingId]     = useState<string | null>(null)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
+  const [enablingId,     setEnablingId]     = useState<string | null>(null)
   const [deletingBulk,   setDeletingBulk]   = useState(false)
 
   const [expandedEdit, setExpandedEdit] = useState<string | null>(null)
@@ -160,6 +161,23 @@ export default function AdminEmployeesPage() {
       await load()
     } finally {
       setDeactivatingId(null)
+    }
+  }
+
+  async function handleEnable(userId: string, name: string) {
+    if (!await confirmar({
+      titulo:  `¿Habilitar a ${name}?`,
+      detalle: 'Vuelve a quedar activo y puede iniciar sesión otra vez.',
+      aceptar: 'Habilitar',
+    })) return
+    setEnablingId(userId)
+    try {
+      await enableBlockedEmployee(userId)
+      await load()
+    } catch (err) {
+      avisar(err instanceof Error ? err.message : 'Error al habilitar')
+    } finally {
+      setEnablingId(null)
     }
   }
 
@@ -624,7 +642,9 @@ export default function AdminEmployeesPage() {
                   {/* Plegado se LEE: los permisos activos como texto. Editarlos
                       es otra intención y vive en el cajón de abajo. Seis
                       casillas por persona eran 342 casillas en una pantalla. */}
-                  {!emp.is_active && (
+                  {emp.blocked_at ? (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-danger-50 text-danger-700">bloqueado</span>
+                  ) : !emp.is_active && (
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning-50 text-warning-700">inactivo</span>
                   )}
                   {PERMISOS.filter(p => emp[p.campo]).map(p => (
@@ -655,6 +675,19 @@ export default function AdminEmployeesPage() {
                     >
                       <KeyRound size={14} />
                     </button>
+                    {emp.blocked_at && (
+                      <button
+                        onClick={() => handleEnable(emp.id, emp.full_name)}
+                        disabled={enablingId === emp.id}
+                        title="Habilitar empleado bloqueado"
+                        className="flex items-center gap-1 text-xs font-medium px-2 py-1 text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-item transition-colors disabled:opacity-40"
+                      >
+                        {enablingId === emp.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <UserCheck size={14} />}
+                        Habilitar
+                      </button>
+                    )}
                     {emp.is_active && (
                       <button
                         onClick={() => handleDeactivate(emp.id, emp.full_name)}
@@ -745,7 +778,7 @@ export default function AdminEmployeesPage() {
                     Autorizador banco
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
-                    <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id}
+                    <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id || !!emp.blocked_at}
                       onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}
                       className="rounded text-brand-600" />
                     Activo
