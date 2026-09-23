@@ -140,7 +140,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           disabled={saving}
           className="btn-primario flex-1 py-2.5 text-sm"
         >
-          {saving ? 'Creando...' : 'Agregar empleado (sin email)'}
+          {saving ? 'Creando...' : 'Agregar Empleado'}
         </button>
         <button
           type="button"
@@ -150,6 +150,8 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           Cancelar
         </button>
       </div>
+      {/* Crear no envía nada: la invitación sale aparte, desde la nómina. */}
+      <p className="text-xs text-ink-400">Para enviar e-mail presiona en invitar</p>
     </form>
   )
 }
