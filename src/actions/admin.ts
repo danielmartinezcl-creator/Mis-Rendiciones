@@ -525,15 +525,27 @@ export async function getOrgEmployees() {
   return data.map(emp => ({ ...emp, email: emailMap[emp.id] ?? '' }))
 }
 
-export async function updateEmployeeEmail(userId: string, newEmail: string) {
+/**
+ * Devuelve el error en vez de lanzarlo: un correo repetido es un error
+ * esperable, y Next redacta en producción el mensaje de lo que se lanza.
+ */
+export async function updateEmployeeEmail(userId: string, newEmail: string): Promise<{ error?: string }> {
   await requireAdmin()
   const adminClient = createAdminClient()
 
   const { error } = await adminClient.auth.admin.updateUserById(userId, { email: newEmail })
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Auth exige un correo por cuenta; Supabase lo reporta como la violación
+    // de `users_email_partial_key`, un mensaje que no le dice nada al admin.
+    if (/duplicate|already|users_email/i.test(error.message)) {
+      return { error: `El correo ${newEmail} ya lo usa otra cuenta. Cada empleado necesita un correo distinto.` }
+    }
+    return { error: error.message }
+  }
 
   revalidatePath('/admin/employees')
   revalidatePath('/admin/settings')
+  return {}
 }
 
 export async function resendInvitation(userId: string) {
