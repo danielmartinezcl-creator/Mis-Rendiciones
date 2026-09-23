@@ -111,7 +111,8 @@ export default function AdminEmployeesPage() {
     if (!newEmail || !newEmail.includes('@')) { setEmailError('Ingresá un correo válido'); return }
     setEmailSaving(true); setEmailError(null)
     try {
-      await updateEmployeeEmail(userId, newEmail)
+      const { error } = await updateEmployeeEmail(userId, newEmail)
+      if (error) { setEmailError(error); return }
       setEmailEdit(null)
       await load()
     } catch (err) {

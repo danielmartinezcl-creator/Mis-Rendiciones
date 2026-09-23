@@ -67,6 +67,17 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
       }
     }
 
+    /* Id de la cuenta de auth creada y todavía sin perfil. Si algo falla antes
+       de insertar el perfil hay que borrarla: una cuenta sin perfil no puede
+       entrar a la app pero deja su correo ocupado para siempre. Así quedó
+       dmartinez@pentaingenieros.cl el 2026-07-20. */
+    let authSinPerfil: string | null = null
+    const deshacer = async (): Promise<string> => {
+      if (!authSinPerfil) return ''
+      const { error } = await adminClient.auth.admin.deleteUser(authSinPerfil)
+      return error ? ` (y no se pudo deshacer la cuenta de acceso: ${error.message})` : ''
+    }
+
     try {
       // createUser crea la cuenta SIN enviar email de invitación
       const { data: created, error: createError } = await adminClient.auth.admin.createUser({
@@ -76,9 +87,14 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
       })
 
       if (createError) {
-        results.push({ email: row.email, full_name: row.full_name, success: false, error: createError.message })
+        const repetido = /already|registered|exists/i.test(createError.message)
+        results.push({
+          email: row.email, full_name: row.full_name, success: false,
+          error: repetido ? `El correo ${row.email} ya lo usa otra cuenta` : createError.message,
+        })
         continue
       }
+      authSinPerfil = created.user.id
 
       const { error: insertError } = await adminClient
         .from('users')
@@ -97,15 +113,14 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
         })
 
       if (insertError) {
-        // Revertir: borrar el usuario de auth si el insert a public.users falló
-        await adminClient.auth.admin.deleteUser(created.user.id)
-        results.push({ email: row.email, full_name: row.full_name, success: false, error: insertError.message })
+        results.push({ email: row.email, full_name: row.full_name, success: false, error: insertError.message + await deshacer() })
         continue
       }
+      authSinPerfil = null
 
       results.push({ email: row.email, full_name: row.full_name, success: true })
     } catch (err) {
-      results.push({ email: row.email, full_name: row.full_name, success: false, error: String(err) })
+      results.push({ email: row.email, full_name: row.full_name, success: false, error: String(err) + await deshacer() })
     }
   }
 

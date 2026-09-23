@@ -450,7 +450,8 @@ function EmployeesTab() {
     if (!val.includes('@')) { setEmailError('Correo inválido'); return }
     setEmailSaving(true); setEmailError(null)
     try {
-      await updateEmployeeEmail(userId, val)
+      const { error } = await updateEmployeeEmail(userId, val)
+      if (error) { setEmailError(error); return }
       setEmailEdit(null); await load()
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : 'Error')
