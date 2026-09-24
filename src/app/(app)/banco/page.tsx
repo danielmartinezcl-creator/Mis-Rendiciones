@@ -7,7 +7,7 @@ export const metadata = { title: 'Cola Bancaria — Mi rendición' }
 export default async function BancoPage() {
   const queue = await getBankQueue()
 
-  if (!queue.isAdmin && !queue.canLoad && !queue.canAuth) {
+  if (!queue.canLoad && !queue.canAuth) {
     redirect('/')
   }
 

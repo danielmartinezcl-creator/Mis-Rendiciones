@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  requestReportBankLoad,
   confirmReportBankLoad,
   authorizeReportBank,
 } from '@/actions/approvals'
@@ -12,7 +11,6 @@ import {
   Landmark,
   Upload,
   ShieldCheck,
-  SendHorizonal,
   CheckCircle2,
   Clock,
   User,
@@ -21,7 +19,6 @@ import {
 import type { BankQueueReport } from '@/actions/admin'
 
 interface BankQueue {
-  isAdmin: boolean
   canLoad: boolean
   canAuth: boolean
   reports: BankQueueReport[]
@@ -65,7 +62,6 @@ export function BancoClient({ queue }: Props) {
   const [loadForms,  setLoadForms]  = useState<Record<string, LoadForm>>({})
   const [authForms,  setAuthForms]  = useState<Record<string, AuthForm>>({})
 
-  const ready    = queue.reports.filter(r => r.status === 'approved' || r.status === 'partially_approved')
   const loading  = queue.reports.filter(r => r.status === 'pending_bank_load')
   const authoriz = queue.reports.filter(r => r.status === 'pending_bank_auth')
 
@@ -81,26 +77,21 @@ export function BancoClient({ queue }: Props) {
    * que repite y pasa a ser la puerta de entrada, que es la idea de la §7 del
    * piloto de caja chica.
    *
-   * Para un operador esto no cambia nada: `getBankQueue()` ya devuelve solo los
-   * estados que su rol puede accionar, así que ve una sola etapa. Las tres
-   * juntas eran la vista del admin.
+   * Ya no hay etapa «enviar»: nadie inicia el proceso bancario a mano, el
+   * paso lo dispara la aprobación misma. Y ya no hay vista del admin: ser
+   * admin no da acceso al banco, solo el permiso bancario (D1).
    */
-  type Etapa = 'enviar' | 'carga' | 'autorizar'
+  type Etapa = 'carga' | 'autorizar'
 
   /* Arranca en la primera etapa QUE TENGA TRABAJO, no siempre en la misma:
      abrir una etapa vacía obligaría a un clic para encontrar dónde está lo
      pendiente. */
   const primeraConTrabajo: Etapa =
-    queue.isAdmin && ready.length    ? 'enviar' :
-    queue.canLoad  && loading.length  ? 'carga'  :
-    queue.canAuth  && authoriz.length ? 'autorizar' :
-    queue.isAdmin ? 'enviar' : queue.canLoad ? 'carga' : 'autorizar'
+    queue.canLoad && loading.length  ? 'carga'     :
+    queue.canAuth && authoriz.length ? 'autorizar' :
+    queue.canLoad ? 'carga' : 'autorizar'
 
   const [etapa, setEtapa] = useState<Etapa>(primeraConTrabajo)
-  /* La cola de envío es la única con volumen real (78 hoy). De a 25: el total
-     ya lo dice el contador de arriba, así que paginar no esconde la magnitud
-     del atraso, solo el scroll. */
-  const [visibles, setVisibles] = useState(25)
 
   function setError(reportId: string, msg: string) {
     setErrorId(reportId)
@@ -108,19 +99,6 @@ export function BancoClient({ queue }: Props) {
   }
 
   function clearError() { setErrorId(null); setErrorMsg('') }
-
-  async function handleSendToBank(reportId: string) {
-    clearError()
-    setSavingId(reportId)
-    try {
-      await requestReportBankLoad(reportId)
-      startTransition(() => router.refresh())
-    } catch (e: unknown) {
-      setError(reportId, e instanceof Error ? e.message : 'Error al enviar al banco')
-    } finally {
-      setSavingId(null)
-    }
-  }
 
   async function handleConfirmLoad(reportId: string) {
     clearError()
@@ -176,18 +154,6 @@ export function BancoClient({ queue }: Props) {
       {/* Los KPI son el control: cada uno abre su etapa. El conteo vive acá y
           en ningún otro lado. */}
       <div className="grid grid-cols-3 gap-3">
-        {queue.isAdmin && (
-          <button
-            onClick={() => setEtapa('enviar')}
-            aria-pressed={etapa === 'enviar'}
-            className={`bg-warning-50 border rounded-card p-3 text-center transition-all ${
-              etapa === 'enviar' ? 'border-warning-500 ring-2 ring-warning-200' : 'border-warning-200 hover:border-warning-400'
-            }`}
-          >
-            <p className="text-2xl font-mono-amount font-semibold text-warning-700">{ready.length}</p>
-            <p className="text-xs text-warning-600 mt-0.5">Para enviar</p>
-          </button>
-        )}
         {queue.canLoad && (
           <button
             onClick={() => setEtapa('carga')}
@@ -222,45 +188,7 @@ export function BancoClient({ queue }: Props) {
         </div>
       )}
 
-      {/* Sección 1: Para enviar al banco (solo admin) */}
-      {etapa === 'enviar' && queue.isAdmin && ready.length > 0 && (
-        <section className="space-y-2">
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <h2 className="flex items-center gap-2 section-title text-warning-700">
-              <SendHorizonal size={14} />
-              Aprobadas — enviar al banco ({ready.length})
-            </h2>
-            {/* La frase es de la etapa, no de cada rendición: antes se repetía
-                idéntica en las 78 filas. */}
-            <p className="card-meta">
-              Aprobadas y listas para iniciar la transferencia bancaria.
-            </p>
-          </div>
-
-          {ready.slice(0, visibles).map(r => (
-            <FilaEnviar
-              key={r.id}
-              report={r}
-              enviando={savingId === r.id}
-              bloqueada={!!savingId}
-              errorMsg={errorId === r.id ? errorMsg : ''}
-              onEnviar={() => handleSendToBank(r.id)}
-            />
-          ))}
-
-          {ready.length > visibles && (
-            <button
-              onClick={() => setVisibles(v => v + 25)}
-              className="hoja border border-ink-200 w-full px-4 py-3 text-sm font-semibold text-accent-700 hover:bg-ink-50 transition-colors"
-            >
-              Mostrar {Math.min(25, ready.length - visibles)} más
-              <span className="font-normal text-ink-500"> · quedan {ready.length - visibles}</span>
-            </button>
-          )}
-        </section>
-      )}
-
-      {/* Sección 2: Confirmación de carga bancaria */}
+      {/* Sección 1: Confirmación de carga bancaria */}
       {etapa === 'carga' && queue.canLoad && loading.length > 0 && (
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 section-title text-accent-700">
@@ -316,7 +244,7 @@ export function BancoClient({ queue }: Props) {
         </section>
       )}
 
-      {/* Sección 3: Autorización bancaria */}
+      {/* Sección 2: Autorización bancaria */}
       {etapa === 'autorizar' && queue.canAuth && authoriz.length > 0 && (
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 section-title text-info-700">
@@ -363,7 +291,6 @@ export function BancoClient({ queue }: Props) {
           cero dejaba la pantalla en blanco debajo de los contadores y parecía
           que algo había fallado. */}
       {!isEmpty && (
-        (etapa === 'enviar'    && ready.length    === 0) ||
         (etapa === 'carga'     && loading.length  === 0) ||
         (etapa === 'autorizar' && authoriz.length === 0)
       ) && (
@@ -380,61 +307,6 @@ export function BancoClient({ queue }: Props) {
 }
 
 // ── Tarjeta de report ──────────────────────────────────────────────────────
-
-/**
- * Fila de la cola de envío.
- *
- * No usa ReportCard a propósito: esa tarjeta existe para alojar el formulario
- * de dos campos de la etapa de carga, y mide ~165 px. Acá la acción es un
- * botón solo, así que el ítem es una fila. Repetir la tarjeta en las 78
- * rendiciones aprobadas daba 14 pantallas de scroll para una decisión que se
- * toma leyendo nombre y monto.
- */
-function FilaEnviar({
-  report,
-  enviando,
-  bloqueada,
-  errorMsg,
-  onEnviar,
-}: {
-  report: BankQueueReport
-  enviando: boolean
-  bloqueada: boolean
-  errorMsg: string
-  onEnviar: () => void
-}) {
-  return (
-    <div className={`hoja border border-ink-200 border-l-4 border-l-warning-400 px-4 py-2.5 ${enviando ? 'opacity-60' : ''}`}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-ink-900 sm:truncate">{report.title}</p>
-          <p className="text-xs text-ink-500 truncate">
-            {report.submitter_name}
-            {report.department && ` · ${report.department}`}
-            {report.approved_at && ` · aprobada ${formatDate(report.approved_at.split('T')[0])}`}
-          </p>
-        </div>
-        <div className="flex items-center justify-between gap-3 sm:justify-end">
-        <p className="font-mono-amount font-semibold text-sm text-ink-900 shrink-0 tabular-nums">
-          {formatCLP(report.approved_amount > 0 ? report.approved_amount : report.total_amount)}
-        </p>
-        <button
-          onClick={onEnviar}
-          disabled={bloqueada}
-          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-item transition-colors"
-        >
-          <Landmark size={13} />
-          {enviando ? 'Enviando…' : 'Enviar'}
-        </button>
-        </div>
-      </div>
-
-      {errorMsg && (
-        <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-item px-3 py-2 mt-2">{errorMsg}</p>
-      )}
-    </div>
-  )
-}
 
 function ReportCard({
   report,

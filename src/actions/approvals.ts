@@ -5,7 +5,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
-import { puedeOperarPago } from '@/lib/bank-helpers'
 import { contextoRendicion, exigirPaso, permisoEn, cargarPersonas, type ContextoRendicion } from '@/lib/contexto-permisos'
 import { puedeActuar, pasoSegunEstado, suplenteVigente, type Paso, type Documento } from '@/lib/permisos'
 import { estadoTrasDecisionReporte, type ResultadoDecision } from '@/lib/flujo'
@@ -475,7 +474,15 @@ export async function markReimbursed(reportId: string, paymentReference: string,
     throw new Error('Solo los administradores pueden marcar reembolsos')
   }
 
-  const { error } = await supabase
+  // «Autorizado» significa que la plata salió de la empresa: solo lo marca quien
+  // la liberó en el banco. A mano, solo cargas históricas (pagos del pasado). D7.
+  const admin = createAdminClient()
+  const { data: rep } = await admin.from('expense_reports').select('is_historical_import').eq('id', reportId).single()
+  if (!rep?.is_historical_import) {
+    throw new Error('Solo las cargas históricas se marcan como reembolsadas a mano: las demás las cierra quien autoriza el pago en el banco')
+  }
+
+  const { data: marcada, error } = await admin
     .from('expense_reports')
     .update({
       status:             'reimbursed',
@@ -486,8 +493,8 @@ export async function markReimbursed(reportId: string, paymentReference: string,
     })
     .eq('id', reportId)
     .in('status', ['approved', 'partially_approved'])
-
-  if (error) throw new Error(error.message)
+    .select('id')
+  if (error || !marcada?.length) throw new Error('No se pudo marcar el reembolso')
 
   revalidatePath('/admin/reports')
   revalidatePath('/')
@@ -518,10 +525,16 @@ export async function revertReimbursement(reportId: string) {
 
   const netApproved = computeApprovedAmount(itemsData ?? [])
 
-  const { error } = await supabase
+  // Una histórica vuelve a «aprobada»; una normal vuelve a esperar la carga,
+  // porque «aprobada» ya no lleva a ningún lado.
+  const admin = createAdminClient()
+  const { data: rep } = await admin.from('expense_reports').select('is_historical_import').eq('id', reportId).single()
+  const volverA = rep?.is_historical_import ? 'approved' : 'pending_bank_load'
+
+  const { data: revertida, error } = await admin
     .from('expense_reports')
     .update({
-      status:            'approved',
+      status:            volverA,
       reimbursed_at:     null,
       reimbursed_by:     null,
       payment_reference: null,
@@ -530,8 +543,10 @@ export async function revertReimbursement(reportId: string) {
     })
     .eq('id', reportId)
     .eq('status', 'reimbursed')
+    .select('id')
+  if (error || !revertida?.length) throw new Error('No se pudo revertir el reembolso')
 
-  if (error) throw new Error(error.message)
+  if (volverA === 'pending_bank_load') notifyReportBankStep(reportId, 'cargar_pago', user.id).catch(() => {})
 
   revalidatePath('/admin/reports')
   revalidatePath('/')
@@ -539,132 +554,72 @@ export async function revertReimbursement(reportId: string) {
 
 // ── Workflow bancario para Rendiciones ────────────────────────────────────────
 
-async function requireAdminOrBankPerm(perm: 'can_load_bank_transfer' | 'can_authorize_bank_transfer') {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-  const { data: profile } = await supabase
-    .from('users')
-    .select(`role, ${perm}`)
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Perfil no encontrado')
-  if (profile.role !== 'admin' && !(profile as Record<string, unknown>)[perm]) {
-    throw new Error('Sin permiso para esta acción bancaria')
-  }
-  return { userId: user.id, profile }
-}
-
-/** Paso 1: Admin envía la rendición aprobada al proceso bancario */
-export async function requestReportBankLoad(reportId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-  const { data: profile } = await supabase
-    .from('users').select('role').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Solo los administradores pueden iniciar el proceso bancario')
-  }
-
-  const admin = createAdminClient()
-  const { error } = await (await admin)
-    .from('expense_reports')
-    .update({ status: 'pending_bank_load' })
-    .eq('id', reportId)
-    .in('status', ['approved', 'partially_approved'])
-
-  if (error) throw new Error(error.message)
-
-  await supabase.from('expense_report_approvals').insert({
-    report_id:   reportId,
-    approver_id: user.id,
-    level:       1,
-    action:      'bank_load_requested',
-    notes:       'Iniciado proceso bancario de reembolso',
-  })
-
-  revalidatePath('/admin/reports')
-  revalidatePath('/banco')
-  revalidatePath('/')
-}
-
-// Quien tiene el permiso bancario puede operar su propio reembolso solo si otra
-// persona aprobó la rendición (ver puedeOperarPago en lib/bank-helpers).
-async function exigirPagoOperable(reportId: string, actorId: string) {
-  const admin = await createAdminClient()
-  const { data: report } = await admin
-    .from('expense_reports').select('submitter_id').eq('id', reportId).single()
-  if (!report) throw new Error('Rendición no encontrada')
-
-  const { data: aprobaciones } = await admin
-    .from('expense_report_approvals').select('approver_id, action').eq('report_id', reportId)
-  const log = (aprobaciones ?? []).map(a => ({ actor_id: a.approver_id, action: a.action }))
-
-  if (!puedeOperarPago(actorId, report.submitter_id, log)) {
-    throw new Error('No puedes operar el pago de tu propia rendición: tiene que haberla aprobado otra persona')
-  }
-}
-
-/** Paso 2: Encargado de carga confirma que cargó la transferencia en el banco */
+/** Carga: quien tiene «carga banco» confirma que cargó la transferencia */
 export async function confirmReportBankLoad(reportId: string, data: {
   paymentReference: string
   transferredAt:    string
 }) {
-  const { userId } = await requireAdminOrBankPerm('can_load_bank_transfer')
-  await exigirPagoOperable(reportId, userId)
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const admin = createAdminClient()
-  const { error } = await (await admin)
+  const ctx = await contextoRendicion(reportId)
+  exigirPaso(ctx, ctx.reporte.status, user.id, ['cargar_pago'], 'Este pago ya no está esperando la carga')
+
+  const { data: movida, error } = await ctx.admin
     .from('expense_reports')
     .update({ status: 'pending_bank_auth' })
     .eq('id', reportId)
     .eq('status', 'pending_bank_load')
+    .select('id')
+  if (error || !movida?.length) throw new Error('No se pudo registrar la carga. Intenta de nuevo')
 
-  if (error) throw new Error(error.message)
-
-  await supabase.from('expense_report_approvals').insert({
+  const { error: logError } = await ctx.admin.from('expense_report_approvals').insert({
     report_id:   reportId,
-    approver_id: userId,
+    approver_id: user.id,
     level:       1,
     action:      'bank_load_confirmed',
     notes:       `Ref: ${data.paymentReference || 'Sin referencia'} · ${data.transferredAt}`,
   })
+  if (logError) throw new Error(logError.message)
 
-  notifyReportBankStep(reportId, 'autorizar_pago', userId).catch(() => {})
+  notifyReportBankStep(reportId, 'autorizar_pago', user.id).catch(() => {})
 
   revalidatePath('/admin/reports')
   revalidatePath('/banco')
   revalidatePath('/')
 }
 
-/** Paso 3: Autorizador bancario confirma → reembolso completado */
+/** Autorización: la plata sale de la empresa. Nunca el beneficiario ni quien cargó */
 export async function authorizeReportBank(reportId: string, paymentReference: string) {
-  const { userId } = await requireAdminOrBankPerm('can_authorize_bank_transfer')
-  await exigirPagoOperable(reportId, userId)
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const admin = createAdminClient()
-  const { error } = await (await admin)
+  const ctx = await contextoRendicion(reportId)
+  exigirPaso(ctx, ctx.reporte.status, user.id, ['autorizar_pago'], 'Este pago ya no está esperando la autorización')
+
+  const { data: pagada, error } = await ctx.admin
     .from('expense_reports')
     .update({
       status:            'reimbursed',
       reimbursed_at:     new Date().toISOString(),
-      reimbursed_by:     userId,
+      reimbursed_by:     user.id,
       payment_reference: paymentReference.trim() || null,
     })
     .eq('id', reportId)
     .eq('status', 'pending_bank_auth')
+    .select('id')
+  if (error || !pagada?.length) throw new Error('No se pudo registrar la autorización. Intenta de nuevo')
 
-  if (error) throw new Error(error.message)
-
-  await supabase.from('expense_report_approvals').insert({
+  const { error: logError } = await ctx.admin.from('expense_report_approvals').insert({
     report_id:   reportId,
-    approver_id: userId,
+    approver_id: user.id,
     level:       1,
     action:      'bank_authorized',
     notes:       paymentReference.trim() || null,
   })
+  if (logError) throw new Error(logError.message)
 
   notifySubmitterOfReimbursement(reportId).catch(() => {})
 

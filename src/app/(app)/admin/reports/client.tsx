@@ -3,13 +3,13 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, revertDefontanaExport, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
-import { markReimbursed, revertReimbursement, requestReportBankLoad } from '@/actions/approvals'
+import { markReimbursed, revertReimbursement } from '@/actions/approvals'
 import { adminDeleteExpenseReport, adminDeleteAllReports } from '@/actions/expenses'
 import { formatDate, formatCLP, formatDisplayTitle } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark, BookCheck, FileSpreadsheet } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, BookCheck, FileSpreadsheet } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS, ESTADOS_APROBADOS } from '@/lib/constants'
@@ -92,9 +92,6 @@ export function AdminReportsClient({ initialReports }: Props) {
   // Eliminar
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
   const [deletingAll, setDeletingAll] = useState(false)
-
-  // Proceso bancario
-  const [bankInitId, setBankInitId] = useState<string | null>(null)
 
   // Mover módulo (rendicion ↔ caja_chica)
   const [movingId, setMovingId] = useState<string | null>(null)
@@ -265,23 +262,6 @@ export function AdminReportsClient({ initialReports }: Props) {
       await load()
     } finally {
       setReimbSaving(false)
-    }
-  }
-
-  async function handleBankInit(reportId: string, title: string) {
-    if (!await confirmar({
-      titulo:  `¿Enviar "${title}" al proceso bancario?`,
-      detalle: `La rendición pasará al estado "En banco (carga)" y los operadores bancarios podrán confirmar la transferencia.`,
-      aceptar: 'Enviar',
-    })) return
-    setBankInitId(reportId)
-    try {
-      await requestReportBankLoad(reportId)
-      await load()
-    } catch (e: unknown) {
-      avisar(e instanceof Error ? e.message : 'Error al iniciar el proceso bancario')
-    } finally {
-      setBankInitId(null)
     }
   }
 
@@ -772,7 +752,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           const isOpen    = expanded === r.id
           const detail    = details[r.id]
           const loading   = expanding === r.id
-          const canReimb  = r.status === 'approved' || r.status === 'partially_approved'
+          const canReimb  = (r.status === 'approved' || r.status === 'partially_approved') && r.is_historical_import
           const isReopened = reimbOpen === r.id
           // Defontana solo acepta rendiciones ya aprobadas
           const canDefontana = ESTADOS_APROBADOS.includes(r.status as ReportStatus)
@@ -949,17 +929,10 @@ export function AdminReportsClient({ initialReports }: Props) {
                   </div>
                 )}
 
-                {/* Acciones de reembolso */}
+                {/* Acciones de reembolso: solo cargas históricas. Las rendiciones
+                    normales las cierra quien autoriza el pago en /banco. */}
                 {canReimb && !isReopened && (
                   <div className="mt-3 pt-3 border-t border-ink-100 flex flex-wrap items-center gap-3">
-                    <button
-                      onClick={() => handleBankInit(r.id, r.title)}
-                      disabled={bankInitId === r.id}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-item transition-colors"
-                    >
-                      <Landmark size={13} />
-                      {bankInitId === r.id ? 'Iniciando…' : 'Iniciar proceso bancario'}
-                    </button>
                     <button
                       onClick={() => { setReimbOpen(r.id); setReimbRef(''); setReimbAmount(r.approved_amount > 0 ? String(r.approved_amount) : '') }}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-ink-700 transition-colors"

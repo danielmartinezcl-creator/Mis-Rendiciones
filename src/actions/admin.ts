@@ -11,8 +11,9 @@ import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaMovement } from '@/lib/export/defontana'
-import { puedeOperarPago } from '@/lib/bank-helpers'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
+import { cargarPersonas } from '@/lib/contexto-permisos'
+import { puedeActuar, pasoSegunEstado, type Documento } from '@/lib/permisos'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -2552,92 +2553,92 @@ export interface BankQueueReport {
 }
 
 export interface BankQueueResult {
-  isAdmin: boolean
   canLoad: boolean
   canAuth: boolean
   reports: BankQueueReport[]
 }
-
-type BankStatus = 'approved' | 'partially_approved' | 'pending_bank_load' | 'pending_bank_auth'
 
 export async function getBankQueue(): Promise<BankQueueResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const admin = createAdminClient()
+  const { data: perfil } = await admin
     .from('users')
-    .select('role, org_id, can_load_bank_transfer, can_authorize_bank_transfer')
+    .select('org_id, can_load_bank_transfer, can_authorize_bank_transfer')
     .eq('id', user.id)
     .single()
+  if (!perfil) redirect('/login')
 
-  if (!profile) redirect('/login')
+  // Ser admin no da acceso al banco (D1): solo los permisos bancarios
+  const canLoad = !!perfil.can_load_bank_transfer
+  const canAuth = !!perfil.can_authorize_bank_transfer
+  const vacia: BankQueueResult = { canLoad, canAuth, reports: [] }
+  if (!canLoad && !canAuth) return vacia
 
-  const isAdmin = profile.role === 'admin'
-  const canLoad = isAdmin || !!profile.can_load_bank_transfer
-  const canAuth = isAdmin || !!profile.can_authorize_bank_transfer
+  const estados: string[] = []
+  if (canLoad) estados.push('pending_bank_load')
+  if (canAuth) estados.push('pending_bank_auth')
 
-  if (!isAdmin && !canLoad && !canAuth) {
-    return { isAdmin: false, canLoad: false, canAuth: false, reports: [] }
-  }
-
-  const statuses: BankStatus[] = []
-  if (isAdmin) statuses.push('approved', 'partially_approved')
-  if (canLoad) statuses.push('pending_bank_load')
-  if (canAuth) statuses.push('pending_bank_auth')
-
-  const admin = createAdminClient()
-  const { data } = await (await admin)
+  const { data } = await admin
     .from('expense_reports')
     .select(`
       id, title, status, total_amount, approved_amount, currency,
       submitted_at, approved_at, submitter_id,
       submitter:users!submitter_id (full_name, department)
     `)
-    .eq('org_id', profile.org_id)
+    .eq('org_id', perfil.org_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .in('status', statuses as any)
+    .in('status', estados as any)
     .is('deleted_at', null)
     .order('approved_at', { ascending: true, nullsFirst: false })
 
+  const reportes = data ?? []
+  if (!reportes.length) return vacia
+
+  const [personas, { data: log }] = await Promise.all([
+    cargarPersonas(admin, perfil.org_id),
+    admin.from('expense_report_approvals')
+      .select('report_id, approver_id, action, level')
+      .in('report_id', reportes.map(r => r.id))
+      .order('created_at', { ascending: true }),
+  ])
+  const yo = personas.find(p => p.id === user.id)
+  if (!yo) return vacia
+
   type Sub = { full_name: string; department: string | null }
 
-  // Una rendición propia en carga o autorización solo se muestra si otra
-  // persona la aprobó: si no, el botón rebotaría (puedeOperarPago)
-  const propiasEnBanco = (data ?? []).filter(r =>
-    r.submitter_id === user.id && (r.status === 'pending_bank_load' || r.status === 'pending_bank_auth'))
-  const ocultas = new Set<string>()
-  if (propiasEnBanco.length) {
-    const { data: log } = await (await admin)
-      .from('expense_report_approvals')
-      .select('report_id, approver_id, action')
-      .in('report_id', propiasEnBanco.map(r => r.id))
-    for (const r of propiasEnBanco) {
-      const suyo = (log ?? []).filter(a => a.report_id === r.id).map(a => ({ actor_id: a.approver_id, action: a.action }))
-      if (!puedeOperarPago(user.id, r.submitter_id, suyo)) ocultas.add(r.id)
+  // Cada fila, con el mismo cálculo que la acción: si no puedes dar el paso
+  // (es tuya, o la cargaste tú), no aparece. Los pasos del banco no usan la cadena.
+  const visibles = reportes.flatMap(r => {
+    const paso = pasoSegunEstado('rendicion', r.status)
+    if (!paso) return []
+    const doc: Documento = {
+      tipo:           'rendicion',
+      beneficiarioId: r.submitter_id,
+      cadena:         { l1: null, l2: null, suplenteL1Vigente: null },
+      historial:      (log ?? [])
+        .filter(a => a.report_id === r.id)
+        .map(a => ({ actorId: a.approver_id, accion: a.action, nivel: a.level })),
     }
-  }
+    if (!puedeActuar(yo, paso, doc, personas).ok) return []
+    const sub = r.submitter as Sub | null
+    return [{
+      id:              r.id as string,
+      title:           r.title as string,
+      status:          r.status as string,
+      total_amount:    r.total_amount as number,
+      approved_amount: r.approved_amount as number,
+      currency:        r.currency as string,
+      submitted_at:    r.submitted_at as string | null,
+      approved_at:     r.approved_at as string | null,
+      submitter_name:  sub?.full_name ?? 'Desconocido',
+      department:      sub?.department ?? null,
+    }]
+  })
 
-  return {
-    isAdmin,
-    canLoad,
-    canAuth,
-    reports: (data ?? []).filter(r => !ocultas.has(r.id)).map(r => {
-      const sub = r.submitter as Sub | null
-      return {
-        id:              r.id as string,
-        title:           r.title as string,
-        status:          r.status as string,
-        total_amount:    r.total_amount as number,
-        approved_amount: r.approved_amount as number,
-        currency:        r.currency as string,
-        submitted_at:    r.submitted_at as string | null,
-        approved_at:     r.approved_at as string | null,
-        submitter_name:  sub?.full_name ?? 'Desconocido',
-        department:      sub?.department ?? null,
-      }
-    }),
-  }
+  return { canLoad, canAuth, reports: visibles }
 }
 
 // ─── Reversa de contabilización Defontana ────────────────────────────────────
