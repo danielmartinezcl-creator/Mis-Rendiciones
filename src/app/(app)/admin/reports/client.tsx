@@ -12,7 +12,8 @@ import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, Landmark, BookCheck, FileSpreadsheet } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
-import { REPORT_STEPS } from '@/lib/constants'
+import { REPORT_STEPS, ESTADOS_APROBADOS } from '@/lib/constants'
+import type { ReportStatus } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
 import { SEMANTIC } from '@/lib/design-tokens'
@@ -774,7 +775,7 @@ export function AdminReportsClient({ initialReports }: Props) {
           const canReimb  = r.status === 'approved' || r.status === 'partially_approved'
           const isReopened = reimbOpen === r.id
           // Defontana solo acepta rendiciones ya aprobadas
-          const canDefontana = ['approved', 'partially_approved', 'reimbursed'].includes(r.status)
+          const canDefontana = ESTADOS_APROBADOS.includes(r.status as ReportStatus)
 
           return (
             <div key={r.id} className="hoja overflow-hidden">

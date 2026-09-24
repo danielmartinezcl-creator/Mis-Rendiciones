@@ -37,6 +37,11 @@ describe('tramoDelFondo', () => {
     }
   })
 
+  it('los estados de N2 caen en el mismo tramo que su N1', () => {
+    expect(tramoDelFondo('pending_approval_l2')).toBe('antes')
+    expect(tramoDelFondo('pending_liquidation_l2')).toBe('con-dinero')
+  })
+
   /**
    * El candado. Si alguien agrega un tramo, este test cae y obliga a discutir
    * la sección 7 en vez de sumar una quinta variante en silencio.
@@ -133,6 +138,22 @@ describe('construirRecorrido', () => {
     expect(pasos[0].key).toBe('draft')
     expect(pasos[0].estado).toBe('actual')
     expect(pasos[0].fecha).toBeNull()
+  })
+
+  /**
+   * En N2 el fondo sigue en el paso de autorización: «Autorizado» todavía no
+   * está hecho aunque el historial ya tenga la aprobación del N1.
+   */
+  it('en N2, el paso actual es la autorización y «Autorizado» sigue pendiente', () => {
+    const pasos = construirRecorrido('pending_approval_l2', [
+      { action: 'created',                created_at: '2026-09-24T09:00:00Z' },
+      { action: 'submitted_for_approval', created_at: '2026-09-24T09:05:00Z' },
+      { action: 'approved',               created_at: '2026-09-24T10:00:00Z' },
+    ])
+    expect(pasos.find(p => p.estado === 'actual')?.key).toBe('pending_approval')
+    const autorizado = pasos.find(p => p.key === 'approved')
+    expect(autorizado?.estado).toBe('pendiente')
+    expect(autorizado?.fecha).toBeNull()
   })
 })
 

@@ -7,6 +7,7 @@ import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { getMyReports } from '@/actions/expenses'
 import { ReceiptText, AlertCircle } from 'lucide-react'
 import type { ReportStatus } from '@/lib/constants'
+import { ESTADOS_POR_PAGAR } from '@/lib/constants'
 
 export default async function DashboardPage() {
   const user = await getAuthUser()
@@ -18,7 +19,7 @@ export default async function DashboardPage() {
     .reduce((s, r) => s + r.total_amount, 0)
   const inReview = reports.filter(r => ['submitted', 'pending_l2'].includes(r.status))
     .reduce((s, r) => s + r.total_amount, 0)
-  const approved = reports.filter(r => ['approved', 'partially_approved'].includes(r.status))
+  const approved = reports.filter(r => ESTADOS_POR_PAGAR.includes(r.status as ReportStatus))
     .reduce((s, r) => s + r.approved_amount, 0)
 
   const rejected = reports.filter(r => r.status === 'rejected')

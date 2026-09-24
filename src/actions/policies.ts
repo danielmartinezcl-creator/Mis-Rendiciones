@@ -10,6 +10,7 @@ import {
 } from '@/lib/policy-helpers'
 import type { PolicyViolation } from '@/lib/policy-helpers'
 import type { ExpensePolicy, TravelPolicy } from '@/lib/supabase/types'
+import { ESTADOS_APROBADOS } from '@/lib/constants'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateAmount } from '@/lib/validators'
 
@@ -213,7 +214,7 @@ export async function checkPolicyViolations(params: {
     .from('expense_reports')
     .select('id')
     .eq('submitter_id', user.id)
-    .in('status', ['submitted', 'pending_l2', 'approved', 'partially_approved', 'reimbursed'])
+    .in('status', ['submitted', 'pending_l2', ...ESTADOS_APROBADOS])
 
   const rids = (empReports ?? []).map((r: { id: string }) => r.id)
 

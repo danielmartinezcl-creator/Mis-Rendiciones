@@ -12,6 +12,7 @@ import { validateStringLength, validateHexColor } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaMovement } from '@/lib/export/defontana'
 import { puedeOperarPago } from '@/lib/bank-helpers'
+import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -199,7 +200,7 @@ export async function getAdminKpis() {
       .eq('org_id', orgId).in('status', ['submitted', 'pending_l2']).is('deleted_at', null),
     // Rendiciones aprobadas sin reembolsar (excluye cargas históricas de caja chica — la empresa dio dinero, no el empleado)
     supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
-      .eq('org_id', orgId).in('status', ['approved', 'partially_approved']).is('deleted_at', null)
+      .eq('org_id', orgId).in('status', ESTADOS_POR_PAGAR).is('deleted_at', null)
       .or('is_historical_import.eq.false,historical_type.eq.rendicion'),
     // Rendiciones reembolsadas
     supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
@@ -428,7 +429,7 @@ export async function getPendingReimbursementList() {
     supabase.from('expense_reports')
       .select('id, title, submitter_id, approved_amount, approved_at, status')
       .eq('org_id', orgId)
-      .in('status', ['approved', 'partially_approved'])
+      .in('status', ESTADOS_POR_PAGAR)
       .is('deleted_at', null)
       // Solo rendiciones donde el empleado gastó de su bolsillo; excluye cajas históricas
       .or('is_historical_import.eq.false,historical_type.eq.rendicion')
@@ -1201,7 +1202,7 @@ export async function getDefontanaExportData(filters: {
     .from('expense_reports')
     .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at, defontana_export_ref')
     .eq('org_id', orgId)
-    .in('status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('status', ESTADOS_APROBADOS)
     .is('deleted_at', null)
     .order('approved_at', { ascending: true })
 
@@ -1852,7 +1853,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
       expense_reports!inner (org_id, status, deleted_at, submitter_id)
     `)
     .eq('expense_reports.org_id', orgId)
-    .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('expense_reports.status', ESTADOS_APROBADOS)
     .eq('status', 'approved')
     .gte('date', dateFrom)
     .is('expense_reports.deleted_at', null)
@@ -1952,7 +1953,7 @@ export async function getItemsWithoutCC(): Promise<ItemWithoutCC[]> {
       expense_reports!inner (id, title, org_id, status, deleted_at, submitter_id)
     `)
     .eq('expense_reports.org_id', orgId)
-    .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('expense_reports.status', ESTADOS_APROBADOS)
     .eq('status', 'approved')
     .is('cost_center_id', null)
     .is('expense_reports.deleted_at', null)
@@ -2285,7 +2286,7 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
     .from('expense_reports')
     .select('id')
     .eq('org_id', orgId)
-    .in('status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('status', ESTADOS_APROBADOS)
     .is('deleted_at', null)
 
   if (!reportIds || reportIds.length === 0) return []
