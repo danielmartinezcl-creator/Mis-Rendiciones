@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { tramoDelFondo, construirRecorrido, TRAMOS_FONDO } from '@/lib/petty-cash-helpers'
+import { tramoDelFondo, construirRecorrido, TRAMOS_FONDO, calculateFundBalance } from '@/lib/petty-cash-helpers'
+import type { PettyCashItem, PettyCashTransfer } from '@/lib/supabase/types'
 import { FUND_STATUSES, FUND_STEPS } from '@/lib/constants'
 
 /**
@@ -132,5 +133,69 @@ describe('construirRecorrido', () => {
     expect(pasos[0].key).toBe('draft')
     expect(pasos[0].estado).toBe('actual')
     expect(pasos[0].fecha).toBeNull()
+  })
+})
+
+/**
+ * La dirección de la plata al liquidar.
+ *
+ * El empleado recibe el fondo ANTES de gastar: si gastó menos, lo que sobra
+ * lo tiene él y lo devuelve; si gastó más, puso de su bolsillo y la empresa
+ * le paga la diferencia. Hasta el 2026-09-24 las dos marcas estaban
+ * invertidas: con $89.340 gastados de $300.000 la app decía «la empresa te
+ * devolverá $210.660» y precargaba una transferencia que en Defontana sale
+ * como adelanto — plata que SALE, cuando tenía que entrar.
+ */
+describe('calculateFundBalance — quién le debe a quién', () => {
+  const item = (amount_clp: number, status = 'pending') => ({ amount_clp, status }) as PettyCashItem
+  const transfer = (type: PettyCashTransfer['type'], amount: number) => ({ type, amount }) as PettyCashTransfer
+
+  it('si sobró plata, la devuelve el empleado', () => {
+    const b = calculateFundBalance(300_000, [item(89_340)])
+    expect(b.pending).toBe(210_660)
+    expect(b.employeeOwes).toBe(true)
+    expect(b.companyOwes).toBe(false)
+    expect(b.settlementType).toBe('reimbursement_from_employee')
+  })
+
+  it('si gastó de más, la empresa le paga la diferencia', () => {
+    const b = calculateFundBalance(300_000, [item(250_000), item(80_000)])
+    expect(b.pending).toBe(-30_000)
+    expect(b.companyOwes).toBe(true)
+    expect(b.employeeOwes).toBe(false)
+    expect(b.settlementType).toBe('refund_to_employee')
+  })
+
+  it('cuadrado no pide ninguna transferencia', () => {
+    const b = calculateFundBalance(300_000, [item(300_000)])
+    expect(b.isBalanced).toBe(true)
+    expect(b.settlementType).toBeNull()
+  })
+
+  it('los gastos rechazados no cuentan como gastados', () => {
+    const b = calculateFundBalance(300_000, [item(100_000), item(50_000, 'rejected')])
+    expect(b.spent).toBe(100_000)
+    expect(b.pending).toBe(200_000)
+  })
+
+  it('una devolución ya registrada salda la diferencia: no se pide dos veces', () => {
+    const b = calculateFundBalance(300_000, [item(89_340)], [
+      transfer('disbursement', 300_000),
+      transfer('reimbursement_from_employee', 210_660),
+    ])
+    expect(b.pending).toBe(0)
+    expect(b.settlementType).toBeNull()
+  })
+
+  it('un pago ya registrado al empleado salda el exceso', () => {
+    const b = calculateFundBalance(300_000, [item(330_000)], [transfer('refund_to_employee', 30_000)])
+    expect(b.pending).toBe(0)
+    expect(b.settlementType).toBeNull()
+  })
+
+  it('una devolución parcial deja pendiente solo el resto', () => {
+    const b = calculateFundBalance(300_000, [item(89_340)], [transfer('reimbursement_from_employee', 200_000)])
+    expect(b.pending).toBe(10_660)
+    expect(b.settlementType).toBe('reimbursement_from_employee')
   })
 })
