@@ -5,7 +5,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
-import { notifyReportApprovers } from '@/actions/notifications'
+import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/actions/notifications'
+import { contextoRendicion } from '@/lib/contexto-permisos'
+import { puedeEnviar } from '@/lib/permisos'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
@@ -243,19 +245,29 @@ export async function submitExpenseReport(reportId: string) {
     throw new Error('La rendición debe tener al menos un ítem')
   }
 
-  const { error } = await supabase
+  const ctx = await contextoRendicion(reportId)
+  if (ctx.reporte.submitter_id !== user.id) throw new Error('Solo quien rinde puede enviar su rendición')
+  if (ctx.reporte.status !== 'draft') throw new Error('Esta rendición ya fue enviada')
+
+  const yo = ctx.personas.find(p => p.id === user.id)
+  if (!yo) throw new Error('Rendición no encontrada')
+
+  const envio = puedeEnviar('rendicion', yo, ctx.doc.cadena)
+  if (!envio.ok) {
+    if (!ctx.doc.cadena.l1) {
+      notifyAdminsMissingApprover(ctx.reporte.org_id, yo.nombre, 'una rendición').catch(() => {})
+    }
+    throw new Error(envio.motivo)
+  }
+
+  const { data: enviada, error } = await ctx.admin
     .from('expense_reports')
-    .update({
-      status:       'submitted',
-      submitted_at: new Date().toISOString(),
-    })
+    .update({ status: 'submitted', submitted_at: new Date().toISOString() })
     .eq('id', reportId)
-    .eq('submitter_id', user.id)
     .eq('status', 'draft')
+    .select('id')
+  if (error || !enviada?.length) throw new Error('No se pudo enviar la rendición. Intenta de nuevo')
 
-  if (error) throw new Error(error.message)
-
-  // Notificar a aprobadores (async, fallo silencioso)
   notifyReportApprovers(reportId, 'decidir_l1', user.id).catch(() => {})
 
   revalidatePath(`/expenses/${reportId}`)

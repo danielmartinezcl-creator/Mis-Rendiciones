@@ -6,6 +6,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
 import { puedeOperarPago } from '@/lib/bank-helpers'
+import { contextoRendicion, exigirPaso, permisoEn, cargarPersonas, type ContextoRendicion } from '@/lib/contexto-permisos'
+import { puedeActuar, pasoSegunEstado, suplenteVigente, type Paso, type Documento } from '@/lib/permisos'
+import { estadoTrasDecisionReporte, type ResultadoDecision } from '@/lib/flujo'
 import {
   notifySubmitterOfDecision,
   notifyReportApprovers,
@@ -30,31 +33,30 @@ export async function getPendingApprovals() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('org_id, can_approve, role')
-    .eq('id', user.id)
-    .single()
+  const admin = createAdminClient()
+  const { data: yoRow } = await admin.from('users').select('org_id').eq('id', user.id).single()
+  if (!yoRow) return []
 
-  if (!profile || (!profile.can_approve && profile.role !== 'admin')) return []
+  const [personas, { data }] = await Promise.all([
+    cargarPersonas(admin, yoRow.org_id),
+    admin
+      .from('expense_reports')
+      .select(`
+        id, title, status, total_amount, submitted_at, currency, submitter_id,
+        submitter:users!submitter_id (
+          approver_l1_id, approver_l2_id, full_name,
+          approver_l1_backup_id, backup_active_from, backup_active_until
+        )
+      `)
+      .eq('org_id', yoRow.org_id)
+      .in('status', ['submitted', 'pending_l2'])
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: true }),
+  ])
 
-  // Obtener todos los reportes pendientes de la org, incluyendo los aprobadores configurados del rendidor
-  const { data } = await supabase
-    .from('expense_reports')
-    .select(`
-      id, title, status, total_amount, submitted_at, currency,
-      submitter:users!submitter_id (
-        approver_l1_id, approver_l2_id, full_name,
-        approver_l1_backup_id, backup_active_from, backup_active_until
-      )
-    `)
-    .eq('org_id', profile.org_id)
-    .in('status', ['submitted', 'pending_l2'])
-    .is('deleted_at', null)
-    .order('submitted_at', { ascending: true })
-
-  const reports = data ?? []
-  const today   = new Date().toISOString().split('T')[0]
+  const yo = personas.find(p => p.id === user.id)
+  if (!yo) return []
+  const hoy = new Date().toISOString().slice(0, 10)
 
   type SubType = {
     approver_l1_id:        string | null
@@ -65,36 +67,33 @@ export async function getPendingApprovals() {
     full_name:             string
   }
 
-  // Filtrar: solo los reportes donde el usuario actual es el aprobador designado para ese nivel
-  return reports.filter(r => {
-    const sub = r.submitter as SubType | null
-
-    if (!sub) {
-      // Sin aprobador configurado → visible a todos los can_approve (fallback)
-      return profile.can_approve || profile.role === 'admin'
+  // Solo lo que esta persona puede decidir, con la misma regla que la acción.
+  // Ya no hay «sin aprobador → visible a todos»: sin N1 no se puede enviar.
+  return (data ?? []).flatMap(r => {
+    const sub  = r.submitter as SubType | null
+    const paso = pasoSegunEstado('rendicion', r.status)
+    if (!sub || !paso) return []
+    const doc: Documento = {
+      tipo:           'rendicion',
+      beneficiarioId: r.submitter_id,
+      cadena: {
+        l1:                sub.approver_l1_id,
+        l2:                sub.approver_l2_id,
+        suplenteL1Vigente: suplenteVigente(sub.approver_l1_backup_id, sub.backup_active_from, sub.backup_active_until, hoy),
+      },
+      historial: [],
     }
-
-    if (r.status === 'submitted') {
-      const isL1 = sub.approver_l1_id === user.id
-      const isBackup = sub.approver_l1_backup_id === user.id &&
-        !!sub.backup_active_from && !!sub.backup_active_until &&
-        sub.backup_active_from <= today && sub.backup_active_until >= today
-      return isL1 || isBackup
-    }
-    if (r.status === 'pending_l2')  return sub.approver_l2_id === user.id
-    return false
-  }).map(r => {
-    const sub = r.submitter as SubType | null
-    return {
-      id: r.id,
-      title: r.title,
-      status: r.status,
-      total_amount: r.total_amount,
-      submitted_at: r.submitted_at,
-      currency: r.currency,
-      submitter_name: sub?.full_name ?? null,
+    if (!puedeActuar(yo, paso, doc, personas).ok) return []
+    return [{
+      id:             r.id,
+      title:          r.title,
+      status:         r.status,
+      total_amount:   r.total_amount,
+      submitted_at:   r.submitted_at,
+      currency:       r.currency,
+      submitter_name: sub.full_name,
       approval_level: r.status === 'pending_l2' ? 2 : 1,
-    }
+    }]
   })
 }
 
@@ -137,12 +136,16 @@ export async function getReportForApproval(reportId: string) {
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
+  const ctx     = await contextoRendicion(reportId)
+  const permiso = permisoEn(ctx, report.status, user.id)
+
   return {
     ...report,
     submitter_name:    submitter?.full_name    ?? null,
     approver_l1_id:    submitter?.approver_l1_id ?? null,
     approver_l2_id:    submitter?.approver_l2_id ?? null,
     expense_items:     items ?? [],
+    permiso,
   }
 }
 
@@ -155,142 +158,108 @@ export async function submitApprovalDecision(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('org_id, can_approve, role, full_name')
-    .eq('id', user.id)
-    .single()
+  const ctx = await contextoRendicion(reportId)
+  const { paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida')
 
-  if (!profile || (!profile.can_approve && profile.role !== 'admin')) {
-    throw new Error('Sin permiso para aprobar rendiciones')
-  }
+  // Solo ítems de esta rendición: un id ajeno no se toca
+  const ids = decisions.map(d => d.itemId)
+  const { data: propios } = await ctx.admin.from('expense_items').select('id').eq('report_id', reportId).in('id', ids)
+  if ((propios ?? []).length !== new Set(ids).size) throw new Error('Hay ítems que no pertenecen a esta rendición')
 
-  // Obtener reporte actual (para saber si es decisión N1 o N2)
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('status, submitter_id, org_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
-  // Sin esto, volver a apretar «Aprobar» sobre una rendición ya decidida (o que
-  // se ve pendiente por error) dejaba otra aprobación en el log y otra tanda de correos
-  if (report.status !== 'submitted' && report.status !== 'pending_l2') {
-    throw new Error('Esta rendición ya fue decidida')
-  }
-
-  const isL1Decision = report.status === 'submitted'
-  const level        = isL1Decision ? 1 : 2
-
-  // Obtener aprobadores del rendidor para determinar si hay N2
-  const { data: submitter } = await supabase
-    .from('users')
-    .select('approver_l2_id')
-    .eq('id', report.submitter_id)
-    .single()
-
-  const hasL2 = !!submitter?.approver_l2_id
-
-  // Actualizar ítems
-  for (const decision of decisions) {
-    await supabase
+  for (const d of decisions) {
+    const { error } = await ctx.admin
       .from('expense_items')
       .update({
-        status:           decision.action === 'approve' ? 'approved' : 'rejected',
-        rejection_reason: decision.action === 'reject' ? (decision.reason ?? null) : null,
+        status:           d.action === 'approve' ? 'approved' : 'rejected',
+        rejection_reason: d.action === 'reject' ? (d.reason ?? null) : null,
       })
-      .eq('id', decision.itemId)
+      .eq('id', d.itemId)
+    if (error) throw new Error(error.message)
   }
 
-  // Re-leer ítems para calcular estado
-  const { data: allItems } = await supabase
+  await cerrarDecision(ctx, user.id, paso, {
+    itemsAprobados:  decisions.filter(d => d.action === 'approve').map(d => d.itemId),
+    itemsRechazados: decisions.filter(d => d.action === 'reject').map(d => d.itemId),
+    notas:           notes?.trim() || null,
+  })
+}
+
+// Calcula el estado que sigue, lo escribe, deja la entrada en el historial y
+// avisa. La usan la decisión ítem por ítem y la aprobación masiva.
+async function cerrarDecision(
+  ctx: ContextoRendicion,
+  actorId: string,
+  paso: Paso,
+  d: { itemsAprobados: string[]; itemsRechazados: string[]; notas: string | null },
+) {
+  const { admin, reporte } = ctx
+  const nivel = paso === 'decidir_l2' ? 2 : 1
+
+  const { data: items } = await admin
     .from('expense_items')
     .select('status, amount_clp, item_type')
-    .eq('report_id', reportId)
+    .eq('report_id', reporte.id)
     .is('deleted_at', null)
+  const lista     = items ?? []
+  const resultado = computeReportStatus(lista) as ResultadoDecision
+  const monto     = computeApprovedAmount(lista)
+  const nuevo     = estadoTrasDecisionReporte({ nivel, tieneL2: !!ctx.doc.cadena.l2, resultado, montoAPagar: monto })
 
-  const items       = allItems ?? []
-  const itemStatus  = computeReportStatus(items)
-  const approvedAmt = computeApprovedAmount(items)
-
-  // Lógica de cadena:
-  // Si es N1 y hay N2 y todos los ítems fueron aprobados → pending_l2
-  // Cualquier otro caso → estado final
-  let newStatus: typeof itemStatus | 'pending_l2'
-  if (isL1Decision && hasL2 && itemStatus === 'approved') {
-    newStatus = 'pending_l2'
-    // Resetear ítems a 'pending' para que N2 los revise desde cero
-    await supabase
+  if (nuevo === 'pending_l2') {
+    // El N2 revisa desde cero lo que el N1 aprobó; lo que el N1 rechazó sigue rechazado
+    const { error } = await admin
       .from('expense_items')
       .update({ status: 'pending', rejection_reason: null })
-      .eq('report_id', reportId)
-  } else {
-    newStatus = itemStatus
+      .eq('report_id', reporte.id)
+      .eq('status', 'approved')
+    if (error) throw new Error(error.message)
   }
 
-  const isDecided = newStatus !== 'pending_l2'
-
-  // Si el estado no cambia, cortar ACÁ: antes el error se ignoraba y seguían
-  // el log de aprobación y los correos, con la rendición todavía «en revisión»
-  const { data: actualizada, error: updateError } = await supabase
+  const decidida = nuevo !== 'pending_l2'
+  const { data: actualizada, error: updateError } = await admin
     .from('expense_reports')
     .update({
-      status:          newStatus,
-      approved_amount: approvedAmt,
-      approved_at:     isDecided ? new Date().toISOString() : null,
+      status:          nuevo,
+      approved_amount: monto,
+      approved_at:     decidida ? new Date().toISOString() : null,
     })
-    .eq('id', reportId)
+    .eq('id', reporte.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('status', reporte.status as any)
     .select('id')
   if (updateError || !actualizada?.length) {
-    console.error('[approvals] no se pudo cambiar el estado de', reportId, updateError)
+    console.error('[approvals] no se pudo cambiar el estado de', reporte.id, updateError)
     throw new Error('No se pudo registrar la decisión. Avisa al administrador.')
   }
 
-  // Log auditoría (append-only)
-  const approvedIds = decisions.filter(d => d.action === 'approve').map(d => d.itemId)
-  const rejectedIds = decisions.filter(d => d.action === 'reject').map(d => d.itemId)
+  const { error: logError } = await admin.from('expense_report_approvals').insert({
+    report_id:      reporte.id,
+    approver_id:    actorId,
+    level:          nivel,
+    action:         resultado,
+    items_approved: d.itemsAprobados.length ? d.itemsAprobados : null,
+    items_rejected: d.itemsRechazados.length ? d.itemsRechazados : null,
+    notes:          d.notas,
+  })
+  if (logError) throw new Error(logError.message)
 
-  const logAction =
-    itemStatus === 'approved'           ? 'approved'           :
-    itemStatus === 'rejected'           ? 'rejected'           :
-    itemStatus === 'partially_approved' ? 'partially_approved' : 'approved'
-
-  await supabase
-    .from('expense_report_approvals')
-    .insert({
-      report_id:      reportId,
-      approver_id:    user.id,
-      level,
-      action:         logAction as 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft',
-      items_approved: approvedIds.length > 0 ? approvedIds : null,
-      items_rejected: rejectedIds.length > 0 ? rejectedIds : null,
-      notes:          notes?.trim() || null,
-    })
-
-  // Notificaciones según resultado
-  if (newStatus === 'pending_l2') {
-    notifyReportApprovers(reportId, 'decidir_l2', user.id).catch(() => {})
+  if (nuevo === 'pending_l2') {
+    notifyReportApprovers(reporte.id, 'decidir_l2', actorId).catch(() => {})
   } else {
-    const notifAction =
-      logAction === 'approved'           ? 'approved'           :
-      logAction === 'rejected'           ? 'rejected'           : 'partially_approved'
-    notifySubmitterOfDecision(reportId, notifAction).catch(() => {})
-    if (notifAction === 'approved' || notifAction === 'partially_approved') {
-      notifyReportBankStep(reportId, 'cargar_pago', user.id).catch(() => {})
-    }
+    notifySubmitterOfDecision(reporte.id, resultado).catch(() => {})
+    if (nuevo === 'pending_bank_load') notifyReportBankStep(reporte.id, 'cargar_pago', actorId).catch(() => {})
   }
 
-  revalidatePath(`/approvals/${reportId}`)
+  revalidatePath(`/approvals/${reporte.id}`)
   revalidatePath('/approvals')
+  revalidatePath('/banco')
   revalidatePath('/')
 
-  // Webhook fire-and-forget — solo cuando hay decisión final (no pending_l2)
-  if (isDecided) {
-    const webhookEvent = `report.${newStatus}` as WebhookEvent
-    dispatchWebhooks(profile.org_id, webhookEvent, {
-      report_id:   reportId,
-      status:      newStatus,
-      approved_by: profile.full_name,
+  if (decidida) {
+    dispatchWebhooks(reporte.org_id, `report.${resultado}` as WebhookEvent, {
+      report_id:   reporte.id,
+      status:      nuevo,
+      approved_by: ctx.personas.find(p => p.id === actorId)?.nombre ?? null,
       approved_at: new Date().toISOString(),
     }).catch(console.error)
   }
@@ -440,100 +409,39 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users').select('org_id, can_approve, role').eq('id', user.id).single()
-  if (!profile || (!profile.can_approve && profile.role !== 'admin')) {
-    throw new Error('Sin permiso para aprobar rendiciones')
-  }
+  const ctx = await contextoRendicion(reportId)
+  const { paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida')
+  const nota = `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`
 
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('status, submitter_id, org_id')
-    .eq('id', reportId)
-    .single()
-  if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
-  if (report.status !== 'submitted' && report.status !== 'pending_l2') {
-    throw new Error('Esta rendición ya fue decidida')
-  }
-
-  // Aprobar ítems indicados
-  await supabase
+  const { error } = await ctx.admin
     .from('expense_items')
     .update({ status: 'approved' })
+    .eq('report_id', reportId)
     .in('id', itemIds)
+  if (error) throw new Error(error.message)
 
-  // Leer todos los ítems para calcular estado global
-  const { data: allItems } = await supabase
-    .from('expense_items').select('id, status, amount_clp, item_type').eq('report_id', reportId).is('deleted_at', null)
-  const items = (allItems ?? []) as { id: string; status: string; amount_clp: number; item_type?: string }[]
+  const { data: items } = await ctx.admin
+    .from('expense_items')
+    .select('status, amount_clp, item_type')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+  const lista = items ?? []
 
-  const isL1 = report.status === 'submitted'
-  const allApproved = items.every(i => i.status === 'approved')
-  const approvedAmt = computeApprovedAmount(items)
-
-  if (!allApproved) {
-    // Quedan ítems pendientes — actualizar monto aprobado parcial
-    await supabase
-      .from('expense_reports')
-      .update({ approved_amount: approvedAmt })
-      .eq('id', reportId)
-  } else {
-    // Todos aprobados — verificar cadena L2
-    const { data: submitter } = await supabase
-      .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
-    const hasL2 = !!submitter?.approver_l2_id
-
-    let newStatus: 'pending_l2' | 'approved'
-    if (isL1 && hasL2) {
-      newStatus = 'pending_l2'
-      await supabase
-        .from('expense_items')
-        .update({ status: 'pending', rejection_reason: null })
-        .eq('report_id', reportId)
-    } else {
-      newStatus = 'approved'
-    }
-
-    const { data: actualizada, error: updateError } = await supabase
-      .from('expense_reports')
-      .update({
-        status:          newStatus,
-        approved_amount: approvedAmt,
-        approved_at:     newStatus === 'approved' ? new Date().toISOString() : null,
-      })
-      .eq('id', reportId)
-      .select('id')
-    if (updateError || !actualizada?.length) {
-      console.error('[approvals] no se pudo cambiar el estado de', reportId, updateError)
-      throw new Error('No se pudo registrar la decisión. Avisa al administrador.')
-    }
+  if (lista.some(i => i.status === 'pending')) {
+    // Quedan ítems por decidir: solo se actualiza el monto parcial
+    const { error: e1 } = await ctx.admin
+      .from('expense_reports').update({ approved_amount: computeApprovedAmount(lista) }).eq('id', reportId)
+    if (e1) throw new Error(e1.message)
+    const { error: e2 } = await ctx.admin.from('expense_report_approvals').insert({
+      report_id: reportId, approver_id: user.id, level: paso === 'decidir_l2' ? 2 : 1,
+      action: 'approved', items_approved: itemIds, notes: nota,
+    })
+    if (e2) throw new Error(e2.message)
+    revalidatePath(`/approvals/${reportId}`)
+    return
   }
 
-  // Registro de auditoría — siempre, independiente de si quedan ítems pendientes
-  await supabase.from('expense_report_approvals').insert({
-    report_id:      reportId,
-    approver_id:    user.id,
-    level:          isL1 ? 1 : 2,
-    action:         'approved',
-    items_approved: itemIds,
-    notes:          `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`,
-  })
-
-  // Notificaciones
-  if (allApproved) {
-    const { data: submitterData } = await supabase
-      .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
-    if (isL1 && submitterData?.approver_l2_id) {
-      notifyReportApprovers(reportId, 'decidir_l2', user.id).catch(() => {})
-    } else {
-      notifySubmitterOfDecision(reportId, 'approved').catch(() => {})
-      notifyReportBankStep(reportId, 'cargar_pago', user.id).catch(() => {})
-    }
-  }
-
-  revalidatePath(`/approvals/${reportId}`)
-  revalidatePath('/approvals')
-  revalidatePath('/')
+  await cerrarDecision(ctx, user.id, paso, { itemsAprobados: itemIds, itemsRechazados: [], notas: nota })
 }
 
 export async function markReimbursed(reportId: string, paymentReference: string, reimbursedAmount?: number) {
