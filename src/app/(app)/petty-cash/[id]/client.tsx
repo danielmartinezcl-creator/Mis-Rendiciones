@@ -6,16 +6,16 @@ import {
   submitFundForApproval,
   approveFund,
   rejectFund,
-  requestBankLoad,
   confirmBankLoad,
   authorizeBank,
   submitLiquidation,
-  elevateLiquidation,
   approveLiquidation,
   recordSettlement,
   removeFundItem,
 } from '@/actions/petty-cash'
 import type { FundDetail } from '@/actions/petty-cash'
+import { tipoDeFondo } from '@/lib/permisos'
+import { useDialogos } from '@/components/ui/Dialogos'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
@@ -49,6 +49,7 @@ interface Props {
 }
 
 export function FundDetailClient({ id, initialDetail }: Props) {
+  const { confirmar } = useDialogos()
   const [detail, setDetail]               = useState<FundDetail | null>(initialDetail)
   const [showAddItem, setShowAddItem]     = useState(false)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -112,12 +113,15 @@ export function FundDetailClient({ id, initialDetail }: Props) {
     </div>
   )
 
-  const { fund, items, audits, transfers, categories, employee_name, manager_name, currentUser } = detail
+  const { fund, items, audits, transfers, categories, employee_name, manager_name, currentUser, permiso } = detail
   const balance   = calculateFundBalance(fund.amount_approved, items, transfers)
   const recorrido = construirRecorrido(fund.status, audits)
   const isManager  = fund.manager_id === currentUser.id || currentUser.role === 'admin'
   const isEmployee = fund.employee_id === currentUser.id
-  const isApprover = currentUser.can_approve || currentUser.role === 'admin'
+
+  const decidiendo            = permiso.ok && (permiso.paso === 'decidir_l1' || permiso.paso === 'decidir_l2')
+  const decidiendoFondo       = decidiendo && tipoDeFondo(fund.status) === 'fondo'
+  const decidiendoLiquidacion = decidiendo && tipoDeFondo(fund.status) === 'liquidacion'
 
   const ITEM_STATUS_CLASS: Record<string, string> = {
     pending:  'text-warning-600 bg-warning-50',
@@ -188,8 +192,14 @@ export function FundDetailClient({ id, initialDetail }: Props) {
 
       {/* ── ACCIONES POR ESTADO ─────────────────────────────────── */}
 
+      {permiso.paso && !permiso.ok && permiso.esperandoA.length > 0 && (
+        <p className="text-xs text-ink-500 hoja px-4 py-3">
+          Esperando a {permiso.esperandoA.join(', ')}.
+        </p>
+      )}
+
       {/* EFF: enviar a autorización */}
-      {fund.status === 'draft' && isManager && (
+      {fund.status === 'draft' && fund.manager_id === currentUser.id && (
         <div className="hoja p-4 border-t-2 border-t-warning-400">
           <p className="text-sm font-semibold text-ink-800 mb-3">Paso 1 — Enviar a autorización</p>
           <button
@@ -203,7 +213,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       )}
 
       {/* Aprobador: autorizar o rechazar fondo */}
-      {fund.status === 'pending_approval' && isApprover && (
+      {decidiendoFondo && (
         <div className="hoja p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Autorización de fondo</p>
           {!approvingFund && !rejectingFund && (
@@ -250,28 +260,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         </div>
       )}
 
-      {/* EFF: enviar al banco para carga */}
-      {fund.status === 'approved' && isManager && (
-        <div className="hoja p-4 border-t-2 border-t-info-400 space-y-2">
-          <div className="flex items-center gap-2">
-            <Building2 size={15} className="text-info-600" />
-            <p className="text-sm font-semibold text-ink-800">Paso 2 — Enviar al banco</p>
-          </div>
-          <p className="text-xs text-ink-500">
-            Solicita la carga al banco. El fondo pasará a estado «Carga bancaria pendiente».
-          </p>
-          <button
-            disabled={pending}
-            onClick={() => act(() => requestBankLoad(fund.id))}
-            className="w-full py-2 bg-info-600 hover:bg-info-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
-          >
-            {pending ? 'Enviando...' : 'Enviar al banco'}
-          </button>
-        </div>
-      )}
-
       {/* Banco: confirmar carga bancaria */}
-      {fund.status === 'pending_bank_load' && (currentUser.role === 'admin' || currentUser.can_load_bank_transfer) && (
+      {permiso.ok && permiso.paso === 'cargar_pago' && (
         <div className="hoja p-4 border-t-2 border-t-info-500 space-y-3">
           <div className="flex items-center gap-2">
             <Building2 size={15} className="text-info-600" />
@@ -326,7 +316,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       )}
 
       {/* Autorizador: autorizar transferencia */}
-      {fund.status === 'pending_bank_auth' && (currentUser.role === 'admin' || currentUser.can_authorize_bank_transfer) && (
+      {permiso.ok && permiso.paso === 'autorizar_pago' && (
         <div className="hoja p-4 border-t-2 border-t-info-500 space-y-2">
           <div className="flex items-center gap-2">
             <ShieldCheck size={15} className="text-info-600" />
@@ -346,7 +336,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       )}
 
       {/* ── ÍTEMS DE GASTO ─────────────────────────────────────── */}
-      {['funds_sent','submitted','pending_liquidation_approval','settled'].includes(fund.status) && (
+      {['funds_sent','submitted','pending_liquidation_approval','pending_liquidation_l2','settled'].includes(fund.status) && (
         <div className="hoja overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink-100">
             <h2 className="text-sm font-semibold text-ink-800">
@@ -379,7 +369,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                 const cls = ITEM_STATUS_CLASS[item.status] ?? 'text-ink-500 bg-ink-50'
                 const canDelete = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
                 const canEdit   = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
-                const deciding  = fund.status === 'pending_liquidation_approval' && isApprover
+                const deciding  = decidiendoLiquidacion
                 const isEditing = editingItemId === item.id
 
                 return (
@@ -440,7 +430,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                             <ItemAttachmentZone
                               itemId={item.id}
                               itemType="petty_cash_item"
-                              canUpload={canEdit || isApprover}
+                              canUpload={canEdit || decidiendoLiquidacion}
                             />
                           )}
                         </div>
@@ -463,8 +453,13 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                           {canDelete && !item.transfer_id && (
                             <button
                               disabled={pending}
-                              onClick={() => {
-                                if (window.confirm(`¿Eliminar "${item.description}"? Esta acción no se puede deshacer.`))
+                              onClick={async () => {
+                                if (await confirmar({
+                                  titulo:  `¿Eliminar «${item.description}»?`,
+                                  detalle: 'Esta acción no se puede deshacer.',
+                                  aceptar: 'Eliminar',
+                                  peligro: true,
+                                }))
                                   act(() => removeFundItem(item.id))
                               }}
                               className="p-1 text-ink-300 hover:text-danger-500 rounded transition-colors"
@@ -513,22 +508,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         </div>
       )}
 
-      {/* EFF: elevar liquidación */}
-      {fund.status === 'submitted' && isManager && (
-        <div className="hoja p-4 border-t-2 border-t-flare-400">
-          <p className="text-sm font-semibold text-ink-800 mb-3">Elevar liquidación a aprobadores</p>
-          <button
-            disabled={pending}
-            onClick={() => act(() => elevateLiquidation(fund.id))}
-            className="w-full py-2 bg-flare-600 hover:bg-flare-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors"
-          >
-            {pending ? 'Elevando...' : 'Elevar a aprobadores'}
-          </button>
-        </div>
-      )}
-
       {/* Aprobador: aprobar liquidación */}
-      {fund.status === 'pending_liquidation_approval' && isApprover && (
+      {decidiendoLiquidacion && (
         <div className="hoja p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Revisar y aprobar liquidación</p>
           <p className="text-xs text-ink-500">Revisá cada ítem arriba y marcalo como aprobado o rechazado antes de finalizar.</p>
@@ -540,8 +521,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
               fund.id,
               items.map(i => ({
                 itemId: i.id,
-                action: decidingItems[i.id] ?? 'approved',
-                reason: rejectionReasons[i.id],
+                action: decidingItems[i.id] ?? (i.status === 'rejected' ? 'rejected' : 'approved'),
+                reason: rejectionReasons[i.id] ?? i.rejection_reason ?? undefined,
               })),
               approveNotes,
             ))}
