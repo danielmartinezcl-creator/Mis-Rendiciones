@@ -1,7 +1,7 @@
 'use server'
 
 import Anthropic from '@anthropic-ai/sdk'
-import { buildOcrPrompt, parseOcrResponse } from '@/lib/ocr-helpers'
+import { buildOcrPrompt, buildOcrSourceBlock, parseOcrResponse } from '@/lib/ocr-helpers'
 import type { OcrResult } from '@/lib/ocr-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -27,14 +27,7 @@ export async function runOcr(imageBase64: string, mimeType: string): Promise<Ocr
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp',
-                data: imageBase64,
-              },
-            },
+            buildOcrSourceBlock(imageBase64, mimeType),
             {
               type: 'text',
               text: 'Extrae los datos de este documento.',

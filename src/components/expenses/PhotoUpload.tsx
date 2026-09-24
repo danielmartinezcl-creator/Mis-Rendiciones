@@ -77,7 +77,9 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
 
       try {
         const result = await runOcr(base64, mimeType)
-        setStatus('done')
+        // runOcr devuelve null cuando la IA falla: marcarlo «procesado ✓» escondió
+        // durante meses que ningún PDF se estaba leyendo
+        setStatus(result ? 'done' : 'error')
         onOcrResult(result, file)
       } catch {
         setStatus('error')

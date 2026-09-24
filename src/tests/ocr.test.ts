@@ -8,7 +8,27 @@ vi.mock('@anthropic-ai/sdk', () => ({
   }))
 }))
 
-import { parseOcrResponse, buildOcrPrompt } from '@/lib/ocr-helpers'
+import { parseOcrResponse, buildOcrPrompt, buildOcrSourceBlock } from '@/lib/ocr-helpers'
+
+describe('buildOcrSourceBlock', () => {
+  // La API rechaza con 400 un PDF dentro de un bloque `image`: hasta el
+  // 2026-09-24 ninguna factura en PDF se leyó nunca, y el error se tragaba en silencio.
+  it('manda los PDF como bloque document, no como image', () => {
+    const block = buildOcrSourceBlock('JVBERi0=', 'application/pdf')
+    expect(block).toEqual({
+      type: 'document',
+      source: { type: 'base64', media_type: 'application/pdf', data: 'JVBERi0=' },
+    })
+  })
+
+  it('manda las fotos como bloque image', () => {
+    const block = buildOcrSourceBlock('/9j/4AAQ', 'image/jpeg')
+    expect(block).toEqual({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/jpeg', data: '/9j/4AAQ' },
+    })
+  })
+})
 
 describe('parseOcrResponse', () => {
   it('parsea respuesta JSON correcta de Claude', () => {

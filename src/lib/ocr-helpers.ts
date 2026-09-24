@@ -10,9 +10,23 @@ export interface OcrResult {
   raw: string
 }
 
+type OcrImageMime = 'image/jpeg' | 'image/png' | 'image/webp'
+
+export type OcrSourceBlock =
+  | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
+  | { type: 'image';    source: { type: 'base64'; media_type: OcrImageMime; data: string } }
+
+// Un PDF va en un bloque `document`: dentro de un bloque `image` la API responde 400.
+export function buildOcrSourceBlock(base64: string, mimeType: string): OcrSourceBlock {
+  if (mimeType === 'application/pdf') {
+    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+  }
+  return { type: 'image', source: { type: 'base64', media_type: mimeType as OcrImageMime, data: base64 } }
+}
+
 export function buildOcrPrompt(): string {
   return `Eres un extractor de datos de documentos financieros chilenos.
-Analiza la imagen y extrae los datos del documento (boleta, factura, ticket, u otro).
+Analiza la imagen o el PDF y extrae los datos del documento (boleta, factura, ticket, u otro).
 
 Responde SOLO con un objeto JSON con estos campos:
 {
