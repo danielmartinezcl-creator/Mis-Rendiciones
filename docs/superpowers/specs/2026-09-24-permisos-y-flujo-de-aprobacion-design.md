@@ -301,8 +301,8 @@ Aparecieron al leer el código en detalle. El plan
    esto, la tabla de avisos de la sección 4 no se podía cumplir.
 2. **El N1 que aprueba parcialmente ya no salta al N2.** Hoy una aprobación parcial del
    N1 cierra la rendición aunque haya N2. Ahora toda decisión del N1 que no sea
-   rechazo total pasa al N2; lo que el N1 rechazó llega al N2 ya rechazado.
-   *Pendiente de confirmación de Daniel.*
+   rechazo total pasa al N2; lo que el N1 rechazó llega al N2 ya rechazado, con su
+   motivo a la vista. *Confirmado por Daniel el 2026-09-24.*
 3. **`FUND_STEPS` no crece.** Los estados N2 se muestran como el mismo paso que su N1
    (`pasoVisibleDelFondo`); la etiqueta del estado ya dice «N2».
 4. **`validarCadena` corre en un solo lugar**, la acción nueva `setEmployeeApprovalChain`.
