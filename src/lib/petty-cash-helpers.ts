@@ -1,21 +1,46 @@
-import type { PettyCashItem } from '@/lib/supabase/types'
+import type { PettyCashItem, PettyCashTransfer } from '@/lib/supabase/types'
 import { FUND_STEPS, type FundStatusConst } from '@/lib/constants'
 
-export function calculateFundBalance(approvedAmount: number | null, items: PettyCashItem[]) {
+/**
+ * Saldo de un fondo y quién le debe a quién al liquidarlo.
+ *
+ * El empleado recibe el fondo ANTES de gastar. Si gastó menos, lo que sobra
+ * está en sus manos y lo devuelve (`reimbursement_from_employee`, entra al
+ * banco); si gastó más, puso de su bolsillo y la empresa le paga
+ * (`refund_to_employee`, sale del banco). Hasta el 2026-09-24 estas dos
+ * marcas estaban invertidas — ver petty-cash-helpers.test.ts.
+ *
+ * `pending` descuenta las transferencias de cierre ya registradas, para que
+ * la misma diferencia no se pueda registrar dos veces.
+ */
+export function calculateFundBalance(
+  approvedAmount: number | null,
+  items: Pick<PettyCashItem, 'amount_clp' | 'status'>[],
+  transfers: Pick<PettyCashTransfer, 'type' | 'amount'>[] = [],
+) {
   const approved = approvedAmount ?? 0
   const spent = items
     .filter(i => i.status !== 'rejected')
     .reduce((sum, i) => sum + i.amount_clp, 0)
+  /* Lo que sobra en manos del empleado: positivo lo debe él, negativo se le debe. */
   const difference = approved - spent
+
+  const devuelto = transfers.filter(t => t.type === 'reimbursement_from_employee').reduce((s, t) => s + t.amount, 0)
+  const pagado   = transfers.filter(t => t.type === 'refund_to_employee').reduce((s, t) => s + t.amount, 0)
+  const pending  = difference - devuelto + pagado
 
   return {
     approved,
     spent,
     remaining: Math.max(0, difference),
     difference,
-    hasRefund: difference > 0,         // empresa devuelve al empleado
-    hasReimbursement: difference < 0,  // empleado reembolsa a empresa
-    isBalanced: difference === 0,
+    pending,
+    employeeOwes: pending > 0,
+    companyOwes:  pending < 0,
+    isBalanced:   pending === 0,
+    settlementType: pending > 0 ? 'reimbursement_from_employee' as const
+                  : pending < 0 ? 'refund_to_employee' as const
+                  : null,
   }
 }
 

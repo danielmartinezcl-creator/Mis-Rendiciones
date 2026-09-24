@@ -113,7 +113,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   )
 
   const { fund, items, audits, transfers, categories, employee_name, manager_name, currentUser } = detail
-  const balance   = calculateFundBalance(fund.amount_approved, items)
+  const balance   = calculateFundBalance(fund.amount_approved, items, transfers)
   const recorrido = construirRecorrido(fund.status, audits)
   const isManager  = fund.manager_id === currentUser.id || currentUser.role === 'admin'
   const isEmployee = fund.employee_id === currentUser.id
@@ -500,8 +500,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <p className="text-sm font-semibold text-ink-800 mb-1">Cerrar y enviar liquidación</p>
           <p className="text-xs text-ink-500 mb-3">
             Total gastado: {fmtCLP(balance.spent)} de {fmtCLP(fund.amount_approved ?? fund.amount_requested)} aprobados.
-            {balance.hasRefund && ` La empresa te devolverá ${fmtCLP(balance.difference)}.`}
-            {balance.hasReimbursement && ` Reembolsarás ${fmtCLP(Math.abs(balance.difference))} a la empresa.`}
+            {balance.employeeOwes && ` Te sobran ${fmtCLP(balance.pending)}: los devolverás a la empresa.`}
+            {balance.companyOwes && ` Gastaste ${fmtCLP(Math.abs(balance.pending))} de más: la empresa te los pagará.`}
           </p>
           <button
             disabled={pending}
@@ -553,17 +553,19 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       )}
 
       {/* EFF: registrar diferencia */}
-      {fund.status === 'settled' && isManager && Math.abs(balance.difference) > 0 && (
+      {/* `settlementType` sale del helper: la pantalla no decide la dirección
+          de la plata. Desaparece cuando lo registrado ya salda la diferencia. */}
+      {fund.status === 'settled' && isManager && balance.settlementType && (
         <div className="hoja p-4 border-t-2 border-t-success-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Registrar transferencia de diferencia</p>
           <p className="text-xs text-ink-500">
-            Diferencia: {fmtCLP(Math.abs(balance.difference))}{' '}
-            ({balance.hasRefund ? 'empresa devuelve al empleado' : 'empleado reembolsa a empresa'})
+            Diferencia pendiente: {fmtCLP(Math.abs(balance.pending))}{' '}
+            ({balance.employeeOwes ? 'el empleado devuelve a la empresa' : 'la empresa paga al empleado'})
           </p>
           {!settling ? (
             <button onClick={() => {
-              setSettleType(balance.hasRefund ? 'refund_to_employee' : 'reimbursement_from_employee')
-              setSettleAmount(String(Math.round(Math.abs(balance.difference))))
+              setSettleType(balance.settlementType!)
+              setSettleAmount(String(Math.round(Math.abs(balance.pending))))
               setSettling(true)
             }} className="w-full py-2 bg-success-600 hover:bg-success-700 text-white text-sm font-bold rounded-item transition-colors">
               Registrar transferencia de diferencia
