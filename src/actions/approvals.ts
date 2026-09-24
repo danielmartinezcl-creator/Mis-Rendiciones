@@ -8,9 +8,8 @@ import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpe
 import { puedeOperarPago } from '@/lib/bank-helpers'
 import {
   notifySubmitterOfDecision,
-  notifyL2ApproverOfPromotion,
-  notifyBankLoadersOfApproval,
-  notifyBankAuthorizersOfLoad,
+  notifyReportApprovers,
+  notifyReportBankStep,
   notifySubmitterOfReimbursement,
 } from '@/actions/notifications'
 import Anthropic from '@anthropic-ai/sdk'
@@ -270,14 +269,14 @@ export async function submitApprovalDecision(
 
   // Notificaciones según resultado
   if (newStatus === 'pending_l2') {
-    notifyL2ApproverOfPromotion(reportId).catch(() => {})
+    notifyReportApprovers(reportId, 'decidir_l2', user.id).catch(() => {})
   } else {
     const notifAction =
       logAction === 'approved'           ? 'approved'           :
       logAction === 'rejected'           ? 'rejected'           : 'partially_approved'
     notifySubmitterOfDecision(reportId, notifAction).catch(() => {})
     if (notifAction === 'approved' || notifAction === 'partially_approved') {
-      notifyBankLoadersOfApproval(reportId).catch(() => {})
+      notifyReportBankStep(reportId, 'cargar_pago', user.id).catch(() => {})
     }
   }
 
@@ -525,10 +524,10 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
     const { data: submitterData } = await supabase
       .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
     if (isL1 && submitterData?.approver_l2_id) {
-      notifyL2ApproverOfPromotion(reportId).catch(() => {})
+      notifyReportApprovers(reportId, 'decidir_l2', user.id).catch(() => {})
     } else {
       notifySubmitterOfDecision(reportId, 'approved').catch(() => {})
-      notifyBankLoadersOfApproval(reportId).catch(() => {})
+      notifyReportBankStep(reportId, 'cargar_pago', user.id).catch(() => {})
     }
   }
 
@@ -708,7 +707,7 @@ export async function confirmReportBankLoad(reportId: string, data: {
     notes:       `Ref: ${data.paymentReference || 'Sin referencia'} · ${data.transferredAt}`,
   })
 
-  notifyBankAuthorizersOfLoad(reportId).catch(() => {})
+  notifyReportBankStep(reportId, 'autorizar_pago', userId).catch(() => {})
 
   revalidatePath('/admin/reports')
   revalidatePath('/banco')

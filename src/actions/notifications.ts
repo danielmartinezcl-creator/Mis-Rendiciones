@@ -3,7 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Resend } from 'resend'
-import { destinatariosBancarios } from '@/lib/bank-helpers'
+import { destinatarios, destinatariosInformativos, type Paso, type Persona } from '@/lib/permisos'
+import { contextoRendicion, contextoFondo } from '@/lib/contexto-permisos'
 
 // Helper — solo envía si está configurado Resend
 async function trySendEmail(to: string[], subject: string, html: string) {
@@ -36,284 +37,190 @@ async function lookupEmails(userIds: string[]): Promise<string[]> {
   }
 }
 
-// ── Envío de rendición ────────────────────────────────────────────────────────
+type TipoAviso =
+  | 'submission' | 'approval' | 'rejection' | 'reimbursement'
+  | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing'
 
-export async function notifyApproversOfSubmission(reportId: string) {
-  const supabase = await createClient()
+const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? ''
+const nombreDe = (personas: Persona[], id: string) => personas.find(p => p.id === id)?.nombre ?? 'un empleado'
 
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('id, title, total_amount, org_id, submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return
-
-  // Nombre del rendidor para el asunto del correo
-  const { data: submitterProfile } = await supabase
-    .from('users')
-    .select('full_name, approver_l1_id, approver_l1_backup_id, backup_active_from, backup_active_until')
-    .eq('id', report.submitter_id)
-    .single()
-
-  const submitterName = submitterProfile?.full_name ?? 'un empleado'
-  let approverIds: string[] = []
-
-  if (submitterProfile?.approver_l1_id) {
-    approverIds.push(submitterProfile.approver_l1_id)
-
-    // Agregar suplente si está activo hoy
-    if (submitterProfile.approver_l1_backup_id) {
-      const today = new Date().toISOString().split('T')[0]
-      const from  = submitterProfile.backup_active_from as string | null
-      const until = submitterProfile.backup_active_until as string | null
-      if (from && until && from <= today && today <= until) {
-        approverIds.push(submitterProfile.approver_l1_backup_id)
-      }
-    }
-  } else {
-    // Sin L1 configurado → fallback: solo los admins de la org
-    const { data: admins } = await supabase
-      .from('users')
-      .select('id')
-      .eq('org_id', report.org_id)
-      .eq('role', 'admin')
-      .eq('is_active', true)
-    approverIds = (admins ?? []).map(a => a.id)
-  }
-
-  // Nunca notificar al propio rendidor
-  approverIds = approverIds.filter(id => id !== report.submitter_id)
-  if (approverIds.length === 0) return
-
-  await supabase.from('notifications').insert(
-    approverIds.map(id => ({
-      org_id:    report.org_id,
-      user_id:   id,
-      type:      'submission' as const,
-      report_id: report.id,
-      read:      false,
-    }))
-  )
-
-  const emails = await lookupEmails(approverIds)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  await trySendEmail(
-    emails,
-    `Aprobar rendición de ${submitterName}: ${report.title}`,
-    `<p><strong>${submitterName}</strong> envió una rendición que requiere tu aprobación.</p>
-     <p><a href="${appUrl}/approvals/${report.id}">Revisar rendición →</a></p>`
-  )
+// Un aviso = una notificación en la app + un correo, a las mismas personas.
+async function avisar(opts: {
+  orgId:     string
+  userIds:   string[]
+  tipo:      TipoAviso
+  reportId?: string
+  fundId?:   string
+  asunto:    string
+  html:      string
+}) {
+  const ids = [...new Set(opts.userIds)]
+  if (!ids.length) return
+  const admin = createAdminClient()
+  await admin.from('notifications').insert(ids.map(id => ({
+    org_id:    opts.orgId,
+    user_id:   id,
+    type:      opts.tipo,
+    report_id: opts.reportId ?? null,
+    fund_id:   opts.fundId ?? null,
+    read:      false,
+  })))
+  await trySendEmail(await lookupEmails(ids), opts.asunto, opts.html)
 }
 
-// ── Cadena de aprobación ──────────────────────────────────────────────────────
+// ── Rendiciones ───────────────────────────────────────────────────────────────
 
-export async function notifyL2ApproverOfPromotion(reportId: string) {
-  const supabase = await createClient()
-
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('id, title, org_id, submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return
-
-  const { data: submitterProfile } = await supabase
-    .from('users')
-    .select('full_name, approver_l2_id')
-    .eq('id', report.submitter_id)
-    .single()
-
-  if (!submitterProfile?.approver_l2_id) return
-
-  const submitterName = submitterProfile.full_name ?? 'un empleado'
-  const l2Id = submitterProfile.approver_l2_id
-
-  await supabase.from('notifications').insert({
-    org_id:    report.org_id,
-    user_id:   l2Id,
-    type:      'submission' as const,
-    report_id: report.id,
-    read:      false,
+// Le toca a la cadena: N1 (o solo su suplente, si está vigente) o N2.
+export async function notifyReportApprovers(reportId: string, paso: 'decidir_l1' | 'decidir_l2', actorId: string) {
+  const { reporte, personas, doc } = await contextoRendicion(reportId)
+  const quien = nombreDe(personas, reporte.submitter_id)
+  const n2    = paso === 'decidir_l2'
+  await avisar({
+    orgId:    reporte.org_id,
+    userIds:  destinatarios(paso, doc, personas, [actorId]),
+    tipo:     'submission',
+    reportId,
+    asunto:   n2 ? `Revisión N2 — rendición de ${quien}: ${reporte.title}` : `Aprobar rendición de ${quien}: ${reporte.title}`,
+    html:     `<p>${n2
+      ? `La rendición de <strong>${quien}</strong> fue aprobada en nivel 1 y requiere tu revisión final.`
+      : `<strong>${quien}</strong> envió una rendición que requiere tu aprobación.`}</p>
+     <p><a href="${appUrl()}/approvals/${reportId}">Revisar rendición →</a></p>`,
   })
+}
 
-  const emails = await lookupEmails([l2Id])
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  await trySendEmail(
-    emails,
-    `Revisión N2 — rendición de ${submitterName}: ${report.title}`,
-    `<p>La rendición de <strong>${submitterName}</strong> fue aprobada en nivel 1 y requiere tu revisión final.</p>
-     <p><a href="${appUrl}/approvals/${report.id}">Revisar rendición →</a></p>`
-  )
+export async function notifyReportBankStep(reportId: string, paso: 'cargar_pago' | 'autorizar_pago', actorId: string) {
+  const { reporte, personas, doc } = await contextoRendicion(reportId)
+  const quien  = nombreDe(personas, reporte.submitter_id)
+  const cargar = paso === 'cargar_pago'
+  await avisar({
+    orgId:    reporte.org_id,
+    userIds:  destinatarios(paso, doc, personas, [actorId]),
+    tipo:     cargar ? 'bank_load' : 'bank_auth',
+    reportId,
+    asunto:   cargar
+      ? `Cargar reembolso — rendición de ${quien}: ${reporte.title}`
+      : `Autorizar transferencia — rendición de ${quien}: ${reporte.title}`,
+    html:     `<p>${cargar
+      ? `La rendición de <strong>${quien}</strong> fue aprobada: falta cargar el reembolso en el banco.`
+      : `El reembolso de la rendición de <strong>${quien}</strong> está cargado en el banco y espera tu autorización.`}</p>
+     <p><a href="${appUrl()}/banco">Ir a la cola bancaria →</a></p>`,
+  })
 }
 
 export async function notifySubmitterOfDecision(reportId: string, action: 'approved' | 'rejected' | 'partially_approved') {
-  const supabase = await createClient()
-
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('id, title, org_id, submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return
-
-  const typeMap = {
-    approved:           'approval',
-    rejected:           'rejection',
-    partially_approved: 'approval',
-  } as const
-
-  await supabase.from('notifications').insert({
-    org_id:    report.org_id,
-    user_id:   report.submitter_id,
-    type:      typeMap[action],
-    report_id: report.id,
-    read:      false,
-  })
-
-  const subjectMap = {
-    approved:           `Rendición aprobada — ${report.title}`,
-    rejected:           `Rendición rechazada — ${report.title}`,
-    partially_approved: `Rendición aprobada parcialmente — ${report.title}`,
+  const { reporte } = await contextoRendicion(reportId)
+  const asuntos = {
+    approved:           `Rendición aprobada — ${reporte.title}`,
+    rejected:           `Rendición rechazada — ${reporte.title}`,
+    partially_approved: `Rendición aprobada parcialmente — ${reporte.title}`,
   }
-
-  const bodyMap = {
+  const cuerpos = {
     approved:           'Tu rendición fue aprobada. En breve se procesará el reembolso.',
     rejected:           'Tu rendición fue rechazada. Revisá los motivos y corrígela si corresponde.',
     partially_approved: 'Tu rendición fue aprobada parcialmente. Algunos ítems fueron rechazados.',
   }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const emails = await lookupEmails([report.submitter_id])
-  await trySendEmail(
-    emails,
-    subjectMap[action],
-    `<p>${bodyMap[action]}</p>
-     <p><a href="${appUrl}/expenses/${report.id}">Ver detalle →</a></p>`
-  )
-}
-
-// ── Cadena bancaria ───────────────────────────────────────────────────────────
-
-export async function notifyBankLoadersOfApproval(reportId: string) {
-  const supabase = await createClient()
-
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('id, title, org_id, submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return
-
-  const { data: submitterProfile } = await supabase
-    .from('users').select('full_name').eq('id', report.submitter_id).single()
-  const submitterName = submitterProfile?.full_name ?? 'un empleado'
-
-  const { data: loaders } = await supabase
-    .from('users')
-    .select('id, bank_is_backup')
-    .eq('org_id', report.org_id)
-    .eq('can_load_bank_transfer', true)
-    .eq('is_active', true)
-
-  const loaderIds = destinatariosBancarios(loaders ?? [])
-  if (loaderIds.length === 0) return
-
-  await supabase.from('notifications').insert(
-    loaderIds.map(id => ({
-      org_id:    report.org_id,
-      user_id:   id,
-      type:      'approval' as const,
-      report_id: report.id,
-      read:      false,
-    }))
-  )
-
-  const emails = await lookupEmails(loaderIds)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  await trySendEmail(
-    emails,
-    `Cargar reembolso — rendición aprobada de ${submitterName}: ${report.title}`,
-    `<p>La rendición de <strong>${submitterName}</strong> fue aprobada y está lista para procesar el reembolso bancario.</p>
-     <p><a href="${appUrl}/admin/reports">Ver rendiciones →</a></p>`
-  )
-}
-
-export async function notifyBankAuthorizersOfLoad(reportId: string) {
-  const supabase = await createClient()
-
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('id, title, org_id, submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return
-
-  const { data: submitterProfile } = await supabase
-    .from('users').select('full_name').eq('id', report.submitter_id).single()
-  const submitterName = submitterProfile?.full_name ?? 'un empleado'
-
-  const { data: authorizers } = await supabase
-    .from('users')
-    .select('id, bank_is_backup')
-    .eq('org_id', report.org_id)
-    .eq('can_authorize_bank_transfer', true)
-    .eq('is_active', true)
-
-  const authIds = destinatariosBancarios(authorizers ?? [])
-  if (authIds.length === 0) return
-
-  await supabase.from('notifications').insert(
-    authIds.map(id => ({
-      org_id:    report.org_id,
-      user_id:   id,
-      type:      'approval' as const,
-      report_id: report.id,
-      read:      false,
-    }))
-  )
-
-  const emails = await lookupEmails(authIds)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  await trySendEmail(
-    emails,
-    `Autorizar transferencia — rendición de ${submitterName}: ${report.title}`,
-    `<p>La transferencia bancaria para la rendición de <strong>${submitterName}</strong> fue cargada y está pendiente de tu autorización.</p>
-     <p><a href="${appUrl}/admin/reports">Ver rendiciones →</a></p>`
-  )
+  await avisar({
+    orgId:    reporte.org_id,
+    userIds:  [reporte.submitter_id],
+    tipo:     action === 'rejected' ? 'rejection' : 'approval',
+    reportId,
+    asunto:   asuntos[action],
+    html:     `<p>${cuerpos[action]}</p>
+     <p><a href="${appUrl()}/expenses/${reportId}">Ver detalle →</a></p>`,
+  })
 }
 
 export async function notifySubmitterOfReimbursement(reportId: string) {
-  const supabase = await createClient()
-
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('id, title, org_id, submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return
-
-  await supabase.from('notifications').insert({
-    org_id:    report.org_id,
-    user_id:   report.submitter_id,
-    type:      'reimbursement' as const,
-    report_id: report.id,
-    read:      false,
+  const { reporte } = await contextoRendicion(reportId)
+  await avisar({
+    orgId:    reporte.org_id,
+    userIds:  [reporte.submitter_id],
+    tipo:     'reimbursement',
+    reportId,
+    asunto:   `Reembolso procesado — ${reporte.title}`,
+    html:     `<p>Tu reembolso fue autorizado y procesado. El dinero debería aparecer en tu cuenta bancaria en breve.</p>
+     <p><a href="${appUrl()}/expenses/${reportId}">Ver rendición →</a></p>`,
   })
+}
 
-  const emails = await lookupEmails([report.submitter_id])
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  await trySendEmail(
-    emails,
-    `Reembolso procesado — ${report.title}`,
-    `<p>Tu reembolso fue autorizado y procesado. El dinero debería aparecer en tu cuenta bancaria en breve.</p>
-     <p><a href="${appUrl}/expenses/${report.id}">Ver rendición →</a></p>`
-  )
+// El admin configura, no aprueba (D1): cuando alguien no puede enviar porque no
+// tiene aprobador, al admin le llega el aviso para asignarlo.
+export async function notifyAdminsMissingApprover(
+  orgId: string, empleadoNombre: string, que: 'una rendición' | 'un fondo' | 'una liquidación',
+) {
+  const admin = createAdminClient()
+  const { data: admins } = await admin
+    .from('users').select('id').eq('org_id', orgId).eq('role', 'admin').eq('is_active', true)
+  await avisar({
+    orgId,
+    userIds: (admins ?? []).map(a => a.id),
+    tipo:    'config_missing',
+    asunto:  `${empleadoNombre} no tiene aprobador asignado`,
+    html:    `<p>Se intentó enviar ${que} de <strong>${empleadoNombre}</strong>, pero no tiene aprobador de nivel 1. Asígnale uno en Empleados.</p>
+     <p><a href="${appUrl()}/admin/employees">Ir a Empleados →</a></p>`,
+  })
+}
+
+// ── Fondos ────────────────────────────────────────────────────────────────────
+
+export async function notifyFundStep(fundId: string, paso: Paso, actorId: string) {
+  const { fondo, personas, doc } = await contextoFondo(fundId)
+  const quien = nombreDe(personas, fondo.employee_id)
+  const liq   = doc.tipo === 'liquidacion'
+  const textos: Record<Paso, { tipo: TipoAviso; asunto: string; cuerpo: string }> = {
+    decidir_l1: {
+      tipo:   'submission',
+      asunto: liq ? `Revisar liquidación de ${quien}: ${fondo.name}` : `Aprobar fondo de ${quien}: ${fondo.name}`,
+      cuerpo: liq
+        ? `<strong>${quien}</strong> envió la liquidación del fondo y requiere tu revisión.`
+        : `El fondo de <strong>${quien}</strong> requiere tu aprobación.`,
+    },
+    decidir_l2: {
+      tipo:   'submission',
+      asunto: liq ? `Revisión N2 — liquidación de ${quien}: ${fondo.name}` : `Revisión N2 — fondo de ${quien}: ${fondo.name}`,
+      cuerpo: `Fue aprobado en nivel 1 y requiere tu revisión final.`,
+    },
+    cargar_pago: {
+      tipo:   'bank_load',
+      asunto: `Cargar fondo — ${quien}: ${fondo.name}`,
+      cuerpo: `El fondo de <strong>${quien}</strong> fue aprobado: falta cargar la transferencia en el banco.`,
+    },
+    autorizar_pago: {
+      tipo:   'bank_auth',
+      asunto: `Autorizar transferencia — fondo de ${quien}: ${fondo.name}`,
+      cuerpo: `La transferencia del fondo de <strong>${quien}</strong> está cargada y espera tu autorización.`,
+    },
+  }
+  const t = textos[paso]
+  await avisar({
+    orgId:   fondo.org_id,
+    userIds: destinatarios(paso, doc, personas, [actorId]),
+    tipo:    t.tipo,
+    fundId,
+    asunto:  t.asunto,
+    html:    `<p>${t.cuerpo}</p>
+     <p><a href="${appUrl()}/petty-cash/${fundId}">Ver fondo →</a></p>`,
+  })
+}
+
+// Resultados que solo informan: al EFF que creó el fondo y al beneficiario.
+export async function notifyFundOutcome(fundId: string, resultado: 'rejected' | 'funds_sent' | 'settled', actorId: string) {
+  const { fondo } = await contextoFondo(fundId)
+  const textos = {
+    rejected:   { tipo: 'rejection' as const,  asunto: `Fondo rechazado — ${fondo.name}`,   cuerpo: 'El fondo fue rechazado. Revisa el motivo en la app.' },
+    funds_sent: { tipo: 'funds_sent' as const, asunto: `Fondos enviados — ${fondo.name}`,   cuerpo: 'La transferencia fue autorizada: los fondos ya están disponibles.' },
+    settled:    { tipo: 'approval' as const,   asunto: `Liquidación aprobada — ${fondo.name}`, cuerpo: 'La liquidación del fondo fue aprobada.' },
+  }
+  const t = textos[resultado]
+  await avisar({
+    orgId:   fondo.org_id,
+    userIds: destinatariosInformativos(fondo.manager_id, fondo.employee_id, [actorId]),
+    tipo:    t.tipo,
+    fundId,
+    asunto:  t.asunto,
+    html:    `<p>${t.cuerpo}</p>
+     <p><a href="${appUrl()}/petty-cash/${fundId}">Ver fondo →</a></p>`,
+  })
 }
 
 // ── In-app ───────────────────────────────────────────────────────────────────

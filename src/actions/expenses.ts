@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
-import { notifyApproversOfSubmission } from '@/actions/notifications'
+import { notifyReportApprovers } from '@/actions/notifications'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
@@ -256,7 +256,7 @@ export async function submitExpenseReport(reportId: string) {
   if (error) throw new Error(error.message)
 
   // Notificar a aprobadores (async, fallo silencioso)
-  notifyApproversOfSubmission(reportId).catch(() => {})
+  notifyReportApprovers(reportId, 'decidir_l1', user.id).catch(() => {})
 
   revalidatePath(`/expenses/${reportId}`)
   revalidatePath('/')
