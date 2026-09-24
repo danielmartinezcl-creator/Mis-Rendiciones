@@ -161,10 +161,26 @@ export async function submitApprovalDecision(
   const ctx = await contextoRendicion(reportId)
   const { paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida')
 
-  // Solo ítems de esta rendición: un id ajeno no se toca
+  // Un id ajeno no se toca, y ningún ítem pendiente puede quedar afuera: sin esto,
+  // un llamado con decisions=[] (o parcial) cerraba la rendición y el resto de los
+  // ítems se quedaba en 'pending' para siempre — computeReportStatus los cuenta
+  // como "ni todo aprobado ni todo rechazado" y la rendición avanzaba igual.
   const ids = decisions.map(d => d.itemId)
-  const { data: propios } = await ctx.admin.from('expense_items').select('id').eq('report_id', reportId).in('id', ids)
-  if ((propios ?? []).length !== new Set(ids).size) throw new Error('Hay ítems que no pertenecen a esta rendición')
+  const { data: items, error: itemsError } = await ctx.admin
+    .from('expense_items')
+    .select('id, status')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
+
+  const lista = items ?? []
+  if (lista.filter(i => ids.includes(i.id)).length !== new Set(ids).size) {
+    throw new Error('Hay ítems que no pertenecen a esta rendición')
+  }
+  const decididos = new Set(ids)
+  if (lista.some(i => i.status === 'pending' && !decididos.has(i.id))) {
+    throw new Error('Debes decidir todos los ítems antes de enviar la decisión')
+  }
 
   for (const d of decisions) {
     const { error } = await ctx.admin
