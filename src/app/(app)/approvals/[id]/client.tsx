@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Sparkles, CheckCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getReportForApproval, submitApprovalDecision, bulkApproveItems } from '@/actions/approvals'
-import { notifySubmitterOfDecision } from '@/actions/notifications'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
@@ -143,13 +142,9 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
         action: d.action as 'approve' | 'reject',
         reason: d.reason || undefined,
       }))
+      // submitApprovalDecision ya notifica al rendidor: notificar también desde
+      // acá le mandaba cada aviso dos veces
       await submitApprovalDecision(id, payload, notes)
-
-      const allApproved = payload.every(p => p.action === 'approve')
-      const allRejected = payload.every(p => p.action === 'reject')
-      const notifyAction = allApproved ? 'approved' : allRejected ? 'rejected' : 'partially_approved'
-      await notifySubmitterOfDecision(id, notifyAction).catch(() => {})
-
       router.push('/approvals')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al enviar decisión')
@@ -169,7 +164,6 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     try {
       const payload = items.map(item => ({ itemId: item.id, action: 'approve' as const, reason: undefined }))
       await submitApprovalDecision(id, payload, notes)
-      await notifySubmitterOfDecision(id, 'approved').catch(() => {})
       router.push('/approvals')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al aprobar')

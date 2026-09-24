@@ -9,6 +9,7 @@ import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateDateRange } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
+import { puedeOperarPago } from '@/lib/bank-helpers'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -607,6 +608,22 @@ export async function requestBankLoad(fundId: string) {
   revalidatePath('/petty-cash')
 }
 
+// Mismo control que en rendiciones: el encargado del fondo puede cargar o
+// autorizar su propia transferencia solo si otra persona aprobó el fondo.
+async function exigirFondoOperable(fundId: string, actorId: string) {
+  const admin = await createAdminClient()
+  const { data: fund } = await admin
+    .from('petty_cash_funds').select('employee_id').eq('id', fundId).single()
+  if (!fund) throw new Error('Fondo no encontrado')
+
+  const { data: log } = await admin
+    .from('petty_cash_approvals').select('actor_id, action').eq('fund_id', fundId)
+
+  if (!puedeOperarPago(actorId, fund.employee_id, log ?? [])) {
+    throw new Error('No puedes operar la transferencia de tu propio fondo: tiene que haberlo aprobado otra persona')
+  }
+}
+
 /** Paso 2: Encargado de carga bancaria confirma que cargó la transferencia */
 export async function confirmBankLoad(fundId: string, data: {
   amount:         number
@@ -619,6 +636,7 @@ export async function confirmBankLoad(fundId: string, data: {
   if (!profile.can_load_bank_transfer && profile.role !== 'admin') {
     throw new Error('Sin permiso para confirmar carga bancaria')
   }
+  await exigirFondoOperable(fundId, userId)
 
   const admin = createAdminClient()
   const { error: fundError } = await (await admin)
@@ -651,6 +669,7 @@ export async function authorizeBank(fundId: string) {
   if (!profile.can_authorize_bank_transfer && profile.role !== 'admin') {
     throw new Error('Sin permiso para autorizar transferencias bancarias')
   }
+  await exigirFondoOperable(fundId, userId)
 
   const admin = createAdminClient()
   const { error } = await (await admin)

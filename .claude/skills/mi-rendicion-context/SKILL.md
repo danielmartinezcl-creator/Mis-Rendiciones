@@ -278,7 +278,9 @@ supabase/
 │   ├── 026_aprobaciones_append_only.sql              ← historial de aprobaciones inmutable; rendición con aprobaciones solo la borra un admin
 │   ├── 027_usuario_bloqueado.sql                     ← users.blocked_at: «eliminar definitivamente» un empleado lo bloquea, no lo borra
 │   ├── 028_adjuntos_correos.sql                      ← adjuntos: correos .eml/.msg en el bucket + file_type 'email' (lista espejo de src/lib/attachment-types.ts)
-│   └── 029_bucket_respaldos_aprobacion.sql           ← crea el bucket approval-attachments, que nunca existió (+ Excel)
+│   ├── 029_bucket_respaldos_aprobacion.sql           ← crea el bucket approval-attachments, que nunca existió (+ Excel)
+│   ├── 030_aprobador_puede_decidir.sql               ← WITH CHECK en la política del aprobador: un no-admin nunca pudo cerrar una rendición. Función es_aprobador_de()
+│   └── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -530,6 +532,13 @@ trigger de `updated_at`.
 - `getBankQueue()` en `actions/admin.ts` resuelve `isAdmin` / `canLoad` / `canAuth` y devuelve **solo los estados que ese rol puede accionar**: admin ve `approved` + `partially_approved`; `canLoad` ve `pending_bank_load`; `canAuth` ve `pending_bank_auth`
 - Sidebar: entrada "Cola Bancaria" visible para admin o para quien tenga `can_load_bank_transfer` / `can_authorize_bank_transfer`
 - `revalidatePath('/banco')` en `requestReportBankLoad`, `confirmReportBankLoad` y `authorizeReportBank`
+- **Suplente bancario y pago propio** (decisión de Daniel, 2026-09-24 — `src/lib/bank-helpers.ts`):
+  - `bank_is_backup` (migración `031`): tiene el permiso y lo usa cuando haga falta, pero
+    los avisos van solo a titulares (`destinatariosBancarios`). En PENTA: Roberto Hagar
+    suplente de Francisco, que es quien tiene las credenciales del banco
+  - Cargar o autorizar el pago **propio** (rendición o fondo) solo si otra persona lo
+    aprobó (`puedeOperarPago`). Francisco autoriza sus propias rendiciones porque las
+    aprueba Roberto. Validado en las 4 acciones bancarias y filtrado en `getBankQueue`
 - `/admin/reports`: estados "En banco (carga)" y "En banco (auth)" en el filtro + botón "Iniciar proceso bancario"
 
 ### ✅ Otros módulos completados
@@ -881,6 +890,7 @@ trigger de `updated_at`.
 | Repartir la invalidación de un caché entre los llamadores | `expenses.ts` la hacía en 2 sitios, pero ~11 lugares modifican ítems (admin, traspasos, carga histórica): los otros nueve dejaban el caché viejo | Un trigger en la base cubre los caminos de hoy, los de mañana y el SQL manual |
 | Un `.delete()` / `.update()` del cliente Supabase «funciona» pero no cambia nada | Si RLS no tiene política para esa operación, Postgres no da error: afecta 0 filas y Supabase devuelve éxito. Pasó con el borrado de borradores del empleado (sin política DELETE) | Encadenar `.select('id')` y lanzar si vuelve vacío. Y crear la política que falta (migración `025`) |
 | Borrar de verdad un usuario (`auth.admin.deleteUser`) | `audit_log.actor_id` es ON DELETE SET NULL y `audit_log` tiene la regla `no_update_audit_log`: la cascada choca y Postgres aborta («referential integrity query ... gave unexpected result») | Un usuario no se borra, se **bloquea**: `blocked_at` + ban en auth. Sale de la papelera y solo un admin lo habilita (`enableBlockedEmployee`). Migración `027` |
+| Política RLS de UPDATE con condición de `status` en USING y sin WITH CHECK | Postgres le aplica el USING también a la fila nueva: la política deja *encontrar* la fila pero no *cambiarle* el estado. Pasó con el aprobador no-admin (migración `030`): nunca pudo cerrar una rendición y nadie lo vio porque todas las pruebas se hacían como admin | USING = qué filas puede tocar; WITH CHECK = a qué estados las puede llevar. **Probar los flujos con un usuario sin rol admin** |
 | `capture="environment"` en un `<input type="file">` que también acepta PDF | En el celular abre la cámara directo: no hay forma de elegir un archivo guardado | Una entrada con `capture` para la foto y otra SIN `capture` para archivos (ver `PhotoUpload`) |
 | Pasar `contentType` a `storage.upload()` con un `File` | supabase-js lo ignora y manda el tipo del archivo; un `.msg` de Windows llega sin tipo y el bucket lo rechaza | Re-tipar: `new Blob([file], { type })`. El tipo sale de la extensión (`classifyAttachment`) |
 | Escribir `confirm()` o `alert()` en un componente | Son cajas del sistema operativo sin nada del diseño; el navegador les antepone el dominio («mi-rendicion.com dice:») y en Android parecen avisos de error | `await confirmar()` y `avisar()`. Quedan **0** nativos en `src/` desde `a1edf8f` — que no vuelva a entrar uno |

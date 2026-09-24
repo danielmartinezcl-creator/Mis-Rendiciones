@@ -20,6 +20,7 @@ const PERMISOS = [
   { campo: 'can_manage_petty_cash',       chip: 'EFF' },
   { campo: 'can_load_bank_transfer',      chip: 'carga banco' },
   { campo: 'can_authorize_bank_transfer', chip: 'autoriza banco' },
+  { campo: 'bank_is_backup',              chip: 'suplente banco' },
 ] as const satisfies readonly { campo: keyof UserProfile; chip: string }[]
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
@@ -778,6 +779,14 @@ export default function AdminEmployeesPage() {
                       className="rounded text-brand-600" />
                     Autorizador banco
                   </label>
+                  {(emp.can_load_bank_transfer || emp.can_authorize_bank_transfer) && (
+                    <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede cargar o autorizar cuando haga falta, pero los avisos del banco van solo a los titulares">
+                      <input type="checkbox" checked={emp.bank_is_backup} disabled={saving === emp.id}
+                        onChange={e => handleUpdate(emp.id, { bank_is_backup: e.target.checked })}
+                        className="rounded text-brand-600" />
+                      Suplente banco (sin avisos)
+                    </label>
+                  )}
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
                     <input type="checkbox" checked={emp.is_active} disabled={saving === emp.id || !!emp.blocked_at}
                       onChange={e => handleUpdate(emp.id, { is_active: e.target.checked })}

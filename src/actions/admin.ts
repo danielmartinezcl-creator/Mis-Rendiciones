@@ -11,6 +11,7 @@ import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaMovement } from '@/lib/export/defontana'
+import { puedeOperarPago } from '@/lib/bank-helpers'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -709,6 +710,7 @@ export async function updateEmployee(
     can_manage_petty_cash?:      boolean
     can_load_bank_transfer?:     boolean
     can_authorize_bank_transfer?: boolean
+    bank_is_backup?:             boolean
     is_active?:                  boolean
     full_name?:                  string
     rut?:                        string | null
@@ -722,7 +724,7 @@ export async function updateEmployee(
   // Capture before state
   const { data: before } = await supabase
     .from('users')
-    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, rut, bank_account, blocked_at')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_is_backup, rut, bank_account, blocked_at')
     .eq('id', userId)
     .single()
 
@@ -2588,7 +2590,7 @@ export async function getBankQueue(): Promise<BankQueueResult> {
     .from('expense_reports')
     .select(`
       id, title, status, total_amount, approved_amount, currency,
-      submitted_at, approved_at,
+      submitted_at, approved_at, submitter_id,
       submitter:users!submitter_id (full_name, department)
     `)
     .eq('org_id', profile.org_id)
@@ -2599,11 +2601,27 @@ export async function getBankQueue(): Promise<BankQueueResult> {
 
   type Sub = { full_name: string; department: string | null }
 
+  // Una rendición propia en carga o autorización solo se muestra si otra
+  // persona la aprobó: si no, el botón rebotaría (puedeOperarPago)
+  const propiasEnBanco = (data ?? []).filter(r =>
+    r.submitter_id === user.id && (r.status === 'pending_bank_load' || r.status === 'pending_bank_auth'))
+  const ocultas = new Set<string>()
+  if (propiasEnBanco.length) {
+    const { data: log } = await (await admin)
+      .from('expense_report_approvals')
+      .select('report_id, approver_id, action')
+      .in('report_id', propiasEnBanco.map(r => r.id))
+    for (const r of propiasEnBanco) {
+      const suyo = (log ?? []).filter(a => a.report_id === r.id).map(a => ({ actor_id: a.approver_id, action: a.action }))
+      if (!puedeOperarPago(user.id, r.submitter_id, suyo)) ocultas.add(r.id)
+    }
+  }
+
   return {
     isAdmin,
     canLoad,
     canAuth,
-    reports: (data ?? []).map(r => {
+    reports: (data ?? []).filter(r => !ocultas.has(r.id)).map(r => {
       const sub = r.submitter as Sub | null
       return {
         id:              r.id as string,

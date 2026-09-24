@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
+import { puedeOperarPago } from '@/lib/bank-helpers'
 import {
   notifySubmitterOfDecision,
   notifyL2ApproverOfPromotion,
@@ -173,6 +174,11 @@ export async function submitApprovalDecision(
     .single()
 
   if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
+  // Sin esto, volver a apretar «Aprobar» sobre una rendición ya decidida (o que
+  // se ve pendiente por error) dejaba otra aprobación en el log y otra tanda de correos
+  if (report.status !== 'submitted' && report.status !== 'pending_l2') {
+    throw new Error('Esta rendición ya fue decidida')
+  }
 
   const isL1Decision = report.status === 'submitted'
   const level        = isL1Decision ? 1 : 2
@@ -225,7 +231,9 @@ export async function submitApprovalDecision(
 
   const isDecided = newStatus !== 'pending_l2'
 
-  await supabase
+  // Si el estado no cambia, cortar ACÁ: antes el error se ignoraba y seguían
+  // el log de aprobación y los correos, con la rendición todavía «en revisión»
+  const { data: actualizada, error: updateError } = await supabase
     .from('expense_reports')
     .update({
       status:          newStatus,
@@ -233,6 +241,11 @@ export async function submitApprovalDecision(
       approved_at:     isDecided ? new Date().toISOString() : null,
     })
     .eq('id', reportId)
+    .select('id')
+  if (updateError || !actualizada?.length) {
+    console.error('[approvals] no se pudo cambiar el estado de', reportId, updateError)
+    throw new Error('No se pudo registrar la decisión. Avisa al administrador.')
+  }
 
   // Log auditoría (append-only)
   const approvedIds = decisions.filter(d => d.action === 'approve').map(d => d.itemId)
@@ -440,6 +453,9 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
     .eq('id', reportId)
     .single()
   if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
+  if (report.status !== 'submitted' && report.status !== 'pending_l2') {
+    throw new Error('Esta rendición ya fue decidida')
+  }
 
   // Aprobar ítems indicados
   await supabase
@@ -479,7 +495,7 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
       newStatus = 'approved'
     }
 
-    await supabase
+    const { data: actualizada, error: updateError } = await supabase
       .from('expense_reports')
       .update({
         status:          newStatus,
@@ -487,6 +503,11 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
         approved_at:     newStatus === 'approved' ? new Date().toISOString() : null,
       })
       .eq('id', reportId)
+      .select('id')
+    if (updateError || !actualizada?.length) {
+      console.error('[approvals] no se pudo cambiar el estado de', reportId, updateError)
+      throw new Error('No se pudo registrar la decisión. Avisa al administrador.')
+    }
   }
 
   // Registro de auditoría — siempre, independiente de si quedan ítems pendientes
@@ -644,12 +665,30 @@ export async function requestReportBankLoad(reportId: string) {
   revalidatePath('/')
 }
 
+// Quien tiene el permiso bancario puede operar su propio reembolso solo si otra
+// persona aprobó la rendición (ver puedeOperarPago en lib/bank-helpers).
+async function exigirPagoOperable(reportId: string, actorId: string) {
+  const admin = await createAdminClient()
+  const { data: report } = await admin
+    .from('expense_reports').select('submitter_id').eq('id', reportId).single()
+  if (!report) throw new Error('Rendición no encontrada')
+
+  const { data: aprobaciones } = await admin
+    .from('expense_report_approvals').select('approver_id, action').eq('report_id', reportId)
+  const log = (aprobaciones ?? []).map(a => ({ actor_id: a.approver_id, action: a.action }))
+
+  if (!puedeOperarPago(actorId, report.submitter_id, log)) {
+    throw new Error('No puedes operar el pago de tu propia rendición: tiene que haberla aprobado otra persona')
+  }
+}
+
 /** Paso 2: Encargado de carga confirma que cargó la transferencia en el banco */
 export async function confirmReportBankLoad(reportId: string, data: {
   paymentReference: string
   transferredAt:    string
 }) {
   const { userId } = await requireAdminOrBankPerm('can_load_bank_transfer')
+  await exigirPagoOperable(reportId, userId)
   const supabase = await createClient()
 
   const admin = createAdminClient()
@@ -679,6 +718,7 @@ export async function confirmReportBankLoad(reportId: string, data: {
 /** Paso 3: Autorizador bancario confirma → reembolso completado */
 export async function authorizeReportBank(reportId: string, paymentReference: string) {
   const { userId } = await requireAdminOrBankPerm('can_authorize_bank_transfer')
+  await exigirPagoOperable(reportId, userId)
   const supabase = await createClient()
 
   const admin = createAdminClient()

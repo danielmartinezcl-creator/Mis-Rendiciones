@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Resend } from 'resend'
+import { destinatariosBancarios } from '@/lib/bank-helpers'
 
 // Helper — solo envía si está configurado Resend
 async function trySendEmail(to: string[], subject: string, html: string) {
@@ -213,12 +214,12 @@ export async function notifyBankLoadersOfApproval(reportId: string) {
 
   const { data: loaders } = await supabase
     .from('users')
-    .select('id')
+    .select('id, bank_is_backup')
     .eq('org_id', report.org_id)
     .eq('can_load_bank_transfer', true)
     .eq('is_active', true)
 
-  const loaderIds = (loaders ?? []).map(l => l.id)
+  const loaderIds = destinatariosBancarios(loaders ?? [])
   if (loaderIds.length === 0) return
 
   await supabase.from('notifications').insert(
@@ -258,12 +259,12 @@ export async function notifyBankAuthorizersOfLoad(reportId: string) {
 
   const { data: authorizers } = await supabase
     .from('users')
-    .select('id')
+    .select('id, bank_is_backup')
     .eq('org_id', report.org_id)
     .eq('can_authorize_bank_transfer', true)
     .eq('is_active', true)
 
-  const authIds = (authorizers ?? []).map(a => a.id)
+  const authIds = destinatariosBancarios(authorizers ?? [])
   if (authIds.length === 0) return
 
   await supabase.from('notifications').insert(
