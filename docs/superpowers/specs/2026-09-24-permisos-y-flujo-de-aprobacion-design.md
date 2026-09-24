@@ -290,6 +290,29 @@ Toda escritura encadena `.select('id')` y lanza si vuelve vacía.
 
 ---
 
+## Ajustes al escribir el plan (2026-09-24)
+
+Aparecieron al leer el código en detalle. El plan
+(`docs/superpowers/plans/2026-09-24-permisos-por-asignacion.md`) ya los incluye.
+
+1. **Suplencia bancaria por función.** `bank_is_backup` es uno solo por persona, y FH
+   es titular para autorizar pero suplente para cargar. Se reemplaza por
+   `bank_load_backup` y `bank_auth_backup` (032 los copia, 033 borra el viejo). Sin
+   esto, la tabla de avisos de la sección 4 no se podía cumplir.
+2. **El N1 que aprueba parcialmente ya no salta al N2.** Hoy una aprobación parcial del
+   N1 cierra la rendición aunque haya N2. Ahora toda decisión del N1 que no sea
+   rechazo total pasa al N2; lo que el N1 rechazó llega al N2 ya rechazado.
+   *Pendiente de confirmación de Daniel.*
+3. **`FUND_STEPS` no crece.** Los estados N2 se muestran como el mismo paso que su N1
+   (`pasoVisibleDelFondo`); la etiqueta del estado ya dice «N2».
+4. **`validarCadena` corre en un solo lugar**, la acción nueva `setEmployeeApprovalChain`.
+   Ni `settings` ni el importador de empleados asignan cadenas.
+5. **La 033 deja entrar cargas históricas aprobadas**, solo si las crea un admin: el
+   importador histórico inserta con la sesión del admin.
+6. De paso, se reemplaza un `window.confirm` que quedaba en la pantalla del fondo.
+
+---
+
 ## Fuera de alcance
 
 - **Proyecto 2 — filas por función y ausencias**: titular / respaldo / último recurso por
