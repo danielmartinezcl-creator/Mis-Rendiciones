@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { classifyRespaldo, MAX_ATTACHMENT_BYTES } from '@/lib/attachment-types'
 
 const BUCKET = 'approval-attachments'
 
@@ -32,14 +33,19 @@ export async function uploadApprovalAttachment(formData: FormData) {
   if (!file || file.size === 0) throw new Error('No se seleccionó ningún archivo')
   if (!reportId && !fundId) throw new Error('Debe especificar una rendición o un fondo')
   if (reportId && fundId)   throw new Error('Solo se puede vincular a una rendición o un fondo, no ambos')
-  if (file.size > 10 * 1024 * 1024) throw new Error('El archivo no puede superar 10 MB')
+  if (file.size > MAX_ATTACHMENT_BYTES) throw new Error('El archivo no puede superar 10 MB')
 
-  const ext  = file.name.split('.').pop() ?? 'bin'
+  const contentType = classifyRespaldo(file.name)
+  if (!contentType) throw new Error('Tipo de archivo no admitido. Sube un PDF, una foto, un correo (.eml / .msg) o un Excel')
+
+  const ext  = file.name.split('.').pop()!.toLowerCase()
   const path = `${profile.org_id}/${reportId ?? fundId}/${Date.now()}_${userId}.${ext}`
 
+  // Re-tipado: con un File, supabase-js ignora `contentType` y un .msg de Windows
+  // llega sin tipo, que el bucket rechaza
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false })
+    .upload(path, new Blob([file], { type: contentType }), { contentType, upsert: false })
 
   if (uploadError) throw new Error(uploadError.message)
 

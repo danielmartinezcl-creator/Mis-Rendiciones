@@ -470,7 +470,7 @@ export interface Database {
           petty_cash_item_id: string | null
           org_id: string
           storage_path: string
-          file_type: 'image' | 'pdf'
+          file_type: 'image' | 'pdf' | 'email'
           file_size: number | null
           thumbnail_path: string | null
           created_at: string
@@ -481,7 +481,7 @@ export interface Database {
           petty_cash_item_id?: string | null
           org_id: string
           storage_path: string
-          file_type: 'image' | 'pdf'
+          file_type: 'image' | 'pdf' | 'email'
           file_size?: number | null
           thumbnail_path?: string | null
           created_at?: string
@@ -492,7 +492,7 @@ export interface Database {
           petty_cash_item_id?: string | null
           org_id?: string
           storage_path?: string
-          file_type?: 'image' | 'pdf'
+          file_type?: 'image' | 'pdf' | 'email'
           file_size?: number | null
           thumbnail_path?: string | null
           created_at?: string

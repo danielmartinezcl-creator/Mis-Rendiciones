@@ -440,7 +440,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       </a>
                     ) : (
                       <span key={att.id} className="card-meta text-ink-400 flex items-center gap-1">
-                        📎 {att.file_type === 'pdf' ? 'PDF' : 'Adjunto'}
+                        📎 {att.file_type === 'pdf' ? 'PDF' : att.file_type === 'email' ? 'Correo' : 'Adjunto'}
                       </span>
                     )
                   ))}

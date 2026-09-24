@@ -276,7 +276,9 @@ supabase/
 │   ├── 024_invalidar_analisis_ia.sql                 ← el caché del análisis IA se invalida donde cambian los datos
 │   ├── 025_empleado_borra_sus_borradores.sql         ← política DELETE del rendidor (solo borradores propios)
 │   ├── 026_aprobaciones_append_only.sql              ← historial de aprobaciones inmutable; rendición con aprobaciones solo la borra un admin
-│   └── 027_usuario_bloqueado.sql                     ← users.blocked_at: «eliminar definitivamente» un empleado lo bloquea, no lo borra
+│   ├── 027_usuario_bloqueado.sql                     ← users.blocked_at: «eliminar definitivamente» un empleado lo bloquea, no lo borra
+│   ├── 028_adjuntos_correos.sql                      ← adjuntos: correos .eml/.msg en el bucket + file_type 'email' (lista espejo de src/lib/attachment-types.ts)
+│   └── 029_bucket_respaldos_aprobacion.sql           ← crea el bucket approval-attachments, que nunca existió (+ Excel)
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -716,7 +718,11 @@ trigger de `updated_at`.
    values ('expense-attachments', 'expense-attachments', false, 10485760,
      array['image/jpeg','image/png','image/webp','application/pdf']);
    ```
-   Políticas de storage: insert/select/delete para `auth.uid() is not null`. Bucket `approval-attachments` igual.
+   Políticas de storage: insert/select/delete para `auth.uid() is not null`.
+   Bucket `approval-attachments` («Adjuntos de respaldo»): **no existió hasta el
+   2026-09-24** aunque este archivo decía que sí — toda subida fallaba con «Bucket
+   not found». Lo crea la migración `029`; acepta lo de un comprobante más Excel.
+   Los tipos admitidos de ambos buckets son espejo de `src/lib/attachment-types.ts`.
 
 5. **Orden correcto para aplicar migrations**: crear tablas → habilitar RLS → agregar políticas
    (las políticas que hacen SELECT en otras tablas fallan si la tabla no existe aún)
@@ -875,4 +881,6 @@ trigger de `updated_at`.
 | Repartir la invalidación de un caché entre los llamadores | `expenses.ts` la hacía en 2 sitios, pero ~11 lugares modifican ítems (admin, traspasos, carga histórica): los otros nueve dejaban el caché viejo | Un trigger en la base cubre los caminos de hoy, los de mañana y el SQL manual |
 | Un `.delete()` / `.update()` del cliente Supabase «funciona» pero no cambia nada | Si RLS no tiene política para esa operación, Postgres no da error: afecta 0 filas y Supabase devuelve éxito. Pasó con el borrado de borradores del empleado (sin política DELETE) | Encadenar `.select('id')` y lanzar si vuelve vacío. Y crear la política que falta (migración `025`) |
 | Borrar de verdad un usuario (`auth.admin.deleteUser`) | `audit_log.actor_id` es ON DELETE SET NULL y `audit_log` tiene la regla `no_update_audit_log`: la cascada choca y Postgres aborta («referential integrity query ... gave unexpected result») | Un usuario no se borra, se **bloquea**: `blocked_at` + ban en auth. Sale de la papelera y solo un admin lo habilita (`enableBlockedEmployee`). Migración `027` |
+| `capture="environment"` en un `<input type="file">` que también acepta PDF | En el celular abre la cámara directo: no hay forma de elegir un archivo guardado | Una entrada con `capture` para la foto y otra SIN `capture` para archivos (ver `PhotoUpload`) |
+| Pasar `contentType` a `storage.upload()` con un `File` | supabase-js lo ignora y manda el tipo del archivo; un `.msg` de Windows llega sin tipo y el bucket lo rechaza | Re-tipar: `new Blob([file], { type })`. El tipo sale de la extensión (`classifyAttachment`) |
 | Escribir `confirm()` o `alert()` en un componente | Son cajas del sistema operativo sin nada del diseño; el navegador les antepone el dominio («mi-rendicion.com dice:») y en Android parecen avisos de error | `await confirmar()` y `avisar()`. Quedan **0** nativos en `src/` desde `a1edf8f` — que no vuelva a entrar uno |

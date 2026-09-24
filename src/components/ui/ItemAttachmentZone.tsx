@@ -3,13 +3,14 @@
 import { useState, useRef, useTransition, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { addExpenseItemAttachment, addPettyCashItemAttachment, deleteItemAttachment } from '@/actions/expenses'
-import { Paperclip, Trash2, FileText, Camera, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { Paperclip, Trash2, FileText, FileUp, Mail, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { ACCEPT_ATTACHMENTS, MAX_ATTACHMENT_BYTES, classifyAttachment, type AttachmentKind } from '@/lib/attachment-types'
 import { useDialogos } from './Dialogos'
 
 interface AttachmentRow {
   id: string
   storage_path: string
-  file_type: 'image' | 'pdf'
+  file_type: AttachmentKind
 }
 
 interface Props {
@@ -70,7 +71,8 @@ export function ItemAttachmentZone({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) { setError('El archivo no puede superar 10 MB'); return }
+    if (!classifyAttachment(file.name)) { setError('Sube una foto, un PDF o un correo (.eml / .msg)'); return }
+    if (file.size > MAX_ATTACHMENT_BYTES) { setError('El archivo no puede superar 10 MB'); return }
     setError(null)
 
     startUpload(async () => {
@@ -132,7 +134,9 @@ export function ItemAttachmentZone({
             const name = att.storage_path.split('/').pop() ?? 'archivo'
             return (
               <div key={att.id} className="flex items-center gap-2 px-2 py-1.5 bg-ink-50 rounded-item border border-ink-100 group">
-                <FileText size={12} className={att.file_type === 'image' ? 'text-brand-500' : 'text-ink-400'} />
+                {att.file_type === 'email'
+                  ? <Mail size={12} className="text-ink-400" />
+                  : <FileText size={12} className={att.file_type === 'image' ? 'text-brand-500' : 'text-ink-400'} />}
                 {url ? (
                   <a
                     href={url}
@@ -169,13 +173,13 @@ export function ItemAttachmentZone({
                 ? 'bg-ink-100 text-ink-400 border-ink-200 cursor-not-allowed'
                 : 'bg-white border-brand-200 text-brand-600 hover:bg-brand-50 hover:border-brand-400',
             ].join(' ')}>
-              <Camera size={11} />
+              <FileUp size={11} />
               {uploading ? 'Subiendo…' : 'Subir archivo'}
+              {/* Sin `capture`: en el celular forzaba la cámara y no dejaba elegir un PDF o un correo */}
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,.pdf"
-                capture="environment"
+                accept={ACCEPT_ATTACHMENTS}
                 className="sr-only"
                 disabled={uploading}
                 onChange={handleFileChange}

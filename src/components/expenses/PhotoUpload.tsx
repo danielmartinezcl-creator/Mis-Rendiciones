@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { Camera, FileUp } from 'lucide-react'
 import { runOcr } from '@/actions/ocr'
 import type { OcrResult } from '@/lib/ocr-helpers'
+import { ACCEPT_ATTACHMENTS, MAX_ATTACHMENT_BYTES, classifyAttachment } from '@/lib/attachment-types'
 import { useDialogos } from '@/components/ui/Dialogos'
 
 interface PhotoUploadProps {
@@ -14,7 +16,7 @@ interface PhotoUploadProps {
 // Esto evita el límite de payload de Server Actions y reduce el costo OCR.
 // PDFs se pasan sin modificar (Canvas no puede procesarlos).
 async function resizeIfNeeded(file: File): Promise<{ base64: string; mimeType: string }> {
-  if (file.type === 'application/pdf') {
+  if (classifyAttachment(file.name)?.kind === 'pdf') {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = ev => {
@@ -50,21 +52,33 @@ async function resizeIfNeeded(file: File): Promise<{ base64: string; mimeType: s
 
 export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
   const { avisar } = useDialogos()
-  const [status, setStatus] = useState<'idle' | 'reading' | 'processing' | 'done' | 'error'>('idle')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [status, setStatus] = useState<'idle' | 'reading' | 'processing' | 'done' | 'attached' | 'error'>('idle')
+  // Dos entradas: `capture` abre la cámara directo, y en el celular eso impide
+  // elegir un PDF o un correo guardado. Por eso el archivo tiene la suya, sin capture.
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const fileRef   = useRef<HTMLInputElement>(null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
 
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-    if (!allowed.includes(file.type)) {
-      avisar('Solo se aceptan imágenes JPG, PNG, WebP o PDF')
+    const tipo = classifyAttachment(file.name)
+    if (!tipo) {
+      avisar('Solo se aceptan fotos (JPG, PNG, WebP), PDF o correos (.eml / .msg)')
       return
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      avisar('El archivo no puede superar 20 MB')
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      avisar('El archivo no puede superar 10 MB')
+      return
+    }
+
+    // Un correo es respaldo de la autorización, no un comprobante con monto:
+    // se adjunta tal cual y los datos del gasto se llenan a mano.
+    if (tipo.kind === 'email') {
+      setStatus('attached')
+      onOcrResult(null, file)
       return
     }
 
@@ -92,59 +106,74 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
   }
 
   const labels = {
-    idle:       'Tomá la foto y listo',
-    reading:    'Leyendo imagen...',
+    idle:       'Foto o archivo del comprobante',
+    reading:    'Leyendo archivo...',
     processing: 'Extrayendo datos con IA...',
-    done:       'Foto procesada ✓',
-    error:      'Error — llenar manualmente',
+    done:       'Comprobante procesado ✓',
+    attached:   'Correo adjuntado ✓',
+    error:      'Archivo adjuntado — llenar manualmente',
+  }
+
+  const metas = {
+    idle:       'Foto · PDF · correo (.eml / .msg) — máx 10 MB',
+    reading:    '',
+    processing: '',
+    done:       'Datos pre-cargados — revisá y confirmá',
+    attached:   'Completá los datos del gasto a mano',
+    error:      'La IA no pudo leer los datos — el archivo igual queda adjunto',
   }
 
   const isLoading = status === 'processing' || status === 'reading'
+  const bloqueado = disabled || isLoading
 
   return (
-    <div className="space-y-2">
+    <div className="border-2 border-dashed border-brand-200 rounded-card p-5 text-center space-y-3">
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp"
         capture="environment"
         className="hidden"
         onChange={handleFileChange}
-        disabled={disabled || isLoading}
+        disabled={bloqueado}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept={ACCEPT_ATTACHMENTS}
+        className="hidden"
+        onChange={handleFileChange}
+        disabled={bloqueado}
       />
 
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled || isLoading}
-        className="w-full border-2 border-dashed border-brand-200 hover:border-brand-500 rounded-card p-6 text-center transition-colors disabled:opacity-50"
-      >
-        <div className="flex flex-col items-center gap-2">
-          {isLoading ? (
-            <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <span className="text-3xl">📷</span>
-          )}
-          <span className="card-label font-semibold text-brand-600">
-            {labels[status]}
-          </span>
-          {status === 'idle' && (
-            <span className="card-meta text-ink-400">
-              JPG · PNG · WebP · PDF — máx 10 MB
-            </span>
-          )}
-          {status === 'done' && (
-            <span className="card-meta text-ink-400">
-              Datos pre-cargados — revisá y confirmá
-            </span>
-          )}
-          {status === 'error' && (
-            <span className="card-meta text-ink-400">
-              La IA no pudo leer el documento — completá los campos manualmente
-            </span>
-          )}
-        </div>
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        {isLoading && (
+          <div className="w-7 h-7 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+        )}
+        <span className="card-label font-semibold text-brand-600">{labels[status]}</span>
+        {metas[status] && <span className="card-meta text-ink-400">{metas[status]}</span>}
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => cameraRef.current?.click()}
+          disabled={bloqueado}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-item border border-brand-200 bg-white text-brand-600 hover:bg-brand-50 hover:border-brand-400 transition-colors disabled:opacity-50"
+        >
+          <Camera size={16} />
+          Tomar foto
+        </button>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={bloqueado}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-item border border-brand-200 bg-white text-brand-600 hover:bg-brand-50 hover:border-brand-400 transition-colors disabled:opacity-50"
+        >
+          <FileUp size={16} />
+          Subir archivo
+        </button>
+      </div>
     </div>
   )
 }

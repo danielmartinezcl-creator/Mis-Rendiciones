@@ -37,7 +37,7 @@ type ItemWithRelations = ExpenseItem & {
 }
 
 export default function ExpenseDetailPage() {
-  const { confirmar } = useDialogos()
+  const { confirmar, avisar } = useDialogos()
   const { id } = useParams<{ id: string }>()
   const router  = useRouter()
 
@@ -170,7 +170,10 @@ export default function ExpenseDetailPage() {
         const { data: profile } = await supabase
           .from('users').select('org_id').eq('id', user.id).single()
         if (profile) {
-          await uploadAttachment(itemId, profile.org_id, data.file).catch(console.error)
+          // Antes el error se tragaba: el gasto quedaba sin comprobante y nadie se enteraba
+          await uploadAttachment(itemId, profile.org_id, data.file).catch(err => {
+            avisar(`El gasto se guardó, pero el comprobante no se pudo subir: ${err instanceof Error ? err.message : 'error desconocido'}. Súbelo desde «Adjuntar comprobante».`)
+          })
         }
       }
     }

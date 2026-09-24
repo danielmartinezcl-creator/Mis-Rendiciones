@@ -6,6 +6,7 @@ import { Paperclip, Trash2, ExternalLink, Upload } from 'lucide-react'
 import type { ApprovalAttachment } from '@/lib/supabase/types'
 import { formatDate } from '@/lib/utils'
 import { useDialogos } from '@/components/ui/Dialogos'
+import { ACCEPT_RESPALDOS, MAX_ATTACHMENT_BYTES, classifyRespaldo } from '@/lib/attachment-types'
 
 type AttachmentWithMeta = ApprovalAttachment & {
   uploader_name: string
@@ -36,6 +37,16 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!classifyRespaldo(file.name)) {
+      setError('Sube un PDF, una foto, un correo (.eml / .msg) o un Excel')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setError('El archivo no puede superar 10 MB')
+      e.target.value = ''
+      return
+    }
     setError(null)
 
     const fd = new FormData()
@@ -135,7 +146,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
           <input
             ref={fileRef}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.eml,.msg"
+            accept={ACCEPT_RESPALDOS}
             className="sr-only"
             disabled={uploading}
             onChange={handleUpload}
@@ -145,7 +156,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
 
       {error && <p className="text-xs text-danger-600">{error}</p>}
       <p className="text-xs text-ink-400">
-        Formatos aceptados: PDF, imágenes, correos (.eml, .msg) · Máx. 10 MB
+        Formatos aceptados: PDF, imágenes, correos (.eml, .msg), Excel · Máx. 10 MB
       </p>
     </div>
   )

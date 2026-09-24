@@ -1701,7 +1701,8 @@ export async function getReportAttachmentUrls(reportId: string): Promise<
         .createSignedUrl(att.storage_path, 300)
       if (!signed?.signedUrl) continue
 
-      const ext  = att.file_type === 'pdf' ? 'pdf' : 'jpg'
+      // La extensión real del archivo guardado: con correos, «pdf o jpg» ya no alcanza
+      const ext  = att.storage_path.split('.').pop() ?? 'jpg'
       const safe = (item.merchant || item.description || 'item')
         .replace(/[^a-zA-Z0-9À-ɏ -]/g, '_')
         .slice(0, 30)

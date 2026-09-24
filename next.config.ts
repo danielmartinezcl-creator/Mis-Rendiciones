@@ -27,7 +27,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '5mb',
+      // Un adjunto puede pesar 10 MB (límite del bucket) y el OCR lo manda en
+      // base64, que pesa un tercio más. Con 5 MB, un PDF de 4 MB se caía acá.
+      bodySizeLimit: '15mb',
     },
   },
 };

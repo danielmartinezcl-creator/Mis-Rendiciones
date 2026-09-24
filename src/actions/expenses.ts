@@ -10,6 +10,7 @@ import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detectio
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateRut } from '@/lib/validators'
+import { classifyAttachment, MAX_ATTACHMENT_BYTES } from '@/lib/attachment-types'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -578,29 +579,46 @@ export async function uploadAttachment(
   file: File
 ): Promise<string> {
   const supabase = await createClient()
+  const { path, kind } = await storeAttachmentFile(supabase, orgId, itemId, file)
 
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${orgId}/${itemId}/${Date.now()}.${ext}`
-
-  const { error: uploadError } = await supabase.storage
-    .from('expense-attachments')
-    .upload(path, file, { contentType: file.type })
-
-  if (uploadError) throw new Error(uploadError.message)
-
-  const fileType = file.type.startsWith('image/') ? 'image' : 'pdf'
-
-  await supabase
+  const { error } = await supabase
     .from('attachments')
     .insert({
       item_id:      itemId,
       org_id:       orgId,
       storage_path: path,
-      file_type:    fileType as 'image' | 'pdf',
+      file_type:    kind,
       file_size:    file.size,
     })
+  if (error) throw new Error(error.message)
 
   return path
+}
+
+// Sube el archivo al bucket. El tipo sale de la extensión (ver attachment-types):
+// Windows entrega los .msg de Outlook sin tipo y el bucket los rechazaría.
+async function storeAttachmentFile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  itemId: string,
+  file: File,
+) {
+  const tipo = classifyAttachment(file.name)
+  if (!tipo) throw new Error('Tipo de archivo no admitido. Sube una foto, un PDF o un correo (.eml / .msg)')
+  if (file.size > MAX_ATTACHMENT_BYTES) throw new Error('El archivo no puede superar 10 MB')
+
+  const ext  = file.name.split('.').pop()!.toLowerCase()
+  const path = `${orgId}/${itemId}/${Date.now()}.${ext}`
+
+  // Con un File, supabase-js ignora `contentType` y manda el tipo del archivo
+  // (verificado contra el bucket): hay que re-tiparlo o el .msg sin tipo rebota.
+  const cuerpo = new Blob([file], { type: tipo.contentType })
+  const { error } = await supabase.storage
+    .from('expense-attachments')
+    .upload(path, cuerpo, { contentType: tipo.contentType })
+  if (error) throw new Error(error.message)
+
+  return { path, kind: tipo.kind }
 }
 
 // ── Resumen mensual del empleado (R6) ────────────────────────────────────────
@@ -813,21 +831,16 @@ export async function addPettyCashItemAttachment(itemId: string, file: File): Pr
   const { data: p } = await supabase.from('users').select('org_id').eq('id', user.id).single()
   if (!p) throw new Error('Perfil no encontrado')
 
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${p.org_id}/${itemId}/${Date.now()}.${ext}`
+  const { path, kind } = await storeAttachmentFile(supabase, p.org_id, itemId, file)
 
-  const { error: uploadError } = await supabase.storage
-    .from('expense-attachments')
-    .upload(path, file, { contentType: file.type })
-  if (uploadError) throw new Error(uploadError.message)
-
-  await supabase.from('attachments').insert({
+  const { error } = await supabase.from('attachments').insert({
     petty_cash_item_id: itemId,
     org_id:             p.org_id,
     storage_path:       path,
-    file_type:          (file.type.startsWith('image/') ? 'image' : 'pdf') as 'image' | 'pdf',
+    file_type:          kind,
     file_size:          file.size,
   })
+  if (error) throw new Error(error.message)
 
   return path
 }
