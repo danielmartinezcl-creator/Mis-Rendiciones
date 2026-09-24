@@ -57,7 +57,7 @@ async function avisar(opts: {
   const ids = [...new Set(opts.userIds)]
   if (!ids.length) return
   const admin = createAdminClient()
-  await admin.from('notifications').insert(ids.map(id => ({
+  const { error } = await admin.from('notifications').insert(ids.map(id => ({
     org_id:    opts.orgId,
     user_id:   id,
     type:      opts.tipo,
@@ -65,6 +65,7 @@ async function avisar(opts: {
     fund_id:   opts.fundId ?? null,
     read:      false,
   })))
+  if (error) console.error('[avisos] no se pudo guardar la notificación', opts.tipo, error)
   await trySendEmail(await lookupEmails(ids), opts.asunto, opts.html)
 }
 
