@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import type { FundStatus, Database } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateDateRange } from '@/lib/validators'
+import { soloCampos } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
 import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/contexto-permisos'
@@ -274,7 +275,11 @@ export async function addFundItem(fundId: string, item: {
   return creado.id as string
 }
 
-// ── Empleado/Admin: editar ítem ──────────────────────────────────────────────
+// ── Empleado: editar ítem ─────────────────────────────────────────────────────
+// Solo quien rinde el fondo, y solo con los fondos enviados. El admin ya no
+// tiene rama propia: configura, no opera (D1), y la 033 §3b tampoco se lo
+// deja con su sesión. Ningún fondo histórico pasa por acá: la carga histórica
+// de caja chica vive en expense_reports (HistoricalSection).
 
 export async function updateFundItem(itemId: string, patch: {
   description?:  string
@@ -287,35 +292,42 @@ export async function updateFundItem(itemId: string, patch: {
   supplier_rut?: string | null
   notes?:        string | null
 }) {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, userId } = await getProfile()
 
   const { data: item } = await supabase
     .from('petty_cash_items')
-    .select('fund_id')
+    .select('fund_id, transfer_id')
     .eq('id', itemId)
     .single()
 
   if (!item) throw new Error('Ítem no encontrado')
+  // Un traspaso deja un gasto en cada lado y se edita desde el traspaso
+  if (item.transfer_id) throw new Error('Los gastos de traspaso no se editan')
 
   const { data: fund } = await supabase
     .from('petty_cash_funds')
-    .select('employee_id, manager_id, status')
+    .select('employee_id, status')
     .eq('id', item.fund_id)
     .single()
 
   if (!fund) throw new Error('Fondo no encontrado')
-
-  const isEmployee = fund.employee_id === userId
-  const isAdmin    = profile.role === 'admin'
-
-  if (!isEmployee && !isAdmin) throw new Error('Sin permiso para editar este ítem')
-  if (fund.status !== 'funds_sent' && !isAdmin) {
+  if (fund.employee_id !== userId) throw new Error('Sin permiso para editar este ítem')
+  if (fund.status !== 'funds_sent') {
     throw new Error('Solo se pueden editar ítems cuando los fondos han sido enviados')
   }
 
+  // El patch llega del navegador tal cual: solo pasan los campos que manda el
+  // editor de gastos (EditFundItemForm). Nunca estado, fondo, organización,
+  // traspaso ni marca de Defontana.
+  const limpio = soloCampos(patch, [
+    'description', 'amount_clp', 'date', 'category_id', 'merchant',
+    'doc_type', 'doc_number', 'supplier_rut', 'notes',
+  ])
+  if (!Object.keys(limpio).length) return
+
   const { error } = await supabase
     .from('petty_cash_items')
-    .update(patch)
+    .update(limpio)
     .eq('id', itemId)
 
   if (error) throw new Error(error.message)
@@ -323,17 +335,19 @@ export async function updateFundItem(itemId: string, patch: {
 }
 
 // ── Empleado: eliminar ítem ───────────────────────────────────────────────────
+// Misma regla que editar: quien rinde el fondo, con los fondos enviados.
 
 export async function removeFundItem(itemId: string) {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, userId } = await getProfile()
 
   const { data: item } = await supabase
     .from('petty_cash_items')
-    .select('fund_id')
+    .select('fund_id, transfer_id')
     .eq('id', itemId)
     .single()
 
   if (!item) throw new Error('Ítem no encontrado')
+  if (item.transfer_id) throw new Error('Los gastos de traspaso se eliminan borrando el traspaso')
 
   const { data: fund } = await supabase
     .from('petty_cash_funds')
@@ -343,10 +357,10 @@ export async function removeFundItem(itemId: string) {
 
   if (!fund) throw new Error('Fondo no encontrado')
 
-  if (fund.employee_id !== userId && profile.role !== 'admin') {
+  if (fund.employee_id !== userId) {
     throw new Error('Sin permiso')
   }
-  if (fund.status !== 'funds_sent' && profile.role !== 'admin') {
+  if (fund.status !== 'funds_sent') {
     throw new Error('No se pueden eliminar ítems en este estado')
   }
 

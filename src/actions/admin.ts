@@ -9,6 +9,7 @@ import { logAudit } from '@/lib/audit'
 import { revisarConfigCorreo } from '@/lib/email-helpers'
 import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
+import { soloCampos } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaMovement } from '@/lib/export/defontana'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
@@ -505,22 +506,26 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   const { supabase, orgId } = await requireAdmin()
 
   const { data: item } = await supabase
-    .from('expense_items').select('report_id').eq('id', itemId).is('deleted_at', null).single()
+    .from('expense_items').select('report_id, transfer_id, item_type')
+    .eq('id', itemId).is('deleted_at', null).single()
   if (!item) throw new Error('Ítem no encontrado')
+
+  // Un traspaso deja un gasto en cada lado y se edita desde el traspaso, que
+  // mueve los dos (fund-transfers.ts). La pantalla ya esconde el lápiz; esto
+  // es para que tampoco se pueda por fuera de ella.
+  if (item.transfer_id || item.item_type === 'transfer') throw new Error('Los gastos de traspaso no se editan')
+  if (patch?.item_type === 'transfer') throw new Error('Un gasto no se convierte en traspaso: los traspasos se registran aparte')
 
   const { data: report } = await supabase
     .from('expense_reports').select('org_id, is_historical_import').eq('id', item.report_id).single()
   if (!report || report.org_id !== orgId || !report.is_historical_import)
     throw new Error('Sin permiso para editar este ítem')
 
-  // El patch llega del navegador tal cual —una acción del servidor recibe lo que
-  // le manden— y se escribe con la llave de servicio, que la 033 no frena. Solo
-  // pasan los campos de la edición inline: nunca `report_id` (mover un gasto
-  // aprobado a un borrador es un doble pago) ni `status`.
-  const campos = ['description', 'amount_clp', 'date', 'item_type', 'category_id', 'merchant'] as const
-  const limpio = Object.fromEntries(
-    campos.filter(c => patch[c] !== undefined).map(c => [c, patch[c]]),
-  ) as typeof patch
+  // El patch llega del navegador tal cual y se escribe con la llave de
+  // servicio, que la 033 no frena. Solo pasan los campos de la edición inline:
+  // nunca `report_id` (mover un gasto aprobado a un borrador es un doble pago)
+  // ni `status`.
+  const limpio = soloCampos(patch, ['description', 'amount_clp', 'date', 'item_type', 'category_id', 'merchant'])
   if (!Object.keys(limpio).length) return
 
   // Usar adminClient para el UPDATE porque RLS bloquea ediciones de ítems

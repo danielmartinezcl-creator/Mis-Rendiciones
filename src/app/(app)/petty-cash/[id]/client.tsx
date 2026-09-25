@@ -367,8 +367,10 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             <div className="divide-y divide-ink-50">
               {items.map(item => {
                 const cls = ITEM_STATUS_CLASS[item.status] ?? 'text-ink-500 bg-ink-50'
-                const canDelete = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
-                const canEdit   = (fund.status === 'funds_sent' && isEmployee) || currentUser.role === 'admin'
+                // Solo quien rinde, con los fondos enviados: el admin configura,
+                // no opera (D1). Mismo criterio que updateFundItem / removeFundItem.
+                const canDelete = fund.status === 'funds_sent' && isEmployee
+                const canEdit   = fund.status === 'funds_sent' && isEmployee
                 const deciding  = decidiendoLiquidacion
                 const isEditing = editingItemId === item.id
 
@@ -441,7 +443,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="font-mono-amount text-sm font-bold text-ink-800">{fmtCLP(item.amount_clp)}</span>
-                          {canEdit && (
+                          {canEdit && !item.transfer_id && (
                             <button
                               onClick={() => setEditingItemId(item.id)}
                               className="p-1 text-ink-300 hover:text-brand-600 rounded transition-colors"

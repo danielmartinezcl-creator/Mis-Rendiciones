@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateReportTotal, validateExpenseItem, gastosEditables } from '@/lib/expense-helpers'
+import { calculateReportTotal, validateExpenseItem, gastosEditables, soloCampos } from '@/lib/expense-helpers'
 
 describe('calculateReportTotal', () => {
   it('suma los amount_clp de todos los ítems', () => {
@@ -57,5 +57,23 @@ describe('gastosEditables', () => {
 
   it('el admin no toca los gastos de una rendición en revisión', () => {
     expect(gastosEditables({ status: 'submitted', is_historical_import: false }, true)).toBe(false)
+  })
+})
+
+describe('soloCampos', () => {
+  type Patch = { description?: string; category_id?: string | null; amount_clp?: number }
+
+  it('deja pasar solo los campos permitidos, aunque el navegador mande otros', () => {
+    const colado = { description: 'Taxi', report_id: 'otra', status: 'approved', defontana_exported_at: 'ayer' } as Patch
+    expect(soloCampos(colado, ['description', 'category_id'])).toEqual({ description: 'Taxi' })
+  })
+
+  it('null pasa (es borrar el valor); undefined no', () => {
+    const patch: Patch = { category_id: null, amount_clp: undefined }
+    expect(soloCampos(patch, ['category_id', 'amount_clp'])).toEqual({ category_id: null })
+  })
+
+  it('un patch que no es objeto no escribe nada', () => {
+    expect(soloCampos(null as unknown as Patch, ['description'])).toEqual({})
   })
 })

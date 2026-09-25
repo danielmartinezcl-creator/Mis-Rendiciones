@@ -15,6 +15,22 @@ export function gastosEditables(
   return esAdmin && reporte.is_historical_import === true
 }
 
+/**
+ * Copia del `patch` con solo los `campos` que vienen definidos (`null` sí pasa:
+ * es «borrar el valor»). Una acción del servidor recibe lo que el navegador le
+ * mande, no lo que dice su tipo: antes de escribir con ese objeto, se filtra.
+ * Sin esto, un `report_id`, un `status` o una marca de Defontana colados en el
+ * patch llegaban a la base.
+ */
+export function soloCampos<T extends object, K extends keyof T>(patch: T, campos: readonly K[]): Partial<Pick<T, K>> {
+  const limpio: Partial<Pick<T, K>> = {}
+  if (!patch || typeof patch !== 'object') return limpio
+  for (const c of campos) {
+    if (patch[c] !== undefined) limpio[c] = patch[c]
+  }
+  return limpio
+}
+
 export function calculateReportTotal(items: { amount_clp: number }[]): number {
   return items.reduce((sum, item) => sum + item.amount_clp, 0)
 }
