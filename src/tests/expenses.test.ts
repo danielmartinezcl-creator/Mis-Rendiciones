@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateReportTotal, validateExpenseItem, puedeCambiarGastos, soloCampos,
-  RENDICION_CERRADA, RENDICION_AJENA,
+  puedeCambiarGastosFondo, puedeCambiarAdjuntos,
+  RENDICION_CERRADA, RENDICION_AJENA, FONDO_CERRADO, FONDO_AJENO,
 } from '@/lib/expense-helpers'
 
 describe('calculateReportTotal', () => {
@@ -74,6 +75,77 @@ describe('puedeCambiarGastos', () => {
   it('el admin corrige cargas históricas, que nacen cerradas y a nombre de otro', () => {
     expect(puedeCambiarGastos({ status: 'approved', submitter_id: OTRA, is_historical_import: true }, YO, true))
       .toEqual({ ok: true })
+  })
+})
+
+describe('puedeCambiarGastosFondo', () => {
+  const YO   = 'u-empleado'
+  const OTRA = 'u-otra'
+
+  it('con los fondos enviados, el empleado del fondo cambia sus gastos', () => {
+    expect(puedeCambiarGastosFondo({ status: 'funds_sent', employee_id: YO }, YO)).toEqual({ ok: true })
+  })
+
+  it('antes de recibir la plata o con la liquidación ya enviada, ni el empleado', () => {
+    for (const status of [
+      'draft', 'pending_approval', 'pending_approval_l2', 'approved', 'pending_bank_load',
+      'pending_bank_auth', 'submitted', 'pending_liquidation_approval', 'pending_liquidation_l2',
+      'settled', 'rejected',
+    ]) {
+      expect(puedeCambiarGastosFondo({ status, employee_id: YO, is_historical_import: false }, YO))
+        .toEqual({ ok: false, motivo: FONDO_CERRADO })
+    }
+  })
+
+  it('en el fondo de otra persona, nadie: tampoco el admin', () => {
+    expect(puedeCambiarGastosFondo({ status: 'funds_sent', employee_id: OTRA }, YO))
+      .toEqual({ ok: false, motivo: FONDO_AJENO })
+    expect(puedeCambiarGastosFondo({ status: 'funds_sent', employee_id: OTRA, is_historical_import: false }, YO, true))
+      .toEqual({ ok: false, motivo: FONDO_AJENO })
+  })
+
+  it('primero el estado, después el dueño: lo mismo que responde la base', () => {
+    expect(puedeCambiarGastosFondo({ status: 'settled', employee_id: OTRA, is_historical_import: false }, YO, true))
+      .toEqual({ ok: false, motivo: FONDO_CERRADO })
+  })
+
+  it('el admin corrige cargas históricas; el empleado no toca la suya', () => {
+    expect(puedeCambiarGastosFondo({ status: 'settled', employee_id: OTRA, is_historical_import: true }, YO, true))
+      .toEqual({ ok: true })
+    expect(puedeCambiarGastosFondo({ status: 'settled', employee_id: YO, is_historical_import: true }, YO))
+      .toEqual({ ok: false, motivo: FONDO_CERRADO })
+  })
+})
+
+// El comprobante es parte del gasto: se sube o se borra exactamente cuando el
+// gasto se puede cambiar. Cada fila es una persona real frente a un documento.
+describe('puedeCambiarAdjuntos', () => {
+  const YO   = 'u-yo'
+  const OTRA = 'u-otra'
+
+  it.each([
+    ['quien rinde, en su borrador',
+      { tipo: 'rendicion', status: 'draft', submitter_id: YO }, false, { ok: true }],
+    ['quien rinde, con la rendición ya enviada',
+      { tipo: 'rendicion', status: 'submitted', submitter_id: YO }, false, { ok: false, motivo: RENDICION_CERRADA }],
+    ['el empleado, en una carga histórica a su nombre',
+      { tipo: 'rendicion', status: 'approved', submitter_id: YO, is_historical_import: true }, false, { ok: false, motivo: RENDICION_CERRADA }],
+    ['el admin, en el borrador de otra persona',
+      { tipo: 'rendicion', status: 'draft', submitter_id: OTRA, is_historical_import: false }, true, { ok: false, motivo: RENDICION_AJENA }],
+    ['el admin, en una carga histórica',
+      { tipo: 'rendicion', status: 'reimbursed', submitter_id: OTRA, is_historical_import: true }, true, { ok: true }],
+    ['el empleado del fondo, con los fondos enviados',
+      { tipo: 'fondo', status: 'funds_sent', employee_id: YO }, false, { ok: true }],
+    ['el aprobador, con la liquidación en revisión',
+      { tipo: 'fondo', status: 'pending_liquidation_approval', employee_id: OTRA }, false, { ok: false, motivo: FONDO_CERRADO }],
+    ['el aprobador o el EFF, con los fondos enviados',
+      { tipo: 'fondo', status: 'funds_sent', employee_id: OTRA }, false, { ok: false, motivo: FONDO_AJENO }],
+    ['el admin, en el fondo de otra persona',
+      { tipo: 'fondo', status: 'funds_sent', employee_id: OTRA, is_historical_import: false }, true, { ok: false, motivo: FONDO_AJENO }],
+    ['el admin, en un fondo histórico',
+      { tipo: 'fondo', status: 'settled', employee_id: OTRA, is_historical_import: true }, true, { ok: true }],
+  ] as const)('%s', (_, doc, esAdmin, esperado) => {
+    expect(puedeCambiarAdjuntos(doc, YO, esAdmin)).toEqual(esperado)
   })
 })
 
