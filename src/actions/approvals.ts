@@ -13,7 +13,7 @@ import {
   notifyReportApprovers,
   notifyReportBankStep,
   notifySubmitterOfReimbursement,
-} from '@/actions/notifications'
+} from '@/lib/avisos'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'

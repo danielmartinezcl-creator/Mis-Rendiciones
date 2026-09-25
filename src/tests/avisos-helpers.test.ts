@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { escaparHtml, claveAvisoSinAprobador } from '@/lib/avisos-helpers'
+import { escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo } from '@/lib/avisos-helpers'
 
 describe('escaparHtml', () => {
   it('neutraliza las etiquetas y las comillas', () => {
@@ -30,5 +30,18 @@ describe('claveAvisoSinAprobador', () => {
 
   it('cabe en la columna (varchar 150) aunque el nombre sea larguísimo', () => {
     expect(claveAvisoSinAprobador('x'.repeat(500), '2026-09-24', admin).length).toBeLessThanOrEqual(150)
+  })
+})
+
+describe('destinatariosResultadoFondo (F16)', () => {
+  it('fondos enviados: solo el beneficiario, que es quien los recibe', () => {
+    expect(destinatariosResultadoFondo('funds_sent', 'kc', 'fd', 'fh')).toEqual(['fd'])
+    // Nunca a quien acaba de actuar
+    expect(destinatariosResultadoFondo('funds_sent', 'kc', 'fh', 'fh')).toEqual([])
+  })
+
+  it('rechazo y liquidación cerrada: el EFF y el beneficiario, sin quien actuó', () => {
+    expect(destinatariosResultadoFondo('rejected', 'kc', 'fd', 'fh')).toEqual(['kc', 'fd'])
+    expect(destinatariosResultadoFondo('settled', 'kc', 'fd', 'kc')).toEqual(['fd'])
   })
 })

@@ -12,7 +12,7 @@ import type { DefontanaItem } from '@/lib/export/defontana'
 import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/contexto-permisos'
 import { puedeEnviar, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
-import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/actions/notifications'
+import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 
 async function getProfile() {
   const supabase = await createClient()
