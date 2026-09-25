@@ -594,7 +594,9 @@ export async function getFundDetail(fundId: string) {
   if (error || !fund) return null
 
   const [itemsRes, auditsRes, transfersRes, usersRes, categoriesRes] = await Promise.all([
-    supabase.from('petty_cash_items').select('*').eq('fund_id', fundId).order('date', { ascending: true }),
+    // Con sus comprobantes: sin ellos, la pantalla decía «Adjuntar comprobante»
+    // aunque el gasto ya tuviera uno
+    supabase.from('petty_cash_items').select('*, attachments(id, storage_path, file_type)').eq('fund_id', fundId).order('date', { ascending: true }),
     supabase.from('petty_cash_approvals').select('*').eq('fund_id', fundId).order('created_at', { ascending: true }),
     supabase.from('petty_cash_transfers').select('*').eq('fund_id', fundId).order('created_at', { ascending: true }),
     supabase.from('users').select('id, full_name').in('id', [fund.employee_id, fund.manager_id]),

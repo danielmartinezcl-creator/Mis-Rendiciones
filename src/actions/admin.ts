@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
+import type { AttachmentKind } from '@/lib/attachment-types'
 import { logAudit } from '@/lib/audit'
 import { revisarConfigCorreo } from '@/lib/email-helpers'
 import { enviarLinkDeAcceso } from '@/lib/access-email'
@@ -2062,7 +2063,8 @@ export async function getHistoricalCajaChicaImports() {
     .select(`
       id, title, total_amount, approved_at, fund_number, submitter_id, created_at,
       defontana_exported_at, defontana_export_ref,
-      expense_items(id, item_type, amount_clp, description, date, doc_type, doc_number, merchant, category_id, supplier_rut, defontana_exported_at, transfer_id)
+      expense_items(id, item_type, amount_clp, description, date, doc_type, doc_number, merchant, category_id, supplier_rut, defontana_exported_at, transfer_id,
+        attachments(id, storage_path, file_type))
     `)
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
@@ -2096,6 +2098,8 @@ export async function getHistoricalCajaChicaImports() {
       doc_type: string | null; doc_number: string | null; merchant: string | null
       category_id: string | null; supplier_rut: string | null
       defontana_exported_at: string | null; transfer_id: string | null
+      // Los comprobantes ya subidos: sin ellos, la zona de adjuntos arrancaba vacía
+      attachments: { id: string; storage_path: string; file_type: AttachmentKind }[]
     }
     const items = (r.expense_items ?? []) as unknown as RawItem[]
     const advance_total      = items.filter(i => i.item_type === 'advance' ).reduce((s, i) => s + i.amount_clp, 0)

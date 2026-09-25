@@ -17,6 +17,9 @@ interface Props {
   itemId: string
   itemType: 'expense_item' | 'petty_cash_item'
   initialAttachments?: AttachmentRow[]
+  /** Subir y borrar. Quien llama lo decide con `puedeCambiarAdjuntos`; por
+   *  defecto, solo mirar: una pantalla nueva no ofrece borrar comprobantes
+   *  por olvido. */
   canUpload?: boolean
   startExpanded?: boolean
 }
@@ -27,7 +30,7 @@ export function ItemAttachmentZone({
   itemId,
   itemType,
   initialAttachments = [],
-  canUpload = true,
+  canUpload = false,
   startExpanded = false,
 }: Props) {
   const { confirmar } = useDialogos()
@@ -98,7 +101,7 @@ export function ItemAttachmentZone({
     })) return
     setDeletingId(att.id)
     try {
-      await deleteItemAttachment(att.id, att.storage_path)
+      await deleteItemAttachment(att.id)
       setAttachments(prev => prev.filter(a => a.id !== att.id))
       setUrls(prev => { const n = { ...prev }; delete n[att.id]; return n })
     } catch (err) {

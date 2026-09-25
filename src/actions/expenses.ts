@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { calculateReportTotal, validateExpenseItem, puedeCambiarGastos } from '@/lib/expense-helpers'
+import {
+  calculateReportTotal, validateExpenseItem, puedeCambiarGastos, puedeCambiarAdjuntos,
+  type DocumentoDelGasto,
+} from '@/lib/expense-helpers'
 import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { contextoRendicion } from '@/lib/contexto-permisos'
 import { puedeEnviar } from '@/lib/permisos'
@@ -593,52 +596,130 @@ export async function getReportWithItems(reportId: string) {
   return report
 }
 
-export async function uploadAttachment(
+// ── Adjuntos de un gasto ─────────────────────────────────────────────────────
+// Un comprobante se sube o se borra solo si se puede cambiar su gasto
+// (`puedeCambiarAdjuntos`). El gasto se lee con la sesión — si la RLS no lo
+// deja ver, para esta persona no existe — y se escribe con la llave de
+// servicio: desde la migración 035 ninguna sesión escribe en `attachments` ni
+// en el bucket. La ruta y la organización salen de la fila del gasto, nunca
+// del navegador (antes una acción recibía el `orgId` como argumento).
+
+const BUCKET_COMPROBANTES = 'expense-attachments'
+
+type TipoGasto = 'expense_item' | 'petty_cash_item'
+
+async function exigirCambioDeAdjuntos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  tipo: TipoGasto,
   itemId: string,
-  orgId: string,
-  file: File
-): Promise<string> {
-  const supabase = await createClient()
-  const { path, kind } = await storeAttachmentFile(supabase, orgId, itemId, file)
+): Promise<{ orgId: string }> {
+  let orgId: string
+  let doc: DocumentoDelGasto
 
-  const { error } = await supabase
-    .from('attachments')
-    .insert({
-      item_id:      itemId,
-      org_id:       orgId,
-      storage_path: path,
-      file_type:    kind,
-      file_size:    file.size,
-    })
-  if (error) throw new Error(error.message)
+  if (tipo === 'expense_item') {
+    const { data: item } = await supabase
+      .from('expense_items').select('org_id, report_id').eq('id', itemId).is('deleted_at', null).maybeSingle()
+    if (!item) throw new Error('Gasto no encontrado')
+    const { data: reporte } = await supabase
+      .from('expense_reports').select('status, submitter_id, is_historical_import').eq('id', item.report_id).maybeSingle()
+    if (!reporte) throw new Error('Rendición no encontrada')
+    orgId = item.org_id
+    doc   = { tipo: 'rendicion', ...reporte }
+  } else {
+    const { data: item } = await supabase
+      .from('petty_cash_items').select('org_id, fund_id').eq('id', itemId).maybeSingle()
+    if (!item) throw new Error('Gasto no encontrado')
+    const { data: fondo } = await supabase
+      .from('petty_cash_funds').select('status, employee_id, is_historical_import').eq('id', item.fund_id).maybeSingle()
+    if (!fondo) throw new Error('Fondo no encontrado')
+    orgId = item.org_id
+    doc   = { tipo: 'fondo', ...fondo }
+  }
 
-  return path
+  const { data: perfil } = await supabase.from('users').select('role').eq('id', userId).single()
+  const permiso = puedeCambiarAdjuntos(doc, userId, perfil?.role === 'admin')
+  if (!permiso.ok) throw new Error(permiso.motivo)
+  return { orgId }
 }
 
-// Sube el archivo al bucket. El tipo sale de la extensión (ver attachment-types):
-// Windows entrega los .msg de Outlook sin tipo y el bucket los rechazaría.
-async function storeAttachmentFile(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  orgId: string,
-  itemId: string,
-  file: File,
-) {
-  const tipo = classifyAttachment(file.name)
-  if (!tipo) throw new Error('Tipo de archivo no admitido. Sube una foto, un PDF o un correo (.eml / .msg)')
+async function subirAdjunto(tipo: TipoGasto, itemId: string, file: File): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  const { orgId } = await exigirCambioDeAdjuntos(supabase, user.id, tipo, itemId)
+
+  // El tipo sale de la extensión (ver attachment-types): Windows entrega los
+  // .msg de Outlook sin tipo y el bucket los rechazaría.
+  const clase = classifyAttachment(file.name)
+  if (!clase) throw new Error('Tipo de archivo no admitido. Sube una foto, un PDF o un correo (.eml / .msg)')
   if (file.size > MAX_ATTACHMENT_BYTES) throw new Error('El archivo no puede superar 10 MB')
 
-  const ext  = file.name.split('.').pop()!.toLowerCase()
-  const path = `${orgId}/${itemId}/${Date.now()}.${ext}`
+  const ext   = file.name.split('.').pop()!.toLowerCase()
+  const path  = `${orgId}/${itemId}/${Date.now()}.${ext}`
+  const admin = createAdminClient()
 
   // Con un File, supabase-js ignora `contentType` y manda el tipo del archivo
   // (verificado contra el bucket): hay que re-tiparlo o el .msg sin tipo rebota.
-  const cuerpo = new Blob([file], { type: tipo.contentType })
-  const { error } = await supabase.storage
-    .from('expense-attachments')
-    .upload(path, cuerpo, { contentType: tipo.contentType })
-  if (error) throw new Error(error.message)
+  const { error: errorArchivo } = await admin.storage
+    .from(BUCKET_COMPROBANTES)
+    .upload(path, new Blob([file], { type: clase.contentType }), { contentType: clase.contentType })
+  if (errorArchivo) throw new Error(errorArchivo.message)
 
-  return { path, kind: tipo.kind }
+  const { error } = await admin.from('attachments').insert({
+    item_id:            tipo === 'expense_item'    ? itemId : null,
+    petty_cash_item_id: tipo === 'petty_cash_item' ? itemId : null,
+    org_id:             orgId,
+    storage_path:       path,
+    file_type:          clase.kind,
+    file_size:          file.size,
+  })
+  if (error) {
+    // Sin su fila, el archivo no lo vería nadie: se retira
+    await admin.storage.from(BUCKET_COMPROBANTES).remove([path])
+    throw new Error(error.message)
+  }
+  return path
+}
+
+export async function addExpenseItemAttachment(itemId: string, file: File): Promise<string> {
+  return subirAdjunto('expense_item', itemId, file)
+}
+
+export async function addPettyCashItemAttachment(itemId: string, file: File): Promise<string> {
+  return subirAdjunto('petty_cash_item', itemId, file)
+}
+
+// Borra un adjunto de cualquier gasto. La ruta del archivo sale de la fila:
+// antes llegaba del navegador y se borraba lo que mandara, fuera o no de este
+// adjunto.
+export async function deleteItemAttachment(attachmentId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  const { data: adjunto } = await supabase
+    .from('attachments')
+    .select('id, storage_path, item_id, petty_cash_item_id')
+    .eq('id', attachmentId)
+    .maybeSingle()
+  if (!adjunto) throw new Error('Adjunto no encontrado')
+
+  // La base exige exactamente uno de los dos (chk_attachments_one_parent)
+  const tipo: TipoGasto = adjunto.item_id ? 'expense_item' : 'petty_cash_item'
+  await exigirCambioDeAdjuntos(supabase, user.id, tipo, (adjunto.item_id ?? adjunto.petty_cash_item_id)!)
+
+  // Primero la fila y después el archivo: si falla el archivo queda un huérfano
+  // que nadie ve, nunca un adjunto sin archivo. `.select` porque un borrado que
+  // no afecta filas no da error (la lección de la 025).
+  const admin = createAdminClient()
+  const { data: borrado, error } = await admin
+    .from('attachments').delete().eq('id', adjunto.id).select('id')
+  if (error) throw new Error(error.message)
+  if (!borrado?.length) throw new Error('No se pudo eliminar el adjunto')
+
+  const { error: errorArchivo } = await admin.storage.from(BUCKET_COMPROBANTES).remove([adjunto.storage_path])
+  if (errorArchivo) console.error('[adjuntos] se borró la fila pero no el archivo', adjunto.storage_path, errorArchivo)
 }
 
 // ── Resumen mensual del empleado (R6) ────────────────────────────────────────
@@ -831,46 +912,4 @@ export async function getReportApprovals(reportId: string): Promise<ReportApprov
     created_at:    a.created_at,
     notes:         a.notes ?? null,
   }))
-}
-
-// Adjunto para expense_item sin necesitar pasar orgId (lo deriva de la sesión)
-export async function addExpenseItemAttachment(itemId: string, file: File): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-  const { data: p } = await supabase.from('users').select('org_id').eq('id', user.id).single()
-  if (!p) throw new Error('Perfil no encontrado')
-  return uploadAttachment(itemId, p.org_id, file)
-}
-
-// Adjunto para petty_cash_item (usa petty_cash_item_id como FK)
-export async function addPettyCashItemAttachment(itemId: string, file: File): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-  const { data: p } = await supabase.from('users').select('org_id').eq('id', user.id).single()
-  if (!p) throw new Error('Perfil no encontrado')
-
-  const { path, kind } = await storeAttachmentFile(supabase, p.org_id, itemId, file)
-
-  const { error } = await supabase.from('attachments').insert({
-    petty_cash_item_id: itemId,
-    org_id:             p.org_id,
-    storage_path:       path,
-    file_type:          kind,
-    file_size:          file.size,
-  })
-  if (error) throw new Error(error.message)
-
-  return path
-}
-
-// Elimina un adjunto (de cualquier tipo) del bucket y de la tabla
-export async function deleteItemAttachment(attachmentId: string, storagePath: string): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-
-  await supabase.storage.from('expense-attachments').remove([storagePath])
-  await supabase.from('attachments').delete().eq('id', attachmentId)
 }

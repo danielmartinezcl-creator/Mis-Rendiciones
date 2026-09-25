@@ -15,6 +15,7 @@ import {
 } from '@/actions/petty-cash'
 import type { FundDetail } from '@/actions/petty-cash'
 import { tipoDeFondo } from '@/lib/permisos'
+import { puedeCambiarGastosFondo } from '@/lib/expense-helpers'
 import { useDialogos } from '@/components/ui/Dialogos'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
@@ -118,6 +119,10 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const recorrido = construirRecorrido(fund.status, audits)
   const isManager  = fund.manager_id === currentUser.id || currentUser.role === 'admin'
   const isEmployee = fund.employee_id === currentUser.id
+  // Los comprobantes, con la regla del servidor: el empleado del fondo, con
+  // los fondos enviados. El aprobador de la liquidación ya no sube ni borra
+  // los del empleado; sus respaldos van en «Adjuntos de respaldo».
+  const puedeAdjuntar = puedeCambiarGastosFondo(fund, currentUser.id, currentUser.role === 'admin').ok
 
   const decidiendo            = permiso.ok && (permiso.paso === 'decidir_l1' || permiso.paso === 'decidir_l2')
   const decidiendoFondo       = decidiendo && tipoDeFondo(fund.status) === 'fondo'
@@ -432,7 +437,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                             <ItemAttachmentZone
                               itemId={item.id}
                               itemType="petty_cash_item"
-                              canUpload={canEdit || decidiendoLiquidacion}
+                              initialAttachments={item.attachments}
+                              canUpload={puedeAdjuntar}
                             />
                           )}
                         </div>

@@ -300,9 +300,12 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
               {!isEdit && item.item_type !== 'transfer' && (
                 <tr>
                   <td colSpan={5} className="pb-2 px-0">
+                    {/* Solo el admin ve esta sección, y son cargas históricas:
+                        la excepción de `puedeCambiarAdjuntos` */}
                     <ItemAttachmentZone
                       itemId={item.id}
                       itemType="expense_item"
+                      initialAttachments={item.attachments}
                       canUpload
                     />
                   </td>

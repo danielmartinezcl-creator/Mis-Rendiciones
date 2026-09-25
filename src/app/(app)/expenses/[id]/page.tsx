@@ -12,12 +12,13 @@ import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { formatDisplayTitle } from '@/lib/utils'
+import { puedeCambiarGastos } from '@/lib/expense-helpers'
 import {
   addExpenseItem,
   deleteExpenseItem,
   deleteExpenseReport,
   submitExpenseReport,
-  uploadAttachment,
+  addExpenseItemAttachment,
   getReportWithItems,
   getReportApprovals,
   getReportTimeline,
@@ -48,6 +49,7 @@ export default function ExpenseDetailPage() {
   const [mileageRate, setMileageRate]             = useState<number>(136)
   const [currentUserId, setCurrentUserId]         = useState<string | null>(null)
   const [currentOrgId, setCurrentOrgId]           = useState<string | null>(null)
+  const [esAdmin, setEsAdmin]                     = useState(false)
   const [submitterName, setSubmitterName]         = useState<string | null>(null)
   const [showForm, setShowForm]                   = useState(false)
   const [submitting, setSubmitting]               = useState(false)
@@ -117,10 +119,11 @@ export default function ExpenseDetailPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setCurrentUserId(user.id)
-      supabase.from('users').select('cost_center_id, org_id, full_name').eq('id', user.id).single()
+      supabase.from('users').select('cost_center_id, org_id, full_name, role').eq('id', user.id).single()
         .then(({ data }) => {
           setEmployeeCC(data?.cost_center_id ?? null)
           setSubmitterName(data?.full_name ?? null)
+          setEsAdmin(data?.role === 'admin')
           if (data?.org_id) setCurrentOrgId(data.org_id)
           if (data?.org_id) {
             supabase.from('organizations').select('mileage_rate_per_km').eq('id', data.org_id).single()
@@ -162,20 +165,12 @@ export default function ExpenseDetailPage() {
       mileage_rate:         data.mileage_rate,
     })
 
-    // Subir foto si existe
+    // Subir el comprobante, si vino. La organización la pone el servidor.
     if (data.file && itemId) {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('users').select('org_id').eq('id', user.id).single()
-        if (profile) {
-          // Antes el error se tragaba: el gasto quedaba sin comprobante y nadie se enteraba
-          await uploadAttachment(itemId, profile.org_id, data.file).catch(err => {
-            avisar(`El gasto se guardó, pero el comprobante no se pudo subir: ${err instanceof Error ? err.message : 'error desconocido'}. Súbelo desde «Adjuntar comprobante».`)
-          })
-        }
-      }
+      // Antes el error se tragaba: el gasto quedaba sin comprobante y nadie se enteraba
+      await addExpenseItemAttachment(itemId, data.file).catch(err => {
+        avisar(`El gasto se guardó, pero el comprobante no se pudo subir: ${err instanceof Error ? err.message : 'error desconocido'}. Súbelo desde «Adjuntar comprobante».`)
+      })
     }
 
     setShowForm(false)
@@ -244,8 +239,10 @@ export default function ExpenseDetailPage() {
   }
 
   const isDraft              = report.status === 'draft'
-  const isHistorical         = report.is_historical_import === true
-  const canUploadAttachment  = isDraft || isHistorical
+  // La misma regla del servidor: quien rinde, en su borrador; el admin, en
+  // cargas históricas. Ni el admin en el borrador de otra persona, ni el
+  // empleado en una carga histórica a su nombre.
+  const canUploadAttachment  = !!currentUserId && puedeCambiarGastos(report, currentUserId, esAdmin).ok
   const isMyDraft            = isDraft && report.submitter_id === currentUserId
   const items                = (report.expense_items ?? []) as ItemWithRelations[]
   const rejectedItems        = items.filter(i => i.status === 'rejected')
