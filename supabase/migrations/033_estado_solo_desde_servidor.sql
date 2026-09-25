@@ -6,9 +6,11 @@
 -- migración no repite las reglas: impide saltarse el servidor. Una sesión de
 -- usuario (auth.uid() no nulo) — incluida la del admin — ya no puede mover un
 -- estado, tocar un monto aprobado, cambiar a quién se le paga, pasar un gasto
--- de un documento a otro ni escribir el historial. Sin rol admin, tampoco toca
--- los gastos de un documento que ya salió de sus manos (sección 3b). La llave
--- de servicio y el SQL manual, sí.
+-- de un documento a otro ni escribir el historial. Tampoco toca los gastos de
+-- un documento que ya salió de manos de quien rinde: el admin solo corrige las
+-- cargas históricas y la clasificación contable (sección 3b). La llave de
+-- servicio y el SQL manual, sí. El admin de caja chica queda acotado a su
+-- organización (sección 7).
 --
 -- Por qué un disparador y no RLS: RLS no puede comparar el valor anterior de una
 -- columna con el nuevo. El disparador ve los dos.
@@ -195,16 +197,26 @@ create trigger proteger_estado_item
 --   · cambiar montos y fechas de una rendición en revisión o ya aprobada: el
 --     aprobador decide sobre una cosa y Defontana y los informes ven otra;
 --   · borrar gastos de un documento en revisión, o agregarle gastos nuevos.
+-- Y el admin, con su sesión, podía cambiar montos, fechas o comercio de
+-- cualquier gasto: seguido de una reversa de reembolso, es un pago que ninguna
+-- cadena vio. El admin configura, no opera (D1).
 --
 -- Reglas, solo para sesiones de usuario:
 --   · Un gasto no cambia de documento, tampoco con la sesión del admin. Moverlo
 --     es cosa del servidor (los traspasos ya escriben con la llave de servicio).
 --     Ningún código mueve ítems con la sesión: verificado en src/ el 2026-09-25.
---   · Sin rol admin, un gasto de rendición se agrega, edita o borra solo con la
---     rendición en borrador; uno de caja chica, solo con el fondo en
---     «fondos enviados». El borrado lógico (deleted_at) es un UPDATE: misma regla.
---   · El admin sigue corrigiendo documentos cerrados (cargas históricas, centro
---     de costo, marcas de Defontana); la 3 le sigue congelando la decisión.
+--   · Un gasto de rendición se agrega, edita o borra solo con la rendición en
+--     borrador; uno de caja chica, solo con el fondo en «fondos enviados». El
+--     borrado lógico (deleted_at) es un UPDATE: misma regla.
+--   · El admin tiene dos excepciones, y solo esas:
+--       - en una carga histórica (rendición o fondo), todo: la importa, la
+--         corrige, la borra y la contabiliza;
+--       - en un documento vivo, en cualquier estado, un UPDATE que solo toque
+--         la clasificación contable: categoría, centro de costo y la marca de
+--         Defontana. Lo que haga /admin/reports y la exportación.
+--   · Sin rol admin, un gasto nunca cambia de organización, de traspaso ni de
+--     marca de Defontana, y tampoco nace con ellas puestas: si no, el rendidor
+--     marcaba su gasto como ya exportado y nunca llegaba a la contabilidad.
 --
 -- Se llama «proteger_documento_item» para correr ANTES que «proteger_estado_item»
 -- (Postgres dispara los BEFORE en orden alfabético): en un documento cerrado, lo
@@ -216,51 +228,100 @@ security definer
 set search_path = public
 as $$
 declare
-  antes   uuid;  -- documento de la fila vieja (update / delete)
-  despues uuid;  -- documento de la fila nueva (insert / update)
-  estado  text;
+  -- Las filas como jsonb: cada tabla tiene sus columnas (expense_items no
+  -- tiene defontana_export_ref; petty_cash_items no tiene cost_center_id), y
+  -- así ninguna lectura falla por una columna que la otra tabla no tiene.
+  viejo      jsonb;
+  nuevo      jsonb;
+  columna    text;  -- la que dice a qué documento pertenece el gasto
+  antes      uuid;  -- documento de la fila vieja (update / delete)
+  despues    uuid;  -- documento de la fila nueva (insert / update)
+  estado     text;
+  historico  boolean;
+  org_doc    uuid;
+  es_admin   boolean;
+  libres     text[];
+  -- Lo que una sesión sin rol admin nunca pone ni cambia
+  congeladas constant text[] := array['org_id', 'transfer_id', 'defontana_exported_at', 'defontana_export_ref'];
+  c          text;
 begin
   if auth.uid() is null then
     if tg_op = 'DELETE' then return old; end if;
     return new;
   end if;
 
-  -- IF por tabla y por operación: cada tabla tiene su columna, y `old` / `new`
-  -- solo se leen donde existen.
   if tg_table_name = 'expense_items' then
-    if tg_op <> 'INSERT' then antes   := old.report_id; end if;
-    if tg_op <> 'DELETE' then despues := new.report_id; end if;
+    columna := 'report_id';
+    -- Lo que el admin corrige en un gasto de un documento vivo
+    libres  := array['category_id', 'cost_center_id', 'defontana_exported_at', 'defontana_export_ref'];
   else
-    if tg_op <> 'INSERT' then antes   := old.fund_id; end if;
-    if tg_op <> 'DELETE' then despues := new.fund_id; end if;
+    columna := 'fund_id';
+    libres  := array['category_id', 'defontana_exported_at', 'defontana_export_ref'];
   end if;
+
+  -- `old` solo existe en update y delete; `new`, en insert y update
+  if tg_op <> 'INSERT' then viejo := to_jsonb(old); end if;
+  if tg_op <> 'DELETE' then nuevo := to_jsonb(new); end if;
+  antes   := (viejo ->> columna)::uuid;
+  despues := (nuevo ->> columna)::uuid;
 
   if tg_op = 'UPDATE' and despues is distinct from antes then
     raise exception 'Un gasto no se puede mover a otro documento';
   end if;
 
-  if coalesce(is_admin(), false) then
+  -- El documento de antes en update y delete, el nuevo en insert (en un
+  -- update son el mismo: lo asegura la regla de arriba).
+  if tg_table_name = 'expense_items' then
+    select status, is_historical_import, org_id into estado, historico, org_doc
+      from expense_reports where id = coalesce(antes, despues);
+  else
+    select status, is_historical_import, org_id into estado, historico, org_doc
+      from petty_cash_funds where id = coalesce(antes, despues);
+  end if;
+
+  -- Sin documento no hay nada que proteger: o el gasto se está borrando en
+  -- cascada con su documento (el ON DELETE CASCADE corre después de borrar la
+  -- fila padre, como ya usa la 026), o el insert apunta a uno que no existe y
+  -- la llave foránea lo rechaza igual.
+  if not found then
     if tg_op = 'DELETE' then return old; end if;
     return new;
   end if;
 
-  -- El documento de antes en update y delete, el nuevo en insert (en un
-  -- update son el mismo: lo asegura la regla de arriba).
-  if tg_table_name = 'expense_items' then
-    select status into estado from expense_reports where id = coalesce(antes, despues);
-  else
-    select status into estado from petty_cash_funds where id = coalesce(antes, despues);
+  es_admin := coalesce(is_admin(), false);
+
+  if es_admin then
+    if coalesce(historico, false) then
+      if tg_op = 'DELETE' then return old; end if;
+      return new;
+    end if;
+    if tg_op = 'UPDATE' and nuevo - libres = viejo - libres then
+      return new;
+    end if;
+    -- Lo demás, como cualquiera: solo con el documento abierto
   end if;
 
-  -- Sin documento no hay nada que proteger: o el gasto se está borrando en
-  -- cascada con su documento (el borrador que el rendidor elimina), o el
-  -- insert apunta a uno que no existe y la llave foránea lo rechaza igual.
-  if found then
-    if tg_table_name = 'expense_items' and estado is distinct from 'draft' then
-      raise exception 'Solo se pueden modificar gastos de una rendición en borrador';
-    end if;
-    if tg_table_name = 'petty_cash_items' and estado is distinct from 'funds_sent' then
-      raise exception 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
+  if tg_table_name = 'expense_items' and estado is distinct from 'draft' then
+    raise exception 'Solo se pueden modificar gastos de una rendición en borrador';
+  end if;
+  if tg_table_name = 'petty_cash_items' and estado is distinct from 'funds_sent' then
+    raise exception 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
+  end if;
+
+  if not es_admin then
+    if tg_op = 'UPDATE' then
+      foreach c in array congeladas loop
+        if nuevo -> c is distinct from viejo -> c then
+          raise exception 'La organización, el traspaso y la marca de Defontana de un gasto solo los cambia la aplicación';
+        end if;
+      end loop;
+    elsif tg_op = 'INSERT' then
+      if (nuevo ->> 'org_id')::uuid is distinct from org_doc
+         or nuevo ->> 'transfer_id'           is not null
+         or nuevo ->> 'defontana_exported_at' is not null
+         or nuevo ->> 'defontana_export_ref'  is not null then
+        raise exception 'La organización, el traspaso y la marca de Defontana de un gasto solo los cambia la aplicación';
+      end if;
     end if;
   end if;
 
@@ -325,6 +386,38 @@ drop policy "each user signs own audit entries" on public.petty_cash_approvals;
 -- de servicio tras `exigirPaso`).
 drop policy "approvers can insert approvals" on public.expense_report_approvals;
 
+-- 7 ─ El admin de caja chica, solo en su organización ──────────────────────────
+-- Las tres «admin full access» de fondos, sus ítems y sus transferencias eran
+-- `is_admin()` a secas: un admin veía y escribía fondos de cualquier
+-- organización. Mismo comando (ALL), acotado a la suya: el fondo por su
+-- org_id; ítems y transferencias, a través de su fondo (como ya hace
+-- «admin reads petty_cash_approvals» en la sección 6). Nombres leídos de
+-- pg_policies el 2026-09-25. Ninguna política de petty_cash_funds lee ítems ni
+-- transferencias, así que el `exists` no entra en recursión.
+drop policy "admin full access petty_cash_funds" on public.petty_cash_funds;
+create policy "admin manages own org funds" on public.petty_cash_funds
+  for all using (public.is_admin() and org_id = public.get_my_org_id());
+
+drop policy "admin full access petty_cash_items" on public.petty_cash_items;
+create policy "admin manages own org fund items" on public.petty_cash_items
+  for all using (
+    public.is_admin()
+    and exists (
+      select 1 from public.petty_cash_funds f
+      where f.id = petty_cash_items.fund_id and f.org_id = public.get_my_org_id()
+    )
+  );
+
+drop policy "admin full access petty_cash_transfers" on public.petty_cash_transfers;
+create policy "admin manages own org fund transfers" on public.petty_cash_transfers
+  for all using (
+    public.is_admin()
+    and exists (
+      select 1 from public.petty_cash_funds f
+      where f.id = petty_cash_transfers.fund_id and f.org_id = public.get_my_org_id()
+    )
+  );
+
 -- La columna bank_is_backup NO se borra acá: va en la 034, que se aplica cuando
 -- el código nuevo lleve un tiempo estable (un rollback instantáneo de Vercel al
 -- código viejo la lee).
@@ -380,3 +473,13 @@ drop policy "approvers can insert approvals" on public.expense_report_approvals;
 --   for insert with check (actor_id = auth.uid());
 -- create policy "approvers can insert approvals" on public.expense_report_approvals
 --   for insert with check (approver_id = auth.uid());
+--
+-- drop policy if exists "admin manages own org funds"          on public.petty_cash_funds;
+-- drop policy if exists "admin manages own org fund items"     on public.petty_cash_items;
+-- drop policy if exists "admin manages own org fund transfers" on public.petty_cash_transfers;
+-- create policy "admin full access petty_cash_funds" on public.petty_cash_funds
+--   for all using (public.is_admin());
+-- create policy "admin full access petty_cash_items" on public.petty_cash_items
+--   for all using (public.is_admin());
+-- create policy "admin full access petty_cash_transfers" on public.petty_cash_transfers
+--   for all using (public.is_admin());

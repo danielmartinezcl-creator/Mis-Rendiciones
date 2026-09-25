@@ -13,7 +13,8 @@
 --   ok = null   no concluyente: no hay filas que cumplan el criterio, o la
 --               sentencia no afectó ninguna fila sin que se pueda saber por qué
 --
--- Las filas se eligen por criterio (rol, estado, cadena), nunca por nombre.
+-- Las filas se eligen por criterio (rol, estado, cadena), nunca por nombre. La
+-- única que se crea es la semilla de 11a/11b, y el `rollback` final la borra.
 -- Lección de la 030: las fallas de permisos solo aparecen sin superpoderes, así
 -- que casi todas las pruebas usan personas SIN rol admin.
 begin;
@@ -103,6 +104,7 @@ declare
   historica    constant text := 'Solo un admin marca una rendición como carga histórica';
   item_nuevo   constant text := 'Un gasto nuevo entra pendiente';
   borrador     constant text := 'Solo se pueden modificar gastos de una rendición en borrador';
+  congelada    constant text := 'La organización, el traspaso y la marca de Defontana de un gasto solo los cambia la aplicación';
   fondo_abierto constant text := 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
   mover        constant text := 'Un gasto no se puede mover a otro documento';
   rls          constant text := 'row-level security';
@@ -373,13 +375,25 @@ begin
     '{}', 'permitido');
 
   -- 11. Caja chica: el empleado toca sus gastos solo con los fondos enviados ──
-  -- 11a. …edita un gasto de un fondo suyo que no está en «fondos enviados»
-  select f.employee_id, i.id into u, d
-  from petty_cash_items i
-  join petty_cash_funds f on f.id = i.fund_id
-  join users e on e.id = f.employee_id
+  -- 11a. …edita un gasto de un fondo suyo que no está en «fondos enviados».
+  --      Esos fondos casi nunca tienen gastos (solo se cargan con los fondos
+  --      enviados), así que se siembra uno. Todavía sin sesión: auth.uid() es
+  --      nulo, la 3b lo deja pasar, y el `rollback` del final lo borra.
+  u := null; d := null;
+  select f.employee_id, f.id, f.org_id into u, d2, org
+  from petty_cash_funds f join users e on e.id = f.employee_id
   where f.status <> 'funds_sent' and f.deleted_at is null and e.role <> 'admin'
   limit 1;
+  if d2 is not null then
+    -- En su propio bloque: si la semilla falla, se anota y el resto sigue
+    begin
+      insert into public.petty_cash_items (fund_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+      values (d2, org, 'prueba 033 (semilla, se deshace)', 1000, 'CLP', 1, 1000, current_date, 'pending')
+      returning id into d;
+    exception when others then
+      insert into resultado values ('11. semilla de 11a/11b', false, 'no se pudo sembrar el gasto: ' || sqlerrm);
+    end;
+  end if;
   perform pg_temp.probar('11a. Empleado sin admin edita un gasto de su fondo que no está en fondos enviados', u,
     case when d is not null then format(
       'update public.petty_cash_items set amount_clp = amount_clp + 1 where id = %L', d) end,
@@ -456,17 +470,100 @@ begin
     array[mover]);
 
   -- 12b. CONTROL: el admin sí reasigna el centro de costo de un gasto de una
-  --      rendición ya enviada (lo que hacen /admin/reports y la carga histórica)
+  --      rendición ya enviada: está en su lista de columnas libres (lo que
+  --      hacen /admin/reports y la exportación a Defontana)
   select a.id, i.id into u, d
   from expense_items i
   join expense_reports r on r.id = i.report_id
   join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
   where i.deleted_at is null and r.deleted_at is null and r.status <> 'draft'
+  order by (not r.is_historical_import) desc
   limit 1;
   perform pg_temp.probar('12b. CONTROL: admin reasigna el centro de costo de un gasto de una rendición enviada', u,
     case when d is not null then format(
       'update public.expense_items set cost_center_id = cost_center_id where id = %L', d) end,
     '{}', 'permitido');
+
+  -- 12c. …pero no le cambia el monto a un gasto de una rendición viva ya
+  --      enviada: seguido de una reversa de reembolso, sería un pago que ninguna
+  --      cadena aprobó (D1)
+  select a.id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
+  where i.deleted_at is null and r.deleted_at is null
+    and r.status <> 'draft' and not r.is_historical_import
+  order by (r.status in ('submitted', 'pending_l2')) desc
+  limit 1;
+  perform pg_temp.probar('12c. Admin cambia el monto de un gasto de una rendición enviada (no histórica)', u,
+    case when d is not null then format(
+      'update public.expense_items set amount_clp = amount_clp + 1 where id = %L', d) end,
+    array[borrador]);
+
+  -- 12d. CONTROL: en una carga histórica el admin corrige todo, también el
+  --      borrado lógico (HistoricalSection)
+  select a.id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
+  where i.deleted_at is null and r.deleted_at is null and r.is_historical_import
+  limit 1;
+  perform pg_temp.probar('12d. CONTROL: admin borra (lógico) un gasto de una carga histórica', u,
+    case when d is not null then format(
+      'update public.expense_items set deleted_at = now(), deleted_by = %L where id = %L', u, d) end,
+    '{}', 'permitido');
+
+  -- 12e. …ni le agrega gastos a una rendición viva ya enviada
+  select a.id, r.id, r.org_id into u, d, org
+  from expense_reports r
+  join users a on a.org_id = r.org_id and a.role = 'admin' and a.is_active
+  where r.deleted_at is null and r.status <> 'draft' and not r.is_historical_import
+  order by (r.status in ('submitted', 'pending_l2')) desc
+  limit 1;
+  perform pg_temp.probar('12e. Admin agrega un gasto a una rendición enviada (no histórica)', u,
+    case when d is not null then format(
+      'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[borrador]);
+
+  -- 13. Sin rol admin, un gasto nunca cambia de organización, traspaso ni
+  --     marca de Defontana, ni siquiera con el documento abierto (3b) ────────
+  -- 13a. El rendidor marca un gasto de su borrador como ya exportado: así
+  --      nunca llegaría a la contabilidad
+  select r.submitter_id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users s on s.id = r.submitter_id
+  where r.status = 'draft' and i.deleted_at is null and r.deleted_at is null and s.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('13a. Rendidor sin admin marca como exportado un gasto de su borrador', u,
+    case when d is not null then format(
+      'update public.expense_items set defontana_exported_at = now() where id = %L', d) end,
+    array[congelada]);
+
+  -- 13b. …o lo agrega ya marcado
+  select r.submitter_id, r.id, r.org_id into u, d, org
+  from expense_reports r join users s on s.id = r.submitter_id
+  where r.status = 'draft' and r.deleted_at is null and s.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('13b. Rendidor sin admin agrega a su borrador un gasto ya marcado como exportado', u,
+    case when d is not null then format(
+      'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status, defontana_exported_at)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L, now())', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[congelada]);
+
+  -- 13c. El empleado pasa un gasto de su fondo abierto a otra organización.
+  --      El disparador corre antes que la llave foránea: basta un id cualquiera.
+  select f.employee_id, i.id into u, d
+  from petty_cash_items i
+  join petty_cash_funds f on f.id = i.fund_id
+  join users e on e.id = f.employee_id
+  where f.status = 'funds_sent' and f.deleted_at is null and e.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('13c. Empleado sin admin cambia la organización de un gasto de su fondo abierto', u,
+    case when d is not null then format(
+      'update public.petty_cash_items set org_id = gen_random_uuid() where id = %L', d) end,
+    array[congelada]);
 end $$;
 
 -- Orden numérico: «10a» va después de «9», no antes de «1a»
