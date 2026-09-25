@@ -6,7 +6,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  suplenteVigente, pasoSegunEstado, puedeActuar, destinatarios, tipoDeFondo,
+  suplenteVigente, pasoSegunEstado, puedeActuar, destinatarios, tipoDeFondo, cadenaActiva,
   type Cadena, type Documento, type Paso, type Persona,
 } from '@/lib/permisos'
 
@@ -86,7 +86,8 @@ export async function contextoRendicion(reportId: string): Promise<ContextoRendi
     doc: {
       tipo:           'rendicion',
       beneficiarioId: reporte.submitter_id,
-      cadena,
+      // Un aprobador inactivo cuenta como «sin aprobador»: bloquea el envío y avisa al admin
+      cadena:         cadenaActiva(cadena, personas),
       historial:      (log ?? []).map(a => ({ actorId: a.approver_id, accion: a.action, nivel: a.level })),
     },
   }
@@ -128,7 +129,7 @@ export async function contextoFondo(fundId: string): Promise<ContextoFondo> {
     doc: {
       tipo:           tipoDeFondo(fondo.status),
       beneficiarioId: fondo.employee_id,
-      cadena,
+      cadena:         cadenaActiva(cadena, personas),
       historial:      (log ?? []).map(a => ({ actorId: a.actor_id, accion: a.action, nivel: a.level })),
     },
   }

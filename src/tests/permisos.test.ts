@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   puedeActuar, destinatarios, destinatariosInformativos, puedeEnviar,
-  validarCadena, dependientesDe, suplenteVigente, pasoSegunEstado, tipoDeFondo,
+  validarCadena, dependientesDe, suplenteVigente, pasoSegunEstado, tipoDeFondo, enEtapa, cadenaActiva,
   type Persona, type Documento, type Cadena, type EntradaHistorial,
 } from '@/lib/permisos'
 
@@ -301,5 +301,84 @@ describe('dependientesDe', () => {
     ]
     expect(dependientesDe('kc', empleados)).toEqual(['Francisco Díaz', 'Francisco Hagar'])
     expect(dependientesDe('fd', empleados)).toEqual([])
+  })
+})
+
+describe('liquidación: la misma cadena, otra etapa (F1)', () => {
+  const liquidacion: Documento = { tipo: 'liquidacion', beneficiarioId: 'fd', cadena: CADENAS.fd, historial: [] }
+
+  it('el N1 decide la liquidación y el aviso va solo a él', () => {
+    expect(puedeActuar(KC, 'decidir_l1', liquidacion, PENTA)).toEqual({ ok: true })
+    expect(destinatarios('decidir_l1', liquidacion, PENTA, ['fd'])).toEqual(['kc'])
+  })
+
+  it('el N2 decide el segundo nivel; el beneficiario no decide su propia liquidación', () => {
+    expect(puedeActuar(FH, 'decidir_l2', liquidacion, PENTA)).toEqual({ ok: true })
+    expect(destinatarios('decidir_l2', liquidacion, PENTA, ['kc'])).toEqual(['fh'])
+    const propia: Documento = { ...liquidacion, beneficiarioId: 'kc', cadena: CADENAS.kc }
+    expect(puedeActuar(KC, 'decidir_l1', propia, PENTA).ok).toBe(false)
+  })
+
+  it('aprobar el fondo no sirve para una liquidación, ni al revés', () => {
+    const fondo: Documento = { ...liquidacion, tipo: 'fondo' }
+    expect(enEtapa(fondo, 'fondo')).toEqual({ ok: true })
+    expect(enEtapa(liquidacion, 'liquidacion')).toEqual({ ok: true })
+    expect(enEtapa(liquidacion, 'fondo')).toEqual({ ok: false, motivo: 'Este fondo no está en esa etapa' })
+    expect(enEtapa(fondo, 'liquidacion')).toEqual({ ok: false, motivo: 'Este fondo no está en esa etapa' })
+  })
+
+  it('la etapa sale del estado: aprobar un fondo en liquidación queda bloqueado', () => {
+    const enLiquidacion: Documento = { ...liquidacion, tipo: tipoDeFondo('pending_liquidation_approval') }
+    expect(enEtapa(enLiquidacion, 'fondo').ok).toBe(false)
+    const recienEnviado: Documento = { ...liquidacion, tipo: tipoDeFondo('pending_approval') }
+    expect(enEtapa(recienEnviado, 'liquidacion').ok).toBe(false)
+  })
+})
+
+describe('autorizar exige una carga registrada (F3)', () => {
+  it('sin la entrada de carga en el historial nadie autoriza, tampoco quien cargó', () => {
+    const sinCarga = rendicionDe('fd', [{ actorId: 'fh', accion: 'approved', nivel: 2 }])
+    for (const p of [FH, RH]) {
+      const r = puedeActuar(p, 'autorizar_pago', sinCarga, PENTA)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.motivo).toBe('Todavía no hay una carga registrada para este pago')
+    }
+    expect(destinatarios('autorizar_pago', sinCarga, PENTA)).toEqual([])
+  })
+
+  it('con la carga registrada vuelve la regla normal', () => {
+    expect(puedeActuar(RH, 'autorizar_pago', rendicionDe('fd', [cargo('fh')]), PENTA)).toEqual({ ok: true })
+  })
+
+  it('también en un fondo', () => {
+    const fondo: Documento = { tipo: 'fondo', beneficiarioId: 'fd', cadena: CADENAS.fd, historial: [] }
+    expect(puedeActuar(FH, 'autorizar_pago', fondo, PENTA).ok).toBe(false)
+    expect(puedeActuar(FH, 'autorizar_pago', { ...fondo, historial: [cargo('kc')] }, PENTA)).toEqual({ ok: true })
+  })
+})
+
+describe('cadenaActiva: un aprobador inactivo cuenta como «sin aprobador» (F9)', () => {
+  it('deja la cadena igual si todos están activos', () => {
+    expect(cadenaActiva(CADENAS.fd, PENTA)).toEqual(CADENAS.fd)
+  })
+
+  it('anula N1, N2 y suplente si están inactivos o no son de la organización', () => {
+    const personas = [{ ...KC, activo: false }, FH, { ...RH, activo: false }, DM, FD]
+    expect(cadenaActiva({ l1: 'kc', l2: 'fh', suplenteL1Vigente: 'rh' }, personas))
+      .toEqual({ l1: null, l2: 'fh', suplenteL1Vigente: null })
+    expect(cadenaActiva({ l1: 'otra-org', l2: 'fuera', suplenteL1Vigente: null }, PENTA))
+      .toEqual({ l1: null, l2: null, suplenteL1Vigente: null })
+  })
+
+  it('con el N1 inactivo no se puede enviar, y el motivo dice que el admin ya sabe', () => {
+    const personas = [{ ...KC, activo: false }, FH, RH, DM, FD]
+    const r = puedeEnviar('rendicion', FD, cadenaActiva(CADENAS.fd, personas))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.motivo).toContain('administrador')
+  })
+
+  it('con el N2 inactivo, el N1 cierra solo: la cadena queda de un nivel', () => {
+    const personas = [KC, { ...FH, activo: false }, RH, DM, FD]
+    expect(cadenaActiva(CADENAS.fd, personas).l2).toBeNull()
   })
 })

@@ -101,6 +101,27 @@ export function tipoDeFondo(estado: string): 'fondo' | 'liquidacion' {
   return ESTADOS_DE_LIQUIDACION.has(estado) ? 'liquidacion' : 'fondo'
 }
 
+// Aprobar un fondo y aprobar su liquidación son dos acciones distintas, aunque
+// los dos pasos se llamen «decidir». Sin esta guarda, `approveFund` sobre una
+// liquidación volvía a mandar el fondo al banco, y `approveLiquidation` sobre un
+// fondo recién enviado lo daba por liquidado.
+export function enEtapa(doc: Documento, esperada: TipoDocumento): Resultado {
+  return doc.tipo === esperada ? OK : no('Este fondo no está en esa etapa')
+}
+
+// Un aprobador que ya no está activo (o que no es de la organización) cuenta
+// como «sin aprobador»: así el envío se bloquea y el admin recibe el aviso, en
+// vez de quedar el documento esperando a alguien que nunca va a entrar.
+export function cadenaActiva(cadena: Cadena, personas: Persona[]): Cadena {
+  const vigente = (id: string | null) =>
+    id && personas.some(p => p.id === id && p.activo) ? id : null
+  return {
+    l1:                vigente(cadena.l1),
+    l2:                vigente(cadena.l2),
+    suplenteL1Vigente: vigente(cadena.suplenteL1Vigente),
+  }
+}
+
 // La carga más reciente: una reversa de reembolso vuelve a pasar por carga.
 function ultimoCargador(historial: EntradaHistorial[]): string | null {
   for (let i = historial.length - 1; i >= 0; i--) {
@@ -143,7 +164,11 @@ function bloqueo(persona: Persona, paso: Paso, doc: Documento, personas: Persona
     case 'autorizar_pago': {
       if (!persona.can_authorize_bank_transfer) return 'No tienes el permiso «autoriza banco»'
       if (esBeneficiario) return 'No puedes autorizar el pago de lo tuyo'
-      if (ultimoCargador(doc.historial) === persona.id) return 'Tú cargaste este pago'
+      // Sin la carga en el historial no se sabe quién cargó, y la regla 3 no se
+      // puede comprobar: si la entrada no se guardó, nadie autoriza hasta aclararlo.
+      const cargador = ultimoCargador(doc.historial)
+      if (cargador === null) return 'Todavía no hay una carga registrada para este pago'
+      if (cargador === persona.id) return 'Tú cargaste este pago'
       return null
     }
   }
