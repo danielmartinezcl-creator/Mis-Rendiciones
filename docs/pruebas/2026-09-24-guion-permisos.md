@@ -14,12 +14,18 @@ empezar, acordar con Daniel si prefiere otra persona para ese papel.
 | RH | Puede aprobar · EFF · Carga banco + Suplente de carga · Autorizador banco + **Suplente de autorización** | N1 FH |
 | Daniel | Puede aprobar · EFF · Carga banco + Suplente de carga | N1 FH |
 
+**Antes de desplegar, fuera de la prueba:** toda persona que tenga que rendir necesita un
+aprobador N1 (y activo). Hoy la mayoría no lo tiene: el 2026-09-25, 50 de las 57 personas
+activas con «Puede rendir» estaban sin N1. Sin él, la app bloquea su envío («No tienes
+aprobador asignado…») y le avisa al administrador.
+
 ## Escenarios
 
 Después de cada paso, anotar **quién recibió correo** (debe ser solo quien se indica).
 
 1. **Flujo normal.** «Prueba» envía una rendición → correo solo a Katherine. Katherine
-   aprueba → solo FH. FH aprueba → solo Katherine (cargar). Katherine carga → solo FH.
+   aprueba → solo FH. FH aprueba → Katherine recibe «Cargar reembolso» y, en el mismo
+   momento, «Prueba» recibe «Rendición aprobada». Katherine carga → solo FH.
    FH autoriza → «Prueba» recibe «Reembolso procesado».
 2. **FH no decide el nivel 1.** Con una rendición recién enviada, FH abre el link
    `/approvals/<id>` → ve el motivo y ningún botón.
@@ -33,8 +39,9 @@ Después de cada paso, anotar **quién recibió correo** (debe ser solo quien se
 6. **Fondo propio.** Katherine crea un fondo a su nombre y lo envía → correo solo a FH.
    Katherine no ve botones para aprobarlo.
 7. **Fondo con dos niveles.** Katherine crea un fondo para «Prueba» → Katherine aprueba
-   (N1) → FH aprueba (N2) → Katherine carga → FH autoriza → «Prueba» y Katherine
-   reciben «Fondos enviados». «Prueba» liquida → Katherine → FH → «Liquidado».
+   (N1) → FH aprueba (N2) → Katherine carga → FH autoriza → **solo «Prueba»** recibe
+   «Fondos enviados» (Katherine no: el aviso es para quien recibe la plata). «Prueba»
+   liquida → Katherine → FH → «Liquidado» (este sí les llega a «Prueba» y a Katherine).
 8. **El admin no opera.** Daniel, en /banco, no ve la etapa de autorizar. En
    /admin/reports no hay «Iniciar proceso bancario», y «Marcar reembolsado» solo
    aparece en cargas históricas.

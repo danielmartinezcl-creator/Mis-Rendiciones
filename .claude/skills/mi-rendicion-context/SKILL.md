@@ -215,7 +215,8 @@ src/
 │   ├── exchange-rate.ts    ← TC histórico con cache 24h
 │   ├── fund-transfers.ts   ← traspasos entre cajas chicas
 │   ├── historical-import.ts ← importador Excel histórico
-│   ├── notifications.ts    ← in-app + Resend (requiere service role para email)
+│   ├── notifications.ts    ← solo getMyNotifications / markNotificationRead. Los avisos (in-app + Resend)
+│   │                         viven en src/lib/avisos.ts: como acciones del servidor, cualquier sesión los invocaba
 │   ├── ocr.ts              ← Claude Sonnet 4.6, ~$0.008/foto
 │   ├── petty-cash.ts       ← CRUD fondos, flujo bancario, liquidación
 │   ├── policies.ts         ← expense_policies CRUD + checkPolicyViolations + travel_policies CRUD + checkTravelPolicies
@@ -282,7 +283,8 @@ supabase/
 │   ├── 030_aprobador_puede_decidir.sql               ← WITH CHECK en la política del aprobador: un no-admin nunca pudo cerrar una rendición. Función es_aprobador_de()
 │   ├── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
 │   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
-│   └── 033_estado_solo_desde_servidor.sql            ← el estado y los montos aprobados solo los cambia el servidor; borra bank_is_backup
+│   ├── 033_estado_solo_desde_servidor.sql            ← ⏳ PENDIENTE DE APLICAR (se aplica tras el despliegue): estado, montos, a quién se paga e historiales solo desde el servidor. Pruebas: supabase/tests/033_proteccion.sql
+│   └── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -543,6 +545,11 @@ trigger de `updated_at`.
   cargar ni autorizar. Durante las pruebas también (sin interruptor, D2).
 - **Suplencia por función**: `bank_load_backup` y `bank_auth_backup`. FH es titular
   para autorizar y suplente para cargar.
+- **Aprobador inactivo = sin aprobador** (`cadenaActiva`): bloquea el envío y avisa al
+  admin. Por eso desactivar o borrar a alguien que está en cadenas ajenas pide reasignar
+  primero. **Autorizar exige una carga registrada** en el historial: sin ella nadie
+  autoriza (no se puede comprobar quién cargó). Aprobar un fondo y aprobar su
+  liquidación son acciones distintas (`enEtapa`).
 - **La aprobación final va directo a `pending_bank_load`**: no existe «Iniciar proceso
   bancario» ni «Enviar al banco». `approved` solo queda cuando no hay nada que pagar
   (o en cargas históricas). Para buscar aprobadas usar `ESTADOS_APROBADOS` /
@@ -710,7 +717,7 @@ trigger de `updated_at`.
 >   en el comentario de cabecera de `next.config.ts`.
 >
 > · *Notificaciones email* — **el código** está completo desde el 2026-08-12:
->   `lookupEmails()` en `actions/notifications.ts` usa `createAdminClient()` +
+>   `lookupEmails()` en `lib/avisos.ts` usa `createAdminClient()` +
 >   `getUserById()`, y todos los paths de envío pasan por ahí. Lo que falta no es
 >   código sino **la credencial** (punto 1 del backlog): no confundir una cosa con otra.
 >
@@ -910,4 +917,5 @@ trigger de `updated_at`.
 | Escribir `confirm()` o `alert()` en un componente | Son cajas del sistema operativo sin nada del diseño; el navegador les antepone el dominio («mi-rendicion.com dice:») y en Android parecen avisos de error | `await confirmar()` y `avisar()`. Quedan **0** nativos en `src/` desde `a1edf8f` — que no vuelva a entrar uno |
 | Dar permisos operativos por `role === 'admin'` | El admin se salteaba la segregación: aprobó, cargó y autorizó fondos solo | El admin configura, no opera. Cada paso pasa por `puedeActuar()` |
 | Mandar un aviso a «todos los que tienen el permiso» | Correos a quien no puede actuar; el permiso y el aviso salían de consultas distintas | `destinatarios()` de `permisos.ts`: la misma función decide quién puede y a quién avisar |
-| Cambiar un estado con el cliente de la sesión | Desde la 033 la base lo rechaza | Verificar con `exigirPaso` y escribir con `createAdminClient()` |
+| Cambiar un estado con el cliente de la sesión | Cuando se aplique la 033 (pendiente, va después del despliegue) la base lo rechaza; hasta entonces solo lo frena el código | Verificar con `exigirPaso` y escribir con `createAdminClient()` |
+| Exportar un `notify*` desde un archivo `'use server'` | Toda función exportada ahí es una acción del servidor que el navegador puede invocar con los argumentos que quiera: correos con nuestro remitente a quien elija | Los avisos van en `src/lib/avisos.ts` (módulo común). Lo escrito por personas entra al HTML con `escaparHtml()` |
