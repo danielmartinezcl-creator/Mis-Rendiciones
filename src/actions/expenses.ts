@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
+import { calculateReportTotal, validateExpenseItem, gastosEditables, RENDICION_CERRADA } from '@/lib/expense-helpers'
 import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { contextoRendicion } from '@/lib/contexto-permisos'
 import { puedeEnviar } from '@/lib/permisos'
@@ -84,6 +84,12 @@ export async function addExpenseItem(
 
   const errors = validateExpenseItem(item)
   if (errors.length > 0) throw new Error(errors.join(', '))
+
+  // Enviada la rendición, no entran gastos nuevos: el aprobador ya la está revisando
+  const { data: reporte } = await supabase
+    .from('expense_reports').select('status').eq('id', reportId).single()
+  if (!reporte) throw new Error('Rendición no encontrada')
+  if (!gastosEditables(reporte)) throw new Error(RENDICION_CERRADA)
 
   // Validar RUT de proveedor server-side — si es inválido, limpiar (no bloquear)
   let supplierRut = item.supplier_rut ?? null
@@ -174,14 +180,17 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('submitter_id')
+    .select('submitter_id, status, is_historical_import')
     .eq('id', reportId)
     .single()
 
   if (!report) throw new Error('Rendición no encontrada')
-  if (profile?.role !== 'admin' && report.submitter_id !== user.id) {
+  const esAdmin = profile?.role === 'admin'
+  if (!esAdmin && report.submitter_id !== user.id) {
     throw new Error('Sin permiso para eliminar ítems de esta rendición')
   }
+  // Solo en borrador; el admin además corrige cargas históricas (HistoricalSection)
+  if (!gastosEditables(report, esAdmin)) throw new Error(RENDICION_CERRADA)
 
   // Capture item before soft delete
   const { data: item } = await supabase

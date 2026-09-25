@@ -283,7 +283,7 @@ supabase/
 │   ├── 030_aprobador_puede_decidir.sql               ← WITH CHECK en la política del aprobador: un no-admin nunca pudo cerrar una rendición. Función es_aprobador_de()
 │   ├── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
 │   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
-│   ├── 033_estado_solo_desde_servidor.sql            ← ⏳ PENDIENTE DE APLICAR (se aplica tras el despliegue): estado, montos, a quién se paga e historiales solo desde el servidor. Pruebas: supabase/tests/033_proteccion.sql
+│   ├── 033_estado_solo_desde_servidor.sql            ← ⏳ PENDIENTE DE APLICAR (se aplica tras el despliegue): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y, sin rol admin, solo se toca con la rendición en borrador o el fondo en `funds_sent` (sección 3b). Pruebas: supabase/tests/033_proteccion.sql
 │   └── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
 └── seed.sql
 docs/superpowers/
@@ -918,4 +918,5 @@ trigger de `updated_at`.
 | Dar permisos operativos por `role === 'admin'` | El admin se salteaba la segregación: aprobó, cargó y autorizó fondos solo | El admin configura, no opera. Cada paso pasa por `puedeActuar()` |
 | Mandar un aviso a «todos los que tienen el permiso» | Correos a quien no puede actuar; el permiso y el aviso salían de consultas distintas | `destinatarios()` de `permisos.ts`: la misma función decide quién puede y a quién avisar |
 | Cambiar un estado con el cliente de la sesión | Cuando se aplique la 033 (pendiente, va después del despliegue) la base lo rechaza; hasta entonces solo lo frena el código | Verificar con `exigirPaso` y escribir con `createAdminClient()` |
+| Proteger el estado de un ítem y no el ítem | Las políticas de dueño de `expense_items` / `petty_cash_items` son ALL sin condición de estado: el rendidor movía un gasto aprobado a su borrador (se pagaba dos veces) y editaba montos de rendiciones en revisión | 033 §3b (`proteger_documento_item`) + `gastosEditables()` en las acciones. Una acción que escribe con la llave de servicio no pasa el patch del navegador tal cual: lista blanca de campos |
 | Exportar un `notify*` desde un archivo `'use server'` | Toda función exportada ahí es una acción del servidor que el navegador puede invocar con los argumentos que quiera: correos con nuestro remitente a quien elija | Los avisos van en `src/lib/avisos.ts` (módulo común). Lo escrito por personas entra al HTML con `escaparHtml()` |

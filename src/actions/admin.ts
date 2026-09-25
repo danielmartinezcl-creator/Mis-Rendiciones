@@ -513,10 +513,20 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   if (!report || report.org_id !== orgId || !report.is_historical_import)
     throw new Error('Sin permiso para editar este ítem')
 
+  // El patch llega del navegador tal cual —una acción del servidor recibe lo que
+  // le manden— y se escribe con la llave de servicio, que la 033 no frena. Solo
+  // pasan los campos de la edición inline: nunca `report_id` (mover un gasto
+  // aprobado a un borrador es un doble pago) ni `status`.
+  const campos = ['description', 'amount_clp', 'date', 'item_type', 'category_id', 'merchant'] as const
+  const limpio = Object.fromEntries(
+    campos.filter(c => patch[c] !== undefined).map(c => [c, patch[c]]),
+  ) as typeof patch
+  if (!Object.keys(limpio).length) return
+
   // Usar adminClient para el UPDATE porque RLS bloquea ediciones de ítems
   // cuyo submitter_id no es el usuario actual (el admin edita ítems de empleados)
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('expense_items').update(patch).eq('id', itemId)
+  const { error } = await adminClient.from('expense_items').update(limpio).eq('id', itemId)
   if (error) throw new Error(error.message)
 
   revalidatePath('/petty-cash')

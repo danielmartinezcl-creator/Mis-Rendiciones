@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
+import { calculateReportTotal, validateExpenseItem, gastosEditables } from '@/lib/expense-helpers'
 
 describe('calculateReportTotal', () => {
   it('suma los amount_clp de todos los ítems', () => {
@@ -35,5 +35,27 @@ describe('validateExpenseItem', () => {
   it('retorna array vacío si todos los campos son válidos', () => {
     const errors = validateExpenseItem({ description: 'Almuerzo cliente', amount: 15000, date: '2026-06-01' })
     expect(errors).toHaveLength(0)
+  })
+})
+
+describe('gastosEditables', () => {
+  it('en borrador, quien rinde agrega y quita gastos', () => {
+    expect(gastosEditables({ status: 'draft' })).toBe(true)
+  })
+
+  it('enviada o ya aprobada, nadie sin rol admin los toca: el doble pago entraba por acá', () => {
+    for (const status of ['submitted', 'pending_l2', 'approved', 'partially_approved', 'rejected', 'reimbursed']) {
+      expect(gastosEditables({ status, is_historical_import: false })).toBe(false)
+    }
+    // Una carga histórica a nombre del empleado tampoco: nace aprobada
+    expect(gastosEditables({ status: 'approved', is_historical_import: true })).toBe(false)
+  })
+
+  it('el admin corrige cargas históricas, que nacen cerradas', () => {
+    expect(gastosEditables({ status: 'approved', is_historical_import: true }, true)).toBe(true)
+  })
+
+  it('el admin no toca los gastos de una rendición en revisión', () => {
+    expect(gastosEditables({ status: 'submitted', is_historical_import: false }, true)).toBe(false)
   })
 })
