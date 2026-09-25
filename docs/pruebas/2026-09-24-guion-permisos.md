@@ -44,6 +44,9 @@ Después de cada paso, anotar **quién recibió correo** (debe ser solo quien se
    liquida → Katherine → FH → «Liquidado» (este sí les llega a «Prueba» y a Katherine).
 8. **El admin no opera.** Daniel, en /banco, no ve la etapa de autorizar. En
    /admin/reports no hay «Iniciar proceso bancario», y «Marcar reembolsado» solo
-   aparece en cargas históricas.
+   aparece en cargas históricas. **Tampoco agrega gastos al fondo de otra persona:**
+   con el fondo de «Prueba» en «Fondos enviados», Daniel lo abre y no ve cómo agregar,
+   editar ni borrar gastos, y en Gasto rápido (/quick) solo aparecen sus propios fondos.
+   Lo mismo en un borrador de «Prueba»: lo ve, pero sin «Agregar ítem» ni basurero.
 9. **Sin aprobador.** Quitarle el N1 a «Prueba» e intentar enviar → mensaje «No tienes
    aprobador asignado…», y Daniel recibe el aviso de configuración.

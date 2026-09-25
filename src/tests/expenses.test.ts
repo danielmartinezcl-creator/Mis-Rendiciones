@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { calculateReportTotal, validateExpenseItem, gastosEditables, soloCampos } from '@/lib/expense-helpers'
+import {
+  calculateReportTotal, validateExpenseItem, puedeCambiarGastos, soloCampos,
+  RENDICION_CERRADA, RENDICION_AJENA,
+} from '@/lib/expense-helpers'
 
 describe('calculateReportTotal', () => {
   it('suma los amount_clp de todos los ítems', () => {
@@ -38,25 +41,39 @@ describe('validateExpenseItem', () => {
   })
 })
 
-describe('gastosEditables', () => {
-  it('en borrador, quien rinde agrega y quita gastos', () => {
-    expect(gastosEditables({ status: 'draft' })).toBe(true)
+describe('puedeCambiarGastos', () => {
+  const YO   = 'u-rinde'
+  const OTRA = 'u-otra'
+
+  it('en su borrador, quien rinde agrega y quita gastos', () => {
+    expect(puedeCambiarGastos({ status: 'draft', submitter_id: YO }, YO)).toEqual({ ok: true })
   })
 
-  it('enviada o ya aprobada, nadie sin rol admin los toca: el doble pago entraba por acá', () => {
+  it('enviada o ya aprobada, ni quien rinde los toca: el doble pago entraba por acá', () => {
     for (const status of ['submitted', 'pending_l2', 'approved', 'partially_approved', 'rejected', 'reimbursed']) {
-      expect(gastosEditables({ status, is_historical_import: false })).toBe(false)
+      expect(puedeCambiarGastos({ status, submitter_id: YO, is_historical_import: false }, YO))
+        .toEqual({ ok: false, motivo: RENDICION_CERRADA })
     }
     // Una carga histórica a nombre del empleado tampoco: nace aprobada
-    expect(gastosEditables({ status: 'approved', is_historical_import: true })).toBe(false)
+    expect(puedeCambiarGastos({ status: 'approved', submitter_id: YO, is_historical_import: true }, YO))
+      .toEqual({ ok: false, motivo: RENDICION_CERRADA })
   })
 
-  it('el admin corrige cargas históricas, que nacen cerradas', () => {
-    expect(gastosEditables({ status: 'approved', is_historical_import: true }, true)).toBe(true)
+  it('en el borrador de otra persona, nadie: tampoco el admin (Daniel, 2026-09-25)', () => {
+    expect(puedeCambiarGastos({ status: 'draft', submitter_id: OTRA }, YO))
+      .toEqual({ ok: false, motivo: RENDICION_AJENA })
+    expect(puedeCambiarGastos({ status: 'draft', submitter_id: OTRA, is_historical_import: false }, YO, true))
+      .toEqual({ ok: false, motivo: RENDICION_AJENA })
   })
 
-  it('el admin no toca los gastos de una rendición en revisión', () => {
-    expect(gastosEditables({ status: 'submitted', is_historical_import: false }, true)).toBe(false)
+  it('primero el estado, después el dueño: lo mismo que responde la base', () => {
+    expect(puedeCambiarGastos({ status: 'submitted', submitter_id: OTRA, is_historical_import: false }, YO, true))
+      .toEqual({ ok: false, motivo: RENDICION_CERRADA })
+  })
+
+  it('el admin corrige cargas históricas, que nacen cerradas y a nombre de otro', () => {
+    expect(puedeCambiarGastos({ status: 'approved', submitter_id: OTRA, is_historical_import: true }, YO, true))
+      .toEqual({ ok: true })
   })
 })
 

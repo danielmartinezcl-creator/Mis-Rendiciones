@@ -345,7 +345,7 @@ export default function ExpenseDetailPage() {
           <div key={item.id}>
             <ExpenseItemCard
               item={item}
-              canDelete={isDraft}
+              canDelete={isMyDraft}
               onDelete={handleDeleteItem}
             />
             {/* La zona de adjuntos continúa la hoja del ítem de arriba en vez
@@ -430,7 +430,7 @@ export default function ExpenseDetailPage() {
       )}
 
       {/* Formulario de nuevo ítem */}
-      {showForm && isDraft && (
+      {showForm && isMyDraft && (
         <ExpenseItemForm
           categories={categories}
           costCenters={costCenters}
@@ -443,8 +443,9 @@ export default function ExpenseDetailPage() {
         />
       )}
 
-      {/* Acciones (solo borradores) */}
-      {isDraft && (
+      {/* Acciones: solo quien rinde, en su borrador. Ni el admin agrega o quita
+          gastos de la rendición de otra persona (decisión de Daniel, 2026-09-25) */}
+      {isMyDraft && (
         <div className="space-y-3 pt-2">
           {!showForm && (
             <button
@@ -467,7 +468,7 @@ export default function ExpenseDetailPage() {
             </button>
           )}
 
-          {isMyDraft && !showForm && (
+          {!showForm && (
             <button
               onClick={handleDeleteReport}
               disabled={deleting}

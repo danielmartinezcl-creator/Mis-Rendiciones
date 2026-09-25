@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 import type { FundStatus, Database } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateDateRange } from '@/lib/validators'
-import { soloCampos } from '@/lib/expense-helpers'
+import { soloCampos, FONDO_AJENO } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
 import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/contexto-permisos'
@@ -206,6 +206,9 @@ export async function rejectFund(fundId: string, notes: string) {
 }
 
 // ── Empleado: agregar ítem de gasto ──────────────────────────────────────────
+// Solo el empleado del fondo. El admin no agrega gastos al fondo de otra
+// persona (decisión de Daniel, 2026-09-25): configura, no opera. La 033 §3b
+// aplica la misma regla en la base.
 
 export async function addFundItem(fundId: string, item: {
   description:  string
@@ -221,7 +224,7 @@ export async function addFundItem(fundId: string, item: {
   supplier_rut?: string | null
   notes?:       string | null
 }) {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, userId } = await getProfile()
 
   const { data: fund, error: fundError } = await supabase
     .from('petty_cash_funds')
@@ -230,9 +233,7 @@ export async function addFundItem(fundId: string, item: {
     .single()
 
   if (fundError || !fund) throw new Error('Fondo no encontrado')
-  if (fund.employee_id !== userId && profile.role !== 'admin') {
-    throw new Error('Solo el empleado asignado puede agregar gastos')
-  }
+  if (fund.employee_id !== userId) throw new Error(FONDO_AJENO)
   if (fund.status !== 'funds_sent') {
     throw new Error('Solo se pueden agregar gastos cuando los fondos han sido enviados')
   }
@@ -311,7 +312,7 @@ export async function updateFundItem(itemId: string, patch: {
     .single()
 
   if (!fund) throw new Error('Fondo no encontrado')
-  if (fund.employee_id !== userId) throw new Error('Sin permiso para editar este ítem')
+  if (fund.employee_id !== userId) throw new Error(FONDO_AJENO)
   if (fund.status !== 'funds_sent') {
     throw new Error('Solo se pueden editar ítems cuando los fondos han sido enviados')
   }
@@ -357,9 +358,7 @@ export async function removeFundItem(itemId: string) {
 
   if (!fund) throw new Error('Fondo no encontrado')
 
-  if (fund.employee_id !== userId) {
-    throw new Error('Sin permiso')
-  }
+  if (fund.employee_id !== userId) throw new Error(FONDO_AJENO)
   if (fund.status !== 'funds_sent') {
     throw new Error('No se pueden eliminar ítems en este estado')
   }
@@ -561,6 +560,27 @@ export async function listPettyCashFunds() {
 }
 
 export type FundListItem = Awaited<ReturnType<typeof listPettyCashFunds>>[number]
+
+/* Los fondos donde la persona puede cargar gastos ahora: los suyos, con los
+   fondos enviados. Lo usa el gasto rápido (/quick). `listPettyCashFunds` no
+   sirve para eso: al admin le devuelve los de toda la organización, y a un
+   EFF o aprobador, los de su gente, y nadie carga gastos en el fondo de otra
+   persona (decisión de Daniel, 2026-09-25). */
+export async function listMyOpenFunds() {
+  const { supabase, userId } = await getProfile()
+
+  const { data } = await supabase
+    .from('petty_cash_funds')
+    .select('id, name, period_start, period_end')
+    .eq('employee_id', userId)
+    .eq('status', 'funds_sent')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  return data ?? []
+}
+
+export type FondoAbierto = Awaited<ReturnType<typeof listMyOpenFunds>>[number]
 
 export async function getFundDetail(fundId: string) {
   const { supabase, userId, profile } = await getProfile()

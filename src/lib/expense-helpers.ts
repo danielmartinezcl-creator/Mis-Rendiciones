@@ -1,18 +1,28 @@
 export const RENDICION_CERRADA = 'Esta rendición ya fue enviada: no se pueden cambiar sus gastos'
+export const RENDICION_AJENA   = 'Solo quien rinde puede cambiar los gastos de su rendición'
+export const FONDO_AJENO       = 'Solo el empleado del fondo puede cambiar sus gastos'
 
 /**
- * ¿Se pueden agregar o quitar gastos de esta rendición? Solo en borrador: lo
- * que el aprobador revisa, aprueba y se paga no puede cambiar debajo de él. El
- * admin además corrige cargas históricas, que nacen cerradas.
- * La base aplica la misma regla (migración 033, sección 3b); esto es para
- * responder con un mensaje claro antes de llegar a ella.
+ * ¿Puede esta persona agregar o quitar gastos de esta rendición?
+ *  - Solo en borrador: lo que el aprobador revisa, aprueba y se paga no puede
+ *    cambiar debajo de él.
+ *  - Solo quien rinde: ni el admin agrega o quita gastos de la rendición de
+ *    otra persona (decisión de Daniel, 2026-09-25; el admin configura, no opera).
+ *  - Excepción: el admin corrige cargas históricas, que nacen cerradas y a
+ *    nombre de otro.
+ * Mismo orden que la base (migración 033, sección 3b): primero el estado,
+ * después el dueño. Esto es para responder con un mensaje claro antes de
+ * llegar a ella.
  */
-export function gastosEditables(
-  reporte: { status: string; is_historical_import?: boolean | null },
+export function puedeCambiarGastos(
+  reporte: { status: string; submitter_id: string; is_historical_import?: boolean | null },
+  userId: string,
   esAdmin = false,
-): boolean {
-  if (reporte.status === 'draft') return true
-  return esAdmin && reporte.is_historical_import === true
+): { ok: true } | { ok: false; motivo: string } {
+  if (esAdmin && reporte.is_historical_import === true) return { ok: true }
+  if (reporte.status !== 'draft') return { ok: false, motivo: RENDICION_CERRADA }
+  if (reporte.submitter_id !== userId) return { ok: false, motivo: RENDICION_AJENA }
+  return { ok: true }
 }
 
 /**

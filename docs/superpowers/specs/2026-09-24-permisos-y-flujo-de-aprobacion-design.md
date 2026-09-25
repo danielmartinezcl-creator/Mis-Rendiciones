@@ -311,6 +311,21 @@ Aparecieron al leer el código en detalle. El plan
    importador histórico inserta con la sesión del admin.
 6. De paso, se reemplaza un `window.confirm` que quedaba en la pantalla del fondo.
 
+Decisiones de Daniel del 2026-09-25, al revisar la 033:
+
+7. **Los gastos de un documento vivo los cambia solo su dueño**: quien rinde la
+   rendición, mientras está en borrador, o el empleado del fondo, con los fondos
+   enviados. El admin no agrega, edita ni borra gastos del fondo ni de la rendición de
+   otra persona, tampoco desde el gasto rápido, que le lista solo sus propios fondos. Sí
+   reclasifica (categoría, centro de costo, marca de Defontana) y corrige cargas
+   históricas: eso es configurar, no operar (D1). Daniel lo decidió para los fondos; se
+   aplica igual a las rendiciones. Lo imponen la 033 (§3b) y `puedeCambiarGastos()`.
+8. **El EFF puede modificar las transferencias de sus fondos en cualquier estado.** La
+   política «manager manages transfers» sigue como está.
+9. **«Revertir reembolso» sigue devolviendo la rendición a la cola del banco**
+   (`pending_bank_load`, como dice la tabla de la sección 3). Una carga histórica
+   vuelve a `approved`.
+
 ---
 
 ## Fuera de alcance

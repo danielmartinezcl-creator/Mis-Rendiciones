@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { calculateReportTotal, validateExpenseItem, gastosEditables, RENDICION_CERRADA } from '@/lib/expense-helpers'
+import { calculateReportTotal, validateExpenseItem, puedeCambiarGastos } from '@/lib/expense-helpers'
 import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { contextoRendicion } from '@/lib/contexto-permisos'
 import { puedeEnviar } from '@/lib/permisos'
@@ -85,11 +85,13 @@ export async function addExpenseItem(
   const errors = validateExpenseItem(item)
   if (errors.length > 0) throw new Error(errors.join(', '))
 
-  // Enviada la rendición, no entran gastos nuevos: el aprobador ya la está revisando
+  // Solo quien rinde, y solo en borrador: enviada la rendición, el aprobador ya
+  // la está revisando. Ni el admin agrega gastos a la rendición de otra persona.
   const { data: reporte } = await supabase
-    .from('expense_reports').select('status').eq('id', reportId).single()
+    .from('expense_reports').select('status, submitter_id').eq('id', reportId).single()
   if (!reporte) throw new Error('Rendición no encontrada')
-  if (!gastosEditables(reporte)) throw new Error(RENDICION_CERRADA)
+  const permiso = puedeCambiarGastos(reporte, user.id)
+  if (!permiso.ok) throw new Error(permiso.motivo)
 
   // Validar RUT de proveedor server-side — si es inválido, limpiar (no bloquear)
   let supplierRut = item.supplier_rut ?? null
@@ -171,7 +173,6 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
 
-  // Verificar que el reporte pertenece al usuario (o es admin)
   const { data: profile } = await supabase
     .from('users')
     .select('role, org_id, full_name')
@@ -185,12 +186,10 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     .single()
 
   if (!report) throw new Error('Rendición no encontrada')
-  const esAdmin = profile?.role === 'admin'
-  if (!esAdmin && report.submitter_id !== user.id) {
-    throw new Error('Sin permiso para eliminar ítems de esta rendición')
-  }
-  // Solo en borrador; el admin además corrige cargas históricas (HistoricalSection)
-  if (!gastosEditables(report, esAdmin)) throw new Error(RENDICION_CERRADA)
+  // Quien rinde, en su borrador. El admin, además, corrige cargas históricas
+  // (HistoricalSection); en una rendición viva de otra persona, ya no.
+  const permiso = puedeCambiarGastos(report, user.id, profile?.role === 'admin')
+  if (!permiso.ok) throw new Error(permiso.motivo)
 
   // Capture item before soft delete
   const { data: item } = await supabase
