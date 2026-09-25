@@ -111,9 +111,10 @@ const PANELES: Panel[] = [
   { ruta: '/petty-cash', panel: 'Carga histórica',  pasos: [{ boton: 'Carga histórica' }], condicional: true },
 
   /* Las etapas de la cola bancaria: los KPI son el control, así que solo una se
-     pinta por vez y las otras dos serían punto ciego. Los botones son
-     `setEtapa(...)`, estado local puro. Condicionales porque un usuario sin el
-     permiso correspondiente no ve ese contador. */
+     pinta por vez y la otra sería punto ciego. Dos etapas, no tres: la del
+     admin («iniciar proceso bancario») se eliminó en la Tarea 6. Los botones
+     son `setEtapa(...)`, estado local puro. Condicionales porque un usuario
+     sin el permiso correspondiente no ve ese contador. */
   { ruta: '/banco', panel: 'Carga pendiente', condicional: true, pasos: [{ boton: 'Carga pendiente' }] },
   { ruta: '/banco', panel: 'Por autorizar',   condicional: true, pasos: [{ boton: 'Por autorizar' }] },
 

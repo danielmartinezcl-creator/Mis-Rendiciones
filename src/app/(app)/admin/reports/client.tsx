@@ -340,11 +340,12 @@ export function AdminReportsClient({ initialReports }: Props) {
       }
       // Advertir si alguna rendición ya fue exportada antes
       if (exportedReportIds.length > 0) {
-        const ok = window.confirm(
-          `⚠ ${exportedReportIds.length} rendición(es) ya fue(ron) contabilizada(s) en Defontana anteriormente.\n\n` +
-          `Exportar de nuevo puede generar asientos duplicados en la contabilidad.\n\n` +
-          `¿Deseas continuar de todas formas?`
-        )
+        const ok = await confirmar({
+          titulo:  `${exportedReportIds.length} rendición(es) ya fue(ron) contabilizada(s) en Defontana anteriormente`,
+          detalle: 'Exportar de nuevo puede generar asientos duplicados en la contabilidad.',
+          aceptar: 'Exportar de todas formas',
+          peligro: true,
+        })
         if (!ok) return
       }
       const { buildDefontanaEntries, exportDefontanaAuto } = await import('@/lib/export/defontana')

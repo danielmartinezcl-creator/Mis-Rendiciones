@@ -1,0 +1,42 @@
+# Guion de prueba — permisos por asignación
+
+Lo corren Katherine, Francisco Hagar (FH), Roberto Hagar (RH) y Daniel, cada uno con
+su usuario. «Daniel Martinez Prueba» hace de Francisco Díaz (el rendidor). Antes de
+empezar, acordar con Daniel si prefiere otra persona para ese papel.
+
+## Configuración previa (la hace Daniel en /admin/employees)
+
+| Persona | Permisos | Cadena |
+|---|---|---|
+| Daniel Martinez Prueba | Puede rendir | N1 Katherine · N2 FH |
+| Katherine | Puede aprobar · EFF · Carga banco | N1 FH |
+| FH | Puede aprobar · EFF · Carga banco + **Suplente de carga** · Autorizador banco | N1 RH |
+| RH | Puede aprobar · EFF · Carga banco + Suplente de carga · Autorizador banco + **Suplente de autorización** | N1 FH |
+| Daniel | Puede aprobar · EFF · Carga banco + Suplente de carga | N1 FH |
+
+## Escenarios
+
+Después de cada paso, anotar **quién recibió correo** (debe ser solo quien se indica).
+
+1. **Flujo normal.** «Prueba» envía una rendición → correo solo a Katherine. Katherine
+   aprueba → solo FH. FH aprueba → solo Katherine (cargar). Katherine carga → solo FH.
+   FH autoriza → «Prueba» recibe «Reembolso procesado».
+2. **FH no decide el nivel 1.** Con una rendición recién enviada, FH abre el link
+   `/approvals/<id>` → ve el motivo y ningún botón.
+3. **Katherine no está.** Otra rendición hasta «Carga bancaria pendiente». Carga FH
+   (desde /banco) → el correo de autorizar le llega **solo a RH**. FH no la ve en su
+   etapa de autorizar.
+4. **Rendición de FH.** FH rinde → correo solo a RH. RH aprueba → Katherine carga →
+   el correo de autorizar va **solo a RH**. FH no la ve para autorizar.
+5. **Nunca trabado.** Otra rendición de FH en carga: RH intenta cargarla → el sistema
+   dice que después nadie podría autorizarla y nombra a quién sí puede.
+6. **Fondo propio.** Katherine crea un fondo a su nombre y lo envía → correo solo a FH.
+   Katherine no ve botones para aprobarlo.
+7. **Fondo con dos niveles.** Katherine crea un fondo para «Prueba» → Katherine aprueba
+   (N1) → FH aprueba (N2) → Katherine carga → FH autoriza → «Prueba» y Katherine
+   reciben «Fondos enviados». «Prueba» liquida → Katherine → FH → «Liquidado».
+8. **El admin no opera.** Daniel, en /banco, no ve la etapa de autorizar. En
+   /admin/reports no hay «Iniciar proceso bancario», y «Marcar reembolsado» solo
+   aparece en cargas históricas.
+9. **Sin aprobador.** Quitarle el N1 a «Prueba» e intentar enviar → mensaje «No tienes
+   aprobador asignado…», y Daniel recibe el aviso de configuración.
