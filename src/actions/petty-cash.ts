@@ -4,12 +4,16 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import type { FundStatus } from '@/lib/supabase/types'
+import type { FundStatus, Database } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateStringLength, validateDateRange } from '@/lib/validators'
+import { soloCampos, FONDO_AJENO } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
-import { puedeOperarPago } from '@/lib/bank-helpers'
+import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/contexto-permisos'
+import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
+import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
+import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -26,21 +30,58 @@ async function getProfile() {
   return { supabase, userId: user.id, profile }
 }
 
+// El historial del fondo lo escribe solo el servidor: la 033 le quita a la
+// sesión el INSERT en petty_cash_approvals, porque de ese historial salen las
+// reglas (quién cargó, quién aprobó). El actor es siempre quien tiene la sesión.
+// Se llama después de una escritura que ya pasó por la RLS (crear el fondo,
+// registrar la transferencia), que es la que decide si la persona podía hacerlo.
 async function audit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   fundId: string,
   actorId: string,
-  action: string,
+  action: FundAuditAction,
   notes?: string | null,
   amount?: number | null,
 ) {
-  await supabase.from('petty_cash_approvals').insert({
+  const { error } = await createAdminClient().from('petty_cash_approvals').insert({
     fund_id:  fundId,
     actor_id: actorId,
-    action:   action as never,
+    action,
     notes:    notes ?? null,
     amount:   amount ?? null,
   })
+  if (error) console.error('[fondos] no se pudo registrar en el historial', fundId, action, error)
+}
+
+type FundUpdate      = Database['public']['Tables']['petty_cash_funds']['Update']
+type FundAuditAction = Database['public']['Tables']['petty_cash_approvals']['Insert']['action']
+
+// Toda transición de estado de un fondo pasa por acá: escribe con la llave de
+// servicio (desde la 033 la base rechaza cambios de estado desde una sesión) y
+// confirma que la fila cambió de verdad.
+async function moverFondo(ctx: ContextoFondo, desde: FundStatus, hacia: FundStatus, extra: FundUpdate = {}) {
+  const { data, error } = await ctx.admin
+    .from('petty_cash_funds')
+    .update({ ...extra, status: hacia })
+    .eq('id', ctx.fondo.id)
+    .eq('status', desde)
+    .select('id')
+  if (error || !data?.length) throw new Error('El fondo cambió mientras lo mirabas. Recarga la página')
+}
+
+async function registrar(
+  ctx: ContextoFondo, actorId: string, action: FundAuditAction,
+  opts: { notes?: string | null; amount?: number | null; level?: 1 | 2 | null } = {},
+) {
+  const { error } = await ctx.admin.from('petty_cash_approvals').insert({
+    fund_id: ctx.fondo.id, actor_id: actorId, action,
+    notes: opts.notes ?? null, amount: opts.amount ?? null, level: opts.level ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+function revalidarFondo(fundId: string) {
+  revalidatePath(`/petty-cash/${fundId}`)
+  revalidatePath('/petty-cash')
 }
 
 // ── Crear fondo ───────────────────────────────────────────────────────────────
@@ -95,7 +136,7 @@ export async function createPettyCashFund(data: {
 
   if (error) throw new Error(error.message)
 
-  await audit(supabase, fund.id, userId, 'created', null, data.amount_requested)
+  await audit(fund.id, userId, 'created', null, data.amount_requested)
   revalidatePath('/petty-cash')
   redirect(`/petty-cash/${fund.id}`)
 }
@@ -103,103 +144,71 @@ export async function createPettyCashFund(data: {
 // ── EFF: enviar a autorización ────────────────────────────────────────────────
 
 export async function submitFundForApproval(fundId: string) {
-  const { supabase, userId } = await getProfile()
+  const { userId } = await getProfile()
+  const ctx = await contextoFondo(fundId)
+  if (ctx.fondo.manager_id !== userId) throw new Error('Solo quien creó el fondo puede enviarlo')
+  if (ctx.fondo.status !== 'draft') throw new Error('Este fondo ya fue enviado')
 
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'pending_approval' as FundStatus })
-    .eq('id', fundId)
-    .eq('manager_id', userId)
-    .eq('status', 'draft')
+  const yo = ctx.personas.find(p => p.id === userId)
+  if (!yo) throw new Error('Fondo no encontrado')
+  const envio = puedeEnviar('fondo', yo, ctx.doc.cadena)
+  if (!envio.ok) {
+    if (!ctx.doc.cadena.l1) {
+      const beneficiario = ctx.personas.find(p => p.id === ctx.fondo.employee_id)?.nombre ?? 'Un empleado'
+      notifyAdminsMissingApprover(ctx.fondo.org_id, beneficiario, 'un fondo').catch(() => {})
+    }
+    throw new Error(envio.motivo)
+  }
 
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'submitted_for_approval')
-  revalidatePath(`/petty-cash/${fundId}`)
+  await moverFondo(ctx, 'draft', 'pending_approval')
+  await registrar(ctx, userId, 'submitted_for_approval')
+  notifyFundStep(fundId, 'decidir_l1', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
 // ── Aprobador: autorizar fondo ────────────────────────────────────────────────
 
 export async function approveFund(fundId: string, approvedAmount: number, notes?: string) {
-  const { supabase, userId, profile } = await getProfile()
+  const { userId } = await getProfile()
+  if (!(approvedAmount > 0)) throw new Error('El monto aprobado debe ser mayor que cero')
 
-  if (!profile.can_approve && profile.role !== 'admin') {
-    throw new Error('Sin permiso para aprobar fondos')
-  }
+  const ctx = await contextoFondo(fundId)
+  // Un fondo en liquidación también espera «decidir»: sin esto, aprobarlo acá
+  // lo devolvía a la cola del banco con la plata ya enviada.
+  const etapa = enEtapa(ctx.doc, 'fondo')
+  if (!etapa.ok) throw new Error(etapa.motivo)
+  const { paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Este fondo ya fue decidido')
+  const nivel = paso === 'decidir_l2' ? 2 : 1
+  const hacia = estadoTrasAprobacionFondo({ nivel, tieneL2: !!ctx.doc.cadena.l2 })
 
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'approved' as FundStatus, amount_approved: approvedAmount })
-    .eq('id', fundId)
-    .eq('status', 'pending_approval')
-
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'approved', notes ?? null, approvedAmount)
-  revalidatePath(`/petty-cash/${fundId}`)
-  revalidatePath('/petty-cash')
+  await moverFondo(ctx, ctx.fondo.status as FundStatus, hacia, { amount_approved: approvedAmount })
+  await registrar(ctx, userId, 'approved', { notes: notes ?? null, amount: approvedAmount, level: nivel })
+  notifyFundStep(fundId, hacia === 'pending_approval_l2' ? 'decidir_l2' : 'cargar_pago', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
 // ── Aprobador: rechazar fondo ─────────────────────────────────────────────────
 
 export async function rejectFund(fundId: string, notes: string) {
-  const { supabase, userId, profile } = await getProfile()
+  const { userId } = await getProfile()
+  if (!notes.trim()) throw new Error('Indica el motivo del rechazo')
 
-  if (!profile.can_approve && profile.role !== 'admin') {
-    throw new Error('Sin permiso para rechazar fondos')
-  }
+  const ctx = await contextoFondo(fundId)
+  // Vale en las dos etapas (fondo y liquidación: spec §2, «rechazo en cualquier
+  // nivel»). Con la plata ya enviada (`funds_sent`) no hay paso de decisión y
+  // `exigirPaso` lo rechaza.
+  const { paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Este fondo ya fue decidido')
 
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'rejected' as FundStatus })
-    .eq('id', fundId)
-    .in('status', ['pending_approval', 'pending_liquidation_approval'] as FundStatus[])
-
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'rejected', notes)
-  revalidatePath(`/petty-cash/${fundId}`)
-  revalidatePath('/petty-cash')
-}
-
-// ── EFF: registrar transferencia de fondos al empleado ───────────────────────
-
-export async function recordFundDisbursement(fundId: string, data: {
-  amount:         number
-  reference?:     string
-  transferred_at: string
-  notes?:         string
-}) {
-  const { supabase, userId } = await getProfile()
-
-  const { error: fundError } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'funds_sent' as FundStatus })
-    .eq('id', fundId)
-    .eq('manager_id', userId)
-    .eq('status', 'approved')
-
-  if (fundError) throw new Error(fundError.message)
-
-  const { error: txError } = await supabase
-    .from('petty_cash_transfers')
-    .insert({
-      fund_id:        fundId,
-      type:           'disbursement',
-      amount:         data.amount,
-      reference:      data.reference ?? null,
-      transferred_at: data.transferred_at,
-      registered_by:  userId,
-      notes:          data.notes ?? null,
-    })
-
-  if (txError) throw new Error(txError.message)
-
-  await audit(supabase, fundId, userId, 'funds_sent', data.reference ?? null, data.amount)
-  revalidatePath(`/petty-cash/${fundId}`)
+  await moverFondo(ctx, ctx.fondo.status as FundStatus, 'rejected')
+  await registrar(ctx, userId, 'rejected', { notes, level: paso === 'decidir_l2' ? 2 : 1 })
+  notifyFundOutcome(fundId, 'rejected', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
 // ── Empleado: agregar ítem de gasto ──────────────────────────────────────────
+// Solo el empleado del fondo. El admin no agrega gastos al fondo de otra
+// persona (decisión de Daniel, 2026-09-25): configura, no opera. La 033 §3b
+// aplica la misma regla en la base.
 
 export async function addFundItem(fundId: string, item: {
   description:  string
@@ -215,7 +224,7 @@ export async function addFundItem(fundId: string, item: {
   supplier_rut?: string | null
   notes?:       string | null
 }) {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, userId } = await getProfile()
 
   const { data: fund, error: fundError } = await supabase
     .from('petty_cash_funds')
@@ -224,9 +233,7 @@ export async function addFundItem(fundId: string, item: {
     .single()
 
   if (fundError || !fund) throw new Error('Fondo no encontrado')
-  if (fund.employee_id !== userId && profile.role !== 'admin') {
-    throw new Error('Solo el empleado asignado puede agregar gastos')
-  }
+  if (fund.employee_id !== userId) throw new Error(FONDO_AJENO)
   if (fund.status !== 'funds_sent') {
     throw new Error('Solo se pueden agregar gastos cuando los fondos han sido enviados')
   }
@@ -269,7 +276,11 @@ export async function addFundItem(fundId: string, item: {
   return creado.id as string
 }
 
-// ── Empleado/Admin: editar ítem ──────────────────────────────────────────────
+// ── Empleado: editar ítem ─────────────────────────────────────────────────────
+// Solo quien rinde el fondo, y solo con los fondos enviados. El admin ya no
+// tiene rama propia: configura, no opera (D1), y la 033 §3b tampoco se lo
+// deja con su sesión. Ningún fondo histórico pasa por acá: la carga histórica
+// de caja chica vive en expense_reports (HistoricalSection).
 
 export async function updateFundItem(itemId: string, patch: {
   description?:  string
@@ -282,35 +293,42 @@ export async function updateFundItem(itemId: string, patch: {
   supplier_rut?: string | null
   notes?:        string | null
 }) {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, userId } = await getProfile()
 
   const { data: item } = await supabase
     .from('petty_cash_items')
-    .select('fund_id')
+    .select('fund_id, transfer_id')
     .eq('id', itemId)
     .single()
 
   if (!item) throw new Error('Ítem no encontrado')
+  // Un traspaso deja un gasto en cada lado y se edita desde el traspaso
+  if (item.transfer_id) throw new Error('Los gastos de traspaso no se editan')
 
   const { data: fund } = await supabase
     .from('petty_cash_funds')
-    .select('employee_id, manager_id, status')
+    .select('employee_id, status')
     .eq('id', item.fund_id)
     .single()
 
   if (!fund) throw new Error('Fondo no encontrado')
-
-  const isEmployee = fund.employee_id === userId
-  const isAdmin    = profile.role === 'admin'
-
-  if (!isEmployee && !isAdmin) throw new Error('Sin permiso para editar este ítem')
-  if (fund.status !== 'funds_sent' && !isAdmin) {
+  if (fund.employee_id !== userId) throw new Error(FONDO_AJENO)
+  if (fund.status !== 'funds_sent') {
     throw new Error('Solo se pueden editar ítems cuando los fondos han sido enviados')
   }
 
+  // El patch llega del navegador tal cual: solo pasan los campos que manda el
+  // editor de gastos (EditFundItemForm). Nunca estado, fondo, organización,
+  // traspaso ni marca de Defontana.
+  const limpio = soloCampos(patch, [
+    'description', 'amount_clp', 'date', 'category_id', 'merchant',
+    'doc_type', 'doc_number', 'supplier_rut', 'notes',
+  ])
+  if (!Object.keys(limpio).length) return
+
   const { error } = await supabase
     .from('petty_cash_items')
-    .update(patch)
+    .update(limpio)
     .eq('id', itemId)
 
   if (error) throw new Error(error.message)
@@ -318,17 +336,19 @@ export async function updateFundItem(itemId: string, patch: {
 }
 
 // ── Empleado: eliminar ítem ───────────────────────────────────────────────────
+// Misma regla que editar: quien rinde el fondo, con los fondos enviados.
 
 export async function removeFundItem(itemId: string) {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, userId } = await getProfile()
 
   const { data: item } = await supabase
     .from('petty_cash_items')
-    .select('fund_id')
+    .select('fund_id, transfer_id')
     .eq('id', itemId)
     .single()
 
   if (!item) throw new Error('Ítem no encontrado')
+  if (item.transfer_id) throw new Error('Los gastos de traspaso se eliminan borrando el traspaso')
 
   const { data: fund } = await supabase
     .from('petty_cash_funds')
@@ -338,10 +358,8 @@ export async function removeFundItem(itemId: string) {
 
   if (!fund) throw new Error('Fondo no encontrado')
 
-  if (fund.employee_id !== userId && profile.role !== 'admin') {
-    throw new Error('Sin permiso')
-  }
-  if (fund.status !== 'funds_sent' && profile.role !== 'admin') {
+  if (fund.employee_id !== userId) throw new Error(FONDO_AJENO)
+  if (fund.status !== 'funds_sent') {
     throw new Error('No se pueden eliminar ítems en este estado')
   }
 
@@ -354,47 +372,24 @@ export async function removeFundItem(itemId: string) {
 // ── Empleado: enviar liquidación ──────────────────────────────────────────────
 
 export async function submitLiquidation(fundId: string) {
-  const { supabase, userId, profile } = await getProfile()
+  const { userId } = await getProfile()
+  const ctx = await contextoFondo(fundId)
+  if (ctx.fondo.employee_id !== userId) throw new Error('Solo el empleado asignado puede enviar la liquidación')
+  if (ctx.fondo.status !== 'funds_sent') throw new Error('Estado inválido')
 
-  const { data: fund } = await supabase
-    .from('petty_cash_funds')
-    .select('employee_id, status')
-    .eq('id', fundId)
-    .single()
-
-  if (!fund) throw new Error('Fondo no encontrado')
-  if (fund.employee_id !== userId && profile.role !== 'admin') {
-    throw new Error('Solo el empleado asignado puede enviar la liquidación')
+  const yo = ctx.personas.find(p => p.id === userId)
+  if (!yo) throw new Error('Fondo no encontrado')
+  const envio = puedeEnviar('liquidacion', yo, ctx.doc.cadena)
+  if (!envio.ok) {
+    if (!ctx.doc.cadena.l1) notifyAdminsMissingApprover(ctx.fondo.org_id, yo.nombre, 'una liquidación').catch(() => {})
+    throw new Error(envio.motivo)
   }
-  if (fund.status !== 'funds_sent') throw new Error('Estado inválido')
 
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'submitted' as FundStatus })
-    .eq('id', fundId)
-
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'liquidation_submitted')
-  revalidatePath(`/petty-cash/${fundId}`)
-}
-
-// ── EFF: elevar liquidación a aprobadores ─────────────────────────────────────
-
-export async function elevateLiquidation(fundId: string, notes?: string) {
-  const { supabase, userId } = await getProfile()
-
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'pending_liquidation_approval' as FundStatus })
-    .eq('id', fundId)
-    .eq('manager_id', userId)
-    .eq('status', 'submitted')
-
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'liquidation_elevated', notes ?? null)
-  revalidatePath(`/petty-cash/${fundId}`)
+  // Directo al N1: el paso «elevar» del EFF se eliminó (D6)
+  await moverFondo(ctx, 'funds_sent', 'pending_liquidation_approval')
+  await registrar(ctx, userId, 'liquidation_submitted')
+  notifyFundStep(fundId, 'decidir_l1', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
 // ── Aprobador: aprobar liquidación con decisión por ítem ──────────────────────
@@ -404,29 +399,60 @@ export async function approveLiquidation(
   decisions: { itemId: string; action: 'approved' | 'rejected'; reason?: string }[],
   notes?: string,
 ) {
-  const { supabase, userId, profile } = await getProfile()
+  const { userId } = await getProfile()
+  const ctx = await contextoFondo(fundId)
+  // Un fondo recién enviado también espera «decidir»: sin esto, aprobar su
+  // «liquidación» lo daba por liquidado sin que la plata hubiera salido.
+  const etapa = enEtapa(ctx.doc, 'liquidacion')
+  if (!etapa.ok) throw new Error(etapa.motivo)
+  const { paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Esta liquidación ya fue decidida')
+  const nivel = paso === 'decidir_l2' ? 2 : 1
 
-  if (!profile.can_approve && profile.role !== 'admin') {
-    throw new Error('Sin permiso para aprobar liquidaciones')
+  // Misma regla que en las rendiciones: un id ajeno no se toca, y ningún gasto
+  // pendiente puede quedar afuera — si no, la liquidación se cerraba con gastos
+  // que nadie revisó. Todo se valida antes de escribir nada.
+  const ids = decisions.map(d => d.itemId)
+  const { data: items, error: itemsError } = await ctx.admin
+    .from('petty_cash_items')
+    .select('id, status')
+    .eq('fund_id', fundId)
+  if (itemsError) throw new Error(itemsError.message)
+  const lista = items ?? []
+  if (lista.filter(i => ids.includes(i.id)).length !== new Set(ids).size) {
+    throw new Error('Hay gastos que no pertenecen a este fondo')
+  }
+  const decididos = new Set(ids)
+  if (lista.some(i => i.status === 'pending' && !decididos.has(i.id))) {
+    throw new Error('Debes decidir todos los gastos antes de aprobar la liquidación')
   }
 
   for (const d of decisions) {
-    await supabase.from('petty_cash_items')
-      .update({ status: d.action, rejection_reason: d.reason ?? null })
+    const { error } = await ctx.admin
+      .from('petty_cash_items')
+      .update({ status: d.action, rejection_reason: d.action === 'rejected' ? (d.reason ?? null) : null })
       .eq('id', d.itemId)
+      .eq('fund_id', fundId)
+    if (error) throw new Error(error.message)
   }
 
-  const { error } = await supabase
-    .from('petty_cash_funds')
-    .update({ status: 'settled' as FundStatus, settled_at: new Date().toISOString() })
-    .eq('id', fundId)
-    .eq('status', 'pending_liquidation_approval')
+  const hacia = estadoTrasLiquidacion({ nivel, tieneL2: !!ctx.doc.cadena.l2 })
+  if (hacia === 'pending_liquidation_l2') {
+    // El N2 revisa lo que el N1 aprobó; lo rechazado sigue rechazado
+    const { error } = await ctx.admin
+      .from('petty_cash_items')
+      .update({ status: 'pending' })
+      .eq('fund_id', fundId)
+      .eq('status', 'approved')
+    if (error) throw new Error(error.message)
+  }
 
-  if (error) throw new Error(error.message)
+  await moverFondo(ctx, ctx.fondo.status as FundStatus, hacia,
+    hacia === 'settled' ? { settled_at: new Date().toISOString() } : {})
+  await registrar(ctx, userId, 'liquidation_approved', { notes: notes ?? null, level: nivel })
 
-  await audit(supabase, fundId, userId, 'liquidation_approved', notes ?? null)
-  revalidatePath(`/petty-cash/${fundId}`)
-  revalidatePath('/petty-cash')
+  if (hacia === 'pending_liquidation_l2') notifyFundStep(fundId, 'decidir_l2', userId).catch(() => {})
+  else notifyFundOutcome(fundId, 'settled', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
 // ── EFF: registrar transferencia de diferencia ────────────────────────────────
@@ -452,7 +478,7 @@ export async function recordSettlement(fundId: string, data: {
 
   if (error) throw new Error(error.message)
 
-  await audit(supabase, fundId, userId, 'settled',
+  await audit(fundId, userId, 'settled',
     `${data.type === 'refund_to_employee' ? 'Devolución al empleado' : 'Reembolso a empresa'}: ${data.reference ?? ''}`.trim(),
     data.amount,
   )
@@ -495,7 +521,7 @@ export async function deletePettyCashFund(fundId: string) {
 // ── Consultas ─────────────────────────────────────────────────────────────────
 
 export async function listPettyCashFunds() {
-  const { supabase, userId, profile } = await getProfile()
+  const { supabase, profile } = await getProfile()
 
   let query = supabase
     .from('petty_cash_funds')
@@ -503,13 +529,10 @@ export async function listPettyCashFunds() {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (profile.role !== 'admin') {
-    if (profile.can_approve) {
-      query = query.or(`manager_id.eq.${userId},employee_id.eq.${userId},status.in.(pending_approval,pending_liquidation_approval)`)
-    } else {
-      query = query.or(`manager_id.eq.${userId},employee_id.eq.${userId}`)
-    }
-  } else {
+  // Qué fondos ve cada uno lo decide la RLS (migración 032): los suyos, los que
+  // creó, los de su cadena y los que esperan su paso en el banco. «Aprueba» ya
+  // no deja ver todos los pendientes de la empresa.
+  if (profile.role === 'admin') {
     query = query.eq('org_id', profile.org_id)
   }
 
@@ -538,6 +561,27 @@ export async function listPettyCashFunds() {
 
 export type FundListItem = Awaited<ReturnType<typeof listPettyCashFunds>>[number]
 
+/* Los fondos donde la persona puede cargar gastos ahora: los suyos, con los
+   fondos enviados. Lo usa el gasto rápido (/quick). `listPettyCashFunds` no
+   sirve para eso: al admin le devuelve los de toda la organización, y a un
+   EFF o aprobador, los de su gente, y nadie carga gastos en el fondo de otra
+   persona (decisión de Daniel, 2026-09-25). */
+export async function listMyOpenFunds() {
+  const { supabase, userId } = await getProfile()
+
+  const { data } = await supabase
+    .from('petty_cash_funds')
+    .select('id, name, period_start, period_end')
+    .eq('employee_id', userId)
+    .eq('status', 'funds_sent')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  return data ?? []
+}
+
+export type FondoAbierto = Awaited<ReturnType<typeof listMyOpenFunds>>[number]
+
 export async function getFundDetail(fundId: string) {
   const { supabase, userId, profile } = await getProfile()
 
@@ -563,6 +607,16 @@ export async function getFundDetail(fundId: string) {
   const { data: auditorUsers } = await supabase.from('users').select('id, full_name').in('id', auditorIds)
   const auditorMap = Object.fromEntries((auditorUsers ?? []).map(u => [u.id, u.full_name]))
 
+  // Un fondo en la papelera (abierto desde /admin/trash) no tiene contexto —
+  // `contextoFondo` exige `deleted_at is null` — y eso no puede tumbar la
+  // pantalla: sin permiso, simplemente no se puede accionar nada acá.
+  let permiso: { paso: Paso | null; ok: boolean; motivo: string | null; esperandoA: string[] }
+  try {
+    permiso = permisoEn(await contextoFondo(fundId), fund.status, userId)
+  } catch {
+    permiso = { paso: null, ok: false, motivo: null, esperandoA: [] }
+  }
+
   return {
     fund,
     items:      itemsRes.data ?? [],
@@ -571,6 +625,7 @@ export async function getFundDetail(fundId: string) {
     categories: categoriesRes.data ?? [],
     employee_name: userMap[fund.employee_id] ?? 'Desconocido',
     manager_name:  userMap[fund.manager_id]  ?? 'Desconocido',
+    permiso,
     currentUser: {
       id:                          userId,
       role:                        profile.role,
@@ -586,68 +641,24 @@ export type FundDetail = NonNullable<Awaited<ReturnType<typeof getFundDetail>>>
 
 // ── Workflow bancario ─────────────────────────────────────────────────────────
 
-/** Paso 1: Admin/manager envía el fondo aprobado al proceso bancario */
-export async function requestBankLoad(fundId: string) {
-  const { supabase, userId, profile } = await getProfile()
-
-  if (!profile.can_manage_petty_cash && profile.role !== 'admin') {
-    throw new Error('Sin permiso para iniciar el proceso bancario')
-  }
-
-  const admin = createAdminClient()
-  const { error } = await (await admin)
-    .from('petty_cash_funds')
-    .update({ status: 'pending_bank_load' as FundStatus })
-    .eq('id', fundId)
-    .eq('status', 'approved')
-
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'bank_load_requested')
-  revalidatePath(`/petty-cash/${fundId}`)
-  revalidatePath('/petty-cash')
-}
-
-// Mismo control que en rendiciones: el encargado del fondo puede cargar o
-// autorizar su propia transferencia solo si otra persona aprobó el fondo.
-async function exigirFondoOperable(fundId: string, actorId: string) {
-  const admin = await createAdminClient()
-  const { data: fund } = await admin
-    .from('petty_cash_funds').select('employee_id').eq('id', fundId).single()
-  if (!fund) throw new Error('Fondo no encontrado')
-
-  const { data: log } = await admin
-    .from('petty_cash_approvals').select('actor_id, action').eq('fund_id', fundId)
-
-  if (!puedeOperarPago(actorId, fund.employee_id, log ?? [])) {
-    throw new Error('No puedes operar la transferencia de tu propio fondo: tiene que haberlo aprobado otra persona')
-  }
-}
-
-/** Paso 2: Encargado de carga bancaria confirma que cargó la transferencia */
+/** Carga: quien tiene «carga banco» confirma la transferencia del fondo */
 export async function confirmBankLoad(fundId: string, data: {
   amount:         number
   reference?:     string
   transferred_at: string
   notes?:         string
 }) {
-  const { supabase, userId, profile } = await getProfile()
+  const { userId } = await getProfile()
+  const ctx = await contextoFondo(fundId)
+  exigirPaso(ctx, ctx.fondo.status, userId, ['cargar_pago'], 'Este fondo ya no está esperando la carga')
 
-  if (!profile.can_load_bank_transfer && profile.role !== 'admin') {
-    throw new Error('Sin permiso para confirmar carga bancaria')
-  }
-  await exigirFondoOperable(fundId, userId)
+  // El orden se queda así: el historial es de solo agregar, así que escribirlo
+  // antes de mover el estado dejaría una «carga» registrada que quizá nunca
+  // ocurrió. Si algo falla después de moverlo, la autorización queda trabada
+  // por la regla «sin carga registrada nadie autoriza» (permisos.ts), no abierta.
+  await moverFondo(ctx, 'pending_bank_load', 'pending_bank_auth')
 
-  const admin = createAdminClient()
-  const { error: fundError } = await (await admin)
-    .from('petty_cash_funds')
-    .update({ status: 'pending_bank_auth' as FundStatus })
-    .eq('id', fundId)
-    .eq('status', 'pending_bank_load')
-
-  if (fundError) throw new Error(fundError.message)
-
-  await supabase.from('petty_cash_transfers').insert({
+  const { error } = await ctx.admin.from('petty_cash_transfers').insert({
     fund_id:        fundId,
     type:           'disbursement',
     amount:         data.amount,
@@ -656,34 +667,32 @@ export async function confirmBankLoad(fundId: string, data: {
     registered_by:  userId,
     notes:          data.notes ?? null,
   })
+  if (error) {
+    console.error('[fondos] carga marcada sin transferencia registrada', fundId, error)
+    throw new Error('La carga quedó marcada, pero no se pudo registrar la transferencia. Avisa al administrador: nadie podrá autorizarla hasta corregirlo')
+  }
 
-  await audit(supabase, fundId, userId, 'bank_load_confirmed', data.reference ?? null, data.amount)
-  revalidatePath(`/petty-cash/${fundId}`)
-  revalidatePath('/petty-cash')
+  try {
+    await registrar(ctx, userId, 'bank_load_confirmed', { notes: data.reference ?? null, amount: data.amount })
+  } catch (e) {
+    console.error('[fondos] carga marcada sin entrada en el historial', fundId, e)
+    throw new Error('La carga quedó marcada, pero no quedó en el historial. Avisa al administrador: nadie podrá autorizarla hasta corregirlo')
+  }
+  notifyFundStep(fundId, 'autorizar_pago', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
-/** Paso 3: Autorizador bancario aprueba la transferencia → fondos enviados */
+/** Autorización: la plata sale. Nunca el beneficiario ni quien cargó */
 export async function authorizeBank(fundId: string) {
-  const { supabase, userId, profile } = await getProfile()
+  const { userId } = await getProfile()
+  const ctx = await contextoFondo(fundId)
+  exigirPaso(ctx, ctx.fondo.status, userId, ['autorizar_pago'], 'Este fondo ya no está esperando la autorización')
 
-  if (!profile.can_authorize_bank_transfer && profile.role !== 'admin') {
-    throw new Error('Sin permiso para autorizar transferencias bancarias')
-  }
-  await exigirFondoOperable(fundId, userId)
-
-  const admin = createAdminClient()
-  const { error } = await (await admin)
-    .from('petty_cash_funds')
-    .update({ status: 'funds_sent' as FundStatus })
-    .eq('id', fundId)
-    .eq('status', 'pending_bank_auth')
-
-  if (error) throw new Error(error.message)
-
-  await audit(supabase, fundId, userId, 'bank_authorized')
-  await audit(supabase, fundId, userId, 'funds_sent')
-  revalidatePath(`/petty-cash/${fundId}`)
-  revalidatePath('/petty-cash')
+  await moverFondo(ctx, 'pending_bank_auth', 'funds_sent')
+  await registrar(ctx, userId, 'bank_authorized')
+  await registrar(ctx, userId, 'funds_sent')
+  notifyFundOutcome(fundId, 'funds_sent', userId).catch(() => {})
+  revalidarFondo(fundId)
 }
 
 // ── Categorías activas (para filtros) ────────────────────────────────────────

@@ -9,9 +9,12 @@ import { logAudit } from '@/lib/audit'
 import { revisarConfigCorreo } from '@/lib/email-helpers'
 import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
+import { soloCampos } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaMovement } from '@/lib/export/defontana'
-import { puedeOperarPago } from '@/lib/bank-helpers'
+import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
+import { cargarPersonas } from '@/lib/contexto-permisos'
+import { puedeActuar, pasoSegunEstado, validarCadena, dependientesDe, type Documento } from '@/lib/permisos'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -28,6 +31,43 @@ async function requireAdmin() {
     throw new Error('Acceso restringido a administradores')
   }
   return { supabase, userId: user.id, orgId: profile.org_id, actorName: profile.full_name }
+}
+
+// Sacar de la nómina (desactivar, papelera, bloqueo) a alguien que está en la
+// cadena de otros dejaría esos documentos esperando a quien ya no puede entrar:
+// primero hay que reasignarlos. Mismo control que `updateEmployee`.
+// No cuentan quienes ya salieron de la nómina (papelera o bloqueados: su cadena
+// no se puede editar desde la pantalla) ni quienes salen en esta misma operación.
+// Devuelve, por cada persona, los nombres que dependen de ella.
+async function dependientesPorPersona(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId:    string,
+  userIds:  string[],
+): Promise<Record<string, string[]>> {
+  const { data: empleados, error } = await supabase
+    .from('users')
+    .select('id, full_name, approver_l1_id, approver_l2_id, approver_l1_backup_id')
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .is('blocked_at', null)
+  if (error) throw new Error(error.message)
+
+  const salen  = new Set(userIds)
+  const quedan = (empleados ?? []).filter(e => !salen.has(e.id)).map(e => ({
+    id: e.id, nombre: e.full_name, l1: e.approver_l1_id, l2: e.approver_l2_id, suplenteL1: e.approver_l1_backup_id,
+  }))
+  return Object.fromEntries(userIds.map(id => [id, dependientesDe(id, quedan)]))
+}
+
+const mensajeDependientes = (nombres: string[]) => `Primero reasigna a quienes aprueba: ${nombres.join(', ')}`
+
+async function exigirSinDependientes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId:    string,
+  userId:   string,
+) {
+  const deps = (await dependientesPorPersona(supabase, orgId, [userId]))[userId]
+  if (deps.length) throw new Error(mensajeDependientes(deps))
 }
 
 // ─── Helpers de export Defontana ─────────────────────────────────────────────
@@ -199,7 +239,7 @@ export async function getAdminKpis() {
       .eq('org_id', orgId).in('status', ['submitted', 'pending_l2']).is('deleted_at', null),
     // Rendiciones aprobadas sin reembolsar (excluye cargas históricas de caja chica — la empresa dio dinero, no el empleado)
     supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
-      .eq('org_id', orgId).in('status', ['approved', 'partially_approved']).is('deleted_at', null)
+      .eq('org_id', orgId).in('status', ESTADOS_POR_PAGAR).is('deleted_at', null)
       .or('is_historical_import.eq.false,historical_type.eq.rendicion'),
     // Rendiciones reembolsadas
     supabase.from('expense_reports').select('id, approved_amount', { count: 'exact' })
@@ -428,7 +468,7 @@ export async function getPendingReimbursementList() {
     supabase.from('expense_reports')
       .select('id, title, submitter_id, approved_amount, approved_at, status')
       .eq('org_id', orgId)
-      .in('status', ['approved', 'partially_approved'])
+      .in('status', ESTADOS_POR_PAGAR)
       .is('deleted_at', null)
       // Solo rendiciones donde el empleado gastó de su bolsillo; excluye cajas históricas
       .or('is_historical_import.eq.false,historical_type.eq.rendicion')
@@ -466,18 +506,32 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   const { supabase, orgId } = await requireAdmin()
 
   const { data: item } = await supabase
-    .from('expense_items').select('report_id').eq('id', itemId).is('deleted_at', null).single()
+    .from('expense_items').select('report_id, transfer_id, item_type')
+    .eq('id', itemId).is('deleted_at', null).single()
   if (!item) throw new Error('Ítem no encontrado')
+
+  // Un traspaso deja un gasto en cada lado y se edita desde el traspaso, que
+  // mueve los dos (fund-transfers.ts). La pantalla ya esconde el lápiz; esto
+  // es para que tampoco se pueda por fuera de ella.
+  if (item.transfer_id || item.item_type === 'transfer') throw new Error('Los gastos de traspaso no se editan')
+  if (patch?.item_type === 'transfer') throw new Error('Un gasto no se convierte en traspaso: los traspasos se registran aparte')
 
   const { data: report } = await supabase
     .from('expense_reports').select('org_id, is_historical_import').eq('id', item.report_id).single()
   if (!report || report.org_id !== orgId || !report.is_historical_import)
     throw new Error('Sin permiso para editar este ítem')
 
+  // El patch llega del navegador tal cual y se escribe con la llave de
+  // servicio, que la 033 no frena. Solo pasan los campos de la edición inline:
+  // nunca `report_id` (mover un gasto aprobado a un borrador es un doble pago)
+  // ni `status`.
+  const limpio = soloCampos(patch, ['description', 'amount_clp', 'date', 'item_type', 'category_id', 'merchant'])
+  if (!Object.keys(limpio).length) return
+
   // Usar adminClient para el UPDATE porque RLS bloquea ediciones de ítems
   // cuyo submitter_id no es el usuario actual (el admin edita ítems de empleados)
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('expense_items').update(patch).eq('id', itemId)
+  const { error } = await adminClient.from('expense_items').update(limpio).eq('id', itemId)
   if (error) throw new Error(error.message)
 
   revalidatePath('/petty-cash')
@@ -612,7 +666,11 @@ export async function enableBlockedEmployee(userId: string) {
 
 export async function deactivateEmployee(userId: string) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
-  await supabase.from('users').update({ is_active: false }).eq('id', userId)
+  await exigirSinDependientes(supabase, orgId, userId)
+  const { data: desactivado, error } = await supabase
+    .from('users').update({ is_active: false }).eq('id', userId).eq('org_id', orgId).select('id')
+  if (error) throw new Error(error.message)
+  if (!desactivado?.length) throw new Error('No se pudo desactivar al empleado')
 
   try {
     await logAudit({
@@ -630,6 +688,7 @@ export async function deactivateEmployee(userId: string) {
 
 export async function deleteEmployee(userId: string) {
   const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
+  await exigirSinDependientes(supabase, orgId, userId)
 
   // Capture before state
   const { data: emp } = await supabase
@@ -670,9 +729,14 @@ export async function deleteEmployees(userIds: string[]): Promise<{ id: string; 
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   const adminClient = createAdminClient()
 
+  // Quien tiene dependientes fuera del lote no se borra: vuelve con su error y
+  // el resto sigue. Si A aprueba a B y los dos salen juntos, no cuenta.
+  const deps = await dependientesPorPersona(supabase, orgId, userIds)
+
   const deletedAt = new Date().toISOString()
   const results = await Promise.all(
     userIds.map(async (id) => {
+      if (deps[id]?.length) return { id, error: mensajeDependientes(deps[id]) }
       const { error } = await supabase
         .from('users')
         .update({ deleted_at: deletedAt, is_active: false })
@@ -710,7 +774,8 @@ export async function updateEmployee(
     can_manage_petty_cash?:      boolean
     can_load_bank_transfer?:     boolean
     can_authorize_bank_transfer?: boolean
-    bank_is_backup?:             boolean
+    bank_load_backup?:           boolean
+    bank_auth_backup?:           boolean
     is_active?:                  boolean
     full_name?:                  string
     rut?:                        string | null
@@ -724,13 +789,19 @@ export async function updateEmployee(
   // Capture before state
   const { data: before } = await supabase
     .from('users')
-    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_is_backup, rut, bank_account, blocked_at')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_load_backup, bank_auth_backup, rut, bank_account, blocked_at')
     .eq('id', userId)
     .single()
 
   // Activar a un bloqueado lo dejaría activo pero todavía baneado en auth.
   if (updates.is_active && before?.blocked_at) {
     throw new Error('Este empleado está bloqueado: usá «Habilitar» para devolverle el acceso')
+  }
+
+  // Quitarle «aprueba» o desactivar a alguien que está en cadenas ajenas las
+  // dejaría sin quién decida: primero hay que reasignarlas.
+  if (updates.can_approve === false || updates.is_active === false) {
+    await exigirSinDependientes(supabase, orgId, userId)
   }
 
   const { error } = await supabase
@@ -967,37 +1038,51 @@ export async function addPolicy(data: {
   revalidatePath('/admin/settings')
 }
 
-export async function setEmployeeApprovers(
+export async function setEmployeeApprovalChain(
   userId: string,
-  approverL1Id: string | null,
-  approverL2Id: string | null
+  chain: {
+    l1:            string | null
+    l2:            string | null
+    suplenteL1:    string | null
+    suplenteDesde: string | null
+    suplenteHasta: string | null
+  },
 ) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
-  // Capture before state
-  const { data: employee } = await supabase
-    .from('users').select('full_name, approver_l1_id, approver_l2_id').eq('id', userId).single()
-
-  // Verificar que los aprobadores pertenezcan a la misma org
-  if (approverL1Id) {
-    const { data: l1 } = await supabase.from('users').select('org_id').eq('id', approverL1Id).single()
-    if (!l1 || l1.org_id !== orgId) throw new Error('Aprobador N1 no pertenece a esta organización')
-  }
-  if (approverL2Id) {
-    const { data: l2 } = await supabase.from('users').select('org_id').eq('id', approverL2Id).single()
-    if (!l2 || l2.org_id !== orgId) throw new Error('Aprobador N2 no pertenece a esta organización')
-  }
-
-  const { error } = await supabase
+  const { data: before } = await supabase
     .from('users')
-    .update({
-      approver_l1_id: approverL1Id,
-      approver_l2_id: approverL2Id,
-    })
+    .select('full_name, approver_l1_id, approver_l2_id, approver_l1_backup_id, backup_active_from, backup_active_until')
     .eq('id', userId)
     .eq('org_id', orgId)
+    .single()
+  if (!before) throw new Error('Empleado no encontrado')
 
-  if (error) throw new Error(error.message)
+  const personas = await cargarPersonas(createAdminClient(), orgId)
+  const errores  = validarCadena(userId, { l1: chain.l1, l2: chain.l2, suplenteL1: chain.suplenteL1 }, personas)
+  if (chain.suplenteL1 && (!chain.suplenteDesde || !chain.suplenteHasta)) {
+    errores.push('El suplente necesita fecha de inicio y de término')
+  }
+  if (chain.suplenteDesde && chain.suplenteHasta && chain.suplenteDesde > chain.suplenteHasta) {
+    errores.push('La fecha de término del suplente es anterior a la de inicio')
+  }
+  if (errores.length) throw new Error(errores.join('. '))
+
+  const nuevo = {
+    approver_l1_id:        chain.l1,
+    approver_l2_id:        chain.l2,
+    approver_l1_backup_id: chain.suplenteL1,
+    backup_active_from:    chain.suplenteL1 ? chain.suplenteDesde : null,
+    backup_active_until:   chain.suplenteL1 ? chain.suplenteHasta : null,
+  }
+
+  const { data: guardado, error } = await supabase
+    .from('users')
+    .update(nuevo)
+    .eq('id', userId)
+    .eq('org_id', orgId)
+    .select('id')
+  if (error || !guardado?.length) throw new Error(error?.message ?? 'No se pudo guardar la cadena')
 
   await logAudit({
     orgId,
@@ -1006,61 +1091,9 @@ export async function setEmployeeApprovers(
     action:      'config_changed',
     entityType:  'approver_assignment',
     entityId:    userId,
-    entityLabel: employee?.full_name ?? userId,
-    oldValue:    { approver_l1_id: employee?.approver_l1_id, approver_l2_id: employee?.approver_l2_id },
-    newValue:    { approver_l1_id: approverL1Id, approver_l2_id: approverL2Id },
-  })
-
-  revalidatePath('/admin/employees')
-}
-
-export async function setEmployeeBackupApprover(
-  userId: string,
-  backupApproverL1Id: string | null,
-  backupActiveFrom: string | null,
-  backupActiveUntil: string | null
-) {
-  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
-
-  // Capture before state
-  const { data: employee } = await supabase
-    .from('users').select('full_name, approver_l1_backup_id, backup_active_from, backup_active_until').eq('id', userId).single()
-
-  if (backupApproverL1Id) {
-    const { data: backup } = await supabase.from('users').select('org_id').eq('id', backupApproverL1Id).single()
-    if (!backup || backup.org_id !== orgId) throw new Error('Aprobador suplente no pertenece a esta organización')
-  }
-
-  const { error } = await supabase
-    .from('users')
-    .update({
-      approver_l1_backup_id: backupApproverL1Id,
-      backup_active_from:    backupActiveFrom,
-      backup_active_until:   backupActiveUntil,
-    })
-    .eq('id', userId)
-    .eq('org_id', orgId)
-
-  if (error) throw new Error(error.message)
-
-  await logAudit({
-    orgId,
-    actorId,
-    actorName,
-    action:      'config_changed',
-    entityType:  'approver_assignment',
-    entityId:    userId,
-    entityLabel: employee?.full_name ?? userId,
-    oldValue:    {
-      approver_l1_backup_id: employee?.approver_l1_backup_id,
-      backup_active_from:    employee?.backup_active_from,
-      backup_active_until:   employee?.backup_active_until,
-    },
-    newValue:    {
-      approver_l1_backup_id: backupApproverL1Id,
-      backup_active_from:    backupActiveFrom,
-      backup_active_until:   backupActiveUntil,
-    },
+    entityLabel: before.full_name ?? userId,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    nuevo as unknown as Record<string, unknown>,
   })
 
   revalidatePath('/admin/employees')
@@ -1201,7 +1234,7 @@ export async function getDefontanaExportData(filters: {
     .from('expense_reports')
     .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at, defontana_export_ref')
     .eq('org_id', orgId)
-    .in('status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('status', ESTADOS_APROBADOS)
     .is('deleted_at', null)
     .order('approved_at', { ascending: true })
 
@@ -1650,6 +1683,7 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
     // Un usuario no se borra: bloquea. Su historial (auditoría, rendiciones) lo
     // referencia y audit_log no admite el SET NULL de la cascada (migración 027).
     // Sale de la papelera y solo un admin lo habilita desde la nómina.
+    await exigirSinDependientes(supabase, orgId, id)
     const { data: before } = await supabase
       .from('users').select('full_name').eq('id', id).single()
     const { data: blocked, error } = await supabase
@@ -1852,7 +1886,7 @@ export async function getExpensesByCenter(monthsBack = 6): Promise<{
       expense_reports!inner (org_id, status, deleted_at, submitter_id)
     `)
     .eq('expense_reports.org_id', orgId)
-    .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('expense_reports.status', ESTADOS_APROBADOS)
     .eq('status', 'approved')
     .gte('date', dateFrom)
     .is('expense_reports.deleted_at', null)
@@ -1952,7 +1986,7 @@ export async function getItemsWithoutCC(): Promise<ItemWithoutCC[]> {
       expense_reports!inner (id, title, org_id, status, deleted_at, submitter_id)
     `)
     .eq('expense_reports.org_id', orgId)
-    .in('expense_reports.status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('expense_reports.status', ESTADOS_APROBADOS)
     .eq('status', 'approved')
     .is('cost_center_id', null)
     .is('expense_reports.deleted_at', null)
@@ -2285,7 +2319,7 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
     .from('expense_reports')
     .select('id')
     .eq('org_id', orgId)
-    .in('status', ['approved', 'partially_approved', 'reimbursed'])
+    .in('status', ESTADOS_APROBADOS)
     .is('deleted_at', null)
 
   if (!reportIds || reportIds.length === 0) return []
@@ -2551,92 +2585,92 @@ export interface BankQueueReport {
 }
 
 export interface BankQueueResult {
-  isAdmin: boolean
   canLoad: boolean
   canAuth: boolean
   reports: BankQueueReport[]
 }
-
-type BankStatus = 'approved' | 'partially_approved' | 'pending_bank_load' | 'pending_bank_auth'
 
 export async function getBankQueue(): Promise<BankQueueResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const admin = createAdminClient()
+  const { data: perfil } = await admin
     .from('users')
-    .select('role, org_id, can_load_bank_transfer, can_authorize_bank_transfer')
+    .select('org_id, can_load_bank_transfer, can_authorize_bank_transfer')
     .eq('id', user.id)
     .single()
+  if (!perfil) redirect('/login')
 
-  if (!profile) redirect('/login')
+  // Ser admin no da acceso al banco (D1): solo los permisos bancarios
+  const canLoad = !!perfil.can_load_bank_transfer
+  const canAuth = !!perfil.can_authorize_bank_transfer
+  const vacia: BankQueueResult = { canLoad, canAuth, reports: [] }
+  if (!canLoad && !canAuth) return vacia
 
-  const isAdmin = profile.role === 'admin'
-  const canLoad = isAdmin || !!profile.can_load_bank_transfer
-  const canAuth = isAdmin || !!profile.can_authorize_bank_transfer
+  const estados: string[] = []
+  if (canLoad) estados.push('pending_bank_load')
+  if (canAuth) estados.push('pending_bank_auth')
 
-  if (!isAdmin && !canLoad && !canAuth) {
-    return { isAdmin: false, canLoad: false, canAuth: false, reports: [] }
-  }
-
-  const statuses: BankStatus[] = []
-  if (isAdmin) statuses.push('approved', 'partially_approved')
-  if (canLoad) statuses.push('pending_bank_load')
-  if (canAuth) statuses.push('pending_bank_auth')
-
-  const admin = createAdminClient()
-  const { data } = await (await admin)
+  const { data } = await admin
     .from('expense_reports')
     .select(`
       id, title, status, total_amount, approved_amount, currency,
       submitted_at, approved_at, submitter_id,
       submitter:users!submitter_id (full_name, department)
     `)
-    .eq('org_id', profile.org_id)
+    .eq('org_id', perfil.org_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .in('status', statuses as any)
+    .in('status', estados as any)
     .is('deleted_at', null)
     .order('approved_at', { ascending: true, nullsFirst: false })
 
+  const reportes = data ?? []
+  if (!reportes.length) return vacia
+
+  const [personas, { data: log }] = await Promise.all([
+    cargarPersonas(admin, perfil.org_id),
+    admin.from('expense_report_approvals')
+      .select('report_id, approver_id, action, level')
+      .in('report_id', reportes.map(r => r.id))
+      .order('created_at', { ascending: true }),
+  ])
+  const yo = personas.find(p => p.id === user.id)
+  if (!yo) return vacia
+
   type Sub = { full_name: string; department: string | null }
 
-  // Una rendición propia en carga o autorización solo se muestra si otra
-  // persona la aprobó: si no, el botón rebotaría (puedeOperarPago)
-  const propiasEnBanco = (data ?? []).filter(r =>
-    r.submitter_id === user.id && (r.status === 'pending_bank_load' || r.status === 'pending_bank_auth'))
-  const ocultas = new Set<string>()
-  if (propiasEnBanco.length) {
-    const { data: log } = await (await admin)
-      .from('expense_report_approvals')
-      .select('report_id, approver_id, action')
-      .in('report_id', propiasEnBanco.map(r => r.id))
-    for (const r of propiasEnBanco) {
-      const suyo = (log ?? []).filter(a => a.report_id === r.id).map(a => ({ actor_id: a.approver_id, action: a.action }))
-      if (!puedeOperarPago(user.id, r.submitter_id, suyo)) ocultas.add(r.id)
+  // Cada fila, con el mismo cálculo que la acción: si no puedes dar el paso
+  // (es tuya, o la cargaste tú), no aparece. Los pasos del banco no usan la cadena.
+  const visibles = reportes.flatMap(r => {
+    const paso = pasoSegunEstado('rendicion', r.status)
+    if (!paso) return []
+    const doc: Documento = {
+      tipo:           'rendicion',
+      beneficiarioId: r.submitter_id,
+      cadena:         { l1: null, l2: null, suplenteL1Vigente: null },
+      historial:      (log ?? [])
+        .filter(a => a.report_id === r.id)
+        .map(a => ({ actorId: a.approver_id, accion: a.action, nivel: a.level })),
     }
-  }
+    if (!puedeActuar(yo, paso, doc, personas).ok) return []
+    const sub = r.submitter as Sub | null
+    return [{
+      id:              r.id as string,
+      title:           r.title as string,
+      status:          r.status as string,
+      total_amount:    r.total_amount as number,
+      approved_amount: r.approved_amount as number,
+      currency:        r.currency as string,
+      submitted_at:    r.submitted_at as string | null,
+      approved_at:     r.approved_at as string | null,
+      submitter_name:  sub?.full_name ?? 'Desconocido',
+      department:      sub?.department ?? null,
+    }]
+  })
 
-  return {
-    isAdmin,
-    canLoad,
-    canAuth,
-    reports: (data ?? []).filter(r => !ocultas.has(r.id)).map(r => {
-      const sub = r.submitter as Sub | null
-      return {
-        id:              r.id as string,
-        title:           r.title as string,
-        status:          r.status as string,
-        total_amount:    r.total_amount as number,
-        approved_amount: r.approved_amount as number,
-        currency:        r.currency as string,
-        submitted_at:    r.submitted_at as string | null,
-        approved_at:     r.approved_at as string | null,
-        submitter_name:  sub?.full_name ?? 'Desconocido',
-        department:      sub?.department ?? null,
-      }
-    }),
-  }
+  return { canLoad, canAuth, reports: visibles }
 }
 
 // ─── Reversa de contabilización Defontana ────────────────────────────────────

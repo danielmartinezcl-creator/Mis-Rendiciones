@@ -459,6 +459,9 @@ function EmployeesTab() {
     try {
       await deleteEmployee(userId)
       setDeleteConfirm(null); await load()
+    } catch (err) {
+      // Por ejemplo: todavía aprueba a otras personas y hay que reasignarlas
+      avisar(err instanceof Error ? err.message : 'Error al eliminar empleado', 'error')
     } finally { setDeleting(false) }
   }
 

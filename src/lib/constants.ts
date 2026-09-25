@@ -49,6 +49,20 @@ export const STATUS_LABELS: Record<ReportStatus, string> = {
 }
 
 /**
+ * Rendiciones que ya pasaron la aprobación final, pagadas o no. Desde el
+ * 2026-09-24 la aprobación final lleva directo a la carga bancaria, así que
+ * «approved» ya no alcanza para encontrarlas: casi ninguna se queda ahí.
+ */
+export const ESTADOS_APROBADOS: ReportStatus[] = [
+  'approved', 'partially_approved', 'pending_bank_load', 'pending_bank_auth', 'reimbursed',
+]
+
+/** Aprobadas cuyo pago todavía no salió de la empresa. */
+export const ESTADOS_POR_PAGAR: ReportStatus[] = [
+  'approved', 'partially_approved', 'pending_bank_load', 'pending_bank_auth',
+]
+
+/**
  * Familias visuales de estado — sección 6 de la spec de Tornasol.
  *
  * La app tiene 9 estados de rendición y 10 de fondo. Antes eran 19 entradas
@@ -97,12 +111,14 @@ export const ITEM_STATUS_ACCENT: Record<ItemStatus, string> = {
 export const FUND_STATUSES = [
   'draft',
   'pending_approval',
+  'pending_approval_l2',
   'approved',
   'pending_bank_load',
   'pending_bank_auth',
   'funds_sent',
   'submitted',
   'pending_liquidation_approval',
+  'pending_liquidation_l2',
   'settled',
   'rejected',
 ] as const
@@ -112,12 +128,14 @@ export type FundStatusConst = typeof FUND_STATUSES[number]
 export const FUND_STATUS_LABELS: Record<FundStatusConst, string> = {
   draft:                        'Borrador',
   pending_approval:             'Esperando autorización',
+  pending_approval_l2:          'Esperando autorización N2',
   approved:                     'Autorizado',
   pending_bank_load:            'Carga bancaria pendiente',
   pending_bank_auth:            'Autorización bancaria pendiente',
   funds_sent:                   'Fondos enviados',
   submitted:                    'Liquidación enviada',
   pending_liquidation_approval: 'Revisando liquidación',
+  pending_liquidation_l2:       'Revisando liquidación N2',
   settled:                      'Liquidado',
   rejected:                     'Rechazado',
 }
@@ -125,12 +143,14 @@ export const FUND_STATUS_LABELS: Record<FundStatusConst, string> = {
 export const FAMILIA_FONDO: Record<FundStatusConst, FamiliaEstado> = {
   draft:                        'neutro',
   pending_approval:             'en-curso',
+  pending_approval_l2:          'en-curso',
   approved:                     'en-curso',   // autorizado, pero la plata no salió
   pending_bank_load:            'en-curso',
   pending_bank_auth:            'en-curso',
   funds_sent:                   'en-curso',
   submitted:                    'en-curso',
   pending_liquidation_approval: 'en-curso',
+  pending_liquidation_l2:       'en-curso',
   settled:                      'resuelto',
   rejected:                     'atencion',
 }
@@ -148,6 +168,7 @@ export const FUND_AUDIT_LABELS: Record<string, string> = {
   liquidation_elevated:    'Liquidación elevada a aprobadores',
   liquidation_approved:    'Liquidación aprobada',
   settled:                 'Fondo liquidado',
+  returned_to_draft:       'Devuelto a borrador',
 }
 
 // Pasos del flujo de Caja Chica (para timeline)

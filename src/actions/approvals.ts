@@ -5,14 +5,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
-import { puedeOperarPago } from '@/lib/bank-helpers'
+import { contextoRendicion, exigirPaso, permisoEn, cargarPersonas, type ContextoRendicion } from '@/lib/contexto-permisos'
+import { puedeActuar, pasoSegunEstado, suplenteVigente, cadenaActiva, type Paso, type Documento } from '@/lib/permisos'
+import { estadoTrasDecisionReporte, type ResultadoDecision } from '@/lib/flujo'
 import {
   notifySubmitterOfDecision,
-  notifyL2ApproverOfPromotion,
-  notifyBankLoadersOfApproval,
-  notifyBankAuthorizersOfLoad,
+  notifyReportApprovers,
+  notifyReportBankStep,
   notifySubmitterOfReimbursement,
-} from '@/actions/notifications'
+} from '@/lib/avisos'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '@/lib/approval-analysis-helpers'
 import type { AiAnalysis, ReportForAnalysis, HistoricalItem } from '@/lib/approval-analysis-helpers'
@@ -31,31 +32,30 @@ export async function getPendingApprovals() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('org_id, can_approve, role')
-    .eq('id', user.id)
-    .single()
+  const admin = createAdminClient()
+  const { data: yoRow } = await admin.from('users').select('org_id').eq('id', user.id).single()
+  if (!yoRow) return []
 
-  if (!profile || (!profile.can_approve && profile.role !== 'admin')) return []
+  const [personas, { data }] = await Promise.all([
+    cargarPersonas(admin, yoRow.org_id),
+    admin
+      .from('expense_reports')
+      .select(`
+        id, title, status, total_amount, submitted_at, currency, submitter_id,
+        submitter:users!submitter_id (
+          approver_l1_id, approver_l2_id, full_name,
+          approver_l1_backup_id, backup_active_from, backup_active_until
+        )
+      `)
+      .eq('org_id', yoRow.org_id)
+      .in('status', ['submitted', 'pending_l2'])
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: true }),
+  ])
 
-  // Obtener todos los reportes pendientes de la org, incluyendo los aprobadores configurados del rendidor
-  const { data } = await supabase
-    .from('expense_reports')
-    .select(`
-      id, title, status, total_amount, submitted_at, currency,
-      submitter:users!submitter_id (
-        approver_l1_id, approver_l2_id, full_name,
-        approver_l1_backup_id, backup_active_from, backup_active_until
-      )
-    `)
-    .eq('org_id', profile.org_id)
-    .in('status', ['submitted', 'pending_l2'])
-    .is('deleted_at', null)
-    .order('submitted_at', { ascending: true })
-
-  const reports = data ?? []
-  const today   = new Date().toISOString().split('T')[0]
+  const yo = personas.find(p => p.id === user.id)
+  if (!yo) return []
+  const hoy = new Date().toISOString().slice(0, 10)
 
   type SubType = {
     approver_l1_id:        string | null
@@ -66,36 +66,34 @@ export async function getPendingApprovals() {
     full_name:             string
   }
 
-  // Filtrar: solo los reportes donde el usuario actual es el aprobador designado para ese nivel
-  return reports.filter(r => {
-    const sub = r.submitter as SubType | null
-
-    if (!sub) {
-      // Sin aprobador configurado → visible a todos los can_approve (fallback)
-      return profile.can_approve || profile.role === 'admin'
+  // Solo lo que esta persona puede decidir, con la misma regla que la acción.
+  // Ya no hay «sin aprobador → visible a todos»: sin N1 no se puede enviar.
+  return (data ?? []).flatMap(r => {
+    const sub  = r.submitter as SubType | null
+    const paso = pasoSegunEstado('rendicion', r.status)
+    if (!sub || !paso) return []
+    const doc: Documento = {
+      tipo:           'rendicion',
+      beneficiarioId: r.submitter_id,
+      // Misma cadena que ve la acción: un aprobador inactivo no cuenta
+      cadena: cadenaActiva({
+        l1:                sub.approver_l1_id,
+        l2:                sub.approver_l2_id,
+        suplenteL1Vigente: suplenteVigente(sub.approver_l1_backup_id, sub.backup_active_from, sub.backup_active_until, hoy),
+      }, personas),
+      historial: [],
     }
-
-    if (r.status === 'submitted') {
-      const isL1 = sub.approver_l1_id === user.id
-      const isBackup = sub.approver_l1_backup_id === user.id &&
-        !!sub.backup_active_from && !!sub.backup_active_until &&
-        sub.backup_active_from <= today && sub.backup_active_until >= today
-      return isL1 || isBackup
-    }
-    if (r.status === 'pending_l2')  return sub.approver_l2_id === user.id
-    return false
-  }).map(r => {
-    const sub = r.submitter as SubType | null
-    return {
-      id: r.id,
-      title: r.title,
-      status: r.status,
-      total_amount: r.total_amount,
-      submitted_at: r.submitted_at,
-      currency: r.currency,
-      submitter_name: sub?.full_name ?? null,
+    if (!puedeActuar(yo, paso, doc, personas).ok) return []
+    return [{
+      id:             r.id,
+      title:          r.title,
+      status:         r.status,
+      total_amount:   r.total_amount,
+      submitted_at:   r.submitted_at,
+      currency:       r.currency,
+      submitter_name: sub.full_name,
       approval_level: r.status === 'pending_l2' ? 2 : 1,
-    }
+    }]
   })
 }
 
@@ -138,12 +136,23 @@ export async function getReportForApproval(reportId: string) {
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
+  // Una rendición en la papelera no tiene contexto —`contextoRendicion` exige
+  // `deleted_at is null`— y eso no puede tumbar la pantalla: sin permiso,
+  // simplemente no se puede accionar nada acá (igual que en getFundDetail).
+  let permiso: { paso: Paso | null; ok: boolean; motivo: string | null; esperandoA: string[] }
+  try {
+    permiso = permisoEn(await contextoRendicion(reportId), report.status, user.id)
+  } catch {
+    permiso = { paso: null, ok: false, motivo: null, esperandoA: [] }
+  }
+
   return {
     ...report,
     submitter_name:    submitter?.full_name    ?? null,
     approver_l1_id:    submitter?.approver_l1_id ?? null,
     approver_l2_id:    submitter?.approver_l2_id ?? null,
     expense_items:     items ?? [],
+    permiso,
   }
 }
 
@@ -156,142 +165,128 @@ export async function submitApprovalDecision(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('org_id, can_approve, role, full_name')
-    .eq('id', user.id)
-    .single()
+  const ctx = await contextoRendicion(reportId)
+  const { paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida')
 
-  if (!profile || (!profile.can_approve && profile.role !== 'admin')) {
-    throw new Error('Sin permiso para aprobar rendiciones')
-  }
-
-  // Obtener reporte actual (para saber si es decisión N1 o N2)
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('status, submitter_id, org_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
-  // Sin esto, volver a apretar «Aprobar» sobre una rendición ya decidida (o que
-  // se ve pendiente por error) dejaba otra aprobación en el log y otra tanda de correos
-  if (report.status !== 'submitted' && report.status !== 'pending_l2') {
-    throw new Error('Esta rendición ya fue decidida')
-  }
-
-  const isL1Decision = report.status === 'submitted'
-  const level        = isL1Decision ? 1 : 2
-
-  // Obtener aprobadores del rendidor para determinar si hay N2
-  const { data: submitter } = await supabase
-    .from('users')
-    .select('approver_l2_id')
-    .eq('id', report.submitter_id)
-    .single()
-
-  const hasL2 = !!submitter?.approver_l2_id
-
-  // Actualizar ítems
-  for (const decision of decisions) {
-    await supabase
-      .from('expense_items')
-      .update({
-        status:           decision.action === 'approve' ? 'approved' : 'rejected',
-        rejection_reason: decision.action === 'reject' ? (decision.reason ?? null) : null,
-      })
-      .eq('id', decision.itemId)
-  }
-
-  // Re-leer ítems para calcular estado
-  const { data: allItems } = await supabase
+  // Un id ajeno no se toca, y ningún ítem pendiente puede quedar afuera: sin esto,
+  // un llamado con decisions=[] (o parcial) cerraba la rendición y el resto de los
+  // ítems se quedaba en 'pending' para siempre — computeReportStatus los cuenta
+  // como "ni todo aprobado ni todo rechazado" y la rendición avanzaba igual.
+  const ids = decisions.map(d => d.itemId)
+  const { data: items, error: itemsError } = await ctx.admin
     .from('expense_items')
-    .select('status, amount_clp, item_type')
+    .select('id, status')
     .eq('report_id', reportId)
     .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
 
-  const items       = allItems ?? []
-  const itemStatus  = computeReportStatus(items)
-  const approvedAmt = computeApprovedAmount(items)
-
-  // Lógica de cadena:
-  // Si es N1 y hay N2 y todos los ítems fueron aprobados → pending_l2
-  // Cualquier otro caso → estado final
-  let newStatus: typeof itemStatus | 'pending_l2'
-  if (isL1Decision && hasL2 && itemStatus === 'approved') {
-    newStatus = 'pending_l2'
-    // Resetear ítems a 'pending' para que N2 los revise desde cero
-    await supabase
-      .from('expense_items')
-      .update({ status: 'pending', rejection_reason: null })
-      .eq('report_id', reportId)
-  } else {
-    newStatus = itemStatus
+  const lista = items ?? []
+  if (lista.filter(i => ids.includes(i.id)).length !== new Set(ids).size) {
+    throw new Error('Hay ítems que no pertenecen a esta rendición')
+  }
+  const decididos = new Set(ids)
+  if (lista.some(i => i.status === 'pending' && !decididos.has(i.id))) {
+    throw new Error('Debes decidir todos los ítems antes de enviar la decisión')
   }
 
-  const isDecided = newStatus !== 'pending_l2'
+  for (const d of decisions) {
+    const { error } = await ctx.admin
+      .from('expense_items')
+      .update({
+        status:           d.action === 'approve' ? 'approved' : 'rejected',
+        rejection_reason: d.action === 'reject' ? (d.reason ?? null) : null,
+      })
+      .eq('id', d.itemId)
+    if (error) throw new Error(error.message)
+  }
 
-  // Si el estado no cambia, cortar ACÁ: antes el error se ignoraba y seguían
-  // el log de aprobación y los correos, con la rendición todavía «en revisión»
-  const { data: actualizada, error: updateError } = await supabase
+  await cerrarDecision(ctx, user.id, paso, {
+    itemsAprobados:  decisions.filter(d => d.action === 'approve').map(d => d.itemId),
+    itemsRechazados: decisions.filter(d => d.action === 'reject').map(d => d.itemId),
+    notas:           notes?.trim() || null,
+  })
+}
+
+// Calcula el estado que sigue, lo escribe, deja la entrada en el historial y
+// avisa. La usan la decisión ítem por ítem y la aprobación masiva.
+async function cerrarDecision(
+  ctx: ContextoRendicion,
+  actorId: string,
+  paso: Paso,
+  d: { itemsAprobados: string[]; itemsRechazados: string[]; notas: string | null },
+) {
+  const { admin, reporte } = ctx
+  const nivel = paso === 'decidir_l2' ? 2 : 1
+
+  // Una lectura fallida o vacía haría que computeReportStatus([]) diera
+  // 'submitted', y eso se escribiría como el estado de la rendición.
+  const { data: items, error: itemsError } = await admin
+    .from('expense_items')
+    .select('status, amount_clp, item_type')
+    .eq('report_id', reporte.id)
+    .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
+  const lista = items ?? []
+  if (!lista.length) throw new Error('La rendición no tiene ítems')
+  const resultado = computeReportStatus(lista) as ResultadoDecision
+  const monto     = computeApprovedAmount(lista)
+  const nuevo     = estadoTrasDecisionReporte({ nivel, tieneL2: !!ctx.doc.cadena.l2, resultado, montoAPagar: monto })
+
+  if (nuevo === 'pending_l2') {
+    // El N2 revisa desde cero lo que el N1 aprobó; lo que el N1 rechazó sigue rechazado
+    const { error } = await admin
+      .from('expense_items')
+      .update({ status: 'pending', rejection_reason: null })
+      .eq('report_id', reporte.id)
+      .eq('status', 'approved')
+    if (error) throw new Error(error.message)
+  }
+
+  const decidida = nuevo !== 'pending_l2'
+  const { data: actualizada, error: updateError } = await admin
     .from('expense_reports')
     .update({
-      status:          newStatus,
-      approved_amount: approvedAmt,
-      approved_at:     isDecided ? new Date().toISOString() : null,
+      status:          nuevo,
+      approved_amount: monto,
+      approved_at:     decidida ? new Date().toISOString() : null,
     })
-    .eq('id', reportId)
+    .eq('id', reporte.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('status', reporte.status as any)
     .select('id')
   if (updateError || !actualizada?.length) {
-    console.error('[approvals] no se pudo cambiar el estado de', reportId, updateError)
+    console.error('[approvals] no se pudo cambiar el estado de', reporte.id, updateError)
     throw new Error('No se pudo registrar la decisión. Avisa al administrador.')
   }
 
-  // Log auditoría (append-only)
-  const approvedIds = decisions.filter(d => d.action === 'approve').map(d => d.itemId)
-  const rejectedIds = decisions.filter(d => d.action === 'reject').map(d => d.itemId)
+  const { error: logError } = await admin.from('expense_report_approvals').insert({
+    report_id:      reporte.id,
+    approver_id:    actorId,
+    level:          nivel,
+    action:         resultado,
+    items_approved: d.itemsAprobados.length ? d.itemsAprobados : null,
+    items_rejected: d.itemsRechazados.length ? d.itemsRechazados : null,
+    notes:          d.notas,
+  })
+  if (logError) throw new Error(logError.message)
 
-  const logAction =
-    itemStatus === 'approved'           ? 'approved'           :
-    itemStatus === 'rejected'           ? 'rejected'           :
-    itemStatus === 'partially_approved' ? 'partially_approved' : 'approved'
-
-  await supabase
-    .from('expense_report_approvals')
-    .insert({
-      report_id:      reportId,
-      approver_id:    user.id,
-      level,
-      action:         logAction as 'approved' | 'rejected' | 'partially_approved' | 'returned_to_draft',
-      items_approved: approvedIds.length > 0 ? approvedIds : null,
-      items_rejected: rejectedIds.length > 0 ? rejectedIds : null,
-      notes:          notes?.trim() || null,
-    })
-
-  // Notificaciones según resultado
-  if (newStatus === 'pending_l2') {
-    notifyL2ApproverOfPromotion(reportId).catch(() => {})
+  if (nuevo === 'pending_l2') {
+    notifyReportApprovers(reporte.id, 'decidir_l2', actorId).catch(() => {})
   } else {
-    const notifAction =
-      logAction === 'approved'           ? 'approved'           :
-      logAction === 'rejected'           ? 'rejected'           : 'partially_approved'
-    notifySubmitterOfDecision(reportId, notifAction).catch(() => {})
-    if (notifAction === 'approved' || notifAction === 'partially_approved') {
-      notifyBankLoadersOfApproval(reportId).catch(() => {})
-    }
+    notifySubmitterOfDecision(reporte.id, resultado).catch(() => {})
+    if (nuevo === 'pending_bank_load') notifyReportBankStep(reporte.id, 'cargar_pago', actorId).catch(() => {})
   }
 
-  revalidatePath(`/approvals/${reportId}`)
+  revalidatePath(`/approvals/${reporte.id}`)
   revalidatePath('/approvals')
+  revalidatePath('/banco')
   revalidatePath('/')
 
-  // Webhook fire-and-forget — solo cuando hay decisión final (no pending_l2)
-  if (isDecided) {
-    const webhookEvent = `report.${newStatus}` as WebhookEvent
-    dispatchWebhooks(profile.org_id, webhookEvent, {
-      report_id:   reportId,
-      status:      newStatus,
-      approved_by: profile.full_name,
+  if (decidida) {
+    dispatchWebhooks(reporte.org_id, `report.${resultado}` as WebhookEvent, {
+      report_id:   reporte.id,
+      status:      nuevo,
+      approved_by: ctx.personas.find(p => p.id === actorId)?.nombre ?? null,
       approved_at: new Date().toISOString(),
     }).catch(console.error)
   }
@@ -424,13 +419,18 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
   const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
   const analysis = parseAnalysisResponse(rawText)
 
-  await supabase
+  // Con la llave de servicio: la 033 le quita al aprobador la política UPDATE
+  // sobre expense_reports (con ella podía tocar cualquier columna de la
+  // rendición). Quien llega acá ya pasó el control de acceso de arriba y leyó
+  // la rendición con su sesión, así que la RLS confirmó que la puede ver.
+  const { error: cacheError } = await createAdminClient()
     .from('expense_reports')
     .update({
       ai_analysis:    analysis as unknown as Json,
       ai_analysis_at: new Date().toISOString(),
     })
     .eq('id', reportId)
+  if (cacheError) console.error('[análisis IA] no se pudo guardar el caché', reportId, cacheError)
 
   return analysis
 }
@@ -441,100 +441,52 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users').select('org_id, can_approve, role').eq('id', user.id).single()
-  if (!profile || (!profile.can_approve && profile.role !== 'admin')) {
-    throw new Error('Sin permiso para aprobar rendiciones')
-  }
+  const ctx = await contextoRendicion(reportId)
+  const { paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida')
+  const nota = `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`
 
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('status, submitter_id, org_id')
-    .eq('id', reportId)
-    .single()
-  if (!report || report.org_id !== profile.org_id) throw new Error('Rendición no encontrada')
-  if (report.status !== 'submitted' && report.status !== 'pending_l2') {
-    throw new Error('Esta rendición ya fue decidida')
-  }
-
-  // Aprobar ítems indicados
-  await supabase
+  const { data: aprobados, error } = await ctx.admin
     .from('expense_items')
     .update({ status: 'approved' })
+    .eq('report_id', reportId)
     .in('id', itemIds)
+    .is('deleted_at', null)
+    .select('id')
+  if (error) throw new Error(error.message)
+  if (!aprobados?.length) throw new Error('Ninguno de esos ítems pertenece a esta rendición')
 
-  // Leer todos los ítems para calcular estado global
-  const { data: allItems } = await supabase
-    .from('expense_items').select('id, status, amount_clp, item_type').eq('report_id', reportId).is('deleted_at', null)
-  const items = (allItems ?? []) as { id: string; status: string; amount_clp: number; item_type?: string }[]
+  // Una lectura fallida o vacía haría que computeReportStatus([]) diera
+  // 'submitted', y eso se escribiría como el estado de la rendición.
+  const { data: items, error: itemsError } = await ctx.admin
+    .from('expense_items')
+    .select('status, amount_clp, item_type')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
+  const lista = items ?? []
+  if (!lista.length) throw new Error('La rendición no tiene ítems')
 
-  const isL1 = report.status === 'submitted'
-  const allApproved = items.every(i => i.status === 'approved')
-  const approvedAmt = computeApprovedAmount(items)
-
-  if (!allApproved) {
-    // Quedan ítems pendientes — actualizar monto aprobado parcial
-    await supabase
+  if (lista.some(i => i.status === 'pending')) {
+    // Quedan ítems por decidir: solo se actualiza el monto parcial
+    const { data: parcial, error: e1 } = await ctx.admin
       .from('expense_reports')
-      .update({ approved_amount: approvedAmt })
+      .update({ approved_amount: computeApprovedAmount(lista) })
       .eq('id', reportId)
-  } else {
-    // Todos aprobados — verificar cadena L2
-    const { data: submitter } = await supabase
-      .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
-    const hasL2 = !!submitter?.approver_l2_id
-
-    let newStatus: 'pending_l2' | 'approved'
-    if (isL1 && hasL2) {
-      newStatus = 'pending_l2'
-      await supabase
-        .from('expense_items')
-        .update({ status: 'pending', rejection_reason: null })
-        .eq('report_id', reportId)
-    } else {
-      newStatus = 'approved'
-    }
-
-    const { data: actualizada, error: updateError } = await supabase
-      .from('expense_reports')
-      .update({
-        status:          newStatus,
-        approved_amount: approvedAmt,
-        approved_at:     newStatus === 'approved' ? new Date().toISOString() : null,
-      })
-      .eq('id', reportId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .eq('status', ctx.reporte.status as any)
       .select('id')
-    if (updateError || !actualizada?.length) {
-      console.error('[approvals] no se pudo cambiar el estado de', reportId, updateError)
-      throw new Error('No se pudo registrar la decisión. Avisa al administrador.')
-    }
+    if (e1) throw new Error(e1.message)
+    if (!parcial?.length) throw new Error('La rendición cambió mientras la mirabas. Recarga la página')
+    const { error: e2 } = await ctx.admin.from('expense_report_approvals').insert({
+      report_id: reportId, approver_id: user.id, level: paso === 'decidir_l2' ? 2 : 1,
+      action: 'approved', items_approved: itemIds, notes: nota,
+    })
+    if (e2) throw new Error(e2.message)
+    revalidatePath(`/approvals/${reportId}`)
+    return
   }
 
-  // Registro de auditoría — siempre, independiente de si quedan ítems pendientes
-  await supabase.from('expense_report_approvals').insert({
-    report_id:      reportId,
-    approver_id:    user.id,
-    level:          isL1 ? 1 : 2,
-    action:         'approved',
-    items_approved: itemIds,
-    notes:          `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`,
-  })
-
-  // Notificaciones
-  if (allApproved) {
-    const { data: submitterData } = await supabase
-      .from('users').select('approver_l2_id').eq('id', report.submitter_id as string).single()
-    if (isL1 && submitterData?.approver_l2_id) {
-      notifyL2ApproverOfPromotion(reportId).catch(() => {})
-    } else {
-      notifySubmitterOfDecision(reportId, 'approved').catch(() => {})
-      notifyBankLoadersOfApproval(reportId).catch(() => {})
-    }
-  }
-
-  revalidatePath(`/approvals/${reportId}`)
-  revalidatePath('/approvals')
-  revalidatePath('/')
+  await cerrarDecision(ctx, user.id, paso, { itemsAprobados: itemIds, itemsRechazados: [], notas: nota })
 }
 
 export async function markReimbursed(reportId: string, paymentReference: string, reimbursedAmount?: number) {
@@ -544,7 +496,7 @@ export async function markReimbursed(reportId: string, paymentReference: string,
 
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, org_id')
     .eq('id', user.id)
     .single()
 
@@ -552,7 +504,20 @@ export async function markReimbursed(reportId: string, paymentReference: string,
     throw new Error('Solo los administradores pueden marcar reembolsos')
   }
 
-  const { error } = await supabase
+  // «Autorizado» significa que la plata salió de la empresa: solo lo marca quien
+  // la liberó en el banco. A mano, solo cargas históricas (pagos del pasado). D7.
+  // Con la llave de servicio no hay RLS: la organización se filtra a mano, o un
+  // admin de otra empresa podría marcar esta rendición.
+  const admin = createAdminClient()
+  const { data: rep } = await admin
+    .from('expense_reports').select('is_historical_import')
+    .eq('id', reportId).eq('org_id', profile.org_id).maybeSingle()
+  if (!rep) throw new Error('Rendición no encontrada')
+  if (!rep.is_historical_import) {
+    throw new Error('Solo las cargas históricas se marcan como reembolsadas a mano: las demás las cierra quien autoriza el pago en el banco')
+  }
+
+  const { data: marcada, error } = await admin
     .from('expense_reports')
     .update({
       status:             'reimbursed',
@@ -562,9 +527,10 @@ export async function markReimbursed(reportId: string, paymentReference: string,
       reimbursed_amount:  reimbursedAmount ?? null,
     })
     .eq('id', reportId)
+    .eq('org_id', profile.org_id)
     .in('status', ['approved', 'partially_approved'])
-
-  if (error) throw new Error(error.message)
+    .select('id')
+  if (error || !marcada?.length) throw new Error('No se pudo marcar el reembolso')
 
   revalidatePath('/admin/reports')
   revalidatePath('/')
@@ -577,7 +543,7 @@ export async function revertReimbursement(reportId: string) {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, org_id')
     .eq('id', user.id)
     .single()
 
@@ -585,20 +551,35 @@ export async function revertReimbursement(reportId: string) {
     throw new Error('Solo los administradores pueden revertir reembolsos')
   }
 
+  // Con la llave de servicio no hay RLS: la organización se filtra a mano, en la
+  // lectura y en la escritura.
+  const admin = createAdminClient()
+  const { data: rep } = await admin
+    .from('expense_reports').select('is_historical_import')
+    .eq('id', reportId).eq('org_id', profile.org_id).maybeSingle()
+  if (!rep) throw new Error('Rendición no encontrada')
+
   // Recalcular monto aprobado neto (expense - advance - return) para corregir
-  // valores calculados con la fórmula vieja (suma bruta sin distinguir item_type)
-  const { data: itemsData } = await supabase
+  // valores calculados con la fórmula vieja (suma bruta sin distinguir item_type).
+  // También con la llave de servicio: con la sesión, ítems que la RLS no deja
+  // ver volvían como lista vacía y el monto se escribía en 0.
+  const { data: itemsData, error: itemsError } = await admin
     .from('expense_items')
     .select('status, amount_clp, item_type')
     .eq('report_id', reportId)
     .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
 
   const netApproved = computeApprovedAmount(itemsData ?? [])
 
-  const { error } = await supabase
+  // Una histórica vuelve a «aprobada»; una normal vuelve a esperar la carga,
+  // porque «aprobada» ya no lleva a ningún lado.
+  const volverA = rep.is_historical_import ? 'approved' : 'pending_bank_load'
+
+  const { data: revertida, error } = await admin
     .from('expense_reports')
     .update({
-      status:            'approved',
+      status:            volverA,
       reimbursed_at:     null,
       reimbursed_by:     null,
       payment_reference: null,
@@ -606,9 +587,12 @@ export async function revertReimbursement(reportId: string) {
       approved_amount:   netApproved,
     })
     .eq('id', reportId)
+    .eq('org_id', profile.org_id)
     .eq('status', 'reimbursed')
+    .select('id')
+  if (error || !revertida?.length) throw new Error('No se pudo revertir el reembolso')
 
-  if (error) throw new Error(error.message)
+  if (volverA === 'pending_bank_load') notifyReportBankStep(reportId, 'cargar_pago', user.id).catch(() => {})
 
   revalidatePath('/admin/reports')
   revalidatePath('/')
@@ -616,132 +600,77 @@ export async function revertReimbursement(reportId: string) {
 
 // ── Workflow bancario para Rendiciones ────────────────────────────────────────
 
-async function requireAdminOrBankPerm(perm: 'can_load_bank_transfer' | 'can_authorize_bank_transfer') {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-  const { data: profile } = await supabase
-    .from('users')
-    .select(`role, ${perm}`)
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Perfil no encontrado')
-  if (profile.role !== 'admin' && !(profile as Record<string, unknown>)[perm]) {
-    throw new Error('Sin permiso para esta acción bancaria')
-  }
-  return { userId: user.id, profile }
-}
-
-/** Paso 1: Admin envía la rendición aprobada al proceso bancario */
-export async function requestReportBankLoad(reportId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-  const { data: profile } = await supabase
-    .from('users').select('role').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Solo los administradores pueden iniciar el proceso bancario')
-  }
-
-  const admin = createAdminClient()
-  const { error } = await (await admin)
-    .from('expense_reports')
-    .update({ status: 'pending_bank_load' })
-    .eq('id', reportId)
-    .in('status', ['approved', 'partially_approved'])
-
-  if (error) throw new Error(error.message)
-
-  await supabase.from('expense_report_approvals').insert({
-    report_id:   reportId,
-    approver_id: user.id,
-    level:       1,
-    action:      'bank_load_requested',
-    notes:       'Iniciado proceso bancario de reembolso',
-  })
-
-  revalidatePath('/admin/reports')
-  revalidatePath('/banco')
-  revalidatePath('/')
-}
-
-// Quien tiene el permiso bancario puede operar su propio reembolso solo si otra
-// persona aprobó la rendición (ver puedeOperarPago en lib/bank-helpers).
-async function exigirPagoOperable(reportId: string, actorId: string) {
-  const admin = await createAdminClient()
-  const { data: report } = await admin
-    .from('expense_reports').select('submitter_id').eq('id', reportId).single()
-  if (!report) throw new Error('Rendición no encontrada')
-
-  const { data: aprobaciones } = await admin
-    .from('expense_report_approvals').select('approver_id, action').eq('report_id', reportId)
-  const log = (aprobaciones ?? []).map(a => ({ actor_id: a.approver_id, action: a.action }))
-
-  if (!puedeOperarPago(actorId, report.submitter_id, log)) {
-    throw new Error('No puedes operar el pago de tu propia rendición: tiene que haberla aprobado otra persona')
-  }
-}
-
-/** Paso 2: Encargado de carga confirma que cargó la transferencia en el banco */
+/** Carga: quien tiene «carga banco» confirma que cargó la transferencia */
 export async function confirmReportBankLoad(reportId: string, data: {
   paymentReference: string
   transferredAt:    string
 }) {
-  const { userId } = await requireAdminOrBankPerm('can_load_bank_transfer')
-  await exigirPagoOperable(reportId, userId)
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const admin = createAdminClient()
-  const { error } = await (await admin)
+  const ctx = await contextoRendicion(reportId)
+  exigirPaso(ctx, ctx.reporte.status, user.id, ['cargar_pago'], 'Este pago ya no está esperando la carga')
+
+  const { data: movida, error } = await ctx.admin
     .from('expense_reports')
     .update({ status: 'pending_bank_auth' })
     .eq('id', reportId)
     .eq('status', 'pending_bank_load')
+    .select('id')
+  if (error || !movida?.length) throw new Error('No se pudo registrar la carga. Intenta de nuevo')
 
-  if (error) throw new Error(error.message)
-
-  await supabase.from('expense_report_approvals').insert({
+  // Si el historial falla después de mover el estado, la autorización queda
+  // trabada («sin carga registrada nadie autoriza», permisos.ts), no abierta.
+  const { error: logError } = await ctx.admin.from('expense_report_approvals').insert({
     report_id:   reportId,
-    approver_id: userId,
+    approver_id: user.id,
     level:       1,
     action:      'bank_load_confirmed',
     notes:       `Ref: ${data.paymentReference || 'Sin referencia'} · ${data.transferredAt}`,
   })
+  if (logError) {
+    console.error('[banco] carga marcada sin entrada en el historial', reportId, logError)
+    throw new Error('La carga quedó marcada, pero no quedó en el historial. Avisa al administrador: nadie podrá autorizarla hasta corregirlo')
+  }
 
-  notifyBankAuthorizersOfLoad(reportId).catch(() => {})
+  notifyReportBankStep(reportId, 'autorizar_pago', user.id).catch(() => {})
 
   revalidatePath('/admin/reports')
   revalidatePath('/banco')
   revalidatePath('/')
 }
 
-/** Paso 3: Autorizador bancario confirma → reembolso completado */
+/** Autorización: la plata sale de la empresa. Nunca el beneficiario ni quien cargó */
 export async function authorizeReportBank(reportId: string, paymentReference: string) {
-  const { userId } = await requireAdminOrBankPerm('can_authorize_bank_transfer')
-  await exigirPagoOperable(reportId, userId)
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const admin = createAdminClient()
-  const { error } = await (await admin)
+  const ctx = await contextoRendicion(reportId)
+  exigirPaso(ctx, ctx.reporte.status, user.id, ['autorizar_pago'], 'Este pago ya no está esperando la autorización')
+
+  const { data: pagada, error } = await ctx.admin
     .from('expense_reports')
     .update({
       status:            'reimbursed',
       reimbursed_at:     new Date().toISOString(),
-      reimbursed_by:     userId,
+      reimbursed_by:     user.id,
       payment_reference: paymentReference.trim() || null,
     })
     .eq('id', reportId)
     .eq('status', 'pending_bank_auth')
+    .select('id')
+  if (error || !pagada?.length) throw new Error('No se pudo registrar la autorización. Intenta de nuevo')
 
-  if (error) throw new Error(error.message)
-
-  await supabase.from('expense_report_approvals').insert({
+  const { error: logError } = await ctx.admin.from('expense_report_approvals').insert({
     report_id:   reportId,
-    approver_id: userId,
+    approver_id: user.id,
     level:       1,
     action:      'bank_authorized',
     notes:       paymentReference.trim() || null,
   })
+  if (logError) throw new Error(logError.message)
 
   notifySubmitterOfReimbursement(reportId).catch(() => {})
 

@@ -89,6 +89,7 @@ export function ExpenseItemForm({
   onSave,
   onCancel,
 }: ExpenseItemFormProps) {
+  const { confirmar } = useDialogos()
   const [form, setForm]         = useState<ItemFormData>(emptyForm())
   const [tcLoading, setTcLoading]     = useState(false)
   const [saving, setSaving]           = useState(false)
@@ -262,10 +263,11 @@ export function ExpenseItemForm({
       })
       setSaving(false)
       if (merchantDup) {
-        const proceed = window.confirm(
-          `Posible duplicado detectado: ya existe un ítem de ${formatCLP(merchantDup.amount)} ` +
-          `en "${merchantDup.reportTitle}" del ${merchantDup.date}.\n\n¿Continuar de todas formas?`
-        )
+        const proceed = await confirmar({
+          titulo:  'Posible duplicado detectado',
+          detalle: `Ya existe un ítem de ${formatCLP(merchantDup.amount)} en "${merchantDup.reportTitle}" del ${merchantDup.date}.`,
+          aceptar: 'Continuar igual',
+        })
         if (!proceed) return
       }
     }

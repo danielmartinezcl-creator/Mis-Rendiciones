@@ -215,7 +215,8 @@ src/
 │   ├── exchange-rate.ts    ← TC histórico con cache 24h
 │   ├── fund-transfers.ts   ← traspasos entre cajas chicas
 │   ├── historical-import.ts ← importador Excel histórico
-│   ├── notifications.ts    ← in-app + Resend (requiere service role para email)
+│   ├── notifications.ts    ← solo getMyNotifications / markNotificationRead. Los avisos (in-app + Resend)
+│   │                         viven en src/lib/avisos.ts: como acciones del servidor, cualquier sesión los invocaba
 │   ├── ocr.ts              ← Claude Sonnet 4.6, ~$0.008/foto
 │   ├── petty-cash.ts       ← CRUD fondos, flujo bancario, liquidación
 │   ├── policies.ts         ← expense_policies CRUD + checkPolicyViolations + travel_policies CRUD + checkTravelPolicies
@@ -280,7 +281,10 @@ supabase/
 │   ├── 028_adjuntos_correos.sql                      ← adjuntos: correos .eml/.msg en el bucket + file_type 'email' (lista espejo de src/lib/attachment-types.ts)
 │   ├── 029_bucket_respaldos_aprobacion.sql           ← crea el bucket approval-attachments, que nunca existió (+ Excel)
 │   ├── 030_aprobador_puede_decidir.sql               ← WITH CHECK en la política del aprobador: un no-admin nunca pudo cerrar una rendición. Función es_aprobador_de()
-│   └── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
+│   ├── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
+│   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
+│   ├── 033_estado_solo_desde_servidor.sql            ← ⏳ PENDIENTE DE APLICAR (se aplica tras el despliegue): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
+│   └── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -532,14 +536,31 @@ trigger de `updated_at`.
 - `getBankQueue()` en `actions/admin.ts` resuelve `isAdmin` / `canLoad` / `canAuth` y devuelve **solo los estados que ese rol puede accionar**: admin ve `approved` + `partially_approved`; `canLoad` ve `pending_bank_load`; `canAuth` ve `pending_bank_auth`
 - Sidebar: entrada "Cola Bancaria" visible para admin o para quien tenga `can_load_bank_transfer` / `can_authorize_bank_transfer`
 - `revalidatePath('/banco')` en `requestReportBankLoad`, `confirmReportBankLoad` y `authorizeReportBank`
-- **Suplente bancario y pago propio** (decisión de Daniel, 2026-09-24 — `src/lib/bank-helpers.ts`):
-  - `bank_is_backup` (migración `031`): tiene el permiso y lo usa cuando haga falta, pero
-    los avisos van solo a titulares (`destinatariosBancarios`). En PENTA: Roberto Hagar
-    suplente de Francisco, que es quien tiene las credenciales del banco
-  - Cargar o autorizar el pago **propio** (rendición o fondo) solo si otra persona lo
-    aprobó (`puedeOperarPago`). Francisco autoriza sus propias rendiciones porque las
-    aprueba Roberto. Validado en las 4 acciones bancarias y filtrado en `getBankQueue`
-- `/admin/reports`: estados "En banco (carga)" y "En banco (auth)" en el filtro + botón "Iniciar proceso bancario"
+- **Permisos por asignación** (spec `2026-09-24-permisos-y-flujo-de-aprobacion-design.md`):
+  las reglas viven en `src/lib/permisos.ts` y el contexto en `src/lib/contexto-permisos.ts`.
+  Cinco reglas: nadie aprueba lo propio; nadie autoriza el pago de lo propio; quien
+  cargó no autoriza; aprobar en N2 y autorizar está permitido; cargar lo propio está
+  permitido. «Lo propio» = lo que recibe uno (en un fondo, el beneficiario).
+- **El admin configura, no opera**: ningún `role === 'admin'` habilita aprobar,
+  cargar ni autorizar. Durante las pruebas también (sin interruptor, D2).
+- **Los gastos de un documento vivo los cambia solo su dueño** (Daniel, 2026-09-25): quien rinde la rendición, en borrador, o el empleado del fondo, con `funds_sent`. Ni el admin agrega, edita o borra gastos ajenos, y el gasto rápido le lista solo sus fondos (`listMyOpenFunds`). Sí reclasifica (categoría, centro de costo, Defontana) y corrige cargas históricas. Código: `puedeCambiarGastos()`; base: 033 §3b.
+- **Suplencia por función**: `bank_load_backup` y `bank_auth_backup`. FH es titular
+  para autorizar y suplente para cargar.
+- **Aprobador inactivo = sin aprobador** (`cadenaActiva`): bloquea el envío y avisa al
+  admin. Por eso desactivar o borrar a alguien que está en cadenas ajenas pide reasignar
+  primero. **Autorizar exige una carga registrada** en el historial: sin ella nadie
+  autoriza (no se puede comprobar quién cargó). Aprobar un fondo y aprobar su
+  liquidación son acciones distintas (`enEtapa`).
+- **La aprobación final va directo a `pending_bank_load`**: no existe «Iniciar proceso
+  bancario» ni «Enviar al banco». `approved` solo queda cuando no hay nada que pagar
+  (o en cargas históricas). Para buscar aprobadas usar `ESTADOS_APROBADOS` /
+  `ESTADOS_POR_PAGAR` de `constants.ts`, nunca `['approved', 'partially_approved']`.
+- **Permisos por asignación implementados** (2026-09-24): spec en
+  `docs/superpowers/specs/2026-09-24-permisos-y-flujo-de-aprobacion-design.md`, plan
+  en `docs/superpowers/plans/2026-09-24-permisos-por-asignacion.md`. Reemplaza
+  `bank-helpers.ts` (borrado) y el modelo de un solo `bank_is_backup`.
+- `/admin/reports`: estados "En banco (carga)" y "En banco (auth)" en el filtro (sin
+  botón "Iniciar proceso bancario" — ver arriba)
 
 ### ✅ Otros módulos completados
 - **Soft delete + Papelera** (`/admin/trash`): `expense_reports.deleted_at`; restaurar o eliminar definitivamente
@@ -697,7 +718,7 @@ trigger de `updated_at`.
 >   en el comentario de cabecera de `next.config.ts`.
 >
 > · *Notificaciones email* — **el código** está completo desde el 2026-08-12:
->   `lookupEmails()` en `actions/notifications.ts` usa `createAdminClient()` +
+>   `lookupEmails()` en `lib/avisos.ts` usa `createAdminClient()` +
 >   `getUserById()`, y todos los paths de envío pasan por ahí. Lo que falta no es
 >   código sino **la credencial** (punto 1 del backlog): no confundir una cosa con otra.
 >
@@ -717,7 +738,16 @@ trigger de `updated_at`.
      role `auth.uid()` es null y se rechaza: por eso `permanentlyDeleteFromTrash`
      borra rendiciones con el cliente del admin, no con `createAdminClient()`
 
-2. **`amount_clp` en `expense_items` es inmutable post-aprobación** — el TC histórico no se recalcula
+2. **Los montos de un gasto se congelan cuando su documento sale de manos de quien rinde — recién con la 033.**
+   Aplicada la 033 (§3b, `proteger_documento_item`), un gasto de rendición solo se toca
+   mientras la rendición está en borrador, y uno de caja chica mientras el fondo está en
+   `funds_sent`, y en los dos casos solo lo toca su dueño. Después, montos, fechas y
+   comercio solo los cambia la llave de servicio.
+   El admin, con su sesión, solo en cargas históricas; en un documento vivo, solo
+   categoría, centro de costo y la marca de Defontana. El TC histórico no se recalcula.
+   **Hasta que se aplique la 033, esto lo impone solo el código** (`puedeCambiarGastos`,
+   `addFundItem` / `updateFundItem` / `removeFundItem`): ningún disparador lo hace hoy,
+   aunque este archivo lo daba por hecho
 
 3. **`expense_reports`** tiene trigger `set_updated_at()` en cada UPDATE
 
@@ -895,3 +925,8 @@ trigger de `updated_at`.
 | Pasar `contentType` a `storage.upload()` con un `File` | supabase-js lo ignora y manda el tipo del archivo; un `.msg` de Windows llega sin tipo y el bucket lo rechaza | Re-tipar: `new Blob([file], { type })`. El tipo sale de la extensión (`classifyAttachment`) |
 | Invertir quién le debe a quién al liquidar un fondo | El empleado recibe el fondo ANTES de gastar: lo que sobra lo tiene él. `calculateFundBalance` lo marcaba como «empresa devuelve al empleado» y el cierre precargaba `refund_to_employee`, que en Defontana sale como adelanto (plata que SALE). Hasta el 2026-09-24 | `calculateFundBalance` devuelve `settlementType` y la pantalla lo usa tal cual — nunca decidir la dirección en el componente. `pending` descuenta las transferencias de cierre ya registradas. Fijado en `petty-cash-helpers.test.ts` |
 | Escribir `confirm()` o `alert()` en un componente | Son cajas del sistema operativo sin nada del diseño; el navegador les antepone el dominio («mi-rendicion.com dice:») y en Android parecen avisos de error | `await confirmar()` y `avisar()`. Quedan **0** nativos en `src/` desde `a1edf8f` — que no vuelva a entrar uno |
+| Dar permisos operativos por `role === 'admin'` | El admin se salteaba la segregación: aprobó, cargó y autorizó fondos solo | El admin configura, no opera. Cada paso pasa por `puedeActuar()` |
+| Mandar un aviso a «todos los que tienen el permiso» | Correos a quien no puede actuar; el permiso y el aviso salían de consultas distintas | `destinatarios()` de `permisos.ts`: la misma función decide quién puede y a quién avisar |
+| Cambiar un estado con el cliente de la sesión | Cuando se aplique la 033 (pendiente, va después del despliegue) la base lo rechaza; hasta entonces solo lo frena el código | Verificar con `exigirPaso` y escribir con `createAdminClient()` |
+| Proteger el estado de un ítem y no el ítem | Las políticas de dueño de `expense_items` / `petty_cash_items` son ALL sin condición de estado: el rendidor movía un gasto aprobado a su borrador (se pagaba dos veces) y editaba montos de rendiciones en revisión | 033 §3b (`proteger_documento_item`) + `puedeCambiarGastos()` en las acciones. Una acción del servidor no pasa el patch del navegador tal cual a la base: `soloCampos()` con la lista de lo que manda su formulario |
+| Exportar un `notify*` desde un archivo `'use server'` | Toda función exportada ahí es una acción del servidor que el navegador puede invocar con los argumentos que quiera: correos con nuestro remitente a quien elija | Los avisos van en `src/lib/avisos.ts` (módulo común). Lo escrito por personas entra al HTML con `escaparHtml()` |

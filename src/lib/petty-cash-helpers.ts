@@ -96,12 +96,14 @@ export type TramoFondo = typeof TRAMOS_FONDO[number]
 const TRAMO_POR_ESTADO: Record<FundStatusConst, TramoFondo> = {
   draft:                        'antes',
   pending_approval:             'antes',
+  pending_approval_l2:          'antes',
   approved:                     'antes',   // autorizado, pero la plata no salió
   pending_bank_load:            'antes',
   pending_bank_auth:            'antes',
   funds_sent:                   'con-dinero',
   submitted:                    'con-dinero',
   pending_liquidation_approval: 'con-dinero',
+  pending_liquidation_l2:       'con-dinero',
   settled:                      'cerrado',
   rejected:                     'rechazado',
 }
@@ -138,13 +140,28 @@ export interface PasoRecorrido {
 }
 
 /**
+ * Los dos niveles de aprobación se ven como UN paso del recorrido: la
+ * etiqueta del estado ya dice «N2». Así FUND_STEPS no crece con un paso que
+ * los fondos sin N2 nunca pisan.
+ */
+const PASO_VISIBLE: Partial<Record<FundStatusConst, FundStatusConst>> = {
+  pending_approval_l2:    'pending_approval',
+  pending_liquidation_l2: 'pending_liquidation_approval',
+}
+
+export function pasoVisibleDelFondo(status: FundStatusConst): FundStatusConst {
+  return PASO_VISIBLE[status] ?? status
+}
+
+/**
  * Fusiona los pasos canónicos con las fechas reales.
  *
  * Hasta ahora esto vivía partido en dos componentes: `VerticalTimeline` tenía
  * los pasos sin fechas y `FundTimeline` las fechas sin los pasos que faltan.
  * El diseño de Tornasol pide las dos cosas juntas, con el futuro visible.
  *
- * Tres reglas, en este orden:
+ * Cuatro reglas, en este orden:
+ *   0. Un paso posterior al vigente está pendiente y sin fecha.
  *   1. El paso del estado vigente es «actual», aunque ya tenga fecha.
  *   2. Un paso con fecha de auditoría está hecho.
  *   3. Un paso anterior al vigente está hecho aunque no haya fila que lo
@@ -154,17 +171,21 @@ export function construirRecorrido(
   status: FundStatusConst,
   audits: readonly { action: string; created_at: string }[],
 ): PasoRecorrido[] {
-  const idx = FUND_STEPS.findIndex(s => s.key === status)
+  const idx = FUND_STEPS.findIndex(s => s.key === pasoVisibleDelFondo(status))
 
   return FUND_STEPS.map((step, i) => {
     const accion = AUDIT_QUE_ALCANZA[step.key]
-    const fecha  = audits.find(a => a.action === accion)?.created_at ?? null
+    // Un paso posterior al vigente es futuro aunque el historial ya tenga su
+    // acción: en N2, la aprobación del N1 no vuelve «hecho» a «Autorizado».
+    const futuro = idx >= 0 && i > idx
+    const fecha  = futuro ? null : audits.find(a => a.action === accion)?.created_at ?? null
 
     const estado: EstadoPaso =
-      i === idx                     ? 'actual' :
-      fecha !== null                ? 'hecho'  :
-      idx >= 0 && i < idx           ? 'hecho'  :
-                                      'pendiente'
+      i === idx        ? 'actual'    :
+      futuro           ? 'pendiente' :
+      fecha !== null   ? 'hecho'     :
+      idx >= 0         ? 'hecho'     :
+                         'pendiente'
 
     return { key: step.key, label: step.label, estado, fecha }
   })

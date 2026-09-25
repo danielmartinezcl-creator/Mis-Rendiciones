@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { calculateReportTotal, validateExpenseItem } from '@/lib/expense-helpers'
-import { notifyApproversOfSubmission } from '@/actions/notifications'
+import { calculateReportTotal, validateExpenseItem, puedeCambiarGastos } from '@/lib/expense-helpers'
+import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/lib/avisos'
+import { contextoRendicion } from '@/lib/contexto-permisos'
+import { puedeEnviar } from '@/lib/permisos'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
@@ -82,6 +84,14 @@ export async function addExpenseItem(
 
   const errors = validateExpenseItem(item)
   if (errors.length > 0) throw new Error(errors.join(', '))
+
+  // Solo quien rinde, y solo en borrador: enviada la rendición, el aprobador ya
+  // la está revisando. Ni el admin agrega gastos a la rendición de otra persona.
+  const { data: reporte } = await supabase
+    .from('expense_reports').select('status, submitter_id').eq('id', reportId).single()
+  if (!reporte) throw new Error('Rendición no encontrada')
+  const permiso = puedeCambiarGastos(reporte, user.id)
+  if (!permiso.ok) throw new Error(permiso.motivo)
 
   // Validar RUT de proveedor server-side — si es inválido, limpiar (no bloquear)
   let supplierRut = item.supplier_rut ?? null
@@ -163,7 +173,6 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
 
-  // Verificar que el reporte pertenece al usuario (o es admin)
   const { data: profile } = await supabase
     .from('users')
     .select('role, org_id, full_name')
@@ -172,14 +181,15 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
 
   const { data: report } = await supabase
     .from('expense_reports')
-    .select('submitter_id')
+    .select('submitter_id, status, is_historical_import')
     .eq('id', reportId)
     .single()
 
   if (!report) throw new Error('Rendición no encontrada')
-  if (profile?.role !== 'admin' && report.submitter_id !== user.id) {
-    throw new Error('Sin permiso para eliminar ítems de esta rendición')
-  }
+  // Quien rinde, en su borrador. El admin, además, corrige cargas históricas
+  // (HistoricalSection); en una rendición viva de otra persona, ya no.
+  const permiso = puedeCambiarGastos(report, user.id, profile?.role === 'admin')
+  if (!permiso.ok) throw new Error(permiso.motivo)
 
   // Capture item before soft delete
   const { data: item } = await supabase
@@ -243,20 +253,30 @@ export async function submitExpenseReport(reportId: string) {
     throw new Error('La rendición debe tener al menos un ítem')
   }
 
-  const { error } = await supabase
+  const ctx = await contextoRendicion(reportId)
+  if (ctx.reporte.submitter_id !== user.id) throw new Error('Solo quien rinde puede enviar su rendición')
+  if (ctx.reporte.status !== 'draft') throw new Error('Esta rendición ya fue enviada')
+
+  const yo = ctx.personas.find(p => p.id === user.id)
+  if (!yo) throw new Error('Rendición no encontrada')
+
+  const envio = puedeEnviar('rendicion', yo, ctx.doc.cadena)
+  if (!envio.ok) {
+    if (!ctx.doc.cadena.l1) {
+      notifyAdminsMissingApprover(ctx.reporte.org_id, yo.nombre, 'una rendición').catch(() => {})
+    }
+    throw new Error(envio.motivo)
+  }
+
+  const { data: enviada, error } = await ctx.admin
     .from('expense_reports')
-    .update({
-      status:       'submitted',
-      submitted_at: new Date().toISOString(),
-    })
+    .update({ status: 'submitted', submitted_at: new Date().toISOString() })
     .eq('id', reportId)
-    .eq('submitter_id', user.id)
     .eq('status', 'draft')
+    .select('id')
+  if (error || !enviada?.length) throw new Error('No se pudo enviar la rendición. Intenta de nuevo')
 
-  if (error) throw new Error(error.message)
-
-  // Notificar a aprobadores (async, fallo silencioso)
-  notifyApproversOfSubmission(reportId).catch(() => {})
+  notifyReportApprovers(reportId, 'decidir_l1', user.id).catch(() => {})
 
   revalidatePath(`/expenses/${reportId}`)
   revalidatePath('/')

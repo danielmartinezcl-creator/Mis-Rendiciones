@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, CheckCircle2, Wallet, ArrowRight, RotateCcw, AlertCircle } from 'lucide-react'
 import { runOcr } from '@/actions/ocr'
-import { addFundItem, listPettyCashFunds, getActivePettyCashCategories } from '@/actions/petty-cash'
+import { addFundItem, listMyOpenFunds, getActivePettyCashCategories } from '@/actions/petty-cash'
 import { addPettyCashItemAttachment } from '@/actions/expenses'
-import type { FundListItem } from '@/actions/petty-cash'
+import type { FondoAbierto } from '@/actions/petty-cash'
+import { formatDate } from '@/lib/utils'
 
 type Category = { id: string; name: string; color: string | null }
 
@@ -35,16 +36,16 @@ export default function QuickPage() {
   const [amount,      setAmount]      = useState('')
   const [categoryId,  setCategoryId]  = useState('')
   const [fundId,      setFundId]      = useState('')
-  const [funds,       setFunds]       = useState<FundListItem[]>([])
+  const [funds,       setFunds]       = useState<FondoAbierto[]>([])
   const [categories,  setCategories]  = useState<Category[]>([])
   const [submitting,  setSubmitting]  = useState(false)
   const [done,        setDone]        = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
-  const readyFunds = funds.filter(f => f.status === 'funds_sent')
-
   useEffect(() => {
-    listPettyCashFunds().then(setFunds)
+    /* Solo los fondos propios con los fondos enviados: nadie carga gastos en el
+       fondo de otra persona, tampoco el admin (decisión de Daniel, 2026-09-25). */
+    listMyOpenFunds().then(setFunds)
     getActivePettyCashCategories().then(setCategories)
   }, [])
 
@@ -309,7 +310,7 @@ export default function QuickPage() {
             <p className="font-mono-amount font-bold text-accent-700 text-[28px] leading-none">{fmtCLP(parseFloat(amount) || 0)}</p>
           </div>
 
-          {readyFunds.length === 0 ? (
+          {funds.length === 0 ? (
             <div className="text-center py-8 space-y-3">
               <Wallet size={40} className="mx-auto text-ink-200" />
               <p className="card-eyebrow text-ink-500">Sin fondos activos</p>
@@ -324,7 +325,7 @@ export default function QuickPage() {
           ) : (
             <div className="space-y-2">
               <p className="card-label font-semibold text-ink-600">Elegí el fondo de caja chica:</p>
-              {readyFunds.map(f => (
+              {funds.map(f => (
                 <button
                   key={f.id}
                   onClick={() => setFundId(f.id)}
@@ -335,13 +336,15 @@ export default function QuickPage() {
                   }`}
                 >
                   <p className="card-eyebrow text-ink-800">{f.name}</p>
-                  <p className="card-meta text-ink-400 mt-0.5">{f.employee_name}</p>
+                  <p className="card-meta text-ink-400 mt-0.5">
+                    {formatDate(f.period_start)} – {formatDate(f.period_end)}
+                  </p>
                 </button>
               ))}
             </div>
           )}
 
-          {readyFunds.length > 0 && (
+          {funds.length > 0 && (
             <button
               onClick={handleSubmit}
               disabled={!fundId || submitting}

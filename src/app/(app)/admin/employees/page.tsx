@@ -20,7 +20,8 @@ const PERMISOS = [
   { campo: 'can_manage_petty_cash',       chip: 'EFF' },
   { campo: 'can_load_bank_transfer',      chip: 'carga banco' },
   { campo: 'can_authorize_bank_transfer', chip: 'autoriza banco' },
-  { campo: 'bank_is_backup',              chip: 'suplente banco' },
+  { campo: 'bank_load_backup',            chip: 'suplente carga' },
+  { campo: 'bank_auth_backup',            chip: 'suplente autoriza' },
 ] as const satisfies readonly { campo: keyof UserProfile; chip: string }[]
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
@@ -101,6 +102,8 @@ export default function AdminEmployeesPage() {
     try {
       await updateEmployee(userId, updates)
       await load()
+    } catch (err) {
+      avisar(err instanceof Error ? err.message : 'Error al actualizar')
     } finally {
       setSaving(null)
     }
@@ -161,6 +164,9 @@ export default function AdminEmployeesPage() {
     try {
       await deactivateEmployee(userId)
       await load()
+    } catch (err) {
+      // Por ejemplo: todavía aprueba a otras personas y hay que reasignarlas
+      avisar(err instanceof Error ? err.message : 'Error al inactivar')
     } finally {
       setDeactivatingId(null)
     }
@@ -773,18 +779,26 @@ export default function AdminEmployeesPage() {
                       className="rounded text-brand-600" />
                     Carga banco
                   </label>
+                  {emp.can_load_bank_transfer && (
+                    <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede cargar cuando haga falta, pero el aviso le llega solo si no hay titular que pueda">
+                      <input type="checkbox" checked={emp.bank_load_backup} disabled={saving === emp.id}
+                        onChange={e => handleUpdate(emp.id, { bank_load_backup: e.target.checked })}
+                        className="rounded text-brand-600" />
+                      Suplente de carga
+                    </label>
+                  )}
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede autorizar la transferencia bancaria final">
                     <input type="checkbox" checked={emp.can_authorize_bank_transfer} disabled={saving === emp.id}
                       onChange={e => handleUpdate(emp.id, { can_authorize_bank_transfer: e.target.checked })}
                       className="rounded text-brand-600" />
                     Autorizador banco
                   </label>
-                  {(emp.can_load_bank_transfer || emp.can_authorize_bank_transfer) && (
-                    <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede cargar o autorizar cuando haga falta, pero los avisos del banco van solo a los titulares">
-                      <input type="checkbox" checked={emp.bank_is_backup} disabled={saving === emp.id}
-                        onChange={e => handleUpdate(emp.id, { bank_is_backup: e.target.checked })}
+                  {emp.can_authorize_bank_transfer && (
+                    <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Puede autorizar cuando haga falta, pero el aviso le llega solo si no hay titular que pueda">
+                      <input type="checkbox" checked={emp.bank_auth_backup} disabled={saving === emp.id}
+                        onChange={e => handleUpdate(emp.id, { bank_auth_backup: e.target.checked })}
                         className="rounded text-brand-600" />
-                      Suplente banco (sin avisos)
+                      Suplente de autorización
                     </label>
                   )}
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">

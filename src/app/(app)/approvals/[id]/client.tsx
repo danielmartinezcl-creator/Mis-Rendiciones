@@ -52,7 +52,10 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     if (!initialReport?.expense_items) return {}
     const initial: Record<string, Decision> = {}
     for (const item of (initialReport.expense_items ?? []) as ItemWithRelations[]) {
-      initial[item.id] = { action: null, reason: '' }
+      // En N2, lo que el N1 rechazó llega rechazado y con su motivo
+      initial[item.id] = item.status === 'rejected'
+        ? { action: 'reject', reason: item.rejection_reason ?? '' }
+        : { action: null, reason: '' }
     }
     return initial
   })
@@ -162,7 +165,9 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     setSubmitting(true)
     setError(null)
     try {
-      const payload = items.map(item => ({ itemId: item.id, action: 'approve' as const, reason: undefined }))
+      const payload = items.map(item => item.status === 'rejected'
+        ? { itemId: item.id, action: 'reject' as const, reason: item.rejection_reason ?? undefined }
+        : { itemId: item.id, action: 'approve' as const, reason: undefined })
       await submitApprovalDecision(id, payload, notes)
       router.push('/approvals')
     } catch (err) {
@@ -203,7 +208,8 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
     )
   }
 
-  const isActionable = report.status === 'submitted' || report.status === 'pending_l2'
+  const enEspera     = report.status === 'submitted' || report.status === 'pending_l2'
+  const isActionable = enEspera && report.permiso.ok
   const items = (report.expense_items ?? []) as ItemWithRelations[]
 
   // AI analysis helpers
@@ -548,7 +554,13 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
         </div>
       )}
 
-      {!isActionable && (
+      {enEspera && !report.permiso.ok && (
+        <div className="bg-ink-50 rounded-card p-4 text-center card-label text-ink-500">
+          {report.permiso.motivo ?? 'Esta rendición espera la decisión de otra persona.'}
+        </div>
+      )}
+
+      {!enEspera && (
         <div className="bg-ink-50 rounded-card p-4 text-center card-label text-ink-500">
           Esta rendición ya fue procesada (estado: <strong>{report.status}</strong>).
         </div>

@@ -89,7 +89,8 @@ export interface Database {
           can_manage_petty_cash: boolean
           can_load_bank_transfer: boolean
           can_authorize_bank_transfer: boolean
-          bank_is_backup: boolean
+          bank_load_backup: boolean
+          bank_auth_backup: boolean
           department: string | null
           rut: string | null
           bank_account: string | null
@@ -117,7 +118,8 @@ export interface Database {
           can_manage_petty_cash?: boolean
           can_load_bank_transfer?: boolean
           can_authorize_bank_transfer?: boolean
-          bank_is_backup?: boolean
+          bank_load_backup?: boolean
+          bank_auth_backup?: boolean
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -145,7 +147,8 @@ export interface Database {
           can_manage_petty_cash?: boolean
           can_load_bank_transfer?: boolean
           can_authorize_bank_transfer?: boolean
-          bank_is_backup?: boolean
+          bank_load_backup?: boolean
+          bank_auth_backup?: boolean
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -556,8 +559,9 @@ export interface Database {
           id: string
           org_id: string
           user_id: string
-          type: 'submission' | 'approval' | 'rejection' | 'reimbursement'
+          type: 'submission' | 'approval' | 'rejection' | 'reimbursement' | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing'
           report_id: string | null
+          fund_id: string | null
           read: boolean
           created_at: string
           dedup_key: string | null
@@ -566,8 +570,9 @@ export interface Database {
           id?: string
           org_id: string
           user_id: string
-          type: 'submission' | 'approval' | 'rejection' | 'reimbursement'
+          type: 'submission' | 'approval' | 'rejection' | 'reimbursement' | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing'
           report_id?: string | null
+          fund_id?: string | null
           read?: boolean
           created_at?: string
           dedup_key?: string | null
@@ -591,7 +596,7 @@ export interface Database {
           period_start: string
           period_end: string
           description: string | null
-          status: 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          status: 'draft' | 'pending_approval' | 'pending_approval_l2' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'pending_liquidation_l2' | 'settled' | 'rejected'
           settled_at: string | null
           created_at: string
           updated_at: string
@@ -613,7 +618,7 @@ export interface Database {
           period_start: string
           period_end: string
           description?: string | null
-          status?: 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          status?: 'draft' | 'pending_approval' | 'pending_approval_l2' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'pending_liquidation_l2' | 'settled' | 'rejected'
           settled_at?: string | null
           created_at?: string
           updated_at?: string
@@ -627,7 +632,7 @@ export interface Database {
           id?: string
           name?: string
           amount_approved?: number | null
-          status?: 'draft' | 'pending_approval' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'settled' | 'rejected'
+          status?: 'draft' | 'pending_approval' | 'pending_approval_l2' | 'approved' | 'pending_bank_load' | 'pending_bank_auth' | 'funds_sent' | 'submitted' | 'pending_liquidation_approval' | 'pending_liquidation_l2' | 'settled' | 'rejected'
           settled_at?: string | null
           updated_at?: string
           deleted_at?: string | null
@@ -709,18 +714,20 @@ export interface Database {
           id: string
           fund_id: string
           actor_id: string
-          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
+          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled' | 'returned_to_draft'
           notes: string | null
           amount: number | null
+          level: number | null
           created_at: string
         }
         Insert: {
           id?: string
           fund_id: string
           actor_id: string
-          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled'
+          action: 'created' | 'submitted_for_approval' | 'approved' | 'rejected' | 'bank_load_requested' | 'bank_load_confirmed' | 'bank_authorized' | 'funds_sent' | 'liquidation_submitted' | 'liquidation_elevated' | 'liquidation_approved' | 'settled' | 'returned_to_draft'
           notes?: string | null
           amount?: number | null
+          level?: number | null
           created_at?: string
         }
         Update: Record<string, never>

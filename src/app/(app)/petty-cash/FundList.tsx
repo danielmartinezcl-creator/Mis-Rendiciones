@@ -5,7 +5,7 @@ import { Wallet, Plus, Filter, Trash2, SendHorizontal } from 'lucide-react'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { FUND_STEPS } from '@/lib/constants'
-import { formatPeriod } from '@/lib/petty-cash-helpers'
+import { formatPeriod, pasoVisibleDelFondo } from '@/lib/petty-cash-helpers'
 import { fmtCLP } from './usePettyCashState'
 import type { FundListItem, TransferSource } from './usePettyCashState'
 
@@ -132,7 +132,7 @@ export function FundList({
                 <p className="card-meta text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
                 {f.status !== 'rejected' && (
                   <div className="mt-2 max-w-[220px]">
-                    <CompactStepper steps={FUND_STEPS} currentStatus={f.status} />
+                    <CompactStepper steps={FUND_STEPS} currentStatus={pasoVisibleDelFondo(f.status)} />
                   </div>
                 )}
               </div>
