@@ -10,7 +10,7 @@ import { validateStringLength, validateDateRange } from '@/lib/validators'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
 import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/contexto-permisos'
-import { puedeEnviar, type Paso } from '@/lib/permisos'
+import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 
@@ -29,21 +29,26 @@ async function getProfile() {
   return { supabase, userId: user.id, profile }
 }
 
+// El historial del fondo lo escribe solo el servidor: la 033 le quita a la
+// sesión el INSERT en petty_cash_approvals, porque de ese historial salen las
+// reglas (quién cargó, quién aprobó). El actor es siempre quien tiene la sesión.
+// Se llama después de una escritura que ya pasó por la RLS (crear el fondo,
+// registrar la transferencia), que es la que decide si la persona podía hacerlo.
 async function audit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   fundId: string,
   actorId: string,
-  action: string,
+  action: FundAuditAction,
   notes?: string | null,
   amount?: number | null,
 ) {
-  await supabase.from('petty_cash_approvals').insert({
+  const { error } = await createAdminClient().from('petty_cash_approvals').insert({
     fund_id:  fundId,
     actor_id: actorId,
-    action:   action as never,
+    action,
     notes:    notes ?? null,
     amount:   amount ?? null,
   })
+  if (error) console.error('[fondos] no se pudo registrar en el historial', fundId, action, error)
 }
 
 type FundUpdate      = Database['public']['Tables']['petty_cash_funds']['Update']
@@ -130,7 +135,7 @@ export async function createPettyCashFund(data: {
 
   if (error) throw new Error(error.message)
 
-  await audit(supabase, fund.id, userId, 'created', null, data.amount_requested)
+  await audit(fund.id, userId, 'created', null, data.amount_requested)
   revalidatePath('/petty-cash')
   redirect(`/petty-cash/${fund.id}`)
 }
@@ -167,6 +172,10 @@ export async function approveFund(fundId: string, approvedAmount: number, notes?
   if (!(approvedAmount > 0)) throw new Error('El monto aprobado debe ser mayor que cero')
 
   const ctx = await contextoFondo(fundId)
+  // Un fondo en liquidación también espera «decidir»: sin esto, aprobarlo acá
+  // lo devolvía a la cola del banco con la plata ya enviada.
+  const etapa = enEtapa(ctx.doc, 'fondo')
+  if (!etapa.ok) throw new Error(etapa.motivo)
   const { paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Este fondo ya fue decidido')
   const nivel = paso === 'decidir_l2' ? 2 : 1
   const hacia = estadoTrasAprobacionFondo({ nivel, tieneL2: !!ctx.doc.cadena.l2 })
@@ -184,6 +193,9 @@ export async function rejectFund(fundId: string, notes: string) {
   if (!notes.trim()) throw new Error('Indica el motivo del rechazo')
 
   const ctx = await contextoFondo(fundId)
+  // Vale en las dos etapas (fondo y liquidación: spec §2, «rechazo en cualquier
+  // nivel»). Con la plata ya enviada (`funds_sent`) no hay paso de decisión y
+  // `exigirPaso` lo rechaza.
   const { paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Este fondo ya fue decidido')
 
   await moverFondo(ctx, ctx.fondo.status as FundStatus, 'rejected')
@@ -376,18 +388,37 @@ export async function approveLiquidation(
 ) {
   const { userId } = await getProfile()
   const ctx = await contextoFondo(fundId)
+  // Un fondo recién enviado también espera «decidir»: sin esto, aprobar su
+  // «liquidación» lo daba por liquidado sin que la plata hubiera salido.
+  const etapa = enEtapa(ctx.doc, 'liquidacion')
+  if (!etapa.ok) throw new Error(etapa.motivo)
   const { paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Esta liquidación ya fue decidida')
   const nivel = paso === 'decidir_l2' ? 2 : 1
 
+  // Misma regla que en las rendiciones: un id ajeno no se toca, y ningún gasto
+  // pendiente puede quedar afuera — si no, la liquidación se cerraba con gastos
+  // que nadie revisó. Todo se valida antes de escribir nada.
   const ids = decisions.map(d => d.itemId)
-  const { data: propios } = await ctx.admin.from('petty_cash_items').select('id').eq('fund_id', fundId).in('id', ids)
-  if ((propios ?? []).length !== new Set(ids).size) throw new Error('Hay gastos que no pertenecen a este fondo')
+  const { data: items, error: itemsError } = await ctx.admin
+    .from('petty_cash_items')
+    .select('id, status')
+    .eq('fund_id', fundId)
+  if (itemsError) throw new Error(itemsError.message)
+  const lista = items ?? []
+  if (lista.filter(i => ids.includes(i.id)).length !== new Set(ids).size) {
+    throw new Error('Hay gastos que no pertenecen a este fondo')
+  }
+  const decididos = new Set(ids)
+  if (lista.some(i => i.status === 'pending' && !decididos.has(i.id))) {
+    throw new Error('Debes decidir todos los gastos antes de aprobar la liquidación')
+  }
 
   for (const d of decisions) {
     const { error } = await ctx.admin
       .from('petty_cash_items')
       .update({ status: d.action, rejection_reason: d.action === 'rejected' ? (d.reason ?? null) : null })
       .eq('id', d.itemId)
+      .eq('fund_id', fundId)
     if (error) throw new Error(error.message)
   }
 
@@ -434,7 +465,7 @@ export async function recordSettlement(fundId: string, data: {
 
   if (error) throw new Error(error.message)
 
-  await audit(supabase, fundId, userId, 'settled',
+  await audit(fundId, userId, 'settled',
     `${data.type === 'refund_to_employee' ? 'Devolución al empleado' : 'Reembolso a empresa'}: ${data.reference ?? ''}`.trim(),
     data.amount,
   )
@@ -587,6 +618,10 @@ export async function confirmBankLoad(fundId: string, data: {
   const ctx = await contextoFondo(fundId)
   exigirPaso(ctx, ctx.fondo.status, userId, ['cargar_pago'], 'Este fondo ya no está esperando la carga')
 
+  // El orden se queda así: el historial es de solo agregar, así que escribirlo
+  // antes de mover el estado dejaría una «carga» registrada que quizá nunca
+  // ocurrió. Si algo falla después de moverlo, la autorización queda trabada
+  // por la regla «sin carga registrada nadie autoriza» (permisos.ts), no abierta.
   await moverFondo(ctx, 'pending_bank_load', 'pending_bank_auth')
 
   const { error } = await ctx.admin.from('petty_cash_transfers').insert({
@@ -598,9 +633,17 @@ export async function confirmBankLoad(fundId: string, data: {
     registered_by:  userId,
     notes:          data.notes ?? null,
   })
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('[fondos] carga marcada sin transferencia registrada', fundId, error)
+    throw new Error('La carga quedó marcada, pero no se pudo registrar la transferencia. Avisa al administrador: nadie podrá autorizarla hasta corregirlo')
+  }
 
-  await registrar(ctx, userId, 'bank_load_confirmed', { notes: data.reference ?? null, amount: data.amount })
+  try {
+    await registrar(ctx, userId, 'bank_load_confirmed', { notes: data.reference ?? null, amount: data.amount })
+  } catch (e) {
+    console.error('[fondos] carga marcada sin entrada en el historial', fundId, e)
+    throw new Error('La carga quedó marcada, pero no quedó en el historial. Avisa al administrador: nadie podrá autorizarla hasta corregirlo')
+  }
   notifyFundStep(fundId, 'autorizar_pago', userId).catch(() => {})
   revalidarFondo(fundId)
 }

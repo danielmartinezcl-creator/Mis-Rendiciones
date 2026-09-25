@@ -32,6 +32,43 @@ async function requireAdmin() {
   return { supabase, userId: user.id, orgId: profile.org_id, actorName: profile.full_name }
 }
 
+// Sacar de la nómina (desactivar, papelera, bloqueo) a alguien que está en la
+// cadena de otros dejaría esos documentos esperando a quien ya no puede entrar:
+// primero hay que reasignarlos. Mismo control que `updateEmployee`.
+// No cuentan quienes ya salieron de la nómina (papelera o bloqueados: su cadena
+// no se puede editar desde la pantalla) ni quienes salen en esta misma operación.
+// Devuelve, por cada persona, los nombres que dependen de ella.
+async function dependientesPorPersona(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId:    string,
+  userIds:  string[],
+): Promise<Record<string, string[]>> {
+  const { data: empleados, error } = await supabase
+    .from('users')
+    .select('id, full_name, approver_l1_id, approver_l2_id, approver_l1_backup_id')
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .is('blocked_at', null)
+  if (error) throw new Error(error.message)
+
+  const salen  = new Set(userIds)
+  const quedan = (empleados ?? []).filter(e => !salen.has(e.id)).map(e => ({
+    id: e.id, nombre: e.full_name, l1: e.approver_l1_id, l2: e.approver_l2_id, suplenteL1: e.approver_l1_backup_id,
+  }))
+  return Object.fromEntries(userIds.map(id => [id, dependientesDe(id, quedan)]))
+}
+
+const mensajeDependientes = (nombres: string[]) => `Primero reasigna a quienes aprueba: ${nombres.join(', ')}`
+
+async function exigirSinDependientes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId:    string,
+  userId:   string,
+) {
+  const deps = (await dependientesPorPersona(supabase, orgId, [userId]))[userId]
+  if (deps.length) throw new Error(mensajeDependientes(deps))
+}
+
 // ─── Helpers de export Defontana ─────────────────────────────────────────────
 
 /** item_type de la BD → movimiento contable. Nulo o desconocido cuenta como gasto,
@@ -614,7 +651,11 @@ export async function enableBlockedEmployee(userId: string) {
 
 export async function deactivateEmployee(userId: string) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
-  await supabase.from('users').update({ is_active: false }).eq('id', userId)
+  await exigirSinDependientes(supabase, orgId, userId)
+  const { data: desactivado, error } = await supabase
+    .from('users').update({ is_active: false }).eq('id', userId).eq('org_id', orgId).select('id')
+  if (error) throw new Error(error.message)
+  if (!desactivado?.length) throw new Error('No se pudo desactivar al empleado')
 
   try {
     await logAudit({
@@ -632,6 +673,7 @@ export async function deactivateEmployee(userId: string) {
 
 export async function deleteEmployee(userId: string) {
   const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
+  await exigirSinDependientes(supabase, orgId, userId)
 
   // Capture before state
   const { data: emp } = await supabase
@@ -672,9 +714,14 @@ export async function deleteEmployees(userIds: string[]): Promise<{ id: string; 
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   const adminClient = createAdminClient()
 
+  // Quien tiene dependientes fuera del lote no se borra: vuelve con su error y
+  // el resto sigue. Si A aprueba a B y los dos salen juntos, no cuenta.
+  const deps = await dependientesPorPersona(supabase, orgId, userIds)
+
   const deletedAt = new Date().toISOString()
   const results = await Promise.all(
     userIds.map(async (id) => {
+      if (deps[id]?.length) return { id, error: mensajeDependientes(deps[id]) }
       const { error } = await supabase
         .from('users')
         .update({ deleted_at: deletedAt, is_active: false })
@@ -739,14 +786,7 @@ export async function updateEmployee(
   // Quitarle «aprueba» o desactivar a alguien que está en cadenas ajenas las
   // dejaría sin quién decida: primero hay que reasignarlas.
   if (updates.can_approve === false || updates.is_active === false) {
-    const { data: empleados } = await supabase
-      .from('users')
-      .select('id, full_name, approver_l1_id, approver_l2_id, approver_l1_backup_id')
-      .eq('org_id', orgId)
-    const deps = dependientesDe(userId, (empleados ?? []).map(e => ({
-      id: e.id, nombre: e.full_name, l1: e.approver_l1_id, l2: e.approver_l2_id, suplenteL1: e.approver_l1_backup_id,
-    })))
-    if (deps.length) throw new Error(`Primero reasigna a quienes aprueba: ${deps.join(', ')}`)
+    await exigirSinDependientes(supabase, orgId, userId)
   }
 
   const { error } = await supabase
@@ -1628,6 +1668,7 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
     // Un usuario no se borra: bloquea. Su historial (auditoría, rendiciones) lo
     // referencia y audit_log no admite el SET NULL de la cascada (migración 027).
     // Sale de la papelera y solo un admin lo habilita desde la nómina.
+    await exigirSinDependientes(supabase, orgId, id)
     const { data: before } = await supabase
       .from('users').select('full_name').eq('id', id).single()
     const { data: blocked, error } = await supabase

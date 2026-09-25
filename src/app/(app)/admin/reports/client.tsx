@@ -12,7 +12,7 @@ import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, BookCheck, FileSpreadsheet } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
-import { REPORT_STEPS, ESTADOS_APROBADOS } from '@/lib/constants'
+import { REPORT_STEPS, ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import type { ReportStatus } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
@@ -239,7 +239,9 @@ export function AdminReportsClient({ initialReports }: Props) {
   // KPIs del filtro actual
   const totalMonto    = filtered.reduce((s, r) => s + r.total_amount, 0)
   const totalAprobado = filtered.reduce((s, r) => s + r.approved_amount, 0)
-  const pendReimb     = filtered.filter(r => r.status === 'approved' || r.status === 'partially_approved').reduce((s, r) => s + r.approved_amount, 0)
+  // Por pagar incluye lo que está en el banco (carga y autorización): desde que
+  // la aprobación final va directo a la carga, casi nada queda en 'approved'
+  const pendReimb     = filtered.filter(r => ESTADOS_POR_PAGAR.includes(r.status as ReportStatus)).reduce((s, r) => s + r.approved_amount, 0)
 
   async function handleExpand(id: string) {
     if (expanded === id) { setExpanded(null); return }

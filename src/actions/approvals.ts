@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
 import { contextoRendicion, exigirPaso, permisoEn, cargarPersonas, type ContextoRendicion } from '@/lib/contexto-permisos'
-import { puedeActuar, pasoSegunEstado, suplenteVigente, type Paso, type Documento } from '@/lib/permisos'
+import { puedeActuar, pasoSegunEstado, suplenteVigente, cadenaActiva, type Paso, type Documento } from '@/lib/permisos'
 import { estadoTrasDecisionReporte, type ResultadoDecision } from '@/lib/flujo'
 import {
   notifySubmitterOfDecision,
@@ -75,11 +75,12 @@ export async function getPendingApprovals() {
     const doc: Documento = {
       tipo:           'rendicion',
       beneficiarioId: r.submitter_id,
-      cadena: {
+      // Misma cadena que ve la acción: un aprobador inactivo no cuenta
+      cadena: cadenaActiva({
         l1:                sub.approver_l1_id,
         l2:                sub.approver_l2_id,
         suplenteL1Vigente: suplenteVigente(sub.approver_l1_backup_id, sub.backup_active_from, sub.backup_active_until, hoy),
-      },
+      }, personas),
       historial: [],
     }
     if (!puedeActuar(yo, paso, doc, personas).ok) return []
@@ -135,8 +136,15 @@ export async function getReportForApproval(reportId: string) {
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
-  const ctx     = await contextoRendicion(reportId)
-  const permiso = permisoEn(ctx, report.status, user.id)
+  // Una rendición en la papelera no tiene contexto —`contextoRendicion` exige
+  // `deleted_at is null`— y eso no puede tumbar la pantalla: sin permiso,
+  // simplemente no se puede accionar nada acá (igual que en getFundDetail).
+  let permiso: { paso: Paso | null; ok: boolean; motivo: string | null; esperandoA: string[] }
+  try {
+    permiso = permisoEn(await contextoRendicion(reportId), report.status, user.id)
+  } catch {
+    permiso = { paso: null, ok: false, motivo: null, esperandoA: [] }
+  }
 
   return {
     ...report,
@@ -210,12 +218,16 @@ async function cerrarDecision(
   const { admin, reporte } = ctx
   const nivel = paso === 'decidir_l2' ? 2 : 1
 
-  const { data: items } = await admin
+  // Una lectura fallida o vacía haría que computeReportStatus([]) diera
+  // 'submitted', y eso se escribiría como el estado de la rendición.
+  const { data: items, error: itemsError } = await admin
     .from('expense_items')
     .select('status, amount_clp, item_type')
     .eq('report_id', reporte.id)
     .is('deleted_at', null)
-  const lista     = items ?? []
+  if (itemsError) throw new Error(itemsError.message)
+  const lista = items ?? []
+  if (!lista.length) throw new Error('La rendición no tiene ítems')
   const resultado = computeReportStatus(lista) as ResultadoDecision
   const monto     = computeApprovedAmount(lista)
   const nuevo     = estadoTrasDecisionReporte({ nivel, tieneL2: !!ctx.doc.cadena.l2, resultado, montoAPagar: monto })
@@ -407,13 +419,18 @@ export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<A
   const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
   const analysis = parseAnalysisResponse(rawText)
 
-  await supabase
+  // Con la llave de servicio: la 033 le quita al aprobador la política UPDATE
+  // sobre expense_reports (con ella podía tocar cualquier columna de la
+  // rendición). Quien llega acá ya pasó el control de acceso de arriba y leyó
+  // la rendición con su sesión, así que la RLS confirmó que la puede ver.
+  const { error: cacheError } = await createAdminClient()
     .from('expense_reports')
     .update({
       ai_analysis:    analysis as unknown as Json,
       ai_analysis_at: new Date().toISOString(),
     })
     .eq('id', reportId)
+  if (cacheError) console.error('[análisis IA] no se pudo guardar el caché', reportId, cacheError)
 
   return analysis
 }
@@ -428,25 +445,38 @@ export async function bulkApproveItems(reportId: string, itemIds: string[]): Pro
   const { paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida')
   const nota = `Aprobación masiva de ${itemIds.length} ítem(s) rutinario(s) vía análisis IA`
 
-  const { error } = await ctx.admin
+  const { data: aprobados, error } = await ctx.admin
     .from('expense_items')
     .update({ status: 'approved' })
     .eq('report_id', reportId)
     .in('id', itemIds)
+    .is('deleted_at', null)
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!aprobados?.length) throw new Error('Ninguno de esos ítems pertenece a esta rendición')
 
-  const { data: items } = await ctx.admin
+  // Una lectura fallida o vacía haría que computeReportStatus([]) diera
+  // 'submitted', y eso se escribiría como el estado de la rendición.
+  const { data: items, error: itemsError } = await ctx.admin
     .from('expense_items')
     .select('status, amount_clp, item_type')
     .eq('report_id', reportId)
     .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
   const lista = items ?? []
+  if (!lista.length) throw new Error('La rendición no tiene ítems')
 
   if (lista.some(i => i.status === 'pending')) {
     // Quedan ítems por decidir: solo se actualiza el monto parcial
-    const { error: e1 } = await ctx.admin
-      .from('expense_reports').update({ approved_amount: computeApprovedAmount(lista) }).eq('id', reportId)
+    const { data: parcial, error: e1 } = await ctx.admin
+      .from('expense_reports')
+      .update({ approved_amount: computeApprovedAmount(lista) })
+      .eq('id', reportId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .eq('status', ctx.reporte.status as any)
+      .select('id')
     if (e1) throw new Error(e1.message)
+    if (!parcial?.length) throw new Error('La rendición cambió mientras la mirabas. Recarga la página')
     const { error: e2 } = await ctx.admin.from('expense_report_approvals').insert({
       report_id: reportId, approver_id: user.id, level: paso === 'decidir_l2' ? 2 : 1,
       action: 'approved', items_approved: itemIds, notes: nota,
@@ -466,7 +496,7 @@ export async function markReimbursed(reportId: string, paymentReference: string,
 
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, org_id')
     .eq('id', user.id)
     .single()
 
@@ -476,9 +506,14 @@ export async function markReimbursed(reportId: string, paymentReference: string,
 
   // «Autorizado» significa que la plata salió de la empresa: solo lo marca quien
   // la liberó en el banco. A mano, solo cargas históricas (pagos del pasado). D7.
+  // Con la llave de servicio no hay RLS: la organización se filtra a mano, o un
+  // admin de otra empresa podría marcar esta rendición.
   const admin = createAdminClient()
-  const { data: rep } = await admin.from('expense_reports').select('is_historical_import').eq('id', reportId).single()
-  if (!rep?.is_historical_import) {
+  const { data: rep } = await admin
+    .from('expense_reports').select('is_historical_import')
+    .eq('id', reportId).eq('org_id', profile.org_id).maybeSingle()
+  if (!rep) throw new Error('Rendición no encontrada')
+  if (!rep.is_historical_import) {
     throw new Error('Solo las cargas históricas se marcan como reembolsadas a mano: las demás las cierra quien autoriza el pago en el banco')
   }
 
@@ -492,6 +527,7 @@ export async function markReimbursed(reportId: string, paymentReference: string,
       reimbursed_amount:  reimbursedAmount ?? null,
     })
     .eq('id', reportId)
+    .eq('org_id', profile.org_id)
     .in('status', ['approved', 'partially_approved'])
     .select('id')
   if (error || !marcada?.length) throw new Error('No se pudo marcar el reembolso')
@@ -507,7 +543,7 @@ export async function revertReimbursement(reportId: string) {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, org_id')
     .eq('id', user.id)
     .single()
 
@@ -515,21 +551,30 @@ export async function revertReimbursement(reportId: string) {
     throw new Error('Solo los administradores pueden revertir reembolsos')
   }
 
+  // Con la llave de servicio no hay RLS: la organización se filtra a mano, en la
+  // lectura y en la escritura.
+  const admin = createAdminClient()
+  const { data: rep } = await admin
+    .from('expense_reports').select('is_historical_import')
+    .eq('id', reportId).eq('org_id', profile.org_id).maybeSingle()
+  if (!rep) throw new Error('Rendición no encontrada')
+
   // Recalcular monto aprobado neto (expense - advance - return) para corregir
-  // valores calculados con la fórmula vieja (suma bruta sin distinguir item_type)
-  const { data: itemsData } = await supabase
+  // valores calculados con la fórmula vieja (suma bruta sin distinguir item_type).
+  // También con la llave de servicio: con la sesión, ítems que la RLS no deja
+  // ver volvían como lista vacía y el monto se escribía en 0.
+  const { data: itemsData, error: itemsError } = await admin
     .from('expense_items')
     .select('status, amount_clp, item_type')
     .eq('report_id', reportId)
     .is('deleted_at', null)
+  if (itemsError) throw new Error(itemsError.message)
 
   const netApproved = computeApprovedAmount(itemsData ?? [])
 
   // Una histórica vuelve a «aprobada»; una normal vuelve a esperar la carga,
   // porque «aprobada» ya no lleva a ningún lado.
-  const admin = createAdminClient()
-  const { data: rep } = await admin.from('expense_reports').select('is_historical_import').eq('id', reportId).single()
-  const volverA = rep?.is_historical_import ? 'approved' : 'pending_bank_load'
+  const volverA = rep.is_historical_import ? 'approved' : 'pending_bank_load'
 
   const { data: revertida, error } = await admin
     .from('expense_reports')
@@ -542,6 +587,7 @@ export async function revertReimbursement(reportId: string) {
       approved_amount:   netApproved,
     })
     .eq('id', reportId)
+    .eq('org_id', profile.org_id)
     .eq('status', 'reimbursed')
     .select('id')
   if (error || !revertida?.length) throw new Error('No se pudo revertir el reembolso')
@@ -574,6 +620,8 @@ export async function confirmReportBankLoad(reportId: string, data: {
     .select('id')
   if (error || !movida?.length) throw new Error('No se pudo registrar la carga. Intenta de nuevo')
 
+  // Si el historial falla después de mover el estado, la autorización queda
+  // trabada («sin carga registrada nadie autoriza», permisos.ts), no abierta.
   const { error: logError } = await ctx.admin.from('expense_report_approvals').insert({
     report_id:   reportId,
     approver_id: user.id,
@@ -581,7 +629,10 @@ export async function confirmReportBankLoad(reportId: string, data: {
     action:      'bank_load_confirmed',
     notes:       `Ref: ${data.paymentReference || 'Sin referencia'} · ${data.transferredAt}`,
   })
-  if (logError) throw new Error(logError.message)
+  if (logError) {
+    console.error('[banco] carga marcada sin entrada en el historial', reportId, logError)
+    throw new Error('La carga quedó marcada, pero no quedó en el historial. Avisa al administrador: nadie podrá autorizarla hasta corregirlo')
+  }
 
   notifyReportBankStep(reportId, 'autorizar_pago', user.id).catch(() => {})
 

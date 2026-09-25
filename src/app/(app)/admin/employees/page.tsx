@@ -164,6 +164,9 @@ export default function AdminEmployeesPage() {
     try {
       await deactivateEmployee(userId)
       await load()
+    } catch (err) {
+      // Por ejemplo: todavía aprueba a otras personas y hay que reasignarlas
+      avisar(err instanceof Error ? err.message : 'Error al inactivar')
     } finally {
       setDeactivatingId(null)
     }
