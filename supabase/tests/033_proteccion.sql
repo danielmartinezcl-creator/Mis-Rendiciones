@@ -102,9 +102,12 @@ declare
   alta_rend    constant text := 'Una rendición nueva solo puede crearse en borrador';
   historica    constant text := 'Solo un admin marca una rendición como carga histórica';
   item_nuevo   constant text := 'Un gasto nuevo entra pendiente';
+  borrador     constant text := 'Solo se pueden modificar gastos de una rendición en borrador';
+  fondo_abierto constant text := 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
+  mover        constant text := 'Un gasto no se puede mover a otro documento';
   rls          constant text := 'row-level security';
 
-  u uuid; u2 uuid; d uuid; org uuid; est text;
+  u uuid; u2 uuid; d uuid; d2 uuid; org uuid; est text;
 begin
   -- 1a. La EFF mueve el estado de un fondo suyo (sin rol admin). Si es
   --     borrador lo frena el disparador; si no, la RLS (solo edita borradores).
@@ -203,7 +206,8 @@ begin
        values (%L, %L, %L, %L, 1000, 1000, %L, true)', org, u2, 'prueba 033', 'pending_bank_load', 'CLP') end,
     array[alta_rend]);
 
-  -- 5. F5a — el rendidor agrega a su rendición un gasto ya aprobado
+  -- 5. F5a — el rendidor agrega a su rendición un gasto ya aprobado. Si no
+  --    hay borradores y cae en una enviada, lo frena antes la 3b (`borrador`).
   select r.submitter_id, r.id, r.org_id into u, d, org
   from expense_reports r join users s on s.id = r.submitter_id
   where r.deleted_at is null and s.role <> 'admin' and not r.is_historical_import
@@ -212,7 +216,7 @@ begin
     case when d is not null then format(
       'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
        values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'approved') end,
-    array[item_nuevo, rls]);
+    array[item_nuevo, borrador, rls]);
 
   -- 6a. Firmar el historial de un fondo con el nombre de otra persona
   select f.manager_id, f.id, (select x.id from users x where x.org_id = f.org_id and x.id <> f.manager_id limit 1)
@@ -286,8 +290,186 @@ begin
     case when d is not null then format(
       'update public.expense_reports set title = title || %L where id = %L', ' (editado)', d) end,
     '{}', 'permitido');
+
+  -- 10. Los gastos de una rendición se tocan solo en borrador (3b) ─────────────
+  -- 10a. El doble pago: el rendidor pasa un gasto ya aprobado (de una carga
+  --      histórica suya, por ejemplo) a un borrador suyo, donde llegaría
+  --      aprobado. Si no tiene borrador, a otra rendición suya: la regla es la misma.
+  select r.submitter_id, i.id,
+         (select b.id from expense_reports b
+          where b.submitter_id = r.submitter_id and b.id <> r.id and b.deleted_at is null
+          order by (b.status = 'draft') desc limit 1)
+  into u, d, d2
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users s on s.id = r.submitter_id
+  where i.status = 'approved' and i.deleted_at is null and r.deleted_at is null and s.role <> 'admin'
+  order by exists (select 1 from expense_reports b
+                   where b.submitter_id = r.submitter_id and b.id <> r.id
+                     and b.status = 'draft' and b.deleted_at is null) desc
+  limit 1;
+  perform pg_temp.probar('10a. Rendidor sin admin pasa un gasto aprobado a su borrador', u,
+    case when d is not null and d2 is not null then format(
+      'update public.expense_items set report_id = %L where id = %L', d2, d) end,
+    array[mover]);
+
+  -- 10b. …cambia el monto de un gasto de una rendición suya ya enviada
+  select r.submitter_id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users s on s.id = r.submitter_id
+  where r.status <> 'draft' and i.deleted_at is null and r.deleted_at is null and s.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('10b. Rendidor sin admin cambia el monto de un gasto de su rendición enviada', u,
+    case when d is not null then format(
+      'update public.expense_items set amount_clp = amount_clp + 1 where id = %L', d) end,
+    array[borrador]);
+
+  -- 10c. …lo borra de verdad (misma fila que 10b)
+  perform pg_temp.probar('10c. Rendidor sin admin borra un gasto de su rendición enviada', u,
+    case when d is not null then format(
+      'delete from public.expense_items where id = %L', d) end,
+    array[borrador]);
+
+  -- 10d. …o lo manda a la papelera: el borrado lógico es un UPDATE (misma fila)
+  perform pg_temp.probar('10d. Rendidor sin admin borra (lógico) un gasto de su rendición enviada', u,
+    case when d is not null then format(
+      'update public.expense_items set deleted_at = now(), deleted_by = %L where id = %L', u, d) end,
+    array[borrador]);
+
+  -- 10e. …le agrega un gasto (pendiente) a una rendición suya ya enviada
+  select r.submitter_id, r.id, r.org_id into u, d, org
+  from expense_reports r join users s on s.id = r.submitter_id
+  where r.status <> 'draft' and r.deleted_at is null and s.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('10e. Rendidor sin admin agrega un gasto a su rendición enviada', u,
+    case when d is not null then format(
+      'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[borrador]);
+
+  -- 10f. CONTROL: en su borrador, el rendidor sí edita sus gastos (y el
+  --      disparador de la 024, que corre después, no lo estorba)
+  select r.submitter_id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users s on s.id = r.submitter_id
+  where r.status = 'draft' and i.deleted_at is null and r.deleted_at is null and s.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('10f. CONTROL: rendidor sin admin edita el monto de un gasto de su borrador', u,
+    case when d is not null then format(
+      'update public.expense_items set amount_clp = amount_clp + 1 where id = %L', d) end,
+    '{}', 'permitido');
+
+  -- 10g. CONTROL: …y le agrega gastos
+  select r.submitter_id, r.id, r.org_id into u, d, org
+  from expense_reports r join users s on s.id = r.submitter_id
+  where r.status = 'draft' and r.deleted_at is null and s.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('10g. CONTROL: rendidor sin admin agrega un gasto a su borrador', u,
+    case when d is not null then format(
+      'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    '{}', 'permitido');
+
+  -- 11. Caja chica: el empleado toca sus gastos solo con los fondos enviados ──
+  -- 11a. …edita un gasto de un fondo suyo que no está en «fondos enviados»
+  select f.employee_id, i.id into u, d
+  from petty_cash_items i
+  join petty_cash_funds f on f.id = i.fund_id
+  join users e on e.id = f.employee_id
+  where f.status <> 'funds_sent' and f.deleted_at is null and e.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('11a. Empleado sin admin edita un gasto de su fondo que no está en fondos enviados', u,
+    case when d is not null then format(
+      'update public.petty_cash_items set amount_clp = amount_clp + 1 where id = %L', d) end,
+    array[fondo_abierto]);
+
+  -- 11b. …lo borra (misma fila que 11a)
+  perform pg_temp.probar('11b. Empleado sin admin borra un gasto de su fondo que no está en fondos enviados', u,
+    case when d is not null then format(
+      'delete from public.petty_cash_items where id = %L', d) end,
+    array[fondo_abierto]);
+
+  -- 11c. …le agrega un gasto
+  select f.employee_id, f.id, f.org_id into u, d, org
+  from petty_cash_funds f join users e on e.id = f.employee_id
+  where f.status <> 'funds_sent' and f.deleted_at is null and e.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('11c. Empleado sin admin agrega un gasto a su fondo que no está en fondos enviados', u,
+    case when d is not null then format(
+      'insert into public.petty_cash_items (fund_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[fondo_abierto]);
+
+  -- 11d. …pasa un gasto de un fondo suyo a otro fondo suyo (de preferencia,
+  --      a uno con los fondos enviados, donde después podría editarlo). Si no
+  --      tiene otro, a otro fondo de su organización: el disparador corre antes
+  --      que la RLS, así que tiene que responder él (solo vale `mover`).
+  select f.employee_id, i.id,
+         coalesce(
+           (select g.id from petty_cash_funds g
+            where g.employee_id = f.employee_id and g.id <> f.id and g.deleted_at is null
+            order by (g.status = 'funds_sent') desc limit 1),
+           (select g.id from petty_cash_funds g
+            where g.org_id = f.org_id and g.id <> f.id and g.deleted_at is null limit 1))
+  into u, d, d2
+  from petty_cash_items i
+  join petty_cash_funds f on f.id = i.fund_id
+  join users e on e.id = f.employee_id
+  where f.deleted_at is null and e.role <> 'admin'
+  order by exists (select 1 from petty_cash_funds g
+                   where g.employee_id = f.employee_id and g.id <> f.id and g.deleted_at is null) desc,
+           (i.status = 'approved') desc
+  limit 1;
+  perform pg_temp.probar('11d. Empleado sin admin pasa un gasto a otro fondo suyo', u,
+    case when d is not null and d2 is not null then format(
+      'update public.petty_cash_items set fund_id = %L where id = %L', d2, d) end,
+    array[mover]);
+
+  -- 11e. CONTROL: con los fondos enviados, el empleado sí edita sus gastos
+  select f.employee_id, i.id into u, d
+  from petty_cash_items i
+  join petty_cash_funds f on f.id = i.fund_id
+  join users e on e.id = f.employee_id
+  where f.status = 'funds_sent' and f.deleted_at is null and e.role <> 'admin'
+  limit 1;
+  perform pg_temp.probar('11e. CONTROL: empleado sin admin edita un gasto de su fondo con los fondos enviados', u,
+    case when d is not null then format(
+      'update public.petty_cash_items set amount_clp = amount_clp + 1 where id = %L', d) end,
+    '{}', 'permitido');
+
+  -- 12. El admin corrige gastos de documentos cerrados, pero no los mueve ─────
+  -- 12a. …pasa un gasto de una rendición a otra con su sesión
+  select a.id, i.id,
+         (select b.id from expense_reports b
+          where b.org_id = i.org_id and b.id <> i.report_id and b.deleted_at is null limit 1)
+  into u, d, d2
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
+  where i.deleted_at is null and r.deleted_at is null
+  limit 1;
+  perform pg_temp.probar('12a. Admin pasa un gasto a otra rendición con su sesión', u,
+    case when d is not null and d2 is not null then format(
+      'update public.expense_items set report_id = %L where id = %L', d2, d) end,
+    array[mover]);
+
+  -- 12b. CONTROL: el admin sí reasigna el centro de costo de un gasto de una
+  --      rendición ya enviada (lo que hacen /admin/reports y la carga histórica)
+  select a.id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
+  where i.deleted_at is null and r.deleted_at is null and r.status <> 'draft'
+  limit 1;
+  perform pg_temp.probar('12b. CONTROL: admin reasigna el centro de costo de un gasto de una rendición enviada', u,
+    case when d is not null then format(
+      'update public.expense_items set cost_center_id = cost_center_id where id = %L', d) end,
+    '{}', 'permitido');
 end $$;
 
-select * from resultado order by prueba;
+-- Orden numérico: «10a» va después de «9», no antes de «1a»
+select * from resultado order by substring(prueba from '^[0-9]+')::int, prueba;
 
 rollback;

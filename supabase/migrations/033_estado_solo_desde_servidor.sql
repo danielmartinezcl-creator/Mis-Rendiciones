@@ -5,8 +5,10 @@
 -- y el servidor escribe con la llave de servicio después de preguntarles. Esta
 -- migración no repite las reglas: impide saltarse el servidor. Una sesión de
 -- usuario (auth.uid() no nulo) — incluida la del admin — ya no puede mover un
--- estado, tocar un monto aprobado, cambiar a quién se le paga ni escribir el
--- historial. La llave de servicio y el SQL manual, sí.
+-- estado, tocar un monto aprobado, cambiar a quién se le paga, pasar un gasto
+-- de un documento a otro ni escribir el historial. Sin rol admin, tampoco toca
+-- los gastos de un documento que ya salió de sus manos (sección 3b). La llave
+-- de servicio y el SQL manual, sí.
 --
 -- Por qué un disparador y no RLS: RLS no puede comparar el valor anterior de una
 -- columna con el nuevo. El disparador ve los dos.
@@ -181,6 +183,100 @@ create trigger proteger_estado_item
   before insert or update on public.petty_cash_items
   for each row execute function public.proteger_estado_item();
 
+-- 3b ─ Ítems: se tocan solo mientras su documento está abierto ────────────────
+-- La 3 congela la decisión sobre cada gasto, pero no el gasto. Las políticas
+-- «report owner can manage items» (expense_items) y «employee manages items of
+-- own fund» (petty_cash_items) son ALL y solo miran quién es el dueño: ni el
+-- estado del documento ni a qué documento va la fila. Con su sesión, el
+-- rendidor podía:
+--   · mover a un borrador suyo un gasto ya aprobado (de una carga histórica
+--     suya, por ejemplo): llega aprobado, `cerrarDecision` lo suma al monto
+--     aprobado y se paga dos veces;
+--   · cambiar montos y fechas de una rendición en revisión o ya aprobada: el
+--     aprobador decide sobre una cosa y Defontana y los informes ven otra;
+--   · borrar gastos de un documento en revisión, o agregarle gastos nuevos.
+--
+-- Reglas, solo para sesiones de usuario:
+--   · Un gasto no cambia de documento, tampoco con la sesión del admin. Moverlo
+--     es cosa del servidor (los traspasos ya escriben con la llave de servicio).
+--     Ningún código mueve ítems con la sesión: verificado en src/ el 2026-09-25.
+--   · Sin rol admin, un gasto de rendición se agrega, edita o borra solo con la
+--     rendición en borrador; uno de caja chica, solo con el fondo en
+--     «fondos enviados». El borrado lógico (deleted_at) es un UPDATE: misma regla.
+--   · El admin sigue corrigiendo documentos cerrados (cargas históricas, centro
+--     de costo, marcas de Defontana); la 3 le sigue congelando la decisión.
+--
+-- Se llama «proteger_documento_item» para correr ANTES que «proteger_estado_item»
+-- (Postgres dispara los BEFORE en orden alfabético): en un documento cerrado, lo
+-- que se informa es que el documento está cerrado.
+create or replace function public.proteger_documento_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  antes   uuid;  -- documento de la fila vieja (update / delete)
+  despues uuid;  -- documento de la fila nueva (insert / update)
+  estado  text;
+begin
+  if auth.uid() is null then
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
+  end if;
+
+  -- IF por tabla y por operación: cada tabla tiene su columna, y `old` / `new`
+  -- solo se leen donde existen.
+  if tg_table_name = 'expense_items' then
+    if tg_op <> 'INSERT' then antes   := old.report_id; end if;
+    if tg_op <> 'DELETE' then despues := new.report_id; end if;
+  else
+    if tg_op <> 'INSERT' then antes   := old.fund_id; end if;
+    if tg_op <> 'DELETE' then despues := new.fund_id; end if;
+  end if;
+
+  if tg_op = 'UPDATE' and despues is distinct from antes then
+    raise exception 'Un gasto no se puede mover a otro documento';
+  end if;
+
+  if coalesce(is_admin(), false) then
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
+  end if;
+
+  -- El documento de antes en update y delete, el nuevo en insert (en un
+  -- update son el mismo: lo asegura la regla de arriba).
+  if tg_table_name = 'expense_items' then
+    select status into estado from expense_reports where id = coalesce(antes, despues);
+  else
+    select status into estado from petty_cash_funds where id = coalesce(antes, despues);
+  end if;
+
+  -- Sin documento no hay nada que proteger: o el gasto se está borrando en
+  -- cascada con su documento (el borrador que el rendidor elimina), o el
+  -- insert apunta a uno que no existe y la llave foránea lo rechaza igual.
+  if found then
+    if tg_table_name = 'expense_items' and estado is distinct from 'draft' then
+      raise exception 'Solo se pueden modificar gastos de una rendición en borrador';
+    end if;
+    if tg_table_name = 'petty_cash_items' and estado is distinct from 'funds_sent' then
+      raise exception 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
+    end if;
+  end if;
+
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+create trigger proteger_documento_item
+  before insert or update or delete on public.expense_items
+  for each row execute function public.proteger_documento_item();
+
+create trigger proteger_documento_item
+  before insert or update or delete on public.petty_cash_items
+  for each row execute function public.proteger_documento_item();
+
 -- 4 ─ El aprobador ya no escribe con su sesión ─────────────────────────────────
 -- Decide por el servidor (llave de servicio, después de `exigirPaso`). Estas
 -- dos políticas le dejaban tocar cualquier columna de la rendición y de sus
@@ -240,9 +336,12 @@ drop policy "approvers can insert approvals" on public.expense_report_approvals;
 -- drop trigger if exists proteger_estado_fondo     on public.petty_cash_funds;
 -- drop trigger if exists proteger_estado_item      on public.expense_items;
 -- drop trigger if exists proteger_estado_item      on public.petty_cash_items;
+-- drop trigger if exists proteger_documento_item   on public.expense_items;
+-- drop trigger if exists proteger_documento_item   on public.petty_cash_items;
 -- drop function if exists public.proteger_estado_rendicion();
 -- drop function if exists public.proteger_estado_fondo();
 -- drop function if exists public.proteger_estado_item();
+-- drop function if exists public.proteger_documento_item();
 --
 -- create policy "approver can update submitted reports" on public.expense_reports
 --   for update
