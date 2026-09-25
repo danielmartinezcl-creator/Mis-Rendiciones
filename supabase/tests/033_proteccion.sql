@@ -105,6 +105,8 @@ declare
   item_nuevo   constant text := 'Un gasto nuevo entra pendiente';
   borrador     constant text := 'Solo se pueden modificar gastos de una rendición en borrador';
   congelada    constant text := 'La organización, el traspaso y la marca de Defontana de un gasto solo los cambia la aplicación';
+  rend_ajena   constant text := 'Solo quien rinde puede cambiar los gastos de su rendición';
+  fondo_ajeno  constant text := 'Solo el empleado del fondo puede cambiar sus gastos';
   fondo_abierto constant text := 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
   mover        constant text := 'Un gasto no se puede mover a otro documento';
   rls          constant text := 'row-level security';
@@ -564,6 +566,85 @@ begin
     case when d is not null then format(
       'update public.petty_cash_items set org_id = gen_random_uuid() where id = %L', d) end,
     array[congelada]);
+
+  -- 14. En un documento vivo, los gastos los cambia solo su dueño (decisión de
+  --     Daniel, 2026-09-25): el admin configura, no opera ─────────────────────
+  -- 14a. El admin agrega un gasto al fondo de OTRA persona, con los fondos
+  --      enviados (el estado deja; el dueño no)
+  select a.id, f.id, f.org_id into u, d, org
+  from petty_cash_funds f
+  join users a on a.org_id = f.org_id and a.role = 'admin' and a.is_active
+  where f.status = 'funds_sent' and f.deleted_at is null
+    and not f.is_historical_import and f.employee_id <> a.id
+  limit 1;
+  perform pg_temp.probar('14a. Admin agrega un gasto al fondo de otra persona (fondos enviados)', u,
+    case when d is not null then format(
+      'insert into public.petty_cash_items (fund_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[fondo_ajeno]);
+
+  -- 14b. …ni al borrador de OTRA persona
+  select a.id, r.id, r.org_id into u, d, org
+  from expense_reports r
+  join users a on a.org_id = r.org_id and a.role = 'admin' and a.is_active
+  where r.status = 'draft' and r.deleted_at is null
+    and not r.is_historical_import and r.submitter_id <> a.id
+  limit 1;
+  perform pg_temp.probar('14b. Admin agrega un gasto al borrador de otra persona', u,
+    case when d is not null then format(
+      'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[rend_ajena]);
+
+  -- 14c. CONTROL: pero sí reclasifica un gasto vivo ajeno: cambiar la
+  --      categoría es configurar. Se prefiere una rendición ya enviada y una
+  --      categoría distinta de la actual, para que el cambio sea real.
+  select a.id, i.id,
+         coalesce((select c.id from expense_categories c
+                   where c.id is distinct from i.category_id
+                     and (c.org_id is null or c.org_id = i.org_id)
+                     and c.is_active and c.deleted_at is null
+                   limit 1), i.category_id)
+  into u, d, d2
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
+  where i.deleted_at is null and r.deleted_at is null
+    and not r.is_historical_import and r.submitter_id <> a.id
+  order by (r.status <> 'draft') desc
+  limit 1;
+  perform pg_temp.probar('14c. CONTROL: admin cambia la categoría de un gasto vivo de otra persona', u,
+    case when d is not null then format(
+      'update public.expense_items set category_id = %L where id = %L', d2, d) end,
+    '{}', 'permitido');
+
+  -- 14d. Sin rol admin tampoco: agregar un gasto al borrador de otra persona.
+  --      La RLS lo frenaría después; el disparador responde antes.
+  select s.id, r.id, r.org_id into u, d, org
+  from expense_reports r
+  join users s on s.org_id = r.org_id and s.role <> 'admin' and s.is_active
+              and s.id <> r.submitter_id
+  where r.status = 'draft' and r.deleted_at is null and not r.is_historical_import
+  limit 1;
+  perform pg_temp.probar('14d. Usuario sin admin agrega un gasto al borrador de otra persona', u,
+    case when d is not null then format(
+      'insert into public.expense_items (report_id, org_id, description, amount, currency, exchange_rate, amount_clp, date, status)
+       values (%L, %L, %L, 1000, %L, 1, 1000, current_date, %L)', d, org, 'prueba 033', 'CLP', 'pending') end,
+    array[rend_ajena]);
+
+  -- 14e. El admin borra (lógico) un gasto del borrador de otra persona: hasta
+  --      esta ronda, deleteExpenseItem se lo permitía
+  select a.id, i.id into u, d
+  from expense_items i
+  join expense_reports r on r.id = i.report_id
+  join users a on a.org_id = i.org_id and a.role = 'admin' and a.is_active
+  where i.deleted_at is null and r.deleted_at is null
+    and r.status = 'draft' and not r.is_historical_import and r.submitter_id <> a.id
+  limit 1;
+  perform pg_temp.probar('14e. Admin borra (lógico) un gasto del borrador de otra persona', u,
+    case when d is not null then format(
+      'update public.expense_items set deleted_at = now(), deleted_by = %L where id = %L', u, d) end,
+    array[rend_ajena]);
 end $$;
 
 -- Orden numérico: «10a» va después de «9», no antes de «1a»

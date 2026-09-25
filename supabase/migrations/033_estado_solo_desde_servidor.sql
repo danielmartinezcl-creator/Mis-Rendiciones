@@ -6,11 +6,11 @@
 -- migración no repite las reglas: impide saltarse el servidor. Una sesión de
 -- usuario (auth.uid() no nulo) — incluida la del admin — ya no puede mover un
 -- estado, tocar un monto aprobado, cambiar a quién se le paga, pasar un gasto
--- de un documento a otro ni escribir el historial. Tampoco toca los gastos de
--- un documento que ya salió de manos de quien rinde: el admin solo corrige las
--- cargas históricas y la clasificación contable (sección 3b). La llave de
--- servicio y el SQL manual, sí. El admin de caja chica queda acotado a su
--- organización (sección 7).
+-- de un documento a otro ni escribir el historial. Los gastos de un documento
+-- vivo los cambia solo su dueño, y solo mientras quien rinde lo tiene en sus
+-- manos: el admin corrige las cargas históricas y la clasificación contable,
+-- nada más (sección 3b). La llave de servicio y el SQL manual, sí. El admin de
+-- caja chica queda acotado a su organización (sección 7).
 --
 -- Por qué un disparador y no RLS: RLS no puede comparar el valor anterior de una
 -- columna con el nuevo. El disparador ve los dos.
@@ -208,12 +208,19 @@ create trigger proteger_estado_item
 --   · Un gasto de rendición se agrega, edita o borra solo con la rendición en
 --     borrador; uno de caja chica, solo con el fondo en «fondos enviados». El
 --     borrado lógico (deleted_at) es un UPDATE: misma regla.
+--   · Y solo lo hace su dueño: quien rinde la rendición (submitter_id) o el
+--     empleado del fondo (employee_id). Ni el admin agrega, edita o borra
+--     gastos de la rendición o del fondo de otra persona (decisión de Daniel,
+--     2026-09-25). Primero se mira el estado y después el dueño: en un
+--     documento cerrado se informa que está cerrado; en uno abierto y ajeno,
+--     que no es de quien lo intenta.
 --   · El admin tiene dos excepciones, y solo esas:
 --       - en una carga histórica (rendición o fondo), todo: la importa, la
 --         corrige, la borra y la contabiliza;
---       - en un documento vivo, en cualquier estado, un UPDATE que solo toque
---         la clasificación contable: categoría, centro de costo y la marca de
---         Defontana. Lo que haga /admin/reports y la exportación.
+--       - en un documento vivo, propio o ajeno y en cualquier estado, un
+--         UPDATE que solo toque la clasificación contable: categoría, centro
+--         de costo y la marca de Defontana. Lo que haga /admin/reports y la
+--         exportación: eso es configurar, no operar.
 --   · Sin rol admin, un gasto nunca cambia de organización, de traspaso ni de
 --     marca de Defontana, y tampoco nace con ellas puestas: si no, el rendidor
 --     marcaba su gasto como ya exportado y nunca llegaba a la contabilidad.
@@ -239,6 +246,7 @@ declare
   estado     text;
   historico  boolean;
   org_doc    uuid;
+  dueno      uuid;  -- quien rinde la rendición / el empleado del fondo
   es_admin   boolean;
   libres     text[];
   -- Lo que una sesión sin rol admin nunca pone ni cambia
@@ -272,10 +280,12 @@ begin
   -- El documento de antes en update y delete, el nuevo en insert (en un
   -- update son el mismo: lo asegura la regla de arriba).
   if tg_table_name = 'expense_items' then
-    select status, is_historical_import, org_id into estado, historico, org_doc
+    select status, is_historical_import, org_id, submitter_id
+      into estado, historico, org_doc, dueno
       from expense_reports where id = coalesce(antes, despues);
   else
-    select status, is_historical_import, org_id into estado, historico, org_doc
+    select status, is_historical_import, org_id, employee_id
+      into estado, historico, org_doc, dueno
       from petty_cash_funds where id = coalesce(antes, despues);
   end if;
 
@@ -298,14 +308,25 @@ begin
     if tg_op = 'UPDATE' and nuevo - libres = viejo - libres then
       return new;
     end if;
-    -- Lo demás, como cualquiera: solo con el documento abierto
+    -- Lo demás, como cualquiera: solo con el documento abierto, y solo si es suyo
   end if;
 
+  -- Primero el estado…
   if tg_table_name = 'expense_items' and estado is distinct from 'draft' then
     raise exception 'Solo se pueden modificar gastos de una rendición en borrador';
   end if;
   if tg_table_name = 'petty_cash_items' and estado is distinct from 'funds_sent' then
     raise exception 'Solo se pueden modificar gastos de un fondo con los fondos enviados';
+  end if;
+
+  -- …después el dueño. Sin rol admin, la RLS ya filtra el update y el delete
+  -- de lo ajeno; el insert llega hasta acá porque la RLS lo revisa después de
+  -- los disparadores.
+  if dueno is distinct from auth.uid() then
+    if tg_table_name = 'expense_items' then
+      raise exception 'Solo quien rinde puede cambiar los gastos de su rendición';
+    end if;
+    raise exception 'Solo el empleado del fondo puede cambiar sus gastos';
   end if;
 
   if not es_admin then
