@@ -13,7 +13,7 @@ import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } fro
 import type { DefontanaMovement } from '@/lib/export/defontana'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import { cargarPersonas } from '@/lib/contexto-permisos'
-import { puedeActuar, pasoSegunEstado, type Documento } from '@/lib/permisos'
+import { puedeActuar, pasoSegunEstado, validarCadena, dependientesDe, type Documento } from '@/lib/permisos'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -712,7 +712,8 @@ export async function updateEmployee(
     can_manage_petty_cash?:      boolean
     can_load_bank_transfer?:     boolean
     can_authorize_bank_transfer?: boolean
-    bank_is_backup?:             boolean
+    bank_load_backup?:           boolean
+    bank_auth_backup?:           boolean
     is_active?:                  boolean
     full_name?:                  string
     rut?:                        string | null
@@ -726,13 +727,26 @@ export async function updateEmployee(
   // Capture before state
   const { data: before } = await supabase
     .from('users')
-    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_is_backup, rut, bank_account, blocked_at')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_load_backup, bank_auth_backup, rut, bank_account, blocked_at')
     .eq('id', userId)
     .single()
 
   // Activar a un bloqueado lo dejaría activo pero todavía baneado en auth.
   if (updates.is_active && before?.blocked_at) {
     throw new Error('Este empleado está bloqueado: usá «Habilitar» para devolverle el acceso')
+  }
+
+  // Quitarle «aprueba» o desactivar a alguien que está en cadenas ajenas las
+  // dejaría sin quién decida: primero hay que reasignarlas.
+  if (updates.can_approve === false || updates.is_active === false) {
+    const { data: empleados } = await supabase
+      .from('users')
+      .select('id, full_name, approver_l1_id, approver_l2_id, approver_l1_backup_id')
+      .eq('org_id', orgId)
+    const deps = dependientesDe(userId, (empleados ?? []).map(e => ({
+      id: e.id, nombre: e.full_name, l1: e.approver_l1_id, l2: e.approver_l2_id, suplenteL1: e.approver_l1_backup_id,
+    })))
+    if (deps.length) throw new Error(`Primero reasigna a quienes aprueba: ${deps.join(', ')}`)
   }
 
   const { error } = await supabase
@@ -969,37 +983,51 @@ export async function addPolicy(data: {
   revalidatePath('/admin/settings')
 }
 
-export async function setEmployeeApprovers(
+export async function setEmployeeApprovalChain(
   userId: string,
-  approverL1Id: string | null,
-  approverL2Id: string | null
+  chain: {
+    l1:            string | null
+    l2:            string | null
+    suplenteL1:    string | null
+    suplenteDesde: string | null
+    suplenteHasta: string | null
+  },
 ) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
-  // Capture before state
-  const { data: employee } = await supabase
-    .from('users').select('full_name, approver_l1_id, approver_l2_id').eq('id', userId).single()
-
-  // Verificar que los aprobadores pertenezcan a la misma org
-  if (approverL1Id) {
-    const { data: l1 } = await supabase.from('users').select('org_id').eq('id', approverL1Id).single()
-    if (!l1 || l1.org_id !== orgId) throw new Error('Aprobador N1 no pertenece a esta organización')
-  }
-  if (approverL2Id) {
-    const { data: l2 } = await supabase.from('users').select('org_id').eq('id', approverL2Id).single()
-    if (!l2 || l2.org_id !== orgId) throw new Error('Aprobador N2 no pertenece a esta organización')
-  }
-
-  const { error } = await supabase
+  const { data: before } = await supabase
     .from('users')
-    .update({
-      approver_l1_id: approverL1Id,
-      approver_l2_id: approverL2Id,
-    })
+    .select('full_name, approver_l1_id, approver_l2_id, approver_l1_backup_id, backup_active_from, backup_active_until')
     .eq('id', userId)
     .eq('org_id', orgId)
+    .single()
+  if (!before) throw new Error('Empleado no encontrado')
 
-  if (error) throw new Error(error.message)
+  const personas = await cargarPersonas(createAdminClient(), orgId)
+  const errores  = validarCadena(userId, { l1: chain.l1, l2: chain.l2, suplenteL1: chain.suplenteL1 }, personas)
+  if (chain.suplenteL1 && (!chain.suplenteDesde || !chain.suplenteHasta)) {
+    errores.push('El suplente necesita fecha de inicio y de término')
+  }
+  if (chain.suplenteDesde && chain.suplenteHasta && chain.suplenteDesde > chain.suplenteHasta) {
+    errores.push('La fecha de término del suplente es anterior a la de inicio')
+  }
+  if (errores.length) throw new Error(errores.join('. '))
+
+  const nuevo = {
+    approver_l1_id:        chain.l1,
+    approver_l2_id:        chain.l2,
+    approver_l1_backup_id: chain.suplenteL1,
+    backup_active_from:    chain.suplenteL1 ? chain.suplenteDesde : null,
+    backup_active_until:   chain.suplenteL1 ? chain.suplenteHasta : null,
+  }
+
+  const { data: guardado, error } = await supabase
+    .from('users')
+    .update(nuevo)
+    .eq('id', userId)
+    .eq('org_id', orgId)
+    .select('id')
+  if (error || !guardado?.length) throw new Error(error?.message ?? 'No se pudo guardar la cadena')
 
   await logAudit({
     orgId,
@@ -1008,61 +1036,9 @@ export async function setEmployeeApprovers(
     action:      'config_changed',
     entityType:  'approver_assignment',
     entityId:    userId,
-    entityLabel: employee?.full_name ?? userId,
-    oldValue:    { approver_l1_id: employee?.approver_l1_id, approver_l2_id: employee?.approver_l2_id },
-    newValue:    { approver_l1_id: approverL1Id, approver_l2_id: approverL2Id },
-  })
-
-  revalidatePath('/admin/employees')
-}
-
-export async function setEmployeeBackupApprover(
-  userId: string,
-  backupApproverL1Id: string | null,
-  backupActiveFrom: string | null,
-  backupActiveUntil: string | null
-) {
-  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
-
-  // Capture before state
-  const { data: employee } = await supabase
-    .from('users').select('full_name, approver_l1_backup_id, backup_active_from, backup_active_until').eq('id', userId).single()
-
-  if (backupApproverL1Id) {
-    const { data: backup } = await supabase.from('users').select('org_id').eq('id', backupApproverL1Id).single()
-    if (!backup || backup.org_id !== orgId) throw new Error('Aprobador suplente no pertenece a esta organización')
-  }
-
-  const { error } = await supabase
-    .from('users')
-    .update({
-      approver_l1_backup_id: backupApproverL1Id,
-      backup_active_from:    backupActiveFrom,
-      backup_active_until:   backupActiveUntil,
-    })
-    .eq('id', userId)
-    .eq('org_id', orgId)
-
-  if (error) throw new Error(error.message)
-
-  await logAudit({
-    orgId,
-    actorId,
-    actorName,
-    action:      'config_changed',
-    entityType:  'approver_assignment',
-    entityId:    userId,
-    entityLabel: employee?.full_name ?? userId,
-    oldValue:    {
-      approver_l1_backup_id: employee?.approver_l1_backup_id,
-      backup_active_from:    employee?.backup_active_from,
-      backup_active_until:   employee?.backup_active_until,
-    },
-    newValue:    {
-      approver_l1_backup_id: backupApproverL1Id,
-      backup_active_from:    backupActiveFrom,
-      backup_active_until:   backupActiveUntil,
-    },
+    entityLabel: before.full_name ?? userId,
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    nuevo as unknown as Record<string, unknown>,
   })
 
   revalidatePath('/admin/employees')

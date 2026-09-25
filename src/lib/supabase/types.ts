@@ -89,7 +89,6 @@ export interface Database {
           can_manage_petty_cash: boolean
           can_load_bank_transfer: boolean
           can_authorize_bank_transfer: boolean
-          bank_is_backup: boolean
           bank_load_backup: boolean
           bank_auth_backup: boolean
           department: string | null
@@ -119,7 +118,6 @@ export interface Database {
           can_manage_petty_cash?: boolean
           can_load_bank_transfer?: boolean
           can_authorize_bank_transfer?: boolean
-          bank_is_backup?: boolean
           bank_load_backup?: boolean
           bank_auth_backup?: boolean
           department?: string | null
@@ -149,7 +147,6 @@ export interface Database {
           can_manage_petty_cash?: boolean
           can_load_bank_transfer?: boolean
           can_authorize_bank_transfer?: boolean
-          bank_is_backup?: boolean
           bank_load_backup?: boolean
           bank_auth_backup?: boolean
           department?: string | null

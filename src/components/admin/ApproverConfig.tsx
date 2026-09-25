@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { setEmployeeApprovers, setEmployeeBackupApprover } from '@/actions/admin'
+import { Check } from 'lucide-react'
+import { setEmployeeApprovalChain } from '@/actions/admin'
 import type { UserProfile } from '@/lib/supabase/types'
 
 interface Props {
@@ -20,7 +21,9 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
   const [saved,  setSaved]  = useState(false)
   const [error,  setError]  = useState<string | null>(null)
 
-  const options = allUsers.filter(u => u.id !== employee.id && u.is_active)
+  const asignados = [employee.approver_l1_id, employee.approver_l2_id, employee.approver_l1_backup_id]
+  const options = allUsers.filter(u =>
+    u.id !== employee.id && u.is_active && (u.can_approve || asignados.includes(u.id)))
 
   function roleLabel(role: string) {
     return role === 'admin' ? 'Admin' : role === 'approver' ? 'Aprobador' : 'Empleado'
@@ -31,13 +34,13 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
     setError(null)
     setSaved(false)
     try {
-      await setEmployeeApprovers(employee.id, l1Id || null, l2Id || null)
-      await setEmployeeBackupApprover(
-        employee.id,
-        backupId    || null,
-        backupFrom  || null,
-        backupUntil || null,
-      )
+      await setEmployeeApprovalChain(employee.id, {
+        l1:            l1Id        || null,
+        l2:            l2Id        || null,
+        suplenteL1:    backupId    || null,
+        suplenteDesde: backupFrom  || null,
+        suplenteHasta: backupUntil || null,
+      })
       setSaved(true)
       setTimeout(() => { setSaved(false); onSaved() }, 1200)
     } catch (err) {
@@ -52,7 +55,11 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
   const backupName = options.find(u => u.id === backupId)?.full_name
 
   if (saved) {
-    return <p className="text-xs text-success-600 font-medium py-1">✓ Aprobadores actualizados</p>
+    return (
+      <p className="text-xs text-success-600 font-medium py-1">
+        <Check size={12} className="inline" /> Aprobadores actualizados
+      </p>
+    )
   }
 
   return (
