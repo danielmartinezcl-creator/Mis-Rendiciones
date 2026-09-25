@@ -165,7 +165,7 @@ organizations:  defontana_provider_account, mileage_rate_per_km,
                 defontana_voucher_type_return, defontana_voucher_type_transfer,
                 defontana_doc_type_advance ('CARGO'), defontana_doc_type_return ('ABONO')
 expense_items:  cost_center_id, supplier_rut, policy_justification, policy_violations,
-                mileage_km, mileage_rate, transfer_id, attachment_url,
+                mileage_km, mileage_rate, transfer_id,
                 defontana_exported_at
 expense_reports: ai_analysis, ai_analysis_at, defontana_exported_at, defontana_export_ref,
                  is_historical_import, historical_type, fund_number, deleted_at
@@ -285,7 +285,8 @@ supabase/
 │   ├── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
 │   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
 │   ├── 033_estado_solo_desde_servidor.sql            ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayada antes con BEGIN/ROLLBACK: 42/42; en vivo: 41 ok, 1 no concluyente por falta de datos, 0 fallas): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
-│   └── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
+│   ├── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
+│   └── 035_adjuntos_solo_desde_servidor.sql          ← ⏳ PENDIENTE; aplicar DESPUÉS de desplegar el código que sube y borra adjuntos con la llave de servicio. Quita las escrituras de sesión en `attachments` y en el bucket `expense-attachments`; la lectura del bucket queda en la carpeta de la propia org. Ensayada el 2026-09-25 con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas (los agujeros); con la 035, 12/12. Pruebas: supabase/tests/035_adjuntos.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -307,7 +308,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **204 tests Vitest en 18 archivos** (`.test.ts` y `.test.tsx`), todos pasando · build TypeScript limpio · 0 errores de lint
+- **322 tests Vitest en 24 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-25), todos pasando · build TypeScript limpio · 0 errores de lint
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -389,9 +390,13 @@ el verbo real en el botón («Eliminar», no «Confirmar»).
 - UI: sección "Traspasos sin vincular", modales crear/vincular, eliminar/editar traspasos no vinculados
 
 ### ✅ Adjuntos por ítem
-- `expense_items.attachment_url` — fotos/PDFs de boletas por ítem individual
-- `petty_cash_items.attachment_url` — mismo modelo para caja chica
-- Bucket `expense-attachments` en Storage; `approval-attachments` para respaldos de aprobadores
+- Tabla `attachments`: una fila por archivo, con `item_id` (rendición) **o** `petty_cash_item_id`
+  (caja chica), nunca los dos (`chk_attachments_one_parent`). **No existe ninguna columna
+  `attachment_url`**, aunque este archivo lo dijo hasta el 2026-09-25
+- Bucket `expense-attachments`, ruta `{org_id}/{item_id}/{timestamp}.{ext}`;
+  `approval-attachments` para respaldos de aprobadores
+- Un comprobante se sube o se borra solo si se puede cambiar su gasto: `puedeCambiarAdjuntos()`.
+  Lo escribe solo el servidor (ver «Permisos por asignación» y la migración 035)
 
 ### ✅ Defontana v2 — export contable real (migración 012)
 - `cost_centers`: 46 centros PENTA seeded; `imputable=true` → recibe asientos
@@ -545,6 +550,7 @@ trigger de `updated_at`.
 - **El admin configura, no opera**: ningún `role === 'admin'` habilita aprobar,
   cargar ni autorizar. Durante las pruebas también (sin interruptor, D2).
 - **Los gastos de un documento vivo los cambia solo su dueño** (Daniel, 2026-09-25): quien rinde la rendición, en borrador, o el empleado del fondo, con `funds_sent`. Ni el admin agrega, edita o borra gastos ajenos, y el gasto rápido le lista solo sus fondos (`listMyOpenFunds`). Sí reclasifica (categoría, centro de costo, Defontana) y corrige cargas históricas. Código: `puedeCambiarGastos()`; base: 033 §3b.
+- **Los comprobantes siguen a su gasto** (Daniel, 2026-09-25): se suben o se borran solo si se puede cambiar el gasto. `puedeCambiarAdjuntos()` no tiene regla propia: delega en `puedeCambiarGastos` / `puedeCambiarGastosFondo`, y las pantallas usan la misma función. Los escribe solo el servidor con la llave de servicio; la ruta y la organización salen de la fila del gasto, nunca del navegador (035). El aprobador de una liquidación ya no sube ni borra comprobantes del empleado: sus respaldos van en «Adjuntos de respaldo».
 - **Suplencia por función**: `bank_load_backup` y `bank_auth_backup`. FH es titular
   para autorizar y suplente para cargar.
 - **Aprobador inactivo = sin aprobador** (`cadenaActiva`): bloquea el envío y avisa al
@@ -758,7 +764,12 @@ trigger de `updated_at`.
    values ('expense-attachments', 'expense-attachments', false, 10485760,
      array['image/jpeg','image/png','image/webp','application/pdf']);
    ```
-   Políticas de storage: insert/select/delete para `auth.uid() is not null`.
+   Políticas de storage: hasta la 035, subir, leer y borrar pedían solo tener sesión —
+   cualquiera borraba cualquier comprobante conociendo la ruta. Con la 035 (⏳ pendiente)
+   solo el servidor escribe en el bucket y en `attachments`, y la lectura queda en la
+   carpeta de la propia organización. **Para probar un borrado por SQL**: `storage.objects`
+   tiene el disparador `protect_objects_delete`, que rechaza todo DELETE directo salvo
+   `set_config('storage.allow_delete_query', 'true', true)` — lo mismo que hace la API.
    Bucket `approval-attachments` («Adjuntos de respaldo»): **no existió hasta el
    2026-09-24** aunque este archivo decía que sí — toda subida fallaba con «Bucket
    not found». Lo crea la migración `029`; acepta lo de un comprobante más Excel.
@@ -940,3 +951,4 @@ trigger de `updated_at`.
 | Cambiar un estado con el cliente de la sesión | Desde la 033 (aplicada el 2026-09-25) la base lo rechaza: «El estado y los montos aprobados solo los cambia la aplicación…» | Verificar con `exigirPaso` y escribir con `createAdminClient()` |
 | Proteger el estado de un ítem y no el ítem | Las políticas de dueño de `expense_items` / `petty_cash_items` son ALL sin condición de estado: el rendidor movía un gasto aprobado a su borrador (se pagaba dos veces) y editaba montos de rendiciones en revisión | 033 §3b (`proteger_documento_item`) + `puedeCambiarGastos()` en las acciones. Una acción del servidor no pasa el patch del navegador tal cual a la base: `soloCampos()` con la lista de lo que manda su formulario |
 | Exportar un `notify*` desde un archivo `'use server'` | Toda función exportada ahí es una acción del servidor que el navegador puede invocar con los argumentos que quiera: correos con nuestro remitente a quien elija | Los avisos van en `src/lib/avisos.ts` (módulo común). Lo escrito por personas entra al HTML con `escaparHtml()` |
+| Proteger la fila de un adjunto y no su archivo | El archivo vive en `storage.objects`, con su propia RLS: el bucket dejaba borrar a cualquier sesión, y `deleteItemAttachment` borraba la ruta que mandaba el navegador. Un disparador en `attachments` no lo habría cerrado | La ruta sale de la fila, y ninguna sesión escribe en el bucket (035). Al revisar permisos de archivos, mirar las dos RLS: la tabla y `storage.objects` |

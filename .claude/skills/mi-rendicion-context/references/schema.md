@@ -158,17 +158,21 @@ created_at           timestamptz not null default now()
 
 ### attachments
 ```sql
-id             uuid primary key default uuid_generate_v4()
-item_id        uuid not null references expense_items on delete cascade
-org_id         uuid not null references organizations on delete cascade
-storage_path   text not null     -- path en bucket 'expense-attachments'
-file_type      text not null   -- 'image' | 'pdf'
-file_size      int
-thumbnail_path text
-created_at     timestamptz not null default now()
+id                 uuid primary key default uuid_generate_v4()
+item_id            uuid references expense_items on delete cascade     -- gasto de rendición
+petty_cash_item_id uuid references petty_cash_items on delete cascade  -- gasto de caja chica
+org_id             uuid not null references organizations on delete cascade
+storage_path       text not null   -- '{org_id}/{item_id}/{timestamp}.{ext}' en 'expense-attachments'
+file_type          text not null   -- 'image' | 'pdf' | 'email' (028)
+file_size          int
+thumbnail_path     text            -- sin uso
+created_at         timestamptz not null default now()
+-- chk_attachments_one_parent: exactamente uno de item_id / petty_cash_item_id
 ```
 **Bucket `expense-attachments`**: ya creado en `jqtbtgduqzxkgubmzukg` via SQL.
-`public: false`, 10MB max, tipos: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
+`public: false`, 10MB max, tipos espejo de `src/lib/attachment-types.ts` (fotos, PDF, `.eml`, `.msg`).
+**RLS** (con la 035): la sesión solo lee — la tabla, por organización; el bucket, la carpeta
+de su organización. Escribe el servidor con la llave de servicio, tras `puedeCambiarAdjuntos()`.
 
 ### expense_report_approvals — APPEND ONLY
 ```sql
