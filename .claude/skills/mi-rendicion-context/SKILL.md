@@ -487,9 +487,13 @@ trigger de `updated_at`.
 - `expense_items.mileage_km`, `mileage_rate`; `organizations.mileage_rate_per_km` (default $136/km SII)
 - Subtipo "kilometraje" en `ExpenseItemForm`: monto calculado automáticamente (km × tarifa), boleta no requerida
 
-### ✅ Recordatorios automáticos (R4)
+### ⚠️ Recordatorios automáticos (R4) — el cron corre, pero nunca guardó un recordatorio
 - `src/app/api/cron/reminders/route.ts` + cron en `vercel.json` (9AM diario)
 - 3 tipos: borradores >7 días → empleado; fondos saldo <20% → encargado; rendiciones submitted >3 días → aprobador L1
+- **Roto (visto el 2026-09-25, sin arreglar):** escribe `title`, `body` y `link`, columnas que
+  `notifications` no tiene, con tipos `reminder_*` que `notifications_type_check` rechaza. No
+  mira el error del upsert, así que responde «N notificaciones» sin haber guardado ninguna: en
+  la base no hay una sola fila `reminder_*`, y tampoco existe la migración que los agregaría
 
 ### ✅ Informes Unificados (plan 2026-07-27)
 - `/informes` — 4 fuentes de datos combinadas (rendición nueva/histórica + caja chica nueva/histórica)
@@ -645,8 +649,9 @@ trigger de `updated_at`.
    > Contraste garantizado por construcción —el peor caso medido es el teal actual,
    > 4,81:1— porque la rampa está en `oklch` y ahí la L es luminosidad perceptual.
    > Las 386 clases `brand-*`/`accent-*` se reanclarían solas sobrescribiendo las
-   > variables; los únicos 8 lugares que NO pueden seguirlas son los que leen
+   > variables; los únicos 7 lugares que NO pueden seguirlas son los que leen
    > `BRAND.*` desde JS (gráficos SVG, plantillas de email, metadata de la PWA).
+   > Eran 8 hasta el 2026-09-25: el aviso en vivo se pintaba con `BRAND.accent`.
 
    **Sigue faltando**: el favicon y el `manifest.json` de la PWA, que son archivos
    estáticos y necesitarían rutas de metadata dinámicas.
@@ -940,3 +945,5 @@ trigger de `updated_at`.
 | Cambiar un estado con el cliente de la sesión | Desde la 033 (aplicada el 2026-09-25) la base lo rechaza: «El estado y los montos aprobados solo los cambia la aplicación…» | Verificar con `exigirPaso` y escribir con `createAdminClient()` |
 | Proteger el estado de un ítem y no el ítem | Las políticas de dueño de `expense_items` / `petty_cash_items` son ALL sin condición de estado: el rendidor movía un gasto aprobado a su borrador (se pagaba dos veces) y editaba montos de rendiciones en revisión | 033 §3b (`proteger_documento_item`) + `puedeCambiarGastos()` en las acciones. Una acción del servidor no pasa el patch del navegador tal cual a la base: `soloCampos()` con la lista de lo que manda su formulario |
 | Exportar un `notify*` desde un archivo `'use server'` | Toda función exportada ahí es una acción del servidor que el navegador puede invocar con los argumentos que quiera: correos con nuestro remitente a quien elija | Los avisos van en `src/lib/avisos.ts` (módulo común). Lo escrito por personas entra al HTML con `escaparHtml()` |
+| Leer `title` / `body` de una notificación | `notifications` solo guarda `type` y a qué documento apunta (`report_id` / `fund_id`). El hook de Realtime casteaba la fila a `{ title, body }` y el aviso en vivo salía como una caja vacía | El texto lo arma `textoNotificacion()` (`src/lib/notificaciones.ts`) y se muestra con `avisar()`. La fila se tipa con `Notification` de `types.ts`, nunca con un cast a mano |
+| Suscribir un canal Realtime sin esperar el token de la sesión | realtime-js 2.106 arma el join en el `subscribe()` y busca el token en paralelo: con la sesión recuperada de cookies (recargar, reabrir la PWA) el join sale sin `access_token`, el canal queda como anon y RLS descarta cada fila **sin ningún error** | `await supabase.realtime.setAuth()` antes de `.subscribe()` (ver `useRealtimeNotifications`). Para diagnosticar, mirar el frame `phx_join` en el websocket: si no trae `access_token`, es esto |
