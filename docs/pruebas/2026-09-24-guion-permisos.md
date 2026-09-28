@@ -50,3 +50,13 @@ Después de cada paso, anotar **quién recibió correo** (debe ser solo quien se
    Lo mismo en un borrador de «Prueba»: lo ve, pero sin «Agregar ítem» ni basurero.
 9. **Sin aprobador.** Quitarle el N1 a «Prueba» e intentar enviar → mensaje «No tienes
    aprobador asignado…», y Daniel recibe el aviso de configuración.
+10. **Comprobantes (migración 035).** Un comprobante se sube o se borra solo si se puede
+    cambiar su gasto.
+    - «Prueba», en su borrador: agrega un gasto con foto → el comprobante aparece. Lo
+      borra → desaparece y, al recargar, no vuelve.
+    - Daniel abre ese borrador de «Prueba»: ve los comprobantes, pero no «Subir archivo»
+      ni el basurero.
+    - Fondo de «Prueba» en «Fondos enviados»: «Prueba» sube un comprobante a un gasto y
+      recarga → sigue ahí (antes desaparecía de la vista). Con la liquidación enviada,
+      Katherine lo ve pero no puede subir ni borrar.
+    - Cargas históricas: Daniel sube y borra; «Prueba», en una a su nombre, no.

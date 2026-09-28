@@ -286,7 +286,7 @@ supabase/
 │   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
 │   ├── 033_estado_solo_desde_servidor.sql            ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayada antes con BEGIN/ROLLBACK: 42/42; en vivo: 41 ok, 1 no concluyente por falta de datos, 0 fallas): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
 │   ├── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
-│   └── 035_adjuntos_solo_desde_servidor.sql          ← ⏳ PENDIENTE; aplicar DESPUÉS de desplegar el código que sube y borra adjuntos con la llave de servicio. Quita las escrituras de sesión en `attachments` y en el bucket `expense-attachments`; la lectura del bucket queda en la carpeta de la propia org. Ensayada el 2026-09-25 con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas (los agujeros); con la 035, 12/12. Pruebas: supabase/tests/035_adjuntos.sql
+│   └── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -770,9 +770,9 @@ trigger de `updated_at`.
      array['image/jpeg','image/png','image/webp','application/pdf']);
    ```
    Políticas de storage: hasta la 035, subir, leer y borrar pedían solo tener sesión —
-   cualquiera borraba cualquier comprobante conociendo la ruta. Con la 035 (⏳ pendiente)
-   solo el servidor escribe en el bucket y en `attachments`, y la lectura queda en la
-   carpeta de la propia organización. **Para probar un borrado por SQL**: `storage.objects`
+   cualquiera borraba cualquier comprobante conociendo la ruta. Desde la 035 (aplicada el
+   2026-09-25) solo el servidor escribe en el bucket y en `attachments`, y la lectura queda
+   en la carpeta de la propia organización. **Para probar un borrado por SQL**: `storage.objects`
    tiene el disparador `protect_objects_delete`, que rechaza todo DELETE directo salvo
    `set_config('storage.allow_delete_query', 'true', true)` — lo mismo que hace la API.
    Bucket `approval-attachments` («Adjuntos de respaldo»): **no existió hasta el
