@@ -11,6 +11,8 @@ import { ACCEPT_RESPALDOS, MAX_ATTACHMENT_BYTES, classifyRespaldo } from '@/lib/
 type AttachmentWithMeta = ApprovalAttachment & {
   uploader_name: string
   url: string | null
+  /** Lo decide el servidor con `puedeBorrarRespaldo` (src/lib/respaldos.ts) */
+  puede_borrar: boolean
 }
 
 interface Props {
@@ -67,7 +69,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
     })
   }
 
-  async function handleDelete(id: string, storagePath: string) {
+  async function handleDelete(id: string) {
     if (!await confirmar({
       titulo:  '¿Eliminar este adjunto?',
       aceptar: 'Eliminar',
@@ -75,7 +77,7 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
     })) return
     setDeleting(id)
     try {
-      await deleteApprovalAttachment(id, storagePath)
+      await deleteApprovalAttachment(id)
       onRefresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al eliminar')
@@ -114,14 +116,16 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
                 <ExternalLink size={14} />
               </a>
             )}
-            <button
-              onClick={() => handleDelete(att.id, att.storage_path)}
-              disabled={deleting === att.id}
-              className="p-1.5 text-ink-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
-              title="Eliminar"
-            >
-              <Trash2 size={14} />
-            </button>
+            {att.puede_borrar && (
+              <button
+                onClick={() => handleDelete(att.id)}
+                disabled={deleting === att.id}
+                className="p-1.5 text-ink-400 hover:text-danger-600 hover:bg-danger-50 rounded-item transition-colors disabled:opacity-40"
+                title="Eliminar"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         </div>
       ))}

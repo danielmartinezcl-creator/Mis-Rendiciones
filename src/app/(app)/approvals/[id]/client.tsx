@@ -15,7 +15,7 @@ import type { ReportStatus } from '@/lib/constants'
 import { useDialogos } from '@/components/ui/Dialogos'
 import { IconoCategoria } from '@/components/ui/IconoCategoria'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
-import type { ExpenseItem, ExpenseCategory, Attachment, ApprovalAttachment, TravelPolicy } from '@/lib/supabase/types'
+import type { ExpenseItem, ExpenseCategory, Attachment, TravelPolicy } from '@/lib/supabase/types'
 
 type ItemWithRelations = ExpenseItem & {
   expense_categories: Pick<ExpenseCategory, 'name' | 'icon' | 'color'> | null
@@ -29,7 +29,7 @@ type Decision = { action: 'approve' | 'reject' | null; reason: string }
 interface Props {
   id: string
   initialReport: ReportData
-  initialAttachments: (ApprovalAttachment & { uploader_name: string; url: string | null })[]
+  initialAttachments: Awaited<ReturnType<typeof getApprovalAttachments>>
   analysis: AiAnalysis | null
 }
 
@@ -498,7 +498,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
         <ApprovalAttachments
           attachments={attachments}
           target={{ reportId: id }}
-          onRefresh={() => getApprovalAttachments({ reportId: id }).then(data => setAttachments(data as typeof attachments))}
+          onRefresh={() => getApprovalAttachments({ reportId: id }).then(setAttachments)}
         />
       </div>
 
