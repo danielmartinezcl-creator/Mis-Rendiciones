@@ -286,7 +286,8 @@ supabase/
 │   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
 │   ├── 033_estado_solo_desde_servidor.sql            ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayada antes con BEGIN/ROLLBACK: 42/42; en vivo: 41 ok, 1 no concluyente por falta de datos, 0 fallas): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
 │   ├── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
-│   └── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
+│   ├── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
+│   └── 036_tipo_recordatorio.sql                     ← ⏳ PENDIENTE; tipo 'reminder' en notifications. Aditiva: aplicar ANTES de desplegar el cron nuevo, que lo inserta. Ensayada el 2026-09-28 con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -308,7 +309,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **322 tests Vitest en 24 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-25), todos pasando · build TypeScript limpio · 0 errores de lint
+- **376 tests Vitest en 28 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -492,13 +493,36 @@ trigger de `updated_at`.
 - `expense_items.mileage_km`, `mileage_rate`; `organizations.mileage_rate_per_km` (default $136/km SII)
 - Subtipo "kilometraje" en `ExpenseItemForm`: monto calculado automáticamente (km × tarifa), boleta no requerida
 
-### ⚠️ Recordatorios automáticos (R4) — el cron corre, pero nunca guardó un recordatorio
-- `src/app/api/cron/reminders/route.ts` + cron en `vercel.json` (9AM diario)
-- 3 tipos: borradores >7 días → empleado; fondos saldo <20% → encargado; rendiciones submitted >3 días → aprobador L1
-- **Roto (visto el 2026-09-25, sin arreglar):** escribe `title`, `body` y `link`, columnas que
-  `notifications` no tiene, con tipos `reminder_*` que `notifications_type_check` rechaza. No
-  mira el error del upsert, así que responde «N notificaciones» sin haber guardado ninguna: en
-  la base no hay una sola fila `reminder_*`, y tampoco existe la migración que los agregaría
+### ⏳ Recordatorios automáticos (R4) — rehechos; falta aplicar la 036 y desplegar
+**El cron anterior nunca funcionó**, aunque este archivo lo daba por hecho: faltaba
+`CRON_SECRET` en Vercel (401 todos los días, sin tocar la base); escribía `title`, `body`
+y `link`, columnas que `notifications` no tiene, con tipos `reminder_*` que el CHECK
+rechaza; no miraba el error del upsert, y la regla de borradores filtraba
+`is_historical_import is null` en una columna `NOT NULL`.
+
+- `src/app/api/cron/reminders/route.ts`, **lunes a viernes 12:00 UTC** (`vercel.json`):
+  9:00 de Chile en verano, 8:00 en invierno. Exige `CRON_SECRET` en Vercel
+- Qué y a quién: funciones puras en `src/lib/recordatorios.ts`; envío en
+  `enviarRecordatorios()` de `avisos.ts`. Tipo `reminder` (migración 036)
+- La fila lleva solo tipo, documento y `dedup_key` (`filaDeRecordatorio`). El texto va
+  en el correo (`correoDeRecordatorios`) y, en vivo, en `textoNotificacion`
+- Un error al guardar corta el envío y el cron responde 500 con `fallas`: ya no informa
+  éxito sin haber guardado nada. `?simular` muestra qué saldría hoy, sin guardar ni enviar
+
+| Recordatorio | Cuándo | A quién |
+|---|---|---|
+| Te toca actuar | 3 días en el mismo paso, y cada 3 | `destinatarios()` de `permisos.ts`: los mismos del aviso original (D8, titulares del banco) |
+| Borrador sin enviar | 7 días desde que se creó, y cada 7 | quien rinde |
+| Saldo bajo (`funds_sent`) | saldo < 20 % según `calculateFundBalance` — una vez por fondo | solo el beneficiario. Daniel, 2026-09-25: el EFF se suma en `destinatariosSaldoBajo()` si en la práctica hace falta |
+
+- **La espera se mide desde la última entrada del historial** (o `submitted_at`),
+  nunca desde `updated_at`: guardar el análisis IA lo mueve
+- **dedup_key** = `rec:{doc}:{paso}:{día que entró al paso}:{tanda}:{persona}`. Lleva la
+  tanda, no la fecha: correr el cron dos veces no duplica, y si un día falla, al
+  siguiente sale lo pendiente. Solo las filas nuevas generan correo, **uno por
+  persona** con todo lo suyo
+- Las filas de una persona entran juntas y cada una llega por Realtime: `avisar()` no
+  apila un aviso igual a uno que ya está a la vista
 
 ### ✅ Informes Unificados (plan 2026-07-27)
 - `/informes` — 4 fuentes de datos combinadas (rendición nueva/histórica + caja chica nueva/histórica)
@@ -700,9 +724,12 @@ trigger de `updated_at`.
    (ver la advertencia en «Reglas críticas → Supabase»). Con 54 empleados en producción
    dejaría de pasar por uso natural, pero **hasta el lanzamiento va a repetirse**.
 
-   Opciones: plan Pro (~US$25/mes, un proyecto en Pro nunca se pausa) o averiguar por
-   qué el cron diario de `vercel.json` —que consulta la base a las 9AM— no alcanzó para
-   mantenerlo vivo. Eso último quedó **sin explicar** y es lo primero a revisar.
+   Opciones: plan Pro (~US$25/mes, un proyecto en Pro nunca se pausa) o dejar que el
+   cron lo mantenga vivo. **Por qué el cron no alcanzaba — explicado el 2026-09-25:**
+   en Vercel no existe `CRON_SECRET` (verificado de nuevo el 2026-09-28), así que el cron
+   responde 401 sin tocar la base. Con la variable creada, el cron nuevo consulta la base
+   de lunes a viernes: la brecha máxima es de 3 días, bajo los ~7 que tolera el plan
+   free. Si vuelve a pausarse, revisar primero que `CRON_SECRET` siga existiendo.
 
 7. **Gasto rápido para rendiciones Y caja chica — pedido por Daniel el 2026-09-23.**
    Hoy `/quick` solo registra en un fondo de caja chica, y por eso está oculto para
@@ -940,6 +967,7 @@ trigger de `updated_at`.
 | Texto tenue dentro de un contenedor con `opacity` | El contraste se **multiplica**: `text-white/70` dentro de una tarjeta al 60% da 42% efectivo, ilegible | Al bajar la opacidad de un contenedor, subir la de su texto para compensar |
 | `strokeLinecap="round"` con un arco de largo cero | Igual pinta el redondeo de las puntas: un punto que se lee como un 1% inexistente | No renderizar el trazo cuando el valor es 0 |
 | Crear un componente de React para una superficie visual nueva | El selector de legibilidad de `globals.css` excluye superficies **por nombre de clase**; una clase nueva no excluida vuelve blancos sobre blanco los encabezados de adentro | Preferir la clase de material existente (`.hoja`, `.tor-glass`). Si de verdad hace falta una clase nueva, agregarla al `:not()` |
+| Un cron de Vercel que «corre» pero no hace nada | Vercel manda `Authorization: Bearer $CRON_SECRET` solo si la variable existe; sin ella el guard responde 401 a todo. Los logs de Vercel (plan Hobby) duran ~1 hora, así que nadie lo ve | Confirmar que `CRON_SECRET` existe en Vercel (se activa con el próximo deploy). Para saber si el cron llega a la base, mirar los logs de Supabase a la hora del cron |
 | Buscar en el código por qué «no se puede iniciar sesión» | El proyecto Supabase se pausó solo (plan free, ~7 días sin uso) y **el DNS del subdominio deja de existir**. El `try/catch` del proxy lo degrada a redirección al login, así que no se ve ningún error: parece un problema de credenciales | `get_project` del MCP de Supabase **antes** de mirar código, variables o deploys. `status` ≠ `ACTIVE_HEALTHY` es la respuesta. La firma en los logs de Vercel es `getaddrinfo ENOTFOUND` + `AuthRetryableFetchError` |
 | Dar por perdidos los datos durante un `restore_project` | Supabase levanta la infraestructura primero y restaura el esquema después: hay varios minutos en que `public.users` no existe y la base se ve vacía | Esperar a que `/rest/v1/` devuelva 200 (la secuencia es 521 → 404 → 200). El puerto 5432 abre MUCHO antes de que se pueda leer una fila |
 | Validar un caché contra `updated_at` en una tabla con trigger `set_updated_at()` | Guardar el caché **es** un UPDATE, así que pisa la misma marca contra la que se compara: la condición no se cumple nunca y cada vista recalcula | Invalidar con un trigger donde cambian los datos de verdad, no comparando marcas de tiempo en la misma fila. Ver migración `024` |
