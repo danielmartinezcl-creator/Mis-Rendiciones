@@ -41,6 +41,14 @@ const TEXTOS: Record<Notification['type'], Textos> = {
   },
   funds_sent:     'La transferencia fue autorizada: tus fondos ya están disponibles.',
   config_missing: 'Alguien no pudo enviar porque no tiene aprobador. Asígnale uno en Empleados.',
+  // Recordatorio del cron (migración 036). Un solo tipo para tres casos —te toca
+  // actuar, tu borrador sigue sin enviar, tu fondo tiene poco saldo— y la fila no
+  // dice cuál: el texto vale para todos, y el detalle con sus links va en el correo.
+  // «Recordatorio:» lo distingue de los avisos de algo que acaba de pasar.
+  reminder: {
+    rendicion: 'Recordatorio: tienes una rendición pendiente.',
+    fondo:     'Recordatorio: un fondo de caja chica necesita tu atención.',
+  },
 }
 
 // null = no mostrar nada. Un tipo desconocido, o uno que depende del documento

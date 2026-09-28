@@ -95,6 +95,11 @@ export function pasoSegunEstado(tipo: TipoDocumento, estado: string): Paso | nul
   return PASO_POR_ESTADO[tipo][estado] ?? null
 }
 
+// Los estados en que el documento espera a alguien: los que revisa el cron de recordatorios.
+export function estadosQueEsperan(tipo: TipoDocumento): string[] {
+  return Object.keys(PASO_POR_ESTADO[tipo])
+}
+
 const ESTADOS_DE_LIQUIDACION = new Set(['submitted', 'pending_liquidation_approval', 'pending_liquidation_l2', 'settled'])
 
 export function tipoDeFondo(estado: string): 'fondo' | 'liquidacion' {

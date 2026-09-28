@@ -559,7 +559,7 @@ export interface Database {
           id: string
           org_id: string
           user_id: string
-          type: 'submission' | 'approval' | 'rejection' | 'reimbursement' | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing'
+          type: 'submission' | 'approval' | 'rejection' | 'reimbursement' | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing' | 'reminder'
           report_id: string | null
           fund_id: string | null
           read: boolean
@@ -570,7 +570,7 @@ export interface Database {
           id?: string
           org_id: string
           user_id: string
-          type: 'submission' | 'approval' | 'rejection' | 'reimbursement' | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing'
+          type: 'submission' | 'approval' | 'rejection' | 'reimbursement' | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing' | 'reminder'
           report_id?: string | null
           fund_id?: string | null
           read?: boolean

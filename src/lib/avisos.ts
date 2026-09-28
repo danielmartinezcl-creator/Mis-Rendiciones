@@ -11,6 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { destinatarios, type Paso, type Persona } from '@/lib/permisos'
 import { contextoRendicion, contextoFondo } from '@/lib/contexto-permisos'
 import { escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo } from '@/lib/avisos-helpers'
+import { correoDeRecordatorios, filaDeRecordatorio, type Recordatorio } from '@/lib/recordatorios'
 
 // Solo envía si Resend está configurado
 async function trySendEmail(to: string[], subject: string, html: string) {
@@ -258,4 +259,39 @@ export async function notifyFundOutcome(fundId: string, resultado: 'rejected' | 
     html:    `<p>${t.cuerpo}</p>
      <p><a href="${appUrl()}/petty-cash/${fundId}">Ver fondo →</a></p>`,
   })
+}
+
+// ── Recordatorios (cron diario) ───────────────────────────────────────────────
+
+// Una fila por documento y persona, y un correo por persona con todo lo suyo.
+// La repetida choca con el índice único (org_id, dedup_key) y no entra; `.select`
+// devuelve solo las nuevas, y solo ellas van al correo: correr el cron dos veces
+// el mismo día no manda nada dos veces.
+export async function enviarRecordatorios(recordatorios: Recordatorio[]): Promise<{ nuevos: number; personas: number }> {
+  if (!recordatorios.length) return { nuevos: 0, personas: 0 }
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('notifications')
+    .upsert(recordatorios.map(filaDeRecordatorio), { onConflict: 'org_id,dedup_key', ignoreDuplicates: true })
+    .select('org_id, dedup_key')
+  // Sin la fila no queda registro de que ya se recordó: mejor ningún correo que
+  // el mismo todos los días. El cron lo reporta como falla.
+  if (error) throw new Error(`No se pudieron guardar los recordatorios: ${error.message}`)
+
+  const nuevas = new Set((data ?? []).map(n => `${n.org_id}:${n.dedup_key}`))
+  const porPersona = new Map<string, Recordatorio[]>()
+  for (const r of recordatorios) {
+    if (nuevas.has(`${r.orgId}:${r.clave}`)) porPersona.set(r.userId, [...(porPersona.get(r.userId) ?? []), r])
+  }
+
+  let primero = true
+  for (const [userId, suyos] of porPersona) {
+    // Resend acepta 2 envíos por segundo; trySendEmail se traga el rechazo y el
+    // correo se perdería, porque la fila ya quedó guardada.
+    if (!primero) await new Promise(r => setTimeout(r, 600))
+    primero = false
+    const { asunto, html } = correoDeRecordatorios(suyos, appUrl())
+    await trySendEmail(await lookupEmails([userId]), asunto, html)
+  }
+  return { nuevos: nuevas.size, personas: porPersona.size }
 }

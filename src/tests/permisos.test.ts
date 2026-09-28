@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   puedeActuar, destinatarios, destinatariosInformativos, puedeEnviar,
   validarCadena, dependientesDe, suplenteVigente, pasoSegunEstado, tipoDeFondo, enEtapa, cadenaActiva,
+  estadosQueEsperan,
   type Persona, type Documento, type Cadena, type EntradaHistorial,
 } from '@/lib/permisos'
 
@@ -225,6 +226,15 @@ describe('pasoSegunEstado y tipoDeFondo', () => {
     expect(tipoDeFondo('funds_sent')).toBe('fondo')
     expect(tipoDeFondo('submitted')).toBe('liquidacion')
     expect(tipoDeFondo('pending_liquidation_l2')).toBe('liquidacion')
+  })
+
+  it('estadosQueEsperan: los que el cron de recordatorios revisa', () => {
+    expect(estadosQueEsperan('rendicion').sort())
+      .toEqual(['pending_bank_auth', 'pending_bank_load', 'pending_l2', 'submitted'])
+    expect(estadosQueEsperan('fondo').sort())
+      .toEqual(['pending_approval', 'pending_approval_l2', 'pending_bank_auth', 'pending_bank_load'])
+    expect(estadosQueEsperan('liquidacion').sort())
+      .toEqual(['pending_liquidation_approval', 'pending_liquidation_l2', 'submitted'])
   })
 })
 

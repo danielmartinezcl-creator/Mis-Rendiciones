@@ -5,10 +5,11 @@ import { textoNotificacion } from '@/lib/notificaciones'
    apunta. Hasta el 2026-09-25 el aviso leía `title` y `body` —dos columnas que
    la tabla nunca tuvo— y cada notificación pintaba una caja vacía. */
 
-// Espejo del CHECK notifications_type_check (migración 032)
+// Espejo del CHECK notifications_type_check (migraciones 032 y 036)
 const TIPOS = [
   'submission', 'approval', 'rejection', 'reimbursement',
   'bank_load', 'bank_auth', 'funds_sent', 'config_missing',
+  'reminder',
 ] as const
 
 const rendicion = { report_id: 'r-1', fund_id: null }
