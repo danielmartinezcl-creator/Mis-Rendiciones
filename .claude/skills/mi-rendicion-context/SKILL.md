@@ -224,7 +224,7 @@ src/
 │   ├── profile.ts          ← getMyProfile, updateProfile, sendPasswordReset
 │   ├── reports.ts          ← getReportFilterOptions + getUnifiedReportItems (4 fuentes)
 │   ├── suggestions.ts      ← CRUD sugerencias
-│   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones
+│   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones; escribe y firma solo el servidor (037)
 ├── components/
 │   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
 │   ├── ui/                 ← InsigniaEstado, Button, CurrencyAmount, MedidorArco,
@@ -246,6 +246,7 @@ src/
 │   ├── petty-cash-helpers.ts  ← computeFundBalance, computeFundStatus
 │   ├── policy-helpers.ts      ← resolveApplicablePolicy, checkItemLimit, checkPeriodLimit
 │   ├── report-helpers.ts      ← UnifiedReportItem, buildPeriodRange, computeUnifiedKpis (byMovement)
+│   ├── respaldos.ts           ← puedeBorrarRespaldo, puedeSubirRespaldo, destinoDelRespaldo (037)
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
@@ -287,7 +288,8 @@ supabase/
 │   ├── 033_estado_solo_desde_servidor.sql            ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayada antes con BEGIN/ROLLBACK: 42/42; en vivo: 41 ok, 1 no concluyente por falta de datos, 0 fallas): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
 │   ├── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
 │   ├── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
-│   └── 036_tipo_recordatorio.sql                     ← ✅ APLICADA el 2026-09-28, antes del despliegue; tipo 'reminder' en notifications. Aditiva: el código viejo nunca escribe ese tipo. Ensayo con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
+│   ├── 036_tipo_recordatorio.sql                     ← ✅ APLICADA el 2026-09-28, antes del despliegue; tipo 'reminder' en notifications. Aditiva: el código viejo nunca escribe ese tipo. Ensayo con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
+│   └── 037_respaldos_solo_desde_servidor.sql         ← ⏳ PENDIENTE; aplicar DESPUÉS de desplegar (el código viejo sube, firma y borra con la sesión). Ensayo con BEGIN/ROLLBACK el 2026-09-28: sin la 037, 12 de 17 pruebas rotas, que eran los agujeros; con la 037, 17/17. Ninguna sesión escribe en `approval_attachments` ni toca el bucket `approval-attachments`, ni para leer: el servidor sube, borra y firma con la llave de servicio tras `src/lib/respaldos.ts`. La tabla se lee solo con el documento a la vista (subselect que hereda la RLS de la rendición o del fondo). Pruebas: supabase/tests/037_respaldos.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -309,7 +311,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **380 tests Vitest en 29 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
+- **398 tests Vitest en 30 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -395,7 +397,7 @@ el verbo real en el botón («Eliminar», no «Confirmar»).
   (caja chica), nunca los dos (`chk_attachments_one_parent`). **No existe ninguna columna
   `attachment_url`**, aunque este archivo lo dijo hasta el 2026-09-25
 - Bucket `expense-attachments`, ruta `{org_id}/{item_id}/{timestamp}.{ext}`;
-  `approval-attachments` para respaldos de aprobadores
+  `approval-attachments` para respaldos de aprobadores, ruta `{org_id}/{report_id | fund_id}/{timestamp}_{user_id}.{ext}`
 - Un comprobante se sube o se borra solo si se puede cambiar su gasto: `puedeCambiarAdjuntos()`.
   Lo escribe solo el servidor (ver «Permisos por asignación» y la migración 035)
 
@@ -580,6 +582,7 @@ una columna `NOT NULL`.
   cargar ni autorizar. Durante las pruebas también (sin interruptor, D2).
 - **Los gastos de un documento vivo los cambia solo su dueño** (Daniel, 2026-09-25): quien rinde la rendición, en borrador, o el empleado del fondo, con `funds_sent`. Ni el admin agrega, edita o borra gastos ajenos, y el gasto rápido le lista solo sus fondos (`listMyOpenFunds`). Sí reclasifica (categoría, centro de costo, Defontana) y corrige cargas históricas. Código: `puedeCambiarGastos()`; base: 033 §3b.
 - **Los comprobantes siguen a su gasto** (Daniel, 2026-09-25): se suben o se borran solo si se puede cambiar el gasto. `puedeCambiarAdjuntos()` no tiene regla propia: delega en `puedeCambiarGastos` / `puedeCambiarGastosFondo`, y las pantallas usan la misma función. Los escribe solo el servidor con la llave de servicio; la ruta y la organización salen de la fila del gasto, nunca del navegador (035). El aprobador de una liquidación ya no sube ni borra comprobantes del empleado: sus respaldos van en «Adjuntos de respaldo».
+- **Los respaldos de aprobación son evidencia** (Daniel, 2026-09-25): los ve y los sube quien ve el documento (lo decide la RLS de la rendición o del fondo, no una lista aparte). Los borra solo quien los subió, y solo mientras nadie haya dado un paso en el documento después de la subida; en rendiciones cuenta también el envío (`submitted_at`), que no queda en `expense_report_approvals`. El admin tampoco borra respaldos ajenos: un error grave se saca a mano desde Supabase. Código: `src/lib/respaldos.ts`; la ruta sale de la fila y el servidor escribe y firma con la llave de servicio (037).
 - **Suplencia por función**: `bank_load_backup` y `bank_auth_backup`. FH es titular
   para autorizar y suplente para cargar.
 - **Aprobador inactivo = sin aprobador** (`cadenaActiva`): bloquea el envío y avisa al
@@ -806,6 +809,9 @@ una columna `NOT NULL`.
    Bucket `approval-attachments` («Adjuntos de respaldo»): **no existió hasta el
    2026-09-24** aunque este archivo decía que sí — toda subida fallaba con «Bucket
    not found». Lo crea la migración `029`; acepta lo de un comprobante más Excel.
+   Sus tres políticas pedían solo tener sesión, de cualquier organización. Desde la 037
+   no tiene ninguna, ni de lectura: lo firma un solo lugar (`getApprovalAttachments`),
+   con la llave de servicio, después de comprobar que la persona ve el documento.
    Los tipos admitidos de ambos buckets son espejo de `src/lib/attachment-types.ts`.
 
 5. **Orden correcto para aplicar migrations**: crear tablas → habilitar RLS → agregar políticas

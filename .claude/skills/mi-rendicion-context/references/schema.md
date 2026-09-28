@@ -224,14 +224,17 @@ id            uuid primary key default gen_random_uuid()
 org_id        uuid not null references organizations(id)
 report_id     uuid references expense_reports(id) on delete cascade   -- exactamente uno de los dos
 fund_id       uuid references petty_cash_funds(id) on delete cascade
-uploaded_by   uuid not null references users(id)
+uploaded_by   uuid references users(id) on delete set null
 storage_path  text not null
 filename      text not null
 file_size     integer
 description   text
 created_at    timestamptz not null default now()
 ```
-**Bucket `approval-attachments`**: crear manualmente si no existe. `public: false`, 10MB, tipos: jpeg/png/webp/pdf/rfc822.
+**RLS (037)**: la sesión solo lee, y solo con el documento a la vista (`exists` sobre
+`expense_reports` / `petty_cash_funds`, que hereda su RLS). Escribe el servidor.
+**Bucket `approval-attachments`**: lo crea la 029. `public: false`, 10MB, tipos espejo de
+`classifyRespaldo`. Desde la 037, sin políticas de sesión: sube, borra y firma el servidor.
 
 ---
 
