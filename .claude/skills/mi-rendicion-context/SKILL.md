@@ -311,7 +311,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **398 tests Vitest en 30 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
+- **399 tests Vitest en 30 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 

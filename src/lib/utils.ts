@@ -18,8 +18,10 @@ export function formatAmount(amount: number, currency: Currency): string {
   return `${amount < 0 ? '-' : ''}${symbol} ${formatted}`
 }
 
+// Acepta `YYYY-MM-DD` o una marca de tiempo completa (`created_at`, `invited_at`):
+// de esta última usa solo la fecha, igual que el `.split('T')[0]` de los demás llamadores
 export function formatDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split('-')
+  const [y, m, d] = isoDate.slice(0, 10).split('-')
   return `${d}/${m}/${y}`
 }
 

@@ -56,6 +56,11 @@ describe('formatDate', () => {
   it('formatea YYYY-MM-DD a DD/MM/YYYY', () => {
     expect(formatDate('2026-06-01')).toBe('01/06/2026')
   })
+  // Así llegan created_at / invited_at desde la base. Mostraba
+  // «28T18:21:54.851086+00:00/09/2026» en respaldos, sugerencias y empleados
+  it('con una marca de tiempo completa, muestra solo la fecha', () => {
+    expect(formatDate('2026-09-28T18:21:54.851086+00:00')).toBe('28/09/2026')
+  })
 })
 
 describe('getStatusLabel', () => {
