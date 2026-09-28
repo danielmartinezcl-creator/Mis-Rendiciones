@@ -199,7 +199,7 @@ src/
 │   │   │   ├── analisis/                 ← Pivot gastos por centro de costo
 │   │   │   ├── carga-historica/          ← Importador histórico Excel
 │   │   │   ├── auditoria/                ← Registro append-only (incluye reversas Defontana)
-│   │   │   └── trash/                    ← Papelera (soft delete, 90 días)
+│   │   │   └── trash/                    ← Papelera (soft delete; nada la purga sola)
 │   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica (flujo bancario)
 │   │   ├── profile/                      ← Perfil + datos bancarios
 │   │   └── suggestions/                  ← Sugerencias y bugs
@@ -247,6 +247,7 @@ src/
 │   ├── policy-helpers.ts      ← resolveApplicablePolicy, checkItemLimit, checkPeriodLimit
 │   ├── report-helpers.ts      ← UnifiedReportItem, buildPeriodRange, computeUnifiedKpis (byMovement)
 │   ├── respaldos.ts           ← puedeBorrarRespaldo, puedeSubirRespaldo, destinoDelRespaldo (037)
+│   ├── archivos.ts            ← archivosQueCaen, retirarArchivos: los archivos que un borrado de verdad deja sin fila
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
@@ -311,7 +312,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **399 tests Vitest en 30 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
+- **410 tests Vitest en 31 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -994,3 +995,4 @@ una columna `NOT NULL`.
 | Proteger la fila de un adjunto y no su archivo | El archivo vive en `storage.objects`, con su propia RLS: el bucket dejaba borrar a cualquier sesión, y `deleteItemAttachment` borraba la ruta que mandaba el navegador. Un disparador en `attachments` no lo habría cerrado | La ruta sale de la fila, y ninguna sesión escribe en el bucket (035). Al revisar permisos de archivos, mirar las dos RLS: la tabla y `storage.objects` |
 | Leer `title` / `body` de una notificación | `notifications` solo guarda `type` y a qué documento apunta (`report_id` / `fund_id`). El hook de Realtime casteaba la fila a `{ title, body }` y el aviso en vivo salía como una caja vacía | El texto lo arma `textoNotificacion()` (`src/lib/notificaciones.ts`) y se muestra con `avisar()`. La fila se tipa con `Notification` de `types.ts`, nunca con un cast a mano |
 | Suscribir un canal Realtime sin esperar el token de la sesión | realtime-js 2.106 arma el join en el `subscribe()` y busca el token en paralelo: con la sesión recuperada de cookies (recargar, reabrir la PWA) el join sale sin `access_token`, el canal queda como anon y RLS descarta cada fila **sin ningún error** | `await supabase.realtime.setAuth()` antes de `.subscribe()` (ver `useRealtimeNotifications`). Para diagnosticar, mirar el frame `phx_join` en el websocket: si no trae `access_token`, es esto |
+| Borrar de verdad un documento o un gasto que tiene archivos | La cascada borra las filas de `attachments` y `approval_attachments`, pero no los archivos: Storage no tiene llaves foráneas. Quedaron 6 huérfanos (~12 MB) de la papelera y de borradores, hasta el 2026-09-28 | `archivosQueCaen()` antes del borrado (después la cascada ya se llevó las filas), borrado con `.select('id')`, y `retirarArchivos()` recién si cayó la fila (`src/lib/archivos.ts`). Un huérfano se retira por la API de Storage, nunca con un DELETE en `storage.objects`: el archivo físico queda |

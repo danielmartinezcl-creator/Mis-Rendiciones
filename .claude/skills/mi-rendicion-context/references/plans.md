@@ -63,7 +63,7 @@
 - Radios: `rounded-item` (14px) y `rounded-card` (18px)
 
 ## ✅ Soft delete + PWA icons + región
-- `expense_reports.deleted_at` (papelera 90 días)
+- `expense_reports.deleted_at` (papelera; nada la purga sola, aunque la pantalla lo prometía hasta el 2026-09-28)
 - `/admin/trash` — restaurar o eliminar definitivamente
 - PWA icons apple-touch-icon
 - Región Supabase: São Paulo (sa-east-1)
