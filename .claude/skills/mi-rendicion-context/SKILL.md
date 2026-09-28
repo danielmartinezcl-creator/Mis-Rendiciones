@@ -249,7 +249,7 @@ src/
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
-├── proxy.ts                ← protección de rutas (Next.js 16)
+├── proxy.ts                ← protección de rutas (Next.js 16); las que pasan sin sesión, en `lib/rutas-publicas.ts`
 └── tests/
 supabase/
 ├── migrations/
@@ -287,7 +287,7 @@ supabase/
 │   ├── 033_estado_solo_desde_servidor.sql            ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayada antes con BEGIN/ROLLBACK: 42/42; en vivo: 41 ok, 1 no concluyente por falta de datos, 0 fallas): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
 │   ├── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
 │   ├── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
-│   └── 036_tipo_recordatorio.sql                     ← ⏳ PENDIENTE; tipo 'reminder' en notifications. Aditiva: aplicar ANTES de desplegar el cron nuevo, que lo inserta. Ensayada el 2026-09-28 con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
+│   └── 036_tipo_recordatorio.sql                     ← ✅ APLICADA el 2026-09-28, antes del despliegue; tipo 'reminder' en notifications. Aditiva: el código viejo nunca escribe ese tipo. Ensayo con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -309,7 +309,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **376 tests Vitest en 28 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
+- **380 tests Vitest en 29 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -493,12 +493,13 @@ trigger de `updated_at`.
 - `expense_items.mileage_km`, `mileage_rate`; `organizations.mileage_rate_per_km` (default $136/km SII)
 - Subtipo "kilometraje" en `ExpenseItemForm`: monto calculado automáticamente (km × tarifa), boleta no requerida
 
-### ⏳ Recordatorios automáticos (R4) — rehechos; falta aplicar la 036 y desplegar
-**El cron anterior nunca funcionó**, aunque este archivo lo daba por hecho: faltaba
-`CRON_SECRET` en Vercel (401 todos los días, sin tocar la base); escribía `title`, `body`
-y `link`, columnas que `notifications` no tiene, con tipos `reminder_*` que el CHECK
-rechaza; no miraba el error del upsert, y la regla de borradores filtraba
-`is_historical_import is null` en una columna `NOT NULL`.
+### ✅ Recordatorios automáticos (R4) — rehechos y desplegados el 2026-09-28
+**El cron anterior nunca funcionó**, aunque este archivo lo daba por hecho: el proxy lo
+mandaba al login (307: `/api/cron` no era ruta pública y Vercel llama sin cookies);
+faltaba `CRON_SECRET` en Vercel; escribía `title`, `body` y `link`, columnas que
+`notifications` no tiene, con tipos `reminder_*` que el CHECK rechaza; no miraba el
+error del upsert, y la regla de borradores filtraba `is_historical_import is null` en
+una columna `NOT NULL`.
 
 - `src/app/api/cron/reminders/route.ts`, **lunes a viernes 12:00 UTC** (`vercel.json`):
   9:00 de Chile en verano, 8:00 en invierno. Exige `CRON_SECRET` en Vercel
@@ -725,11 +726,11 @@ rechaza; no miraba el error del upsert, y la regla de borradores filtraba
    dejaría de pasar por uso natural, pero **hasta el lanzamiento va a repetirse**.
 
    Opciones: plan Pro (~US$25/mes, un proyecto en Pro nunca se pausa) o dejar que el
-   cron lo mantenga vivo. **Por qué el cron no alcanzaba — explicado el 2026-09-25:**
-   en Vercel no existe `CRON_SECRET` (verificado de nuevo el 2026-09-28), así que el cron
-   responde 401 sin tocar la base. Con la variable creada, el cron nuevo consulta la base
-   de lunes a viernes: la brecha máxima es de 3 días, bajo los ~7 que tolera el plan
-   free. Si vuelve a pausarse, revisar primero que `CRON_SECRET` siga existiendo.
+   cron lo mantenga vivo. **Por qué el cron no alcanzaba:** nunca llegó a la base — el
+   proxy lo mandaba al login y en Vercel no existía `CRON_SECRET`. Arreglado el
+   2026-09-28: el cron consulta la base de lunes a viernes, así que la brecha máxima es
+   de 3 días, bajo los ~7 que tolera el plan free. Si vuelve a pausarse, revisar primero
+   que el cron responda (fila «Un cron de Vercel que corre pero no hace nada» en errores).
 
 7. **Gasto rápido para rendiciones Y caja chica — pedido por Daniel el 2026-09-23.**
    Hoy `/quick` solo registra en un fondo de caja chica, y por eso está oculto para
@@ -967,7 +968,7 @@ rechaza; no miraba el error del upsert, y la regla de borradores filtraba
 | Texto tenue dentro de un contenedor con `opacity` | El contraste se **multiplica**: `text-white/70` dentro de una tarjeta al 60% da 42% efectivo, ilegible | Al bajar la opacidad de un contenedor, subir la de su texto para compensar |
 | `strokeLinecap="round"` con un arco de largo cero | Igual pinta el redondeo de las puntas: un punto que se lee como un 1% inexistente | No renderizar el trazo cuando el valor es 0 |
 | Crear un componente de React para una superficie visual nueva | El selector de legibilidad de `globals.css` excluye superficies **por nombre de clase**; una clase nueva no excluida vuelve blancos sobre blanco los encabezados de adentro | Preferir la clase de material existente (`.hoja`, `.tor-glass`). Si de verdad hace falta una clase nueva, agregarla al `:not()` |
-| Un cron de Vercel que «corre» pero no hace nada | Vercel manda `Authorization: Bearer $CRON_SECRET` solo si la variable existe; sin ella el guard responde 401 a todo. Los logs de Vercel (plan Hobby) duran ~1 hora, así que nadie lo ve | Confirmar que `CRON_SECRET` existe en Vercel (se activa con el próximo deploy). Para saber si el cron llega a la base, mirar los logs de Supabase a la hora del cron |
+| Un cron de Vercel que «corre» pero no hace nada | Dos cortes antes del handler, y ninguno deja rastro: Vercel llama sin cookies y el proxy manda al login (307) toda ruta que no sea pública; y manda `Authorization: Bearer $CRON_SECRET` solo si la variable existe, si no el guard responde 401. Los logs de Vercel (Hobby) duran ~1 hora. Pasó con los recordatorios hasta el 2026-09-28 | La ruta en `src/lib/rutas-publicas.ts` y `CRON_SECRET` en Vercel (se activa con el próximo deploy). Prueba rápida: `curl -I` a la ruta sin secreto tiene que dar **401** (llegó al handler), nunca 307 |
 | Buscar en el código por qué «no se puede iniciar sesión» | El proyecto Supabase se pausó solo (plan free, ~7 días sin uso) y **el DNS del subdominio deja de existir**. El `try/catch` del proxy lo degrada a redirección al login, así que no se ve ningún error: parece un problema de credenciales | `get_project` del MCP de Supabase **antes** de mirar código, variables o deploys. `status` ≠ `ACTIVE_HEALTHY` es la respuesta. La firma en los logs de Vercel es `getaddrinfo ENOTFOUND` + `AuthRetryableFetchError` |
 | Dar por perdidos los datos durante un `restore_project` | Supabase levanta la infraestructura primero y restaura el esquema después: hay varios minutos en que `public.users` no existe y la base se ve vacía | Esperar a que `/rest/v1/` devuelva 200 (la secuencia es 521 → 404 → 200). El puerto 5432 abre MUCHO antes de que se pueda leer una fila |
 | Validar un caché contra `updated_at` en una tabla con trigger `set_updated_at()` | Guardar el caché **es** un UPDATE, así que pisa la misma marca contra la que se compara: la condición no se cumple nunca y cada vista recalcula | Invalidar con un trigger donde cambian los datos de verdad, no comparando marcas de tiempo en la misma fila. Ver migración `024` |
