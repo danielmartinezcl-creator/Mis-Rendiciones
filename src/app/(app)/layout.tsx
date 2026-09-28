@@ -24,9 +24,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user || !profile) redirect('/login')
 
+  /* ProveedorDialogos por fuera: RealtimeProvider muestra cada notificación
+     nueva con su `avisar()`, y un hook de contexto solo ve a sus ancestros. */
   return (
-    <RealtimeProvider userId={profile.id}>
-      <ProveedorDialogos>
+    <ProveedorDialogos>
+      <RealtimeProvider userId={profile.id}>
       <div className="flex min-h-screen">
         <Sidebar user={profile} marca={marca} />
         <div className="flex-1 flex flex-col min-w-0">
@@ -48,8 +50,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <MobileNav user={profile} />
       </div>
-      </ProveedorDialogos>
-    </RealtimeProvider>
+      </RealtimeProvider>
+    </ProveedorDialogos>
   )
 }
 
