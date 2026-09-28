@@ -544,7 +544,7 @@ una columna `NOT NULL`.
   para rendiciones.** Solo admin lo ve: `roles: ['admin']` en `MobileNav.tsx` y
   `Sidebar.tsx`, y `(app)/quick/layout.tsx` redirige a `/` a cualquier otro rol (el
   menú no alcanza: la ruta se puede escribir a mano). El shortcut del `manifest.json`
-  ahora apunta a `/expenses/new`. Ver backlog punto 7
+  ahora apunta a `/expenses/new`. Ver backlog punto 5
 
 ### ✅ El dominio viejo redirige al canónico (`6db0a42`)
 - `rindegastos.vercel.app` —el nombre de prueba— **sigue respondiendo y apuntando a
@@ -617,55 +617,10 @@ una columna `NOT NULL`.
 
 ### ⏳ Pendiente / Backlog
 
-> Revisado contra el disco el **2026-09-21**. Lo que está acá está pendiente de verdad;
-> lo que se completó salió de la lista.
+> Revisado contra el disco y la base el **2026-09-28**. Lo que está acá está pendiente
+> de verdad; lo que se completó salió de la lista.
 
-1. **Correo — ACTUALIZADO 2026-09-23: la `RESEND_API_KEY` de Vercel YA FUNCIONA.**
-   Se invitó a `rhagar@` y el correo llegó (`invited_at` solo se escribe si Resend
-   aceptó el envío). Lo que sigue roto:
-   - **SMTP de Supabase Auth** (el de «¿Olvidaste tu contraseña?»): `/recover` da
-     `535 5.7.8 Authentication failed` → la contraseña SMTP configurada en el
-     dashboard de Supabase sigue siendo la clave vieja.
-   - **El link de invitación nunca pudo funcionar**: `generateLink` (admin) redirige
-     con los tokens en el `#hash` (flujo implícito) y `/api/auth/callback` exige
-     `?code=` → siempre termina en `/login?error=missing_code`.
-   - **Los escáneres de Outlook/Microsoft consumen el token de un solo uso** antes
-     que la persona (visto en auth logs: HEAD/GET a `/verify` desde IPs de Microsoft).
-
-   **Arreglado en código el mismo día** (`src/lib/access-link.ts` + `access-email.ts`):
-   todo link de contraseña —invitación, reenvío, «¿Olvidaste tu contraseña?», perfil—
-   sale por Resend y apunta a `/set-password?token_hash=…`, que canjea el token
-   recién al GUARDAR (`verifyOtp`). `/set-password` es pública en `proxy.ts`. El SMTP
-   de Supabase ya no se usa desde el código. **SMTP de Supabase también arreglado
-   el mismo día** (host `smtp.resend.com`, puerto 465, usuario `resend`, password =
-   la clave `mi-rendicion-app`, la misma de Vercel): «Send password recovery» del
-   dashboard llegó. Ojo: esa clave vive en DOS lados; si se rota, cambiarla en ambos.
-   `resendInvitation` tampoco enviaba nada (solo generaba el link): corregido.
-   El `.env.local` sigue con la clave vieja → en local la recuperación dice que no
-   puede enviar, y es lo correcto.
-
-   Lo de abajo es el estado previo, se conserva como historia:
-
-   **`RESEND_API_KEY` inválida — bloqueante del lanzamiento, POSTERGADO a propósito.**
-
-   > **Decisión de Daniel, 2026-09-21: no tocarlo por ahora.** Todavía no va a invitar
-   > a los empleados, así que no corre apuro. **No insistir con esto en cada sesión**;
-   > vuelve a ser prioridad recién cuando se decida lanzar.
-
-   La clave cargada en Vercel tiene **9 caracteres**; una real de Resend tiene ~36
-   (`re_` + token). No se toca desde el 2026-08-11, o sea que **sigue rota**. Sin ella
-   no sale ninguna invitación a los 54 empleados ni ninguna notificación.
-
-   **No es un bug de código y no se arregla programando**: es una credencial que tiene
-   que pegar Daniel, en dos lados (`.env.local` y las variables de Vercel).
-
-   El código ya no miente al respecto (`b9e2cff`): `revisarConfigCorreo` en
-   `src/lib/email-helpers.ts` valida ANTES del bucle de envío, así que si el correo no
-   puede salir se corta sin tocar a nadie y sin quemar los `invited_at` — ese campo solo
-   se escribe bien una vez. Ocho tests lo fijan, uno de ellos con el caso exacto de
-   producción.
-
-2. **Marca por organización (white-label)** — **nombre y logo: HECHOS** (2026-09-04).
+1. **Marca por organización (white-label)** — **nombre y logo: HECHOS** (2026-09-04).
    `organizations.name` y `logo_url` ya existían desde `001` y no los leía nadie, así
    que no hizo falta migración de tablas. El riel y el encabezado móvil los leen vía
    `<Marca>`; la carga vive en `/admin/settings` → pestaña «Marca»; el respaldo sin
@@ -690,9 +645,8 @@ una columna `NOT NULL`.
 
    **Sigue faltando**: el favicon y el `manifest.json` de la PWA, que son archivos
    estáticos y necesitarían rutas de metadata dinámicas.
-3. **Defontana — `Codigo Legal` en facturas**: va vacío a propósito (la factura ya está ingresada en Defontana; el asiento solo rebaja la cuenta del proveedor). Fijado en un test. Si el importador llegara a exigirlo, es un cambio de una línea en `rowToArray`.
 
-4. **Rediseño Tornasol — el rediseño *conceptual*, pantalla por pantalla.**
+2. **Rediseño Tornasol — el rediseño *conceptual*, pantalla por pantalla.**
    El chasis y la regla de materiales están **completos y verificados en las 23
    pantallas** (`npm run audit:materiales`), con deuda de sistema en cero. Lo que falta
    es repensar cada pantalla, que es otra cosa y es la parte que rinde.
@@ -711,7 +665,7 @@ una columna `NOT NULL`.
    Las herramientas para hacerlo ya existen: medir por bloques (§5 de la spec), el
    detector de deuda y la línea base visual. Ver [[project-rediseno-tornasol]].
 
-5. **Landing comercial en la raíz — pedida por Daniel el 2026-09-21.**
+3. **Landing comercial en la raíz — pedida por Daniel el 2026-09-21.**
    Una página pública que **venda el sistema**: qué hace, sus características, sus
    ventajas, y un botón de «Iniciar sesión» que derive a `/login`.
 
@@ -724,9 +678,9 @@ una columna `NOT NULL`.
    pública con el dashboard movido, o `/inicio`), y cómo se comporta el proxy con
    alguien que SÍ tiene sesión y cae ahí. Nada de esto está decidido todavía.
 
-6. **Plan de Supabase — decisión abierta (2026-09-21).**
+4. **Plan de Supabase — decisión abierta (2026-09-21).**
    La organización está en **free** y el proyecto se pausa solo tras ~7 días sin uso
-   (ver la advertencia en «Reglas críticas → Supabase»). Con 54 empleados en producción
+   (ver la advertencia en «Reglas críticas → Supabase»). Con los 57 usuarios usándola
    dejaría de pasar por uso natural, pero **hasta el lanzamiento va a repetirse**.
 
    Opciones: plan Pro (~US$25/mes, un proyecto en Pro nunca se pausa) o dejar que el
@@ -736,7 +690,7 @@ una columna `NOT NULL`.
    de 3 días, bajo los ~7 que tolera el plan free. Si vuelve a pausarse, revisar primero
    que el cron responda (fila «Un cron de Vercel que corre pero no hace nada» en errores).
 
-7. **Gasto rápido para rendiciones Y caja chica — pedido por Daniel el 2026-09-23.**
+5. **Gasto rápido para rendiciones Y caja chica — pedido por Daniel el 2026-09-23.**
    Hoy `/quick` solo registra en un fondo de caja chica, y por eso está oculto para
    empleados (ver «Flujo rápido móvil»). Lo pedido: después de la foto y la
    confirmación, el paso 3 deja **elegir el destino**:
@@ -748,7 +702,54 @@ una columna `NOT NULL`.
    shortcut del `manifest.json`, `rol` en `e2e/rutas.ts` y la sección en
    `docs/manual/manual.html`.
 
+6. **Mensaje claro al eliminar un documento con traspaso — pendiente por decisión de
+   Daniel, 2026-09-28.** `permanentlyDeleteFromTrash` falla con el error crudo de
+   Postgres si la rendición o el fondo aparece en un traspaso: las FK
+   `fund_transfers_{payer,receiver}_{report,fund}_id_fkey` no tienen ON DELETE, y la
+   papelera lo muestra tal cual con `avisar()`. Opciones: avisar antes con un mensaje
+   claro (recomendado: un traspaso toca a dos personas) o borrar también el traspaso
+   (`deleteLinkedFundTransfer` ya retira sus comprobantes). Respetar el orden de
+   `src/lib/archivos.ts`: juntar rutas → borrar → retirar.
+
+7. **Migración 034 — borrar `users.bank_is_backup`.** La columna sigue en la base
+   (verificado el 2026-09-28). Aplicarla cuando ya no haga falta volver a código
+   anterior al 2026-09-25: un rollback de Vercel a ese código la lee.
+
+8. **Lanzamiento — decisión de Daniel.** El 2026-09-28 había 57 usuarios activos: 5
+   invitados y 6 que entraron alguna vez. El correo ya no bloquea (ver «Ya NO están
+   pendientes»); falta decidir cuándo invitar al resto.
+
+9. **Avisos de Supabase (`get_advisors`, 2026-09-28).** Ninguno urgente con una sola
+   organización; conviene resolverlos antes de sumar clientes:
+
+   | Tipo | Aviso | Qué hacer |
+   |---|---|---|
+   | Seguridad | 12 funciones `SECURITY DEFINER` ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc` | Revocar `EXECUTE` donde no haga falta: las `proteger_*` son de disparador; `is_admin` y `get_my_org_id` las usan las políticas |
+   | Seguridad | `set_updated_at` sin `search_path` fijo | Fijarlo en la función |
+   | Seguridad | Protección de contraseñas filtradas apagada | Requiere plan Pro: va con la decisión del punto 4 |
+   | Rendimiento | 28 `auth_rls_initplan` | `auth.uid()` → `(select auth.uid())` en las políticas |
+   | Rendimiento | 155 políticas permisivas múltiples, 37 FK sin índice, 10 índices sin uso | Consolidar e indexar cuando crezca el volumen |
+
+10. **Manual de usuario sin versionar.** `docs/manual/` (HTML, PDF de 8 MB y 20
+    capturas) y `e2e/manual/` (los guiones que las toman) existen solo en la raíz,
+    fuera de git, desde el 2026-09-24: son anteriores a los permisos por asignación
+    (2026-09-25). Decidir si se versionan y regenerarlos. El 2026-09-28 una sesión
+    encontró que al manual compartido le faltaban las imágenes.
+
 > **Ya NO están pendientes, aunque documentos viejos lo digan:**
+>
+> · *Correo* — funciona desde el 2026-09-23: `RESEND_API_KEY` válida en Vercel y el
+>   SMTP de Supabase Auth apuntando a Resend (`smtp.resend.com`:465, usuario `resend`,
+>   la clave `mi-rendicion-app`). **La clave vive en dos lados: si se rota, cambiarla en
+>   ambos.** Todo link de contraseña sale por Resend hacia `/set-password?token_hash=…`
+>   y se canjea recién al guardar (`verifyOtp`), así que los escáneres de Outlook ya no
+>   lo queman. `revisarConfigCorreo` corta antes del bucle si el correo no puede salir.
+>   El `.env.local` sigue con la clave vieja: en local la recuperación no envía, y es lo
+>   correcto.
+>
+> · *Defontana — `Codigo Legal` en facturas* — va vacío a propósito (la factura ya
+>   está en Defontana; el asiento solo rebaja al proveedor), fijado en un test. Si el
+>   importador llegara a exigirlo, es una línea en `rowToArray`.
 >
 > · *Service worker / caché offline* — **ya NO está bloqueado técnicamente** (resuelto
 >   el 2026-09-04). El motivo histórico —«`next-pwa` v5 no es compatible con Turbopack»—
@@ -761,13 +762,12 @@ una columna `NOT NULL`.
 >   clásico de servir assets viejos después de un deploy. El razonamiento completo está
 >   en el comentario de cabecera de `next.config.ts`.
 >
-> · *Notificaciones email* — **el código** está completo desde el 2026-08-12:
->   `lookupEmails()` en `lib/avisos.ts` usa `createAdminClient()` +
->   `getUserById()`, y todos los paths de envío pasan por ahí. Lo que falta no es
->   código sino **la credencial** (punto 1 del backlog): no confundir una cosa con otra.
+> · *Notificaciones email* — el código está completo desde el 2026-08-12
+>   (`lookupEmails()` en `lib/avisos.ts`, con `createAdminClient()` + `getUserById()`)
+>   y la credencial es válida desde el 2026-09-23.
 >
 > · *«Penta Rend» hardcodeado* — el nombre no existe en ningún archivo desde `46d62ab`.
->   Lo que sigue pendiente es el white-label (punto 2), no ese literal.
+>   Lo que sigue pendiente es el white-label (punto 1), no ese literal.
 
 ---
 

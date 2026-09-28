@@ -100,11 +100,10 @@
 - UI `/petty-cash`: sección "Traspasos sin vincular", botón en fondos y cargas históricas, modales crear/vincular
 
 ## ⏳ Pendiente / Backlog
-- Export Defontana: formato real 34 columnas (plan escrito en `docs/superpowers/plans/2026-07-22-importador-historico.md`)
-- Centro de costo por empleado (`users.cost_center_id`) — migración pendiente
-- `supplier_rut` en `expense_items` para crédito fiscal IVA
-- Notificaciones email: requiere service role para lookup en `auth.users`
-- Service worker offline (next-pwa incompatible con Turbopack)
+El backlog vigente vive en `SKILL.md` → «⏳ Pendiente / Backlog». Los cinco puntos
+que estaban acá (Defontana 34 columnas, centro de costo por empleado, `supplier_rut`,
+correos con service role, service worker) se completaron o pasaron a decisión de
+producto; verificado el 2026-09-28.
 
 ---
 
