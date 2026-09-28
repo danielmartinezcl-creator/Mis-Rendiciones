@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import { esRutaPublica } from '@/lib/rutas-publicas'
 
 /**
  * Dominios viejos que TODAVÍA apuntan a este proyecto en Vercel.
@@ -67,13 +68,8 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  /* `/set-password` es pública: la sesión se crea DENTRO de la página, al
-     canjear el token del correo (ver `src/lib/access-link.ts`). Sin sesión y
-     sin token, la propia página devuelve al login. */
-  const publicPaths = ['/login', '/register', '/api/auth', '/set-password']
-  const isPublic = publicPaths.some(p => pathname.startsWith(p))
-
-  if (!user && !isPublic) {
+  /* Qué rutas pasan sin sesión y por qué: src/lib/rutas-publicas.ts. */
+  if (!user && !esRutaPublica(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('next', pathname)
