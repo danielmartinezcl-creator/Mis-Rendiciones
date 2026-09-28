@@ -32,4 +32,20 @@ describe('RealtimeProvider', () => {
     act(() => canal.recibir!(fila({ type: 'approval', report_id: 'r-1' })))
     expect(screen.getByRole('status')).toHaveTextContent('Tu rendición fue aprobada.')
   })
+
+  it('los recordatorios que el cron guarda juntos salen como un solo aviso', () => {
+    render(
+      <ProveedorDialogos>
+        <RealtimeProvider userId="u-1"><p>app</p></RealtimeProvider>
+      </ProveedorDialogos>,
+    )
+    act(() => {
+      for (const id of ['n-1', 'n-2', 'n-3']) {
+        canal.recibir!(fila({ id, type: 'reminder', report_id: `r-${id}`, dedup_key: `rec:${id}` }))
+      }
+    })
+    const avisos = screen.getAllByRole('status')
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0]).toHaveTextContent('Recordatorio: tienes una rendición pendiente.')
+  })
 })

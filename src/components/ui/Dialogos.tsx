@@ -79,7 +79,9 @@ export function ProveedorDialogos({ children }: { children: React.ReactNode }) {
 
   const avisar = useCallback((mensaje: string, tono: 'info' | 'error' = 'info') => {
     const id = siguienteId.current++
-    setAvisos(a => [...a, { id, mensaje, tono }])
+    /* Uno igual a la vista no se repite: el cron guarda de una vez todos los
+       recordatorios de una persona y cada fila llega por Realtime como un aviso. */
+    setAvisos(a => a.some(x => x.mensaje === mensaje && x.tono === tono) ? a : [...a, { id, mensaje, tono }])
     setTimeout(() => setAvisos(a => a.filter(x => x.id !== id)), DURACION[tono])
   }, [])
 

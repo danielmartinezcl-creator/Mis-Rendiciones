@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ProveedorDialogos, useDialogos } from '@/components/ui/Dialogos'
 
@@ -62,5 +62,40 @@ describe('confirmar con palabra', () => {
     await act(async () => { fireEvent.click(screen.getByText('Cancelar')) })
     fireEvent.click(screen.getByText('abrir'))
     expect(screen.getByRole('textbox')).toHaveValue('')
+  })
+})
+
+/* El cron guarda de una vez todos los recordatorios de una persona, y cada fila
+   llega por Realtime como un aviso: sin esto, tres píldoras iguales apiladas. */
+function Avisador({ mensajes }: { mensajes: string[] }) {
+  const { avisar } = useDialogos()
+  return <button onClick={() => mensajes.forEach(m => avisar(m))}>avisar</button>
+}
+
+function avisarTodos(mensajes: string[]) {
+  render(<ProveedorDialogos><Avisador mensajes={mensajes} /></ProveedorDialogos>)
+  fireEvent.click(screen.getByText('avisar'))
+}
+
+describe('avisar', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  it('un aviso igual a uno que está a la vista no se apila', () => {
+    avisarTodos(['Guardado.', 'Guardado.', 'Guardado.'])
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+  })
+
+  it('avisos distintos sí se apilan', () => {
+    avisarTodos(['Guardado.', 'Enviado.'])
+    expect(screen.getAllByRole('status')).toHaveLength(2)
+  })
+
+  it('cuando el aviso se va, el mismo texto puede volver a salir', () => {
+    vi.useFakeTimers()
+    avisarTodos(['Guardado.'])
+    act(() => { vi.advanceTimersByTime(2_600) })
+    expect(screen.queryByRole('status')).toBeNull()
+    fireEvent.click(screen.getByText('avisar'))
+    expect(screen.getAllByRole('status')).toHaveLength(1)
   })
 })
