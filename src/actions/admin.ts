@@ -16,6 +16,7 @@ import type { DefontanaMovement } from '@/lib/export/defontana'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import { cargarPersonas } from '@/lib/contexto-permisos'
 import { puedeActuar, pasoSegunEstado, validarCadena, dependientesDe, type Documento } from '@/lib/permisos'
+import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -698,7 +699,8 @@ export async function deleteEmployee(userId: string) {
     .eq('id', userId)
     .single()
 
-  // Soft delete: marca deleted_at, el usuario pierde acceso pero los datos se conservan 90 días
+  // Soft delete: marca deleted_at, el usuario pierde acceso pero los datos se
+  // conservan en la papelera hasta que un admin lo restaure o lo bloquee
   const { error } = await supabase
     .from('users')
     .update({ deleted_at: new Date().toISOString(), is_active: false })
@@ -1649,6 +1651,8 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   if (type === 'report') {
     const { data: before } = await supabase
       .from('expense_reports').select('title').eq('id', id).single()
+    // Antes de borrar: después la cascada ya se llevó las filas de los adjuntos
+    const archivos = await archivosQueCaen(adminClient, { tipo: 'rendicion', id })
     // Con el cliente del admin, no con la service role: si la rendición tiene
     // aprobaciones, la base exige is_admin() y con la service role auth.uid()
     // es null (migración 026). La política RLS del admin ya cubre el borrado.
@@ -1657,9 +1661,11 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
       .delete()
       .eq('id', id)
       .eq('org_id', orgId)
+      .not('deleted_at', 'is', null)
       .select('id')
     if (error) throw new Error(error.message)
     if (!deleted?.length) throw new Error('No se pudo eliminar la rendición')
+    await retirarArchivos(adminClient, archivos, `la rendición ${id}`)
     await logAudit({
       orgId, actorId, actorName,
       action: 'permanently_deleted', entityType: 'expense_report', entityId: id,
@@ -1669,11 +1675,20 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   } else if (type === 'fund') {
     const { data: before } = await supabase
       .from('petty_cash_funds').select('name').eq('id', id).single()
-    const { error } = await adminClient
+    const archivos = await archivosQueCaen(adminClient, { tipo: 'fondo', id })
+    // Con la llave de servicio no hay RLS: la organización y la papelera las
+    // exige el filtro. Sin él, un admin borraba el fondo de otra organización,
+    // o uno vivo, llamando la acción directo.
+    const { data: deleted, error } = await adminClient
       .from('petty_cash_funds')
       .delete()
       .eq('id', id)
+      .eq('org_id', orgId)
+      .not('deleted_at', 'is', null)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!deleted?.length) throw new Error('No se pudo eliminar el fondo')
+    await retirarArchivos(adminClient, archivos, `el fondo ${id}`)
     await logAudit({
       orgId, actorId, actorName,
       action: 'permanently_deleted', entityType: 'petty_cash_fund', entityId: id,

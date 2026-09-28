@@ -107,7 +107,7 @@ export function TrashClient({ initialItems }: Props) {
         <div>
           <h1 className="text-xl font-bold tor-on-gradient">Papelera</h1>
           <p className="text-sm tor-on-gradient-soft mt-0.5">
-            Los ítems eliminados se guardan aquí durante 90 días y luego se borran automáticamente.
+            Lo eliminado queda aquí hasta que lo restaures o lo elimines de forma permanente.
           </p>
         </div>
       </div>

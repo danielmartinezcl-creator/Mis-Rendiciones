@@ -14,6 +14,7 @@ import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/
 import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
+import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -363,9 +364,18 @@ export async function removeFundItem(itemId: string) {
     throw new Error('No se pueden eliminar ítems en este estado')
   }
 
-  const { error } = await supabase.from('petty_cash_items').delete().eq('id', itemId)
-  if (error) throw new Error(error.message)
+  // Antes de borrar: después la cascada ya se llevó las filas de los adjuntos
+  const admin    = createAdminClient()
+  const archivos = await archivosQueCaen(admin, { tipo: 'gasto_fondo', id: itemId })
 
+  // `.select` porque un borrado que no afecta filas no da error (la lección de
+  // la 025): sin él, se retirarían los archivos de un gasto que sigue ahí
+  const { data: borrado, error } = await supabase
+    .from('petty_cash_items').delete().eq('id', itemId).select('id')
+  if (error) throw new Error(error.message)
+  if (!borrado?.length) throw new Error('No se pudo eliminar el gasto')
+
+  await retirarArchivos(admin, archivos, `el gasto ${itemId}`)
   revalidatePath(`/petty-cash/${item.fund_id}`)
 }
 

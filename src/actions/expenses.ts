@@ -16,6 +16,7 @@ import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateRut } from '@/lib/validators'
 import { classifyAttachment, MAX_ATTACHMENT_BYTES } from '@/lib/attachment-types'
+import { archivosQueCaen, retirarArchivos, BUCKET_COMPROBANTES } from '@/lib/archivos'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -467,6 +468,10 @@ export async function deleteExpenseReport(reportId: string) {
   const { data: actorProfile } = await supabase
     .from('users').select('full_name').eq('id', user.id).single()
 
+  // Antes de borrar: después la cascada ya se llevó las filas de los adjuntos
+  const admin    = createAdminClient()
+  const archivos = await archivosQueCaen(admin, { tipo: 'rendicion', id: reportId })
+
   // `.select()` para saber cuántas filas cayeron: si RLS no deja borrar, Supabase
   // no devuelve error sino 0 filas, y sin esta verificación se auditaba un borrado
   // que no había ocurrido (migración 025).
@@ -479,6 +484,8 @@ export async function deleteExpenseReport(reportId: string) {
 
   if (error) throw new Error(error.message)
   if (!deleted?.length) throw new Error('No se pudo eliminar la rendición')
+
+  await retirarArchivos(admin, archivos, `la rendición ${reportId}`)
 
   await logAudit({
     orgId:       report.org_id,
@@ -603,8 +610,6 @@ export async function getReportWithItems(reportId: string) {
 // servicio: desde la migración 035 ninguna sesión escribe en `attachments` ni
 // en el bucket. La ruta y la organización salen de la fila del gasto, nunca
 // del navegador (antes una acción recibía el `orgId` como argumento).
-
-const BUCKET_COMPROBANTES = 'expense-attachments'
 
 type TipoGasto = 'expense_item' | 'petty_cash_item'
 

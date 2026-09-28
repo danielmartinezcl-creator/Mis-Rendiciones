@@ -8,6 +8,7 @@ import { classifyRespaldo, MAX_ATTACHMENT_BYTES } from '@/lib/attachment-types'
 import {
   destinoDelRespaldo, puedeSubirRespaldo, puedeBorrarRespaldo, type DestinoRespaldo,
 } from '@/lib/respaldos'
+import { BUCKET_RESPALDOS as BUCKET } from '@/lib/archivos'
 
 // Adjuntos de respaldo de una rendición o un fondo. Las reglas viven en
 // src/lib/respaldos.ts. El documento se lee con la sesión —si la RLS no se lo
@@ -15,8 +16,6 @@ import {
 // con la llave de servicio: desde la migración 037 ninguna sesión escribe en
 // `approval_attachments` ni toca el bucket. La organización y las rutas salen de
 // las filas, nunca del navegador.
-
-const BUCKET = 'approval-attachments'
 
 type Sesion = Awaited<ReturnType<typeof createClient>>
 

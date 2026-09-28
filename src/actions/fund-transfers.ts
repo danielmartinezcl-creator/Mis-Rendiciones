@@ -4,6 +4,7 @@ import { createClient }      from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath }    from 'next/cache'
 import { redirect }          from 'next/navigation'
+import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -493,6 +494,8 @@ export async function deleteFundTransfer(transferId: string): Promise<void> {
   if (transfer.matched) throw new Error('No se puede eliminar un traspaso ya vinculado')
 
   const adminClient = createAdminClient()
+  // Antes de borrar: después la cascada ya se llevó las filas de los adjuntos
+  const archivos = await archivosQueCaen(adminClient, { tipo: 'traspaso', id: transferId })
 
   // Eliminar ítem del lado pagador
   if (transfer.payer_fund_id) {
@@ -505,6 +508,9 @@ export async function deleteFundTransfer(transferId: string): Promise<void> {
   const { error } = await adminClient.from('fund_transfers').delete().eq('id', transferId)
   if (error) throw new Error(error.message)
 
+  // `transfer_id` no tiene cascada: si el traspaso cayó, ya no queda gasto que
+  // lo apunte, y sus comprobantes cayeron con ellos
+  await retirarArchivos(adminClient, archivos, `el traspaso ${transferId}`)
   revalidatePath('/petty-cash')
   revalidatePath('/admin/carga-historica')
 }
@@ -582,6 +588,8 @@ export async function deleteLinkedFundTransfer(transferId: string): Promise<void
   if (!transfer) throw new Error('Traspaso no encontrado')
 
   const adminClient = createAdminClient()
+  // Antes de borrar: después la cascada ya se llevó las filas de los adjuntos
+  const archivos = await archivosQueCaen(adminClient, { tipo: 'traspaso', id: transferId })
 
   // Eliminar ítems en ambos lados (payer + receiver)
   if (transfer.payer_fund_id) {
@@ -600,6 +608,9 @@ export async function deleteLinkedFundTransfer(transferId: string): Promise<void
   const { error } = await adminClient.from('fund_transfers').delete().eq('id', transferId)
   if (error) throw new Error(error.message)
 
+  // `transfer_id` no tiene cascada: si el traspaso cayó, ya no queda gasto que
+  // lo apunte, y sus comprobantes cayeron con ellos
+  await retirarArchivos(adminClient, archivos, `el traspaso ${transferId}`)
   revalidatePath('/petty-cash')
   revalidatePath('/admin/carga-historica')
 }

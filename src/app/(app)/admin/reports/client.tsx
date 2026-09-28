@@ -420,7 +420,7 @@ export function AdminReportsClient({ initialReports }: Props) {
   async function handleDelete(id: string, title: string) {
     if (!await confirmar({
       titulo:  `¿Mover a la papelera la rendición "${title}"?`,
-      detalle: `Podrás recuperarla desde Admin → Papelera durante 90 días.`,
+      detalle: 'Podrás recuperarla desde Admin → Papelera.',
       aceptar: 'Mover a la papelera',
       peligro: true,
     })) return
@@ -439,7 +439,7 @@ export function AdminReportsClient({ initialReports }: Props) {
   async function handleDeleteAll() {
     if (!await confirmar({
       titulo:  '¿Mover TODAS las rendiciones a la papelera?',
-      detalle: 'Podrás recuperarlas desde Admin → Papelera durante 90 días.',
+      detalle: 'Podrás recuperarlas desde Admin → Papelera.',
       aceptar: 'Mover todo a la papelera',
       peligro: true,
       palabra: 'ELIMINAR',
