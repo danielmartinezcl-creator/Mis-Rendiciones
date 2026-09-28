@@ -9,19 +9,6 @@ import { useDialogos } from '@/components/ui/Dialogos'
 type TrashItems = Awaited<ReturnType<typeof getTrashItems>>
 type Tab = 'reports' | 'funds' | 'users'
 
-function daysLeft(deletedAt: string): number {
-  const deleted = new Date(deletedAt).getTime()
-  const elapsed = Math.floor((Date.now() - deleted) / 86_400_000)
-  return Math.max(0, 90 - elapsed)
-}
-
-function DaysLeftBadge({ deletedAt }: { deletedAt: string }) {
-  const days = daysLeft(deletedAt)
-  if (days <= 7)  return <span data-cuenta-regresiva className="text-xs font-semibold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  if (days <= 30) return <span data-cuenta-regresiva className="text-xs font-semibold text-warning-600 bg-warning-50 px-2 py-0.5 rounded-full">{days}d restantes</span>
-  return <span data-cuenta-regresiva className="text-xs text-ink-400 bg-ink-100 px-2 py-0.5 rounded-full">{days}d restantes</span>
-}
-
 interface Props { initialItems: TrashItems }
 
 export function TrashClient({ initialItems }: Props) {
@@ -166,7 +153,6 @@ export function TrashClient({ initialItems }: Props) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <DaysLeftBadge deletedAt={r.deleted_at!} />
                       <button
                         onClick={() => handleRestore('report', r.id, r.title)}
                         disabled={loading === r.id}
@@ -211,7 +197,6 @@ export function TrashClient({ initialItems }: Props) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <DaysLeftBadge deletedAt={f.deleted_at!} />
                       <button
                         onClick={() => handleRestore('fund', f.id, f.name)}
                         disabled={loading === f.id}
@@ -262,7 +247,6 @@ export function TrashClient({ initialItems }: Props) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <DaysLeftBadge deletedAt={u.deleted_at!} />
                       <button
                         onClick={() => handleRestore('user', u.id, u.full_name)}
                         disabled={loading === u.id}

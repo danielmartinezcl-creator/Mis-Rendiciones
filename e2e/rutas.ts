@@ -90,12 +90,7 @@ export const RUTAS_ESTATICAS: Ruta[] = [
   { slug: 'admin-analisis',      path: '/admin/analisis',         nombre: 'Admin · análisis por CC',      rol: 'admin', datosVivos: true },
   { slug: 'admin-carga-hist',    path: '/admin/carga-historica',  nombre: 'Admin · carga histórica',      rol: 'admin' },
   { slug: 'admin-auditoria',     path: '/admin/auditoria',        nombre: 'Admin · auditoría',            rol: 'admin', datosVivos: true },
-  /* La papelera muestra «N días restantes» hasta el borrado definitivo. Ese
-     número baja cada día, así que sin máscara esta ruta falla TODOS LOS DÍAS
-     sin que nadie toque código — y un rojo que no significa nada entrena a
-     ignorar los rojos. */
-  { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin', datosVivos: true,
-    mascaras: ['[data-cuenta-regresiva]'] },
+  { slug: 'admin-papelera',      path: '/admin/trash',            nombre: 'Admin · papelera',             rol: 'admin', datosVivos: true },
 
   /* Una pantalla que la gente va a ver —enlace viejo, URL mal escrita— y que
      hasta ayer no existía: caía en la pantalla genérica de Next. Entra a la
