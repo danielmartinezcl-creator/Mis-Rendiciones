@@ -43,7 +43,7 @@ La sesión que retoma:
 - Nunca borrar datos ni archivos de producción por cuenta propia: se prepara el comando y lo corre Daniel. Las credenciales las pone él y nunca van a un archivo del repo.
 - Worktrees: si `(Get-Item node_modules).LinkType` da `Junction`, compilar con `next build --webpack` y nunca correr `npm ci`; si da vacío (carpeta real), Turbopack compila.
 - Commits desde PowerShell con here-string (`git commit -m @'…'@`, cierre `'@` en la columna 0), terminando con `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- Línea de partida: 410 pruebas de Vitest en 31 archivos, todas en verde; lint con 3 errores (todos en `generate-icons.js`) y 22 avisos (2026-09-28).
+- Línea de partida: 410 pruebas de Vitest en 31 archivos, todas en verde; lint con 3 errores (todos en `generate-icons.js`) y 22 avisos (2026-09-28). **Actualizada el 2026-10-01, tras la Fase 0: 410/410 pruebas y `npx eslint .` con 0 errores y 22 avisos.** Ese número de lint solo es reproducible desde que `eslint.config.mjs` ignora lo que `.gitignore` excluye (ver la Tarea 0.3); antes dependía de lo que hubiera en disco.
 
 ## Orden y por qué
 
@@ -87,14 +87,28 @@ La sesión que retoma:
 
 Al 2026-09-28 están integradas a `main` y limpias `gracious-pare-9625c8`, `jolly-saha-87649d`, `reverent-chebyshev-250b1b` (HEAD suelto) y `funny-cerf-43c7dd`. En cambio, `intelligent-tharp-9f4298` tiene 10 cambios sin commit, pero es trabajo que ya está en `main`: `src/lib/recordatorios.ts`, `src/tests/recordatorios.test.ts` y la migración, que se renumeró como `036_tipo_recordatorio.sql`.
 
-- [ ] **Step 1:** `git worktree list` y `git -C <worktree> status --short` de cada una, para confirmar que nada cambió.
-- [ ] **Step 2:** Confirmar con Daniel, porque descartar cambios sin commit es irreversible. Después retirarlas con la herramienta `clean_up_worktrees` del host o con `git worktree remove <ruta>` (`--force` solo para `intelligent-tharp`). Borrar sus ramas ya integradas con `git branch -d`.
+- [x] **Step 1:** `git worktree list` y `git -C <worktree> status --short` de cada una, para confirmar que nada cambió. → **Hecho:** ninguna tenía commits fuera de `main` (`git log main..HEAD` vacío en las cinco). Los 10 cambios sin commit de `intelligent-tharp` se compararon **archivo por archivo** contra `main` (no basta `git diff main`: a un archivo sin seguimiento lo trata como ausente y lo reporta como borrado entero). Resultado: 6 idénticos, y en los 3 que diferían **`main` tenía más** —extrajo `filaDeRecordatorio()` con su prueba, que ahí seguía inline—, más la migración idéntica ya renumerada a `036`.
+- [x] **Step 2:** Confirmar con Daniel, porque descartar cambios sin commit es irreversible. Después retirarlas con la herramienta `clean_up_worktrees` del host o con `git worktree remove <ruta>` (`--force` solo para `intelligent-tharp`). Borrar sus ramas ya integradas con `git branch -d`. → **Hecho el 2026-10-01, con su aprobación.** Git no registra ninguna worktree y las 6 ramas `claude/*` cayeron con `git branch -d`, que solo borra lo integrado.
+
+> **Dos cosas del terreno, para la próxima vez:**
+>
+> 1. **`funny-cerf-43c7dd` no se pudo borrar del disco: «Permission denied».** Es la
+>    worktree de la sesión «Borrar archivos huérfanos…», que tiene **Remote Control
+>    activo**, y su proceso mantiene la carpeta abierta. Git ya la soltó y la carpeta
+>    quedó **vacía**, así que no estorba a nadie ni aporta archivos al lint. Se va sola al
+>    cerrar esa sesión; si queda, basta un `Remove-Item` de la carpeta vacía.
+> 2. **Ojo con el `node_modules` de una worktree: es una *junction* a la de la raíz.** La
+>    de `jolly-saha` apuntaba a `…/Mi Rendicion/node_modules`. Un `rm -rf` de la carpeta
+>    —y en PowerShell 5.1 también un `Remove-Item -Recurse -Force`— puede **seguir el
+>    enlace y vaciar el `node_modules` de la raíz**. Lo seguro es borrar primero el enlace
+>    con `cmd /c rmdir "<ruta>"`, que elimina solo el punto de reparse, y recién después la
+>    carpeta. Se verificó contando las entradas de la raíz antes y después: 408 y 408.
 
 ### Tarea 0.3: Lint en cero errores
 
 `generate-icons.js` es el único generador de los íconos de la PWA y usa `require`, que da los 3 errores. Sigue dibujando el degradado índigo de «Penta Rend»; su rediseño es la Tarea 3.6.
 
-- [ ] **Step 1:** Moverlo a `scripts/generate-icons.mjs` y cambiar las tres líneas `require`:
+- [x] **Step 1:** Moverlo a `scripts/generate-icons.mjs` y cambiar las tres líneas `require`:
 
 ```js
 import zlib from 'node:zlib'
@@ -104,8 +118,51 @@ import path from 'node:path'
 
 Si usa `__dirname`, agregar `const __dirname = path.dirname(new URL(import.meta.url).pathname)`; en Windows, mejor `fileURLToPath(import.meta.url)` de `node:url`.
 
-- [ ] **Step 2:** `node scripts/generate-icons.mjs` y comprobar con `git status` que `public/icons/*.png` **no cambiaron**: mismo comportamiento.
-- [ ] **Step 3:** `npx eslint .` → `0 errors`. Commit: `chore(íconos): el generador de íconos pasa a ESM y el lint queda en cero errores`.
+> **Corrección sobre el terreno (2026-10-01):** sí usa `__dirname`, y el cambio **no es
+> solo de sintaxis**. La línea era `path.join(__dirname, 'public', 'icons')`, que apuntaba
+> a la raíz porque el script vivía ahí; desde `scripts/` el mismo código escribiría en
+> `scripts/public/icons/`. Hay que subir un nivel:
+>
+> ```js
+> const RAIZ    = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+> const OUT_DIR = path.join(RAIZ, 'public', 'icons')
+> ```
+>
+> Sin el `'..'`, el script «funciona» —imprime sus dos ✅— y deja los PNG de la PWA
+> intactos en otra carpeta, sin que nada falle. Por eso el Step 2 compara hashes y no
+> solo mira la salida del comando.
+
+- [x] **Step 2:** `node scripts/generate-icons.mjs` y comprobar con `git status` que `public/icons/*.png` **no cambiaron**: mismo comportamiento. → **Hecho:** los dos PNG salieron byte a byte idénticos (`sha256` `5dc3770e…` y `79e83ba5…`), `git status` de `public/icons/` vacío, y no se creó `scripts/public/`.
+- [x] **Step 3:** `npx eslint .` → `0 errors`. Commit: `chore(íconos): el generador de íconos pasa a ESM y el lint queda en cero errores`. → **Hecho:** `✖ 22 problems (0 errors, 22 warnings)`. Pero no alcanzaba con pasar el script a ESM; ver abajo.
+
+> **Lo que faltaba para que `npx eslint .` pudiera dar cero (2026-10-01).**
+>
+> Pasar el generador a ESM quita sus 3 errores, pero el comando seguía dando
+> **82.317 problemas, 4.712 de ellos errores**. La causa no estaba en el proyecto:
+> **eslint 9 con flat config no lee `.gitignore`**, y `npm run lint` es `eslint` a secas,
+> así que linteaba todo lo que hubiera en disco.
+>
+> El reparto real, medido archivo por archivo:
+>
+> | Origen | Archivos lintables | Qué era |
+> |---|---|---|
+> | `.claude/worktrees/**` | **2.347** (1.336 en `.next/`) | 5 copias del repo, con su Next ya compilado |
+> | `Mi rendición — Design System/**` | 11 | `.tsx` de referencia, sin imports válidos (48 errores) |
+> | El proyecto (`src`, `scripts`, `e2e`, configs) | — | **0 errores, 22 avisos** |
+>
+> Dos conclusiones que conviene no volver a aprender:
+>
+> - **`.next/**` de `globalIgnores` solo cubre el de la raíz**, no el de cada worktree. Y
+>   las worktrees se crean y se retiran todo el tiempo, así que el ruido vuelve con la
+>   próxima: por eso `.claude/worktrees/**` quedó en la lista, y no basta con haberlas
+>   retirado hoy.
+> - **La «línea de partida» de este plan (3 errores, 22 avisos) no se podía reproducir**
+>   con `npx eslint .`: se midió cuando no había worktrees compiladas en disco. Un número
+>   de lint sin decir sobre qué se corrió no sirve como línea base.
+>
+> El arreglo es `eslint.config.mjs`: `globalIgnores` ahora repite lo que `.gitignore` ya
+> excluye, con el porqué en un comentario. Así el comando da lo mismo en cualquier máquina
+> y en CI, que es lo que hacía falta para que «lint en cero» signifique algo.
 
 ### Tarea 0.4: Línea base visual al día (la corre Daniel, con `e2e/.env.e2e`)
 
@@ -114,20 +171,62 @@ Si usa `__dirname`, agregar `const __dirname = path.dirname(new URL(import.meta.
 
 ### Tarea 0.5: Traer la conclusión de la sesión del manual
 
-- [ ] **Step 1:** Leer la sesión «Verificar problema de imágenes en invitación» (`local_5a62d54b-d19d-4648-ac28-dcd04f79a3ca`, 2026-09-28) y anotar su conclusión en la fila D4 de la Fase 1. Lo que se sabe: al manual compartido le faltaban las capturas, porque `manual.html` las referencia como `img/*.png` relativas.
+- [x] **Step 1:** Leer la sesión «Verificar problema de imágenes en invitación» (`local_5a62d54b-d19d-4648-ac28-dcd04f79a3ca`, 2026-09-28) y anotar su conclusión en la fila D4 de la Fase 1. Lo que se sabe: al manual compartido le faltaban las capturas, porque `manual.html` las referencia como `img/*.png` relativas. → **Hecho el 2026-10-01:** la conclusión está en la «Nota de la Tarea 0.5» de la Fase 1. Resultado corto: el problema del 28-09 ya se resolvió republicando el Artifact, que lleva las imágenes dentro, así que D4 gana una opción (d) y pierde su argumento principal.
 
 ---
 
 ## Fase 1 — Decisiones de Daniel (una sola ronda)
+
+> ### ✅ TOMADAS el 2026-10-01, en una ronda. Esto es lo que rige.
+>
+> | # | Decisión de Daniel | Qué cambia respecto de la recomendación |
+> |---|---|---|
+> | **D1** | **Seguir en el plan gratuito, con respaldo manual semanal** que corre él | **No** se pasa a Pro. Consecuencias que quedan vigentes y hay que asumir: la base **no tiene respaldos automáticos** (solo el semanal manual), el proyecto **sigue pausándose** a los ~7 días sin uso —mitigado por el cron de lunes a viernes, que deja una brecha máxima de 3 días— y el aviso de seguridad `auth_leaked_password_protection` **queda abierto**, porque esa protección requiere Pro. La Tarea 3.1 va por su rama (b) |
+> | **D2** | **No dejar eliminar, y explicar por qué** | Igual a la recomendación. La Tarea 2.3 se implementa tal como está escrita |
+> | **D3** | **Planilla de alta** | Igual a la recomendación (b). La Tarea 3.2 incluye la mini-función con su propio brainstorming y plan |
+> | **D4** | **Servirlo dentro de la app en `/manual/`, con enlace «Ayuda»** | Igual a la recomendación (b), ya sabiendo que el Artifact tampoco pierde las imágenes: se elige por las otras razones (se actualiza con el despliegue, no depende de un enlace privado, queda detrás de la sesión) |
+> | **D5** | **Seguir probando un tiempo más con los 4 que ya la usan, y después invitar de una vez a todos los que faltan** | **Variante propia, no es la (b) del plan.** No hay tanda de 5–10 personas nuevas: la «tanda 1» son los 4 usuarios actuales y ya está en curso; la «tanda 2» es todo el resto, junto. La Tarea 3.5 se reescribe con eso: el seguimiento diario (errores de Vercel, `/suggestions`, rebotes de Resend, `edge_logs`) corre durante este período de prueba con los 4, y **la señal para invitar al resto la da Daniel**, no un calendario |
+> | **D6** | **Aplicar la 034 ahora** | Igual a la recomendación. Va en la Tarea 2.4 |
+>
+> **Lo que esto desbloquea:** la Fase 2 completa (D2 y D6) y la Fase 3 (D1, D3, D4, D5).
+
+### Tabla original de las decisiones (el porqué de cada opción)
 
 | # | Decisión | Opciones | Recomendación | Desbloquea |
 |---|---|---|---|---|
 | D1 | Plan de Supabase (B4) | (a) Pro, ~US$25/mes · (b) seguir gratis + `db dump` semanal que corre Daniel | **(a) antes de invitar.** El plan gratuito **no tiene respaldos automáticos**: Supabase respalda a diario solo Pro, Team y Enterprise (7 días en Pro). Además se pausa a los ~7 días sin uso. Pro habilita también la protección de contraseñas filtradas, que es un aviso de seguridad abierto. Ni en Pro el respaldo incluye los archivos de Storage | 3.1 |
 | D2 | Eliminar definitivamente un documento que aparece en un traspaso (B6) | (a) no dejar, y decir por qué: «elimina primero el traspaso» · (b) borrar también el traspaso y sus gastos | **(a).** Un traspaso toca a dos personas y dos documentos; borrarlo desde la papelera de uno sorprende al otro | 2.3 |
 | D3 | Cadenas N1/N2 de los 50 sin aprobador, y datos bancarios de los 56 | (a) a mano en `/admin/employees` (~1 h), y cada empleado completa su banco en `/profile` · (b) una «planilla de alta» (email, N1, N2, RUT, banco, tipo y número de cuenta) que se importa con vista previa | **(b) si RR.HH. ya tiene esos datos:** una planilla, una carga, y sirve para el próximo cliente. **(a)** si se quiere lanzar ya | 3.2 |
-| D4 | Manual (B10) | (a) versionar `docs/manual/` en git (PDF de 8 MB + 20 capturas) · (b) servirlo dentro de la app en `/manual/`, detrás de la sesión, con un enlace «Ayuda» en el menú · (c) solo el PDF por correo | **(b).** Un enlace no pierde las imágenes (el problema del 28-09) y se actualiza sin reenviar. Va detrás de la sesión porque las capturas salen de datos reales. Los guiones `e2e/manual/` van a git en cualquier caso | 3.3 |
+| D4 | Manual (B10) | (a) versionar `docs/manual/` completo en git (17 MB medidos) · (b) servirlo dentro de la app en `/manual/`, detrás de la sesión, con un enlace «Ayuda» en el menú · (c) solo el PDF por correo · (d) compartir el Artifact que ya está publicado | **(b), pero con un argumento menos que antes** (ver la nota de la 0.5 abajo): el Artifact tampoco pierde las imágenes, así que eso ya no decide. Queda a favor de (b) que se actualiza con cada despliegue, que no depende de un enlace privado de la cuenta de Daniel y que va detrás de la sesión, lo que importa porque las capturas salen de datos reales. **(d) ya funciona hoy** y es el camino más corto si se quiere lanzar sin trabajo extra. Los guiones `e2e/manual/` van a git en cualquier caso | 3.3 |
 | D5 | Lanzamiento (B8) | (a) los 50 de una vez · (b) por tandas: 5–10 personas durante una semana y después el resto | **(b).** El primer uso real va a mostrar cosas que las pruebas no ven, y así el volumen de dudas y avisos es manejable | 3.5 |
 | D6 | Aplicar la 034 (B7) | (a) ahora · (b) esperar | **(a).** El código de los permisos por asignación está en producción desde el 2026-09-25, y la 033, la 035 y la 037 ya dejaron sin servir un rollback a código anterior: la 034 no quita nada que siga existiendo | 2.2 |
+
+### Nota de la Tarea 0.5 — lo que concluyó la sesión del manual (leída el 2026-10-01)
+
+Sesión «Verificar problema de imágenes en invitación» (`local_5a62d54b-…`, última actividad
+2026-09-28). Lo que aporta a D4:
+
+- **El manual ya está publicado y con sus imágenes**, como Artifact privado (versión 2):
+  `https://claude.ai/artifact/A2aZ6cNCbjjZjao8yYwCFG`. Las 17 capturas se subieron junto
+  con la página, así que **no dependen de git ni del disco de Daniel**. El problema del
+  28-09 («al manual compartido le faltaban las imágenes») **ya está resuelto ahí**: se
+  republicó en el mismo enlace. Por eso el motivo que sostenía la recomendación (b) —«un
+  enlace no pierde las imágenes»— ya no la distingue, y aparece la opción (d).
+- **Para que lo vean los empleados hay que compartirlo** desde el menú *Share* del
+  Artifact; hoy sigue privado.
+- **Esa sesión quedó esperando una respuesta de Daniel** y nunca la tuvo: preguntó si
+  commitear `manual.html` y `e2e/manual/` **sin** las imágenes, porque se regeneran con
+  `node e2e/manual/capturar.mjs`. Eso coincide con el Step 1 de la Tarea 3.3.
+- **Un cabo suelto:** esa sesión avisó que otra había cambiado `capturar.mjs` y
+  `manual.html` para que cada captura midiera una pantalla en vez de la página completa, y
+  que el Artifact v2 **no** incluye ese cambio. **Verificado en disco el 2026-10-01: los
+  dos archivos son del 24-09 11:50 y 11:56, así que ese cambio no está en disco.** Se
+  perdió o se deshizo. Al regenerar el manual (Tarea 3.3, Step 3) hay que mirar si las
+  capturas de página completa vuelven a cortar la barra flotante, que era lo que ese
+  cambio resolvía.
+- **Pesos medidos el 2026-10-01:** `docs/manual/` = 17 MB (PDF 8,0 MB + `img/` 20 archivos
+  y 9,1 MB + `manual.html` 36 KB, que referencia `img/` 18 veces). `e2e/manual/` = 8 KB
+  (`capturar.mjs` 6,2 KB + `pdf.mjs` 1,9 KB).
 
 Las decisiones de las fases 4 a 7 (landing, service worker, organización por subdominio) se toman al llegar a su fase, no acá.
 
@@ -441,14 +540,22 @@ from public.users where deleted_at is null and blocked_at is null;
 
 ### Tarea 3.1: Plan de Supabase (D1)
 
-- [ ] **Si D1 = a:**
+> **D1 = (b).** Rige la rama (b): sigue el plan gratuito con respaldo manual semanal. La
+> rama (a) queda escrita solo como referencia, por si la decisión se revisa. **No** hay
+> que ejecutarla.
+
+- [ ] ~~**Si D1 = a:**~~ (descartada el 2026-10-01)
   1. Daniel pasa la organización a Pro en el panel (Billing). Es un pago con su medio de pago, así que lo hace él.
   2. En **Authentication → Providers → Email**, activar «Prevent use of leaked passwords».
   3. Verificar:
      - `get_project` → `ACTIVE_HEALTHY`.
      - **Database → Backups** muestra el primer respaldo diario al día siguiente.
      - `get_advisors security` ya no trae `auth_leaked_password_protection`.
-- [ ] **Si D1 = b:** respaldo semanal que corre Daniel: `npx supabase db dump --db-url "<cadena de conexión con su contraseña>" -f respaldo-AAAA-MM-DD.sql`, guardado fuera del repo. Anotar el día fijo en el SKILL.md.
+- [ ] **← ESTA. D1 = b:** respaldo semanal que corre Daniel: `npx supabase db dump --db-url "<cadena de conexión con su contraseña>" -f respaldo-AAAA-MM-DD.sql`, guardado fuera del repo. Anotar el día fijo en el SKILL.md. La contraseña la pone él y no se escribe en ningún archivo del repo.
+- [ ] **Además, por haber descartado Pro**, dejar anotado en el SKILL.md que estos tres puntos quedan asumidos a propósito, para que ninguna sesión futura los trate como un hallazgo nuevo:
+  1. **No hay respaldo automático.** El único respaldo es el semanal manual; si se salta una semana, no hay red.
+  2. **El proyecto sigue pausándose** a los ~7 días sin uso. Lo sostiene el cron de recordatorios (lunes a viernes), que deja una brecha máxima de 3 días. **Si el cron se rompe, el reloj de la pausa vuelve a correr**: es una dependencia real, no un detalle.
+  3. **El aviso `auth_leaked_password_protection` queda abierto** porque esa protección solo existe en Pro. En la Tarea 2.4, Step 2, hay que esperarlo en `get_advisors security` y **no** tratarlo como una regresión.
 - [ ] **En los dos casos:** registrar en el SKILL.md que los archivos de Storage no entran en el respaldo de la base. Con 4 comprobantes no pesa; hay que revisarlo cuando haya volumen. Actualizar «Reglas críticas → Supabase»: con Pro, el proyecto ya no se pausa.
 
 ### Tarea 3.2: Cadenas de aprobación y datos bancarios (D3)
@@ -479,14 +586,25 @@ from public.users where deleted_at is null and blocked_at is null;
 - [ ] Una invitación de prueba con el flujo completo: correo → `/set-password` → entrar → borrador con foto → enviar → aprobar N1 → cargar y autorizar.
 - [ ] `get_project` en `ACTIVE_HEALTHY` y `get_advisors` sin avisos de seguridad nuevos.
 
-### Tarea 3.5: Invitar por tandas (D5)
+### Tarea 3.5: Invitar (D5)
 
-- [ ] **Tanda 1:** 5–10 personas que elige Daniel, de departamentos distintos y con al menos un aprobador, durante una semana. Seguimiento diario:
+> **Reescrita el 2026-10-01 con la decisión de Daniel**, que no es la (b) del plan: *«Vamos
+> a seguir probando un tiempo más los 4 que lo veníamos haciendo, luego envío la invitación
+> a todos los que faltan»*. No hay tanda de 5–10 personas nuevas.
+
+- [ ] **Período de prueba — ya en curso, con los 4 usuarios actuales.** No hay que invitar a
+      nadie para empezarlo. Durante este tiempo, el seguimiento es el mismo que el plan
+      pedía para la tanda 1:
   - `get_runtime_errors` de Vercel.
   - `/suggestions`.
   - Los rebotes en Resend.
   - Los `edge_logs` de Supabase (la fuente completa de Storage; ver la memoria sobre los logs).
-- [ ] **Tanda 2:** el resto, desde `/admin/employees` («Invitar» en lote).
+- [ ] **La señal para invitar al resto la da Daniel**, no un calendario ni esta hoja de ruta.
+      Hasta que la dé, nadie manda invitaciones en lote.
+- [ ] **Invitación al resto:** todos los que faltan de una vez, desde `/admin/employees`
+      («Invitar» en lote). Requisito previo: la Tarea 3.2 terminada (sin la cadena N1 nadie
+      puede enviar una rendición, así que invitar antes es invitar a una pantalla que no
+      deja hacer nada) y la Tarea 3.4 revisada.
 - [ ] Actualizar el SKILL.md: B8 se cierra y la fecha de lanzamiento va en «Estado».
 
 ### Tarea 3.6: Ícono de la app con la marca actual
@@ -583,3 +701,5 @@ Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran con
 |---|---|---|---|---|
 | 2026-09-29 | `funny-cerf-43c7dd` | Backlog revisado y plan escrito | Base: 410/410 pruebas, 0 huérfanos en Storage, 50 de 57 sin aprobador N1 | `e4122b1`, `33e8a65` |
 | 2026-10-01 | `funny-cerf-43c7dd` | 0.1 `main` subido a GitHub | Despliegue `dpl_8pGJxVvGmaijh9iBmsW3t5HatMVe` en `READY` (solo documentación) y buildId nuevo en `/login`. Este registro va con el próximo push | `33e8a65` |
+| 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **0.5, 0.3, 0.2 y la Fase 1 completa** | **0.5:** el manual ya estaba publicado como Artifact **con sus imágenes dentro**, así que el problema del 28-09 estaba resuelto y D4 ganó una opción (d). Esa sesión además había quedado esperando una respuesta que nunca llegó. **0.3:** generador a `scripts/generate-icons.mjs` (ESM), íconos byte a byte idénticos; y el arreglo de fondo — `npx eslint .` daba **82.317 problemas (4.712 errores)** porque eslint 9 no lee `.gitignore` y entraba a las worktrees con su `.next` compilado. Ahora **0 errores, 22 avisos**, y reproducible. **0.2:** las 5 worktrees fuera del registro de git y 6 ramas borradas con `-d`; se descartaron los 10 cambios de `intelligent-tharp` tras comprobar archivo por archivo que `main` tenía más. **Fase 1:** las 6 decisiones tomadas en una ronda; D1 = seguir gratis (no Pro) y D5 = variante propia de Daniel. 410/410 pruebas | *(este commit)* |
+| | | **Pendiente de la Fase 0** | **0.4** la corre Daniel (`npm run baseline:verificar`; `e2e/.env.e2e` y los 52 PNG están en su lugar). La carpeta vacía `.claude/worktrees/funny-cerf-43c7dd` sigue en disco porque su sesión, con Remote Control activo, la tiene abierta | — |

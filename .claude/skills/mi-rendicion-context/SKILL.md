@@ -312,7 +312,16 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **410 tests Vitest en 31 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28), todos pasando · build limpio · lint: 3 errores en `generate-icons.js` (script suelto con `require`) y 22 avisos
+- **410 tests Vitest en 31 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28; vueltos a correr el 2026-10-01: 410/410), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`, 2026-10-01)
+- **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
+- **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
+  redundancia: **eslint 9 con flat config no lee `.gitignore`**, y `npm run lint` es
+  `eslint` a secas. Sin esa lista, el comando linteaba lo que hubiera en disco —el
+  2026-10-01, 2.347 archivos de `.claude/worktrees/`, 1.336 de ellos del `.next` ya
+  compilado de cada worktree— y devolvía 4.712 errores que no eran del proyecto.
+  `.next/**` cubre solo el de la raíz, así que `.claude/worktrees/**` va entero: las
+  worktrees se crean y se retiran todo el tiempo. **Un número de lint sin decir sobre qué
+  se corrió no sirve como línea base**
 
 ### ✅ Rediseño Tornasol — el sistema visual vigente (etapas 0–4 completas)
 
@@ -770,8 +779,13 @@ una columna `NOT NULL`.
 >   (`lookupEmails()` en `lib/avisos.ts`, con `createAdminClient()` + `getUserById()`)
 >   y la credencial es válida desde el 2026-09-23.
 >
-> · *«Penta Rend» hardcodeado* — el nombre no existe en ningún archivo desde `46d62ab`.
->   Lo que sigue pendiente es el white-label (punto 1), no ese literal.
+> · *«Penta Rend» hardcodeado* — el nombre no se muestra en ninguna pantalla desde
+>   `46d62ab`. Lo que sigue pendiente es el white-label (punto 1), no ese literal.
+>   **Corrección del 2026-10-01: «en ningún archivo» era falso.** Queda en el comentario
+>   de cabecera de `scripts/generate-icons.mjs`, que describe el ícono que ese script
+>   dibuja — y el ícono *sí* sigue siendo el degradado índigo de «Penta Rend». No es un
+>   literal que alguien vea en la app; lo reemplaza la Tarea 3.6 de la hoja de ruta, que
+>   rediseña el ícono con la marca actual.
 
 ---
 
