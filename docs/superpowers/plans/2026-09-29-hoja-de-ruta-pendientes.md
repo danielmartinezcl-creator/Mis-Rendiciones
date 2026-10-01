@@ -253,7 +253,7 @@ Contexto verificado en `pg_proc` el 2026-09-28:
   - Postgres verifica `EXECUTE` de una función de disparador al **crear** el disparador, no cada vez que dispara.
   - Ninguna ruta sin sesión consulta tablas: `/login`, `/set-password` y `/api/auth` usan solo Auth, y `/api/cron` usa la llave de servicio.
 
-- [ ] **Step 1: Escribir las pruebas** en `supabase/tests/038_funciones.sql`:
+- [x] **Step 1: Escribir las pruebas** en `supabase/tests/038_funciones.sql`:
 
 ```sql
 -- Pruebas de la 038. Correrlas dentro del ensayo (sin este begin/rollback) o
@@ -291,8 +291,8 @@ select * from resultado order by prueba;
 rollback;
 ```
 
-- [ ] **Step 2: Correr las pruebas sin la 038** (`execute_sql` con el archivo tal cual). Esperado: las pruebas 1, 2 y 4 en `false` (son los agujeros) y la 3 en `true`.
-- [ ] **Step 3: Escribir la migración** `supabase/migrations/038_funciones_sin_acceso_publico.sql`:
+- [x] **Step 2: Correr las pruebas sin la 038** (`execute_sql` con el archivo tal cual). Esperado: las pruebas 1, 2 y 4 en `false` (son los agujeros) y la 3 en `true`. → **Hecho: 22 en `false` y 4 en `true`, de 26.** Los 12 `SECURITY DEFINER` abiertos a `anon`, los 9 disparadores abiertos a `authenticated` y el `search_path` faltante. Exactamente los agujeros previstos.
+- [x] **Step 3: Escribir la migración** `supabase/migrations/038_funciones_sin_acceso_publico.sql`: → **Hecho**, con el inventario revalidado contra `pg_proc` el 2026-10-01 antes de escribirla: idéntico al del 2026-09-28, así que ningún `revoke` apunta a una función inexistente (uno solo habría abortado la migración entera).
 
 ```sql
 -- 038 · Funciones SECURITY DEFINER sin acceso público (avisos 0028, 0029 y 0011
@@ -329,21 +329,47 @@ grant  execute on function public.es_operador_bancario() to authenticated, servi
 alter function public.set_updated_at() set search_path = '';
 ```
 
-- [ ] **Step 4: Ensayar con la 038, en cuatro llamadas de `execute_sql`** (cada archivo de pruebas crea su propia tabla `resultado`, así que no se pueden juntar). Cada llamada es `begin;` + la migración + un archivo de pruebas sin su propio `begin`/`rollback` + `rollback;`. Esperado:
+- [x] **Step 4: Ensayar con la 038, en cuatro llamadas de `execute_sql`** (cada archivo de pruebas crea su propia tabla `resultado`, así que no se pueden juntar). Cada llamada es `begin;` + la migración + un archivo de pruebas sin su propio `begin`/`rollback` + `rollback;`. Esperado:
   - `038_funciones.sql`: todas en `true`.
   - `033_proteccion.sql`: 41 ok y 1 no concluyente, como cuando se aplicó.
   - `035_adjuntos.sql`: 12/12.
   - `037_respaldos.sql`: 17/17.
 
   Las tres últimas hacen disparar las `proteger_*` como `authenticated`: si revocar `EXECUTE` las apagara, fallarían con «permission denied for function», que no es el error que esperan.
-- [ ] **Step 5: Commit** de la migración y sus pruebas, **sin aplicarla**: se aplica en la Tarea 2.4. Mensaje: `feat(db): la 038 quita el acceso público a las funciones SECURITY DEFINER`.
+
+  → **Hecho el 2026-10-01, las cuatro, y todas dieron lo esperado:**
+
+  | Batería | Resultado | Esperado |
+  |---|---|---|
+  | `038_funciones.sql` | **26/26** | todas en `true` |
+  | `033_proteccion.sql` | **41 ok, 0 rotas, 1 no concluyente** (la 2a, por falta de datos) | 41 + 1 |
+  | `035_adjuntos.sql` | **12/12** | 12/12 |
+  | `037_respaldos.sql` | **17/17** | 17/17 |
+
+  > **Antes de las baterías conviene una prueba dirigida**, porque las tres grandes
+  > pueden dar verde sin tocar el punto en duda. Pasó acá: el primer intento de probar
+  > que un disparador seguía vivo eligió una rendición **enviada**, y la RLS cortó antes
+  > —«0 filas»— sin que el disparador llegara a correr. Verde que no probaba nada.
+  >
+  > Lo que sí prueba: un **borrador propio**, donde la RLS deja tocar la fila y quien
+  > tiene que rechazar es el disparador. Con la 038 aplicada en la transacción, el
+  > `update` del estado se rechazó con el mensaje de la protección —«El estado y los
+  > montos aprobados solo los cambia la aplicación»— y **no** con «permission denied for
+  > function». Más un control positivo: el dueño sigue editando su borrador (1 fila).
+  > Eso confirma empíricamente la premisa de la migración: Postgres verifica `EXECUTE`
+  > al **crear** el disparador, no cada vez que dispara.
+  >
+  > También se comprobó aparte que `set_updated_at` sigue andando con `search_path = ''`
+  > (su cuerpo solo usa `now()`, que vive en `pg_catalog`).
+- [x] **Step 5: Commit** de la migración y sus pruebas, **sin aplicarla**: se aplica en la Tarea 2.4. Mensaje: `feat(db): la 038 quita el acceso público a las funciones SECURITY DEFINER`.
 
 ### Tarea 2.2: Aplicar la 034 (B7, si D6 = a)
 
 **Files:** `supabase/migrations/034_borrar_bank_is_backup.sql` (ya existe y no se modifica).
 
-- [ ] **Step 1:** `git grep -n bank_is_backup -- src` → sin resultados. La cabecera de la 034 lo exige; verificado el 2026-09-28.
-- [ ] **Step 2:** Ensayo: `begin; alter table public.users drop column bank_is_backup; select count(*) from public.users; rollback;`. Esperado: sin error. Si algo depende de la columna (una vista, una función), el `drop` falla acá y no en producción.
+- [x] **Step 1:** `git grep -n bank_is_backup -- src` → sin resultados. La cabecera de la 034 lo exige; verificado el 2026-09-28. → **Revalidado el 2026-10-01: sigue sin resultados.**
+- [x] **Step 2:** Ensayo: `begin; alter table public.users drop column bank_is_backup; select count(*) from public.users; rollback;`. Esperado: sin error. Si algo depende de la columna (una vista, una función), el `drop` falla acá y no en producción. → **Hecho: sin error**, los 58 usuarios intactos y la columna fuera dentro de la transacción.
+- [x] **Además, se comprobó que no se pierde ningún dato** (no estaba en el plan, pero la 034 borra una columna y conviene mirarlo una vez): de los 58 usuarios, **1** tiene la suplencia vieja, **1** la nueva y **0** quedarían sin el dato. La copia que hizo la 032 está completa, así que el `drop` no pierde información.
 - [ ] **Step 3:** Se aplica en la Tarea 2.4.
 
 ### Tarea 2.3: B6 — el traspaso se explica antes de eliminar (si D2 = a)
