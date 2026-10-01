@@ -117,13 +117,20 @@ export type FilaPlanilla = {
 // Solo las claves que la fila trae con valor. Una clave ausente y una clave en
 // null son cosas distintas, y acá la segunda no existe: así «vacío nunca borra»
 // lo hace cumplir el tipo y no la disciplina de quien escribe.
+export const ROLES = ['admin', 'approver', 'employee'] as const
+export type Rol = typeof ROLES[number]
+
+export function esRol(v: string): v is Rol {
+  return (ROLES as readonly string[]).includes(v)
+}
+
+// `role` va tipado con la unión y no como string: la columna de la base es esa
+// unión, así que un string suelto no compila — y es correcto que no compile.
 export type ParcheEmpleado = Partial<{
   approver_l1_id: string; approver_l2_id: string
-  rut: string; department: string; cost_center_id: string; role: string
+  rut: string; department: string; cost_center_id: string; role: Rol
   bank_name: string; bank_account_type: string; bank_account: string
 }>
-
-export const ROLES = ['admin', 'approver', 'employee'] as const
 
 // `persona` es null cuando la fila CREA a alguien: ahí todo el parche entra,
 // incluido el RUT, porque no hay nada previo que respetar. Sin este null, una
@@ -152,7 +159,9 @@ export function parcheDeFila(
   const tipo   = texto(fila.tipoCuenta)
   const numero = texto(fila.numeroCuenta)
   if (cargo)  parche.department        = cargo
-  if (rol)    parche.role              = rol.toLowerCase()
+  // Un rol desconocido NO entra al parche: resolverPlanilla ya marca la fila en
+  // error, y así no hay forma de escribir en la columna algo que no es un rol.
+  if (rol && esRol(rol.toLowerCase())) parche.role = rol.toLowerCase() as Rol
   if (banco)  parche.bank_name         = banco
   if (tipo)   parche.bank_account_type = tipo
   if (numero) parche.bank_account      = numero
@@ -253,7 +262,7 @@ export function resolverPlanilla(
     }
 
     const rol = f.rol.trim().toLowerCase()
-    if (rol && !(ROLES as readonly string[]).includes(rol)) {
+    if (rol && !esRol(rol)) {
       errores.push(`Rol "${f.rol.trim()}" desconocido: usa admin, approver o employee`)
     }
 
