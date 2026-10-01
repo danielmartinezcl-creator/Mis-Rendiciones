@@ -166,8 +166,33 @@ Si usa `__dirname`, agregar `const __dirname = path.dirname(new URL(import.meta.
 
 ### Tarea 0.4: Línea base visual al día (la corre Daniel, con `e2e/.env.e2e`)
 
-- [ ] **Step 1:** `npm run baseline:verificar`. Esperado: rojo solo en `admin-papelera` (el 2026-09-28 cambió el texto y salió la insignia de días) y en rutas marcadas `datosVivos`.
-- [ ] **Step 2:** `npm run baseline:reporte` para mirarlo. Si es solo eso: `npm run baseline:crear` y commitear `e2e/baseline/`. Si hay otro rojo, investigarlo antes de recapturar: recapturar lo convertiría en la nueva referencia.
+- [x] **Step 1:** `npm run baseline:verificar`. Esperado: rojo solo en `admin-papelera` (el 2026-09-28 cambió el texto y salió la insignia de días) y en rutas marcadas `datosVivos`. → **Lo esperado estaba muy corto: salieron 42 rojos de 52.** Y el primer intento ni siquiera midió: faltaba el binario de Chromium (`npx playwright install chromium`).
+- [x] **Step 2:** `npm run baseline:reporte` para mirarlo. Si es solo eso: `npm run baseline:crear` y commitear `e2e/baseline/`. Si hay otro rojo, investigarlo antes de recapturar: recapturar lo convertiría en la nueva referencia. → **Hecho, y esta cautela valió la pena.**
+
+> **Qué eran los 42 rojos (2026-10-01).** No una regresión, y tampoco el cambio de
+> Chromium que se sospechaba: **la línea base estaba vieja**, capturada antes de dos
+> cosas que ya estaban en producción.
+>
+> - El arreglo de fechas (`282b220`): la base guardada todavía mostraba
+>   `21T19:41:21+3fa94+0008/07/2026` en Sugerencias.
+> - Los permisos por asignación: el riel del admin ya no lleva «Cola Bancaria», porque
+>   ser admin dejó de dar acceso al banco. **Ese ítem de menos son los 42 píxeles
+>   exactos** que faltaban en las 36 capturas de escritorio (esperado 1440×976,
+>   recibido 1440×934). Encaja con que varias móviles pasaran —ahí no hay riel— y con
+>   que la 404 pasara en ambas, porque no lo lleva.
+>
+> **Y apareció un defecto de verdad**, que es justo lo que este Step busca: el audit de
+> materiales estaba en rojo con 3 textos oscuros sobre el degradado, los tres en
+> `/admin/auditoria` (el paginador: «Página …» y los botones «Anterior» / «Siguiente»,
+> luminancia 0,142 y 0,065), mientras el SKILL daba la deuda de sistema en cero.
+> Recapturar sin mirar habría **congelado esa pantalla ilegible como referencia**.
+> Arreglado en `da9af64` —el paginador pasa dentro de la hoja de la tabla— y recién
+> entonces se recapturó: **52 passed, 2 skipped**, con `audit:materiales` en verde.
+>
+> La línea base queda en **50 capturas**: salen las dos de `aprobacion-detalle` porque
+> hoy no hay ninguna aprobación pendiente que abrir. Sin datos esa ruta no tiene base, y
+> el arnés lo trata como información (`e2e/README.md`). Hay que recapturarla cuando
+> vuelva a haber una.
 
 ### Tarea 0.5: Traer la conclusión de la sesión del manual
 
@@ -742,7 +767,8 @@ Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran con
 | 2026-09-29 | `funny-cerf-43c7dd` | Backlog revisado y plan escrito | Base: 410/410 pruebas, 0 huérfanos en Storage, 50 de 57 sin aprobador N1 | `e4122b1`, `33e8a65` |
 | 2026-10-01 | `funny-cerf-43c7dd` | 0.1 `main` subido a GitHub | Despliegue `dpl_8pGJxVvGmaijh9iBmsW3t5HatMVe` en `READY` (solo documentación) y buildId nuevo en `/login`. Este registro va con el próximo push | `33e8a65` |
 | 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **0.5, 0.3, 0.2 y la Fase 1 completa** | **0.5:** el manual ya estaba publicado como Artifact **con sus imágenes dentro**, así que el problema del 28-09 estaba resuelto y D4 ganó una opción (d). Esa sesión además había quedado esperando una respuesta que nunca llegó. **0.3:** generador a `scripts/generate-icons.mjs` (ESM), íconos byte a byte idénticos; y el arreglo de fondo — `npx eslint .` daba **82.317 problemas (4.712 errores)** porque eslint 9 no lee `.gitignore` y entraba a las worktrees con su `.next` compilado. Ahora **0 errores, 22 avisos**, y reproducible. **0.2:** las 5 worktrees fuera del registro de git y 6 ramas borradas con `-d`; se descartaron los 10 cambios de `intelligent-tharp` tras comprobar archivo por archivo que `main` tenía más. **Fase 1:** las 6 decisiones tomadas en una ronda; D1 = seguir gratis (no Pro) y D5 = variante propia de Daniel. 410/410 pruebas | *(este commit)* |
-| | | **Pendiente de la Fase 0** | **0.4 sigue sin verificarse.** Daniel la corrió y falló por entorno, no por la línea base: falta el binario de Chromium (`chromium_headless_shell-1223`), así que el login falló y las otras 53 ni corrieron. Se arregla con `npx playwright install chromium`. **Aviso para esa corrida:** si Playwright cambió de versión, cambió el Chromium que renderiza; si aparecen rojos en muchas pantallas a la vez, sospechar de eso **antes** de recapturar, porque `baseline:crear` convertiría ese cambio en la nueva referencia. La carpeta vacía `.claude/worktrees/funny-cerf-43c7dd` sigue en disco porque su sesión, con Remote Control activo, la tiene abierta | — |
+| 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **0.4 — Fase 0 cerrada** | Los 42 rojos de 52 no eran regresión ni Chromium: **la línea base estaba vieja** (anterior al arreglo de fechas y a que el riel del admin perdiera «Cola Bancaria» — ese ítem son los 42 px exactos de las 36 de escritorio). Mirar antes de recapturar valió la pena: el audit de materiales destapó **3 textos ilegibles sobre el degradado** en el paginador de `/admin/auditoria`, con la deuda de sistema declarada en cero. Arreglado primero, recapturado después: **52 passed, 2 skipped**, materiales en verde, línea base en 50 capturas | `da9af64`, `d97daa4` |
+| | | **Pendiente de la Fase 0** | Nada. Queda en disco la carpeta vacía `.claude/worktrees/funny-cerf-43c7dd`, que su sesión con Remote Control activo tiene abierta | — |
 | 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **2.1, 2.2 y 2.3** | **2.1:** la 038 escrita y ensayada con `BEGIN`/`ROLLBACK`; inventario de `pg_proc` revalidado antes de escribirla. Sin la 038, 22 de 26 pruebas en `false`; con ella, 26/26, y las tres baterías intactas (033: 41 + 1 no concluyente · 035: 12/12 · 037: 17/17). **Commiteada sin aplicar.** **2.2:** ensayo de la 034 sin error, y además comprobado que no se pierde ningún dato (1 usuario con la suplencia vieja, ya copiada a las nuevas). **2.3:** B6 por TDD — `src/lib/papelera.ts` + 7 pruebas, defensa en la acción, motivo desde el cargador y la fila sin botón; fila aprobada por Daniel vía Artifact. 417/417 pruebas, typecheck, lint y build en verde | `e7a7887`, *(este commit)* |
 | 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **2.4 — Fase 2 desplegada y aplicada** | `main` por *fast-forward* a `2a135f3`, despliegue `dpl_3KAWBabhawWU2PH1J3KzigNuisSX` `READY` en ~75 s. **038 y 034 aplicadas**; pruebas de la 038 en vivo 26/26, disparador comprobado activo en producción, `bank_is_backup` fuera con los 58 usuarios intactos. `get_runtime_errors` sin errores. Dos correcciones al plan: el buildId ya no está en el HTML de `/login`, y sondear con `curl` en bucle dispara el escudo anti-bot de Vercel (403 a todo, `X-Vercel-Mitigated: challenge`) — parecía la app caída y no lo era | `2a135f3` + *(este commit)* |
 | | | **Pendiente de la Fase 2** | Solo la **prueba de humo con sesión** (Step 4): Daniel entra, abre una rendición, la bandeja y la papelera | — |

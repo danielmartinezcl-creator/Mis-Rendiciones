@@ -358,7 +358,11 @@ Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
 **Antes de tocar estilos, leer `docs/Rediseño/tornasol-spec.md` — empezando por su fe de
 erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
 
-**Hay una línea base visual de 52 capturas** (26 escritorio + 26 móvil — `e2e/`,
+**Hay una línea base visual de 50 capturas** (25 escritorio + 25 móvil — recapturada
+el 2026-10-01; eran 52 hasta que `aprobacion-detalle` salió por no haber ninguna
+aprobación pendiente que abrir: sin datos esa ruta queda en «skipped» y **no tiene
+base**, que el arnés trata como información, no como falla. Cuando vuelva a haber una,
+hay que recapturarla — `e2e/`,
 `npm run baseline:verificar`). Un cambio de estilo que la deje en verde no tocó nada
 visible; si la ensucia, el reporte dice dónde. Leer `e2e/README.md` antes de confiar
 en un resultado: solo captura el estado de reposo, así que errores y hover no se ven.
