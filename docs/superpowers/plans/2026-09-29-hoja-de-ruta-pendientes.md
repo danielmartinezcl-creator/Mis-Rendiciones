@@ -80,8 +80,8 @@ La sesión que retoma:
 
 ### Tarea 0.1: Subir `main` a GitHub
 
-- [ ] **Step 1:** `git -C "C:\Users\danie\AUTOMATIZACIONES DANIEL\PENTA\App PENTA\Mi Rendicion" log --oneline origin/main..main`. Al escribir este plan: `e4122b1 docs(contexto): backlog…` y el commit del plan.
-- [ ] **Step 2:** Con Daniel en «pedir aprobación»: `git -C "<raíz>" push origin main`. Es solo documentación: Vercel redespliega el mismo código. Verificar `READY`.
+- [x] **Step 1:** `git -C "C:\Users\danie\AUTOMATIZACIONES DANIEL\PENTA\App PENTA\Mi Rendicion" log --oneline origin/main..main`. Al escribir este plan: `e4122b1 docs(contexto): backlog…` y el commit del plan.
+- [x] **Step 2:** Con Daniel en «pedir aprobación»: `git -C "<raíz>" push origin main`. Es solo documentación: Vercel redespliega el mismo código. Verificar `READY`.
 
 ### Tarea 0.2: Retirar las worktrees viejas
 
@@ -581,4 +581,5 @@ Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran con
 
 | Fecha | Sesión | Fase / tarea | Resultado | Commit |
 |---|---|---|---|---|
-| 2026-09-29 | `funny-cerf-43c7dd` | Backlog revisado y plan escrito | Base: 410/410 pruebas, 0 huérfanos en Storage, 50 de 57 sin aprobador N1 | `e4122b1` y el de este plan |
+| 2026-09-29 | `funny-cerf-43c7dd` | Backlog revisado y plan escrito | Base: 410/410 pruebas, 0 huérfanos en Storage, 50 de 57 sin aprobador N1 | `e4122b1`, `33e8a65` |
+| 2026-10-01 | `funny-cerf-43c7dd` | 0.1 `main` subido a GitHub | Despliegue `dpl_8pGJxVvGmaijh9iBmsW3t5HatMVe` en `READY` (solo documentación) y buildId nuevo en `/login`. Este registro va con el próximo push | `33e8a65` |
