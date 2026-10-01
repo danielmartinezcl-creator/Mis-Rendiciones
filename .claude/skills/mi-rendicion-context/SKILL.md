@@ -619,6 +619,10 @@ una columna `NOT NULL`.
 
 > Revisado contra el disco y la base el **2026-09-28**. Lo que está acá está pendiente
 > de verdad; lo que se completó salió de la lista.
+>
+> **Plan de ejecución: `docs/superpowers/plans/2026-09-29-hoja-de-ruta-pendientes.md`**
+> — el orden por fases, qué choca con qué, las decisiones previas y cómo retomar. Cada
+> sesión marca su avance ahí («Registro de avance») y saca de acá lo que terminó.
 
 1. **Marca por organización (white-label)** — **nombre y logo: HECHOS** (2026-09-04).
    `organizations.name` y `logo_url` ya existían desde `001` y no los leía nadie, así
