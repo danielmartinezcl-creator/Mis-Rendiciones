@@ -583,7 +583,18 @@ const porDocumento = traspasosPorDocumento(traspasos ?? [])
   >
   > Los otros dos quedaron como el plan decía: contraseñas filtradas (requiere Pro, descartado en D1) y el INFO de `rate_limit_log`.
 - [x] **Step 3:** `apply_migration` de la 034 (nombre `034_borrar_bank_is_backup`) y comprobar: `select count(*) from information_schema.columns where table_name = 'users' and column_name = 'bank_is_backup'` → 0. → **Hecho: 0 columnas**, 58 usuarios intactos y las suplencias nuevas en su lugar (1 de carga, 1 de autorización). Las dos migraciones quedaron registradas: `20261001142907 038_…` y `20261001143042 034_…`.
-- [ ] **Step 4:** Prueba de humo: Daniel entra, abre una rendición, la bandeja y la papelera. `get_runtime_errors` de Vercel sin errores nuevos. → **A medias: `get_runtime_errors` sin ningún error**, y `/login` carga con su contenido normal en un navegador real. **Falta la parte con sesión, que la hace Daniel**: entrar, abrir una rendición, la bandeja y la papelera.
+- [x] **Step 4:** Prueba de humo: Daniel entra, abre una rendición, la bandeja y la papelera. `get_runtime_errors` de Vercel sin errores nuevos. → **Hecha y correcta (Daniel, 2026-10-01)**, con `get_runtime_errors` sin ningún error.
+
+  > **Cómo se revisó, por si sirve de molde.** El modo de fallo de la 038 **no es un error
+  > rojo, es una lista vacía**: si una política RLS no pudiera evaluar su función,
+  > Postgres no da error, devuelve 0 filas y la pantalla se ve bien pero sin datos. Así
+  > que la prueba fue **contar**, con los números de la base a la vista: 110 rendiciones
+  > en `/admin/reports`, 1 en `/approvals`, 4 en `/banco`, 57 en `/admin/employees`, 5 en
+  > `/admin/trash` y «Página 1 de 3» en `/admin/auditoria` (108 registros, `PAGE_SIZE` 50).
+  > `/approvals` y `/banco` se eligieron porque ejercitan `es_aprobador_de()` y
+  > `es_operador_bancario()`, dos de las cuatro funciones que la 038 conserva;
+  > `/admin/employees` porque es la que más lee `users`, donde pegaría la 034; y abrir una
+  > foto porque prueba que el servidor sigue firmando los comprobantes.
 - [x] **Step 5:** Actualizar el SKILL.md: la 034 y la 038 aplicadas en el listado de migraciones, con su fecha y el resultado del ensayo. B6, B7 y la parte de seguridad de B9 salen del backlog. Agregar la fila al «Registro de avance». → **Hecho**, y además entraron a «Errores conocidos» las dos trampas del Step 1 (el escudo anti-bot de Vercel y el buildId que ya no existe en el HTML). El punto 9 del backlog quedó con el estado real de los avisos, explicando cuáles quedan a propósito.
 
 ---
@@ -812,4 +823,4 @@ Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran con
 | | | **Pendiente de la Fase 0** | Nada. Queda en disco la carpeta vacía `.claude/worktrees/funny-cerf-43c7dd`, que su sesión con Remote Control activo tiene abierta | — |
 | 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **2.1, 2.2 y 2.3** | **2.1:** la 038 escrita y ensayada con `BEGIN`/`ROLLBACK`; inventario de `pg_proc` revalidado antes de escribirla. Sin la 038, 22 de 26 pruebas en `false`; con ella, 26/26, y las tres baterías intactas (033: 41 + 1 no concluyente · 035: 12/12 · 037: 17/17). **Commiteada sin aplicar.** **2.2:** ensayo de la 034 sin error, y además comprobado que no se pierde ningún dato (1 usuario con la suplencia vieja, ya copiada a las nuevas). **2.3:** B6 por TDD — `src/lib/papelera.ts` + 7 pruebas, defensa en la acción, motivo desde el cargador y la fila sin botón; fila aprobada por Daniel vía Artifact. 417/417 pruebas, typecheck, lint y build en verde | `e7a7887`, *(este commit)* |
 | 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **2.4 — Fase 2 desplegada y aplicada** | `main` por *fast-forward* a `2a135f3`, despliegue `dpl_3KAWBabhawWU2PH1J3KzigNuisSX` `READY` en ~75 s. **038 y 034 aplicadas**; pruebas de la 038 en vivo 26/26, disparador comprobado activo en producción, `bank_is_backup` fuera con los 58 usuarios intactos. `get_runtime_errors` sin errores. Dos correcciones al plan: el buildId ya no está en el HTML de `/login`, y sondear con `curl` en bucle dispara el escudo anti-bot de Vercel (403 a todo, `X-Vercel-Mitigated: challenge`) — parecía la app caída y no lo era | `2a135f3` + *(este commit)* |
-| | | **Pendiente de la Fase 2** | Solo la **prueba de humo con sesión** (Step 4): Daniel entra, abre una rendición, la bandeja y la papelera | — |
+| 2026-10-01 | Daniel | **2.4 Step 4 — Fase 2 CERRADA** | Prueba de humo con sesión hecha y correcta: las seis pantallas con sus cifras completas y sin errores. **Fases 0, 1 y 2 completas** | — |
