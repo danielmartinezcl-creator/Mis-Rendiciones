@@ -626,6 +626,47 @@ from public.users where deleted_at is null and blocked_at is null;
 ### Tarea 3.2: Cadenas de aprobación y datos bancarios (D3)
 
 - [ ] **Si D3 = a:** Daniel configura cada cadena en `/admin/employees` (`ApproverConfig` → `setEmployeeApprovalChain` en `src/actions/admin.ts:1044`, que valida con `validarCadena`). Los empleados completan su banco en `/profile`, y el manual y el correo de invitación lo piden.
+> ### Brainstorming de la planilla — empezado el 2026-10-01, SIN terminar
+>
+> Clasificado como **architectural** (spec + plan propios). Van 3 decisiones tomadas y
+> 2 hallazgos; **falta** cerrar las columnas, el suplente y el permiso «aprueba», y
+> después escribir la spec en `docs/superpowers/specs/` y su plan.
+>
+> **Decidido con Daniel:**
+> 1. **Solo actualiza** a quien ya existe. Un correo que no está en la base es **error de
+>    fila**, no una cuenta nueva: así un correo mal escrito nunca crea un usuario.
+> 2. **El aprobador se nombra por correo o por nombre**, lo que venga. Si un nombre
+>    coincide con una sola persona activa, se resuelve; si coincide con dos o con
+>    ninguna, la fila queda en error con el detalle. La vista previa muestra a quién
+>    resolvió cada fila.
+> 3. **Una celda vacía nunca borra.** La planilla solo completa; «vacío» significa «no
+>    sé», no «bórralo». Para quitar un aprobador está `/admin/employees`.
+>
+> **Hallazgo 1 — el importador actual no sirve para esto.** `importEmployees()` **solo
+> crea**: si el correo ya existe devuelve «El correo … ya lo usa otra cuenta». Como los
+> 57 ya están en la base, fallaría en los 57. De ahí que la decisión 1 no sea un detalle.
+>
+> **Hallazgo 2 — el permiso «aprueba» puede frenar la carga entera, y hay que resolverlo
+> antes de diseñar la pantalla.** `validarCadena()` rechaza a un aprobador que no tenga
+> `can_approve`. Medido el 2026-10-01 sobre los 57 activos: **solo 5 pueden aprobar** y
+> hay **4 N1 distintos en uso**. Si los 50 sin N1 se reparten entre más jefes que esos,
+> cada fila que nombre a un jefe sin el permiso va a dar error. **La pregunta abierta es
+> si la planilla puede otorgar `can_approve`** —cómodo, pero es un permiso y se estaría
+> dando desde un Excel— **o si Daniel los marca antes en `/admin/employees`**, que es más
+> lento y deja el permiso donde se ve. Esa es la primera pregunta al retomar.
+>
+> **Lo demás que falta preguntar:** el juego exacto de columnas (correo, nombre, N1, N2,
+> RUT, banco, tipo y número de cuenta); si entra el suplente N1 —que arrastra fechas
+> desde/hasta y parece de otra naturaleza, puntual y temporal, que una carga masiva—; y
+> si la vista previa se muestra como Artifact antes de construirla (regla de Daniel).
+>
+> **Piezas verificadas, listas para reusar:** `validarCadena(empleadoId, config, personas)`
+> y `dependientesDe()` en `src/lib/permisos.ts`; `setEmployeeApprovalChain()` en
+> `src/actions/admin.ts`, que ya valida, escribe y hace `logAudit` (su núcleo es lo que
+> hay que extraer); `mapHeader` / `normalizeRole` / la lectura con SheetJS de
+> `src/components/admin/EmployeeImport.tsx`, que **ya trae la columna `rut`**; y
+> `validateRut()` de `src/lib/validators.ts`, que `profile.ts` ya usa.
+
 - [ ] **Si D3 = b:** mini-función «Planilla de alta», con su propio brainstorming corto (la pantalla de importación se muestra como Artifact) y su plan. Piezas a reusar:
   - `src/components/admin/EmployeeImport.tsx`: la lectura de Excel con SheetJS.
   - `validarCadena()` de `src/lib/permisos.ts`.
