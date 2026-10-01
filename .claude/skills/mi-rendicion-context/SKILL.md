@@ -287,10 +287,11 @@ supabase/
 │   ├── 031_suplente_bancario.sql                     ← users.bank_is_backup: puede cargar/autorizar, pero los avisos van solo a titulares
 │   ├── 032_flujo_por_asignacion.sql                  ← fondos con N2, suplencia bancaria por función (bank_load_backup / bank_auth_backup), historial de fondos firmado e inmutable, ver por cadena
 │   ├── 033_estado_solo_desde_servidor.sql            ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayada antes con BEGIN/ROLLBACK: 42/42; en vivo: 41 ok, 1 no concluyente por falta de datos, 0 fallas): estado, montos, a quién se paga e historiales solo desde el servidor; un gasto nunca cambia de documento y solo lo toca su dueño, con la rendición en borrador o el fondo en `funds_sent` — el admin, además, corrige cargas históricas y reclasifica (categoría, centro de costo, Defontana) (sección 3b); el admin de caja chica queda acotado a su organización (sección 7). Pruebas: supabase/tests/033_proteccion.sql
-│   ├── 034_borrar_bank_is_backup.sql                 ← ⏳ PENDIENTE; aplicar cuando el código nuevo esté estable (un rollback de Vercel al código viejo lee la columna)
+│   ├── 034_borrar_bank_is_backup.sql                 ← ✅ APLICADA el 2026-10-01, tras el despliegue. Borra `users.bank_is_backup`, la suplencia bancaria vieja de un solo interruptor. Antes: `git grep bank_is_backup -- src` sin resultados, el `drop` ensayado con BEGIN/ROLLBACK sin error, y ningún dato en riesgo (de 58 usuarios, 1 tenía la suplencia vieja y ya estaba copiada por la 032 a `bank_load_backup` / `bank_auth_backup`). **Desde acá, volver a código anterior al 2026-09-25 exige recrear la columna** y copiarla desde `bank_load_backup`
 │   ├── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
 │   ├── 036_tipo_recordatorio.sql                     ← ✅ APLICADA el 2026-09-28, antes del despliegue; tipo 'reminder' en notifications. Aditiva: el código viejo nunca escribe ese tipo. Ensayo con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
-│   └── 037_respaldos_solo_desde_servidor.sql         ← ✅ APLICADA el 2026-09-28, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 037, 12 de 17 pruebas rotas, que eran los agujeros; con la 037, 17/17; en vivo, 17/17). Un rollback de Vercel a código anterior deja sin subir, abrir ni borrar respaldos: el código viejo lo hacía con la sesión. Ninguna sesión escribe en `approval_attachments` ni toca el bucket `approval-attachments`, ni para leer: el servidor sube, borra y firma con la llave de servicio tras `src/lib/respaldos.ts`. La tabla se lee solo con el documento a la vista (subselect que hereda la RLS de la rendición o del fondo). Pruebas: supabase/tests/037_respaldos.sql
+│   ├── 037_respaldos_solo_desde_servidor.sql         ← ✅ APLICADA el 2026-09-28, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 037, 12 de 17 pruebas rotas, que eran los agujeros; con la 037, 17/17; en vivo, 17/17). Un rollback de Vercel a código anterior deja sin subir, abrir ni borrar respaldos: el código viejo lo hacía con la sesión. Ninguna sesión escribe en `approval_attachments` ni toca el bucket `approval-attachments`, ni para leer: el servidor sube, borra y firma con la llave de servicio tras `src/lib/respaldos.ts`. La tabla se lee solo con el documento a la vista (subselect que hereda la RLS de la rendición o del fondo). Pruebas: supabase/tests/037_respaldos.sql
+│   └── 038_funciones_sin_acceso_publico.sql          ← ✅ APLICADA el 2026-10-01, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 038, 22 de sus 26 pruebas en `false`, que eran los agujeros; con la 038, 26/26, y las otras tres baterías intactas — 033: 41 ok + 1 no concluyente · 035: 12/12 · 037: 17/17; en vivo, 26/26). Las 12 funciones `SECURITY DEFINER` eran ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc`. Las 8 de disparador no las necesita nadie: **Postgres verifica `EXECUTE` al CREAR el disparador, no cada vez que dispara** (comprobado en vivo: una sesión `authenticated` sigue siendo rechazada por `proteger_estado_rendicion` con su mensaje, no con «permission denied for function»). Las 4 que usan las políticas las conserva `authenticated`, nunca `anon`. Lo que cierra el acceso es el `revoke ... from public`: `anon` y `authenticated` heredan de PUBLIC. `set_updated_at` queda además con `search_path = ''` (su cuerpo solo usa `now()`, de `pg_catalog`). Pruebas: supabase/tests/038_funciones.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -715,18 +716,17 @@ una columna `NOT NULL`.
    shortcut del `manifest.json`, `rol` en `e2e/rutas.ts` y la sección en
    `docs/manual/manual.html`.
 
-6. **Mensaje claro al eliminar un documento con traspaso — pendiente por decisión de
-   Daniel, 2026-09-28.** `permanentlyDeleteFromTrash` falla con el error crudo de
-   Postgres si la rendición o el fondo aparece en un traspaso: las FK
-   `fund_transfers_{payer,receiver}_{report,fund}_id_fkey` no tienen ON DELETE, y la
-   papelera lo muestra tal cual con `avisar()`. Opciones: avisar antes con un mensaje
-   claro (recomendado: un traspaso toca a dos personas) o borrar también el traspaso
-   (`deleteLinkedFundTransfer` ya retira sus comprobantes). Respetar el orden de
-   `src/lib/archivos.ts`: juntar rutas → borrar → retirar.
+6. ~~**Mensaje claro al eliminar un documento con traspaso.**~~ ✅ **HECHO el 2026-10-01**
+   (Daniel eligió no dejar y explicar, en vez de borrar también el traspaso: toca a dos
+   personas y dos documentos). El motivo lo calcula `getTrashItems`, el **cargador** de
+   la página, no el botón —en producción Next puede ocultar el mensaje de un `throw`—,
+   así que la fila bloqueada muestra el motivo en ámbar y **no ofrece** «Eliminar
+   permanentemente»; «Restaurar» queda. `permanentlyDeleteFromTrash` lo vuelve a exigir
+   como defensa. Reglas en `src/lib/papelera.ts` (módulo común, sin `'use server'`:
+   `traspasosDe` usa la llave de servicio), con 7 pruebas.
 
-7. **Migración 034 — borrar `users.bank_is_backup`.** La columna sigue en la base
-   (verificado el 2026-09-28). Aplicarla cuando ya no haga falta volver a código
-   anterior al 2026-09-25: un rollback de Vercel a ese código la lee.
+7. ~~**Migración 034 — borrar `users.bank_is_backup`.**~~ ✅ **APLICADA el 2026-10-01**
+   (ver el listado de migraciones).
 
 8. **Lanzamiento — decisión de Daniel.** El 2026-09-28 había 57 usuarios activos: 5
    invitados y 6 que entraron alguna vez. El correo ya no bloquea (ver «Ya NO están
@@ -735,13 +735,28 @@ una columna `NOT NULL`.
 9. **Avisos de Supabase (`get_advisors`, 2026-09-28).** Ninguno urgente con una sola
    organización; conviene resolverlos antes de sumar clientes:
 
-   | Tipo | Aviso | Qué hacer |
+   **Estado medido el 2026-10-01, después de aplicar la 038:**
+
+   | Tipo | Aviso | Estado |
    |---|---|---|
-   | Seguridad | 12 funciones `SECURITY DEFINER` ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc` | Revocar `EXECUTE` donde no haga falta: las `proteger_*` son de disparador; `is_admin` y `get_my_org_id` las usan las políticas |
-   | Seguridad | `set_updated_at` sin `search_path` fijo | Fijarlo en la función |
-   | Seguridad | Protección de contraseñas filtradas apagada | Requiere plan Pro: va con la decisión del punto 4 |
-   | Rendimiento | 28 `auth_rls_initplan` | `auth.uid()` → `(select auth.uid())` en las políticas |
-   | Rendimiento | 155 políticas permisivas múltiples, 37 FK sin índice, 10 índices sin uso | Consolidar e indexar cuando crezca el volumen |
+   | Seguridad | 12 funciones `SECURITY DEFINER` ejecutables por **`anon`** | ✅ **cerrado por la 038** |
+   | Seguridad | `set_updated_at` sin `search_path` fijo | ✅ **cerrado por la 038** |
+   | Seguridad | 4 funciones `SECURITY DEFINER` ejecutables por **`authenticated`** (`is_admin`, `get_my_org_id`, `es_aprobador_de`, `es_operador_bancario`) | ⚠️ **queda, y es a propósito** — ver abajo |
+   | Seguridad | Protección de contraseñas filtradas apagada | ⚠️ **queda**: solo existe en Pro, y Daniel decidió seguir en el plan gratuito (punto 4). **No es una regresión** |
+   | Seguridad | `rate_limit_log` con RLS y sin políticas (INFO) | ⚠️ queda, intencional: la escribe solo la llave de servicio |
+   | Rendimiento | 28 `auth_rls_initplan` | pendiente — Fase 7 |
+   | Rendimiento | 155 políticas permisivas múltiples, 37 FK sin índice, 10 índices sin uso | pendiente — Fase 7 |
+
+   > **Las 4 que quedan NO se revocan.** Una política RLS se evalúa con el rol de quien
+   > consulta, así que si `authenticated` no puede ejecutarlas, **ninguna consulta de la
+   > app devuelve nada**. El plan de la hoja de ruta esperaba que el aviso desapareciera
+   > entero; era una expectativa equivocada, no un trabajo a medias.
+   >
+   > Lo único que lo cerraría del todo es **sacarlas del esquema expuesto** (moverlas a
+   > uno privado y apuntar ahí las políticas), porque lo que el aviso señala es que se
+   > pueden llamar por `/rest/v1/rpc`. No se hizo: toca todas las políticas de la base y
+   > el riesgo real es bajo — devuelven datos del propio usuario (su organización, si es
+   > admin, si es aprobador de alguien), nunca de otros.
 
 10. **Manual de usuario sin versionar.** `docs/manual/` (HTML, PDF de 8 MB y 20
     capturas) y `e2e/manual/` (los guiones que las toman) existen solo en la raíz,
@@ -1014,3 +1029,5 @@ una columna `NOT NULL`.
 | Leer `title` / `body` de una notificación | `notifications` solo guarda `type` y a qué documento apunta (`report_id` / `fund_id`). El hook de Realtime casteaba la fila a `{ title, body }` y el aviso en vivo salía como una caja vacía | El texto lo arma `textoNotificacion()` (`src/lib/notificaciones.ts`) y se muestra con `avisar()`. La fila se tipa con `Notification` de `types.ts`, nunca con un cast a mano |
 | Suscribir un canal Realtime sin esperar el token de la sesión | realtime-js 2.106 arma el join en el `subscribe()` y busca el token en paralelo: con la sesión recuperada de cookies (recargar, reabrir la PWA) el join sale sin `access_token`, el canal queda como anon y RLS descarta cada fila **sin ningún error** | `await supabase.realtime.setAuth()` antes de `.subscribe()` (ver `useRealtimeNotifications`). Para diagnosticar, mirar el frame `phx_join` en el websocket: si no trae `access_token`, es esto |
 | Borrar de verdad un documento o un gasto que tiene archivos | La cascada borra las filas de `attachments` y `approval_attachments`, pero no los archivos: Storage no tiene llaves foráneas. Quedaron 6 huérfanos (~12 MB) de la papelera y de borradores, hasta el 2026-09-28 | `archivosQueCaen()` antes del borrado (después la cascada ya se llevó las filas), borrado con `.select('id')`, y `retirarArchivos()` recién si cayó la fila (`src/lib/archivos.ts`). Un huérfano se retira por la API de Storage, nunca con un DELETE en `storage.objects`: el archivo físico queda |
+| Sondear el sitio con `curl` en bucle para esperar un despliegue | Vercel lo toma por un bot y responde **403 a todo** —`/login`, la raíz, `/api/cron`—, con `X-Vercel-Mitigated: challenge` y una página «Vercel Security Checkpoint». Parece que la app se cayó justo después de desplegar, y de aplicar migraciones, que es el peor momento para creerlo. Pasó el 2026-10-01 tras 38 peticiones en 380 s | Antes de declarar nada roto, mirar la cabecera `X-Vercel-Mitigated` del 403: si dice `challenge`, es el escudo y no la app. Confirmar con un navegador de verdad (el panel del navegador resuelve el reto solo) y, para esperar un despliegue, preguntarle a la API de Vercel (`list_deployments` / `get_deployment` hasta `READY`) en vez de martillar el dominio |
+| Buscar el buildId en el HTML de `/login` para saber si el despliegue entró | **Ya no está ahí**: el `"b":"…"` que la hoja de ruta daba por hecho no aparece en el HTML servido (verificado el 2026-10-01). Buscarlo da una cadena vacía, no un error | Confirmar con `get_deployment` que el despliegue del commit está `READY` y que tiene el alias `www.mi-rendicion.com`. Como huella secundaria sirve el nombre de un chunk de `/_next/static/chunks/`, que cambia entre builds |
