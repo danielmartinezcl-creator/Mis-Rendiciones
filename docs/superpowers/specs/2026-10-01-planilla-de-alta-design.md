@@ -241,10 +241,12 @@ export type FilaPlanilla = {
   banco: string; tipoCuenta: string; numeroCuenta: string
 }
 
-export type Persona = {
-  id: string; nombre: string; correo: string; rut: string | null
-  activo: boolean; can_approve: boolean
-  can_load_bank_transfer: boolean; can_authorize_bank_transfer: boolean
+// Extiende la de @/lib/permisos, que es la que pide validarCadena. Escribir sus
+// campos a mano no sirve: esa tiene cuatro más (can_submit,
+// can_manage_petty_cash y las dos suplencias bancarias) y el typecheck lo
+// rechaza. Extendiéndola, un campo nuevo allá lo avisa el compilador acá.
+export type Persona = PersonaPermisos & {
+  correo: string; rut: string | null
   approver_l1_id: string | null; approver_l2_id: string | null
 }
 

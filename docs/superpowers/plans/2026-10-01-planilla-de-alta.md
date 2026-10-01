@@ -191,12 +191,24 @@ git commit -m "feat(planilla): normalizar RUT y nombres para poder comparar"
   `resolverAprobador(valor, personas)`, los dos devolviendo
   `{ persona: Persona | null; ambiguas: Persona[] }`.
 
-> **Hay dos tipos llamados `Persona` y conviene saberlo antes de pelearse con el
-> compilador.** El de `@/lib/permisos` es el que pide `validarCadena`
-> (`{ id, nombre, activo, can_approve, … }`); el de acá le agrega `correo`, `rut`, los dos
-> permisos bancarios y los dos aprobadores. **No hay que convertir entre ellos**:
-> TypeScript compara por forma, así que el de la planilla entra tal cual donde se espera
-> el de `permisos`. No importar los dos en el mismo archivo con el mismo nombre.
+> **Hay dos tipos llamados `Persona`, y el de la planilla EXTIENDE al de `permisos`:**
+>
+> ```ts
+> import { validarCadena, type Persona as PersonaPermisos } from '@/lib/permisos'
+>
+> export type Persona = PersonaPermisos & {
+>   correo: string; rut: string | null
+>   approver_l1_id: string | null; approver_l2_id: string | null
+> }
+> ```
+>
+> **Corrección sobre el terreno (2026-10-01):** la primera versión de este plan decía que
+> bastaba con que coincidieran por forma, y escribía los campos a mano. **Era falso y el
+> typecheck lo rechazó:** la de `permisos` pide cuatro campos más —`can_submit`,
+> `can_manage_petty_cash`, `bank_load_backup` y `bank_auth_backup`—, así que la de la
+> planilla no la satisfacía y `validarCadena` no la aceptaba. Extendiéndola, un campo
+> nuevo en `permisos` lo avisa el compilador acá mismo y no a tres archivos de distancia.
+> **El fixture `p` de los tests tiene que traer los diez campos.**
 
 - [ ] **Step 1: Escribir el fixture y las pruebas que fallan** — agregar al test:
 
