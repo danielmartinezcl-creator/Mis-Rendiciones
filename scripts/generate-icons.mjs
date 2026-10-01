@@ -2,15 +2,16 @@
  * Generador de íconos PWA — Penta Rend
  * Opción 5: gradiente índigo (#3E4092) → teal (#4BBDB6) + receipt blanca
  *
- * Uso: node generate-icons.js
+ * Uso: node scripts/generate-icons.mjs
  * Salida: public/icons/icon-192.png  y  public/icons/icon-512.png
  *
  * Sin dependencias externas — solo módulos built-in de Node.js
  */
 
-const zlib = require('zlib')
-const fs   = require('fs')
-const path = require('path')
+import zlib from 'node:zlib'
+import fs   from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // ── CRC32 (requerido por el formato PNG) ──────────────────────────────────────
 const CRC_TABLE = (() => {
@@ -135,7 +136,11 @@ function buildPNG(S) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-const OUT_DIR = path.join(__dirname, 'public', 'icons')
+// El script vive en scripts/, así que la raíz del proyecto es un nivel arriba:
+// sin el '..' los PNG caerían en scripts/public/icons/. Y fileURLToPath en vez de
+// new URL(import.meta.url).pathname, que en Windows devuelve «/C:/…» y no abre.
+const RAIZ    = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const OUT_DIR = path.join(RAIZ, 'public', 'icons')
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true })
 
 for (const S of [192, 512]) {
