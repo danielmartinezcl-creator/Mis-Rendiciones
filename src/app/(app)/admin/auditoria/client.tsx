@@ -356,34 +356,38 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             </table>
           </div>
         )}
-      </div>
-
-      {/* ── Paginación ── */}
-      {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-sm">
-          <p className="text-ink-500">
-            Página {currentPage} de {totalPages} · {total} resultados
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={goPrev}
-              disabled={offset === 0 || loading}
-              className="btn-secundario flex items-center gap-1 px-3 py-2"
-            >
-              <ChevronLeft size={16} />
-              Anterior
-            </button>
-            <button
-              onClick={goNext}
-              disabled={offset + PAGE_SIZE >= total || loading}
-              className="btn-secundario flex items-center gap-1 px-3 py-2"
-            >
-              Siguiente
-              <ChevronRight size={16} />
-            </button>
+        {/* ── Paginación ──
+            Va DENTRO de la hoja: el paginador es parte de la tabla, y apoyado
+            sobre el degradado quedaba ilegible. Lo encontró `npm run
+            audit:materiales` el 2026-10-01: «Página …» en `text-ink-500` y los
+            dos `btn-secundario` daban luminancia 0,142 y 0,065 sobre el chasis
+            oscuro. La regla del sistema: lo que se lee o se decide va en hoja. */}
+        {total > PAGE_SIZE && (
+          <div className="flex items-center justify-between text-sm border-t border-ink-100 px-4 py-3">
+            <p className="text-ink-500">
+              Página {currentPage} de {totalPages} · {total} resultados
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={goPrev}
+                disabled={offset === 0 || loading}
+                className="btn-secundario flex items-center gap-1 px-3 py-2"
+              >
+                <ChevronLeft size={16} />
+                Anterior
+              </button>
+              <button
+                onClick={goNext}
+                disabled={offset + PAGE_SIZE >= total || loading}
+                className="btn-secundario flex items-center gap-1 px-3 py-2"
+              >
+                Siguiente
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
