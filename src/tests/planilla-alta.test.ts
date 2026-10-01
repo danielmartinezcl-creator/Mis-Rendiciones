@@ -107,3 +107,33 @@ describe('resolverAprobador', () => {
     expect(r.ambiguas).toEqual([])
   })
 })
+
+// ── Tarea 3: centro de costo ─────────────────────────────────────────────────
+
+import { resolverCentroCosto, type CentroCosto } from '@/lib/planilla-alta'
+
+const CENTROS: CentroCosto[] = [
+  { id: 'c1', codigo: '45103010013', nombre: 'Administración' },
+  { id: 'c2', codigo: '45103010020', nombre: 'Operaciones Norte' },
+  { id: 'c3', codigo: '45103010021', nombre: 'Operaciones Sur' },
+]
+
+describe('resolverCentroCosto', () => {
+  it('encuentra por código', () => {
+    expect(resolverCentroCosto('45103010013', CENTROS).centro?.id).toBe('c1')
+  })
+  it('encuentra por nombre, sin tildes ni mayúsculas', () => {
+    expect(resolverCentroCosto('ADMINISTRACION', CENTROS).centro?.id).toBe('c1')
+  })
+  it('una celda vacía no resuelve nada y no es un error', () => {
+    const r = resolverCentroCosto('  ', CENTROS)
+    expect(r.centro).toBeNull()
+    expect(r.parecidos).toEqual([])
+  })
+  // Para que el error diga «¿quisiste decir…?» en vez de solo «no existe»
+  it('sin coincidencia sugiere los parecidos', () => {
+    const r = resolverCentroCosto('Operaciones', CENTROS)
+    expect(r.centro).toBeNull()
+    expect(r.parecidos.map(c => c.id)).toEqual(['c2', 'c3'])
+  })
+})

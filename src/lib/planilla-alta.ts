@@ -72,3 +72,28 @@ export function resolverAprobador(
   if (!v) return { persona: null, ambiguas: [] }
   return resolverPersona(v, personas, v.includes('@') ? 'correo' : 'nombre')
 }
+
+// ── Centro de costo ──────────────────────────────────────────────────────────
+
+export type CentroCosto = { id: string; codigo: string; nombre: string }
+
+// Acepta el código o el nombre. Sin coincidencia exacta, devuelve los que
+// contienen lo escrito, para que el error pueda sugerir en vez de solo negar.
+export function resolverCentroCosto(
+  valor: string, centros: CentroCosto[],
+): { centro: CentroCosto | null; parecidos: CentroCosto[] } {
+  const v = valor.trim()
+  if (!v) return { centro: null, parecidos: [] }
+
+  const porCodigo = centros.find(c => c.codigo.replace(/\./g, '') === v.replace(/\./g, ''))
+  if (porCodigo) return { centro: porCodigo, parecidos: [] }
+
+  const buscado = normalizarNombre(v)
+  const exacto = centros.find(c => normalizarNombre(c.nombre) === buscado)
+  if (exacto) return { centro: exacto, parecidos: [] }
+
+  return {
+    centro: null,
+    parecidos: centros.filter(c => normalizarNombre(c.nombre).includes(buscado)).slice(0, 5),
+  }
+}
