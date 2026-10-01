@@ -151,6 +151,7 @@ export function TrashClient({ initialItems }: Props) {
                         <span className="text-xs text-ink-300">·</span>
                         <span className="font-mono-amount text-xs text-ink-600">{formatCLP(r.total_amount)}</span>
                       </div>
+                      {r.bloqueo && <p className="text-xs text-warning-700 mt-1">{r.bloqueo}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
@@ -161,14 +162,18 @@ export function TrashClient({ initialItems }: Props) {
                       >
                         <RotateCcw size={15} />
                       </button>
-                      <button
-                        onClick={() => handlePermanentDelete('report', r.id, r.title)}
-                        disabled={loading === r.id}
-                        title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {/* Con un traspaso de por medio el borrado no es posible: en vez
+                          de ofrecer un botón que falla, la fila explica qué hacer */}
+                      {!r.bloqueo && (
+                        <button
+                          onClick={() => handlePermanentDelete('report', r.id, r.title)}
+                          disabled={loading === r.id}
+                          title="Eliminar permanentemente"
+                          className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -195,6 +200,7 @@ export function TrashClient({ initialItems }: Props) {
                         <span className="text-xs text-ink-300">·</span>
                         <span className="font-mono-amount text-xs text-ink-600">{formatCLP(f.amount_requested)}</span>
                       </div>
+                      {f.bloqueo && <p className="text-xs text-warning-700 mt-1">{f.bloqueo}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
@@ -205,14 +211,16 @@ export function TrashClient({ initialItems }: Props) {
                       >
                         <RotateCcw size={15} />
                       </button>
-                      <button
-                        onClick={() => handlePermanentDelete('fund', f.id, f.name)}
-                        disabled={loading === f.id}
-                        title="Eliminar permanentemente"
-                        className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {!f.bloqueo && (
+                        <button
+                          onClick={() => handlePermanentDelete('fund', f.id, f.name)}
+                          disabled={loading === f.id}
+                          title="Eliminar permanentemente"
+                          className="p-1.5 rounded-item text-danger-500 hover:bg-danger-50 transition-colors disabled:opacity-40"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

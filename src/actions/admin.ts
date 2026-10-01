@@ -17,6 +17,7 @@ import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import { cargarPersonas } from '@/lib/contexto-permisos'
 import { puedeActuar, pasoSegunEstado, validarCadena, dependientesDe, type Documento } from '@/lib/permisos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
+import { motivoBloqueoPorTraspasos, traspasosDe, traspasosPorDocumento } from '@/lib/papelera'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -1578,14 +1579,27 @@ export async function getTrashItems() {
     nameMap = Object.fromEntries((names ?? []).map(u => [u.id, u.full_name]))
   }
 
+  // Un documento que aparece en un traspaso no se puede eliminar de verdad: las
+  // FK de fund_transfers no tienen ON DELETE. El motivo se calcula acá, en el
+  // cargador, y no al apretar el botón: en producción Next puede ocultar el
+  // mensaje de un throw, y además así la fila ni siquiera ofrece «Eliminar».
+  const { data: traspasos, error: errorTraspasos } = await supabase
+    .from('fund_transfers')
+    .select('payer_report_id, receiver_report_id, payer_fund_id, receiver_fund_id')
+    .eq('org_id', orgId)
+  if (errorTraspasos) throw new Error(errorTraspasos.message)
+  const porDocumento = traspasosPorDocumento(traspasos ?? [])
+
   return {
     reports: (reportsRes.data ?? []).map(r => ({
       ...r,
       submitter_name: nameMap[r.submitter_id] ?? 'Desconocido',
+      bloqueo: motivoBloqueoPorTraspasos('rendicion', porDocumento.get(r.id) ?? 0),
     })),
     funds:   (fundsRes.data ?? []).map(f => ({
       ...f,
       employee_name: nameMap[f.employee_id] ?? 'Desconocido',
+      bloqueo: motivoBloqueoPorTraspasos('fondo', porDocumento.get(f.id) ?? 0),
     })),
     users:   usersRes.data ?? [],
   }
@@ -1651,6 +1665,11 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   if (type === 'report') {
     const { data: before } = await supabase
       .from('expense_reports').select('title').eq('id', id).single()
+    // Defensa: la papelera ya no ofrece el botón cuando hay traspasos (el motivo
+    // sale de getTrashItems), pero la acción se puede llamar igual. Sin esto, el
+    // borrado falla con el error crudo de la FK.
+    const bloqueo = motivoBloqueoPorTraspasos('rendicion', await traspasosDe(adminClient, { tipo: 'rendicion', id }))
+    if (bloqueo) throw new Error(bloqueo)
     // Antes de borrar: después la cascada ya se llevó las filas de los adjuntos
     const archivos = await archivosQueCaen(adminClient, { tipo: 'rendicion', id })
     // Con el cliente del admin, no con la service role: si la rendición tiene
@@ -1675,6 +1694,8 @@ export async function permanentlyDeleteFromTrash(type: 'report' | 'fund' | 'user
   } else if (type === 'fund') {
     const { data: before } = await supabase
       .from('petty_cash_funds').select('name').eq('id', id).single()
+    const bloqueo = motivoBloqueoPorTraspasos('fondo', await traspasosDe(adminClient, { tipo: 'fondo', id }))
+    if (bloqueo) throw new Error(bloqueo)
     const archivos = await archivosQueCaen(adminClient, { tipo: 'fondo', id })
     // Con la llave de servicio no hay RLS: la organización y la papelera las
     // exige el filtro. Sin él, un admin borraba el fondo de otra organización,

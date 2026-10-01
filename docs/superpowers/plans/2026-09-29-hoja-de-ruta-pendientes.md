@@ -396,7 +396,7 @@ export async function traspasosDe(admin: ClienteServicio, doc: { tipo: 'rendicio
 
 Contexto: las FK `fund_transfers_{payer,receiver}_{report,fund}_id_fkey` no tienen `ON DELETE`, así que hoy el borrado falla con el error de Postgres. `fund_transfers` tiene `org_id`. En la UI, un traspaso se elimina desde Caja chica: «Traspasos sin vincular» o «Eliminar traspaso» en la fila del gasto.
 
-- [ ] **Step 1: Pruebas que fallan** en `src/tests/papelera.test.ts`:
+- [x] **Step 1: Pruebas que fallan** en `src/tests/papelera.test.ts`:
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -462,8 +462,8 @@ describe('traspasosDe', () => {
 })
 ```
 
-- [ ] **Step 2:** Crear `src/lib/papelera.ts` con las firmas vacías y correr `npx vitest run src/tests/papelera.test.ts`. Esperado: FAIL por aserción, no por importación.
-- [ ] **Step 3: Implementación mínima:**
+- [x] **Step 2:** Crear `src/lib/papelera.ts` con las firmas vacías y correr `npx vitest run src/tests/papelera.test.ts`. Esperado: FAIL por aserción, no por importación. → **Hecho: 6 fallaron por aserción y 1 pasó** — la de «sin traspasos no bloquea», porque el stub devolvía `null` por casualidad. Ninguna falló por importación.
+- [x] **Step 3: Implementación mínima:**
 
 ```ts
 // Qué impide eliminar de verdad un documento de la papelera. Hoy: aparecer en
@@ -513,15 +513,15 @@ export async function traspasosDe(
 }
 ```
 
-- [ ] **Step 4:** `npx vitest run src/tests/papelera.test.ts`. Esperado: PASS (7 pruebas).
-- [ ] **Step 5: La acción como defensa.** En `permanentlyDeleteFromTrash`, en las ramas `report` y `fund`, **antes** de `archivosQueCaen` (tipo `'fondo'` en la segunda):
+- [x] **Step 4:** `npx vitest run src/tests/papelera.test.ts`. Esperado: PASS (7 pruebas). → **Hecho: 7/7.**
+- [x] **Step 5: La acción como defensa.** En `permanentlyDeleteFromTrash`, en las ramas `report` y `fund`, **antes** de `archivosQueCaen` (tipo `'fondo'` en la segunda):
 
 ```ts
 const bloqueo = motivoBloqueoPorTraspasos('rendicion', await traspasosDe(adminClient, { tipo: 'rendicion', id }))
 if (bloqueo) throw new Error(bloqueo)
 ```
 
-- [ ] **Step 6: El cargador da el motivo.** En `getTrashItems()`, después de leer rendiciones y fondos, con la sesión del admin (la RLS acota a su organización):
+- [x] **Step 6: El cargador da el motivo.** En `getTrashItems()`, después de leer rendiciones y fondos, con la sesión del admin (la RLS acota a su organización):
 
 ```ts
 const { data: traspasos, error: errorTraspasos } = await supabase
@@ -533,8 +533,14 @@ const porDocumento = traspasosPorDocumento(traspasos ?? [])
 ```
 
   Cada rendición suma `bloqueo: motivoBloqueoPorTraspasos('rendicion', porDocumento.get(r.id) ?? 0)`, y cada fondo lo mismo con `'fondo'`.
-- [ ] **Step 7: La fila.** En `trash/client.tsx`, si `r.bloqueo` (y `f.bloqueo`): mostrar el motivo debajo de la línea «Eliminada …» (`text-xs text-warning-700`) y no renderizar el botón «Eliminar permanentemente»; «Restaurar» queda. Antes de commitear, mostrarle a Daniel la fila bloqueada. Si ningún documento de la papelera tiene traspasos, usar una ruta de previsualización desechable con datos de fixture (patrón `tramos` del rediseño) y borrarla después.
-- [ ] **Step 8:** `npx vitest run` (todo verde), `npx tsc --noEmit -p .`, `npx eslint` de los archivos tocados y `npx next build`. Commit: `fix(papelera): un documento con traspaso se explica en vez de fallar al eliminarlo`.
+- [x] **Step 7: La fila.** En `trash/client.tsx`, si `r.bloqueo` (y `f.bloqueo`): mostrar el motivo debajo de la línea «Eliminada …» (`text-xs text-warning-700`) y no renderizar el botón «Eliminar permanentemente»; «Restaurar» queda. Antes de commitear, mostrarle a Daniel la fila bloqueada. Si ningún documento de la papelera tiene traspasos, usar una ruta de previsualización desechable con datos de fixture (patrón `tramos` del rediseño) y borrarla después.
+
+  → **Hecho, y aprobado por Daniel el 2026-10-01.** En la base **no había ningún caso real**: 5 rendiciones y 0 fondos en la papelera, 3 traspasos, **0 documentos bloqueados**. En vez de la ruta desechable se usó un **Artifact** (`https://claude.ai/artifact/62EMpkDNdvv8pJxUFGWUhP`), con los tokens reales de `globals.css` —el degradado Tornasol, `.hoja`, `warning-700`, los radios, Bricolage/Hanken/Manrope y los íconos de Lucide— y las tres filas juntas: una normal, una con un traspaso (singular) y un fondo con tres (plural).
+
+  Se prefirió al dev server porque la ruta desechable **habría obligado a tocar `src/lib/rutas-publicas.ts`**: la papelera vive bajo `(app)`, el proxy manda al login todo lo que no sea público, y abrir una ruta pública temporal es justo el cambio que se puede olvidar revertir. Daniel además pidió siempre ver las propuestas visuales como Artifact.
+
+  Descartada en el camino la alternativa de **dejar el botón deshabilitado**: mantiene las filas parejas, pero muestra una acción que nunca va a funcionar.
+- [x] **Step 8:** `npx vitest run` (todo verde), `npx tsc --noEmit -p .`, `npx eslint` de los archivos tocados y `npx next build`. Commit: `fix(papelera): un documento con traspaso se explica en vez de fallar al eliminarlo`. → **Las cuatro en verde:** 417/417 pruebas en 32 archivos (410 + las 7 nuevas), typecheck limpio, lint de los archivos tocados sin nada y build con código 0.
 
 ### Tarea 2.4: Despliegue y aplicación (Daniel en «pedir aprobación»)
 
@@ -728,4 +734,6 @@ Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran con
 | 2026-09-29 | `funny-cerf-43c7dd` | Backlog revisado y plan escrito | Base: 410/410 pruebas, 0 huérfanos en Storage, 50 de 57 sin aprobador N1 | `e4122b1`, `33e8a65` |
 | 2026-10-01 | `funny-cerf-43c7dd` | 0.1 `main` subido a GitHub | Despliegue `dpl_8pGJxVvGmaijh9iBmsW3t5HatMVe` en `READY` (solo documentación) y buildId nuevo en `/login`. Este registro va con el próximo push | `33e8a65` |
 | 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **0.5, 0.3, 0.2 y la Fase 1 completa** | **0.5:** el manual ya estaba publicado como Artifact **con sus imágenes dentro**, así que el problema del 28-09 estaba resuelto y D4 ganó una opción (d). Esa sesión además había quedado esperando una respuesta que nunca llegó. **0.3:** generador a `scripts/generate-icons.mjs` (ESM), íconos byte a byte idénticos; y el arreglo de fondo — `npx eslint .` daba **82.317 problemas (4.712 errores)** porque eslint 9 no lee `.gitignore` y entraba a las worktrees con su `.next` compilado. Ahora **0 errores, 22 avisos**, y reproducible. **0.2:** las 5 worktrees fuera del registro de git y 6 ramas borradas con `-d`; se descartaron los 10 cambios de `intelligent-tharp` tras comprobar archivo por archivo que `main` tenía más. **Fase 1:** las 6 decisiones tomadas en una ronda; D1 = seguir gratis (no Pro) y D5 = variante propia de Daniel. 410/410 pruebas | *(este commit)* |
-| | | **Pendiente de la Fase 0** | **0.4** la corre Daniel (`npm run baseline:verificar`; `e2e/.env.e2e` y los 52 PNG están en su lugar). La carpeta vacía `.claude/worktrees/funny-cerf-43c7dd` sigue en disco porque su sesión, con Remote Control activo, la tiene abierta | — |
+| | | **Pendiente de la Fase 0** | **0.4 sigue sin verificarse.** Daniel la corrió y falló por entorno, no por la línea base: falta el binario de Chromium (`chromium_headless_shell-1223`), así que el login falló y las otras 53 ni corrieron. Se arregla con `npx playwright install chromium`. **Aviso para esa corrida:** si Playwright cambió de versión, cambió el Chromium que renderiza; si aparecen rojos en muchas pantallas a la vez, sospechar de eso **antes** de recapturar, porque `baseline:crear` convertiría ese cambio en la nueva referencia. La carpeta vacía `.claude/worktrees/funny-cerf-43c7dd` sigue en disco porque su sesión, con Remote Control activo, la tiene abierta | — |
+| 2026-10-01 | `Implementacion Pendientes` (`local_4c77dc66`) | **2.1, 2.2 y 2.3** | **2.1:** la 038 escrita y ensayada con `BEGIN`/`ROLLBACK`; inventario de `pg_proc` revalidado antes de escribirla. Sin la 038, 22 de 26 pruebas en `false`; con ella, 26/26, y las tres baterías intactas (033: 41 + 1 no concluyente · 035: 12/12 · 037: 17/17). **Commiteada sin aplicar.** **2.2:** ensayo de la 034 sin error, y además comprobado que no se pierde ningún dato (1 usuario con la suplencia vieja, ya copiada a las nuevas). **2.3:** B6 por TDD — `src/lib/papelera.ts` + 7 pruebas, defensa en la acción, motivo desde el cargador y la fila sin botón; fila aprobada por Daniel vía Artifact. 417/417 pruebas, typecheck, lint y build en verde | `e7a7887`, *(este commit)* |
+| | | **Pendiente de la Fase 2** | **2.4: el despliegue y las dos `apply_migration`.** Las hace Daniel en «pedir aprobación». Nada se ha aplicado a la base todavía: los ensayos fueron todos con `ROLLBACK` | — |
