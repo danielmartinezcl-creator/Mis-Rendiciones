@@ -137,3 +137,59 @@ describe('resolverCentroCosto', () => {
     expect(r.parecidos.map(c => c.id)).toEqual(['c2', 'c3'])
   })
 })
+
+// ── Tarea 4: el parche ───────────────────────────────────────────────────────
+
+import { parcheDeFila, type FilaPlanilla } from '@/lib/planilla-alta'
+
+const VACIA: FilaPlanilla = {
+  nombre: '', rut: '', correo: '', cargo: '', centroCosto: '', rol: '',
+  n1: '', n2: '', banco: '', tipoCuenta: '', numeroCuenta: '',
+}
+const CON_RUT = p({ id: 'x1', nombre: 'Con Rut', correo: 'c@p.cl', rut: '11.111.111-1' })
+const SIN_RUT = p({ id: 'x2', nombre: 'Sin Rut', correo: 's@p.cl' })
+
+describe('parcheDeFila: vacío nunca borra', () => {
+  it('una planilla toda vacía no cambia nada', () => {
+    expect(parcheDeFila(VACIA, CON_RUT, null, null, null)).toEqual({})
+  })
+  it('solo entra lo que viene con valor', () => {
+    const fila = { ...VACIA, banco: 'Banco de Chile', numeroCuenta: '00012345678', cargo: 'Jefe de Obra' }
+    expect(parcheDeFila(fila, CON_RUT, null, null, null)).toEqual({
+      bank_name: 'Banco de Chile', bank_account: '00012345678', department: 'Jefe de Obra',
+    })
+  })
+  it('una celda con solo espacios cuenta como vacía', () => {
+    expect(parcheDeFila({ ...VACIA, banco: '   ' }, CON_RUT, null, null, null)).toEqual({})
+  })
+  it('los aprobadores y el centro entran por id, no por lo que diga la celda', () => {
+    const fila = { ...VACIA, n1: 'Salas Rodrigo', centroCosto: 'Administración' }
+    const n1 = p({ id: 'u1', nombre: 'Salas Rodrigo', can_approve: true })
+    const centro: CentroCosto = { id: 'c1', codigo: '45103010013', nombre: 'Administración' }
+    expect(parcheDeFila(fila, CON_RUT, n1, null, centro)).toEqual({
+      approver_l1_id: 'u1', cost_center_id: 'c1',
+    })
+  })
+  it('el RUT se graba solo a quien no lo tenía, y con puntos', () => {
+    expect(parcheDeFila({ ...VACIA, rut: '22222222-2' }, SIN_RUT, null, null, null))
+      .toEqual({ rut: '22.222.222-2' })
+  })
+  it('a quien ya tiene RUT no se le reescribe', () => {
+    expect(parcheDeFila({ ...VACIA, rut: '11.111.111-1' }, CON_RUT, null, null, null)).toEqual({})
+  })
+  // Una planilla de RR.HH. con el nombre escrito distinto no debe renombrar a nadie
+  it('el nombre NUNCA entra al actualizar', () => {
+    expect(parcheDeFila({ ...VACIA, nombre: 'Otro Nombre' }, CON_RUT, null, null, null)).toEqual({})
+  })
+  it('el rol se normaliza a minúsculas', () => {
+    expect(parcheDeFila({ ...VACIA, rol: 'Approver' }, CON_RUT, null, null, null))
+      .toEqual({ role: 'approver' })
+  })
+  // Sin esto una cuenta nueva nacería vacía: sin cargo, sin banco y sin jefe
+  it('con persona null (al crear) todo entra, incluido el RUT', () => {
+    const fila = { ...VACIA, rut: '22222222-2', cargo: 'Prevencionista', banco: 'BCI' }
+    expect(parcheDeFila(fila, null, null, null, null)).toEqual({
+      rut: '22.222.222-2', department: 'Prevencionista', bank_name: 'BCI',
+    })
+  })
+})

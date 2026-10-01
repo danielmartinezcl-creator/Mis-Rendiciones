@@ -97,3 +97,58 @@ export function resolverCentroCosto(
     parecidos: centros.filter(c => normalizarNombre(c.nombre).includes(buscado)).slice(0, 5),
   }
 }
+
+// ── El parche de una fila ────────────────────────────────────────────────────
+
+export type FilaPlanilla = {
+  nombre: string; rut: string; correo: string
+  cargo: string; centroCosto: string; rol: string
+  n1: string; n2: string
+  banco: string; tipoCuenta: string; numeroCuenta: string
+}
+
+// Solo las claves que la fila trae con valor. Una clave ausente y una clave en
+// null son cosas distintas, y acá la segunda no existe: así «vacío nunca borra»
+// lo hace cumplir el tipo y no la disciplina de quien escribe.
+export type ParcheEmpleado = Partial<{
+  approver_l1_id: string; approver_l2_id: string
+  rut: string; department: string; cost_center_id: string; role: string
+  bank_name: string; bank_account_type: string; bank_account: string
+}>
+
+export const ROLES = ['admin', 'approver', 'employee'] as const
+
+// `persona` es null cuando la fila CREA a alguien: ahí todo el parche entra,
+// incluido el RUT, porque no hay nada previo que respetar. Sin este null, una
+// cuenta nueva nacería sin cargo, sin banco y sin aprobadores.
+export function parcheDeFila(
+  fila: FilaPlanilla,
+  persona: Persona | null,
+  n1: Persona | null,
+  n2: Persona | null,
+  centro: CentroCosto | null,
+): ParcheEmpleado {
+  const parche: ParcheEmpleado = {}
+  const texto = (v: string) => { const t = v.trim(); return t === '' ? null : t }
+
+  if (n1) parche.approver_l1_id = n1.id
+  if (n2) parche.approver_l2_id = n2.id
+  if (centro) parche.cost_center_id = centro.id
+
+  // El RUT identifica: se graba solo a quien no lo tenía, nunca se reescribe.
+  if (!persona?.rut && texto(fila.rut)) parche.rut = formatearRut(fila.rut)
+
+  // `nombre` NO entra: renombrar es otra operación (spec).
+  const cargo  = texto(fila.cargo)
+  const rol    = texto(fila.rol)
+  const banco  = texto(fila.banco)
+  const tipo   = texto(fila.tipoCuenta)
+  const numero = texto(fila.numeroCuenta)
+  if (cargo)  parche.department        = cargo
+  if (rol)    parche.role              = rol.toLowerCase()
+  if (banco)  parche.bank_name         = banco
+  if (tipo)   parche.bank_account_type = tipo
+  if (numero) parche.bank_account      = numero
+
+  return parche
+}
