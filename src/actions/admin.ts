@@ -15,7 +15,8 @@ import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } fro
 import type { DefontanaMovement } from '@/lib/export/defontana'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import { cargarPersonas } from '@/lib/contexto-permisos'
-import { puedeActuar, pasoSegunEstado, validarCadena, dependientesDe, type Documento } from '@/lib/permisos'
+import { puedeActuar, pasoSegunEstado, dependientesDe, type Documento } from '@/lib/permisos'
+import { erroresDeCadena, camposDeCadena } from '@/lib/cadena-aprobacion'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 import { motivoBloqueoPorTraspasos, traspasosDe, traspasosPorDocumento } from '@/lib/papelera'
 
@@ -1063,22 +1064,10 @@ export async function setEmployeeApprovalChain(
   if (!before) throw new Error('Empleado no encontrado')
 
   const personas = await cargarPersonas(createAdminClient(), orgId)
-  const errores  = validarCadena(userId, { l1: chain.l1, l2: chain.l2, suplenteL1: chain.suplenteL1 }, personas)
-  if (chain.suplenteL1 && (!chain.suplenteDesde || !chain.suplenteHasta)) {
-    errores.push('El suplente necesita fecha de inicio y de término')
-  }
-  if (chain.suplenteDesde && chain.suplenteHasta && chain.suplenteDesde > chain.suplenteHasta) {
-    errores.push('La fecha de término del suplente es anterior a la de inicio')
-  }
+  const errores  = erroresDeCadena(userId, chain, personas)
   if (errores.length) throw new Error(errores.join('. '))
 
-  const nuevo = {
-    approver_l1_id:        chain.l1,
-    approver_l2_id:        chain.l2,
-    approver_l1_backup_id: chain.suplenteL1,
-    backup_active_from:    chain.suplenteL1 ? chain.suplenteDesde : null,
-    backup_active_until:   chain.suplenteL1 ? chain.suplenteHasta : null,
-  }
+  const nuevo = camposDeCadena(chain)
 
   const { data: guardado, error } = await supabase
     .from('users')
