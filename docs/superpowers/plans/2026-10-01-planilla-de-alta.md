@@ -2,14 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Cargar desde un Excel las cadenas N1/N2 y los datos bancarios de los 57
-empleados, con una vista previa que diga fila por fila qué va a pasar antes de escribir.
+**Goal:** Una sola carga de empleados desde Excel —que crea a quien no está y completa a
+quien sí— con vista previa fila por fila y alertas de segregación de funciones.
 
-**Architecture:** Helpers puros en `src/lib/planilla-alta.ts` (sin `'use server'`), que
-consume tanto la vista previa en el navegador como la acción del servidor, que **vuelve a
-resolver y validar** antes de escribir. Las reglas de la cadena de aprobación se extraen
-de `setEmployeeApprovalChain` a `src/lib/cadena-aprobacion.ts` para que no existan en dos
-sitios. La pantalla es un panel más de `/admin/employees`, junto a «Importar nómina».
+**Architecture:** Helpers puros en `src/lib/` (sin `'use server'`), que consumen tanto la
+vista previa en el navegador como la acción del servidor, que **vuelve a resolver y
+validar** antes de escribir. Las reglas de la cadena se extraen de
+`setEmployeeApprovalChain` a `src/lib/cadena-aprobacion.ts` para que no existan en dos
+sitios. La pantalla es un panel más de `/admin/employees`.
 
 **Tech Stack:** Next.js 16 (App Router, Server Actions), TypeScript, Supabase, SheetJS
 (`xlsx`), Vitest.
@@ -20,31 +20,44 @@ sitios. La pantalla es un panel más de `/admin/employees`, junto a «Importar n
 
 - `src/actions/*.ts`: toda función exportada es `async`. Los helpers puros van en
   `src/lib/`, y los tests importan desde ahí, nunca desde `src/actions/`.
-- Un módulo común de servidor (usa la llave de servicio) va en `src/lib/` **sin**
-  `'use server'`: exportado desde una acción, cualquier sesión lo invoca con los
-  argumentos que quiera.
-- Estados y escrituras sensibles: se verifican con `requireAdmin()` y se escriben con el
-  cliente que corresponda. Todo `.update()` encadena `.select('id')` y lanza si vuelve
-  vacío — sin política RLS, Postgres no da error: afecta 0 filas y Supabase devuelve éxito.
+- Un módulo común de servidor va en `src/lib/` **sin** `'use server'`: exportado desde una
+  acción, cualquier sesión lo invoca con los argumentos que quiera.
+- Todo `.update()` / `.delete()` encadena `.select('id')` y lanza si vuelve vacío — sin
+  política RLS, Postgres no da error: afecta 0 filas y Supabase devuelve éxito.
 - Errores esperados: el motivo que ve la persona sale de un **valor devuelto**, no de un
   `throw`. En producción Next puede ocultar el mensaje.
-- Textos en español. Nunca `confirm()` / `alert()`: `confirmar()` / `avisar()` de
-  `@/components/ui/Dialogos`.
+- Textos en español. Nunca `confirm()` / `alert()`: `confirmar()` / `avisar()`.
 - Diseño: materiales `.hoja` / `.tor-glass`, `rounded-item` / `rounded-card`, íconos
-  Lucide, **ningún hexadecimal en componentes**. La vista previa ya está aprobada:
-  https://claude.ai/artifact/J93gJ35kXJkvCZ1EvCE1sk
-- Commits desde PowerShell con here-string (`git commit -m @'…'@`, cierre `'@` en la
-  columna 0).
+  Lucide, **ningún hexadecimal en componentes**.
+- Commits desde PowerShell con here-string (`git commit -m @'…'@`, cierre `'@` en columna 0).
 - Línea de partida (2026-10-01): 417 pruebas en 32 archivos, `npx eslint .` con 0 errores
   y 22 avisos, build limpio.
 
-## Datos medidos en la base el 2026-10-01 (de la spec)
+## Datos medidos en la base el 2026-10-01
 
-- 57 activos · **50 sin N1** · **56 sin datos bancarios completos** · **5 con `can_approve`**.
-- **55 de 57 tienen RUT**, los 55 **con puntos**, **5 con la `k` en minúscula**.
-- **No hay restricción de unicidad** sobre `users.rut`.
-- `cargarPersonas()` de `src/lib/contexto-permisos.ts` **no trae `rut` ni el correo**: el
-  correo vive en `auth.users`. Hace falta una carga propia (Tarea 6).
+- 57 activos · 50 sin N1 · 56 sin banco completo · 5 con `can_approve`.
+- **55 de 57 tienen RUT**, los 55 **con puntos**, **5 con la `k` en minúscula**, y **no
+  hay restricción de unicidad** sobre `users.rut`.
+- Ya existen **1 persona con los dos permisos bancarios** y **1 cadena circular**: las
+  alertas de la Tarea 6 tienen un caso real cada una desde el primer día.
+- `cargarPersonas()` de `contexto-permisos.ts` **no trae `rut` ni el correo**; el correo
+  vive en `auth.users`.
+
+## Fixture compartido de los tests
+
+Las tareas 2 a 6 comparten este ayudante. Se escribe una sola vez, en la Tarea 2, al
+principio de `src/tests/planilla-alta.test.ts`:
+
+```ts
+import type { Persona } from '@/lib/planilla-alta'
+
+export const p = (x: Partial<Persona> & { id: string }): Persona => ({
+  nombre: '', correo: '', rut: null, activo: true, can_approve: false,
+  can_load_bank_transfer: false, can_authorize_bank_transfer: false,
+  approver_l1_id: null, approver_l2_id: null,
+  ...x,
+})
+```
 
 ---
 
@@ -56,9 +69,9 @@ sitios. La pantalla es un panel más de `/admin/employees`, junto a «Importar n
 
 **Interfaces:**
 - Consumes: nada.
-- Produces: `normalizarRut(rut: string): string` (para comparar: sin puntos, DV en
-  mayúscula, con guión) · `formatearRut(rut: string): string` (para guardar: con puntos) ·
-  `normalizarNombre(nombre: string): string` (sin tildes, minúsculas, un solo espacio).
+- Produces: `normalizarRut(rut: string): string` (comparar: sin puntos, DV mayúscula, con
+  guión) · `formatearRut(rut: string): string` (guardar: con puntos) ·
+  `normalizarNombre(nombre: string): string`.
 
 - [ ] **Step 1: Escribir las pruebas que fallan** en `src/tests/planilla-alta.test.ts`:
 
@@ -112,7 +125,7 @@ describe('normalizarNombre', () => {
 })
 ```
 
-- [ ] **Step 2: Correr y ver que fallan por importación**
+- [ ] **Step 2: Correr y ver que falla por importación**
 
 ```bash
 npx vitest run src/tests/planilla-alta.test.ts
@@ -124,7 +137,7 @@ fallo por importación es el esperado: el archivo todavía no existe.
 - [ ] **Step 3: Escribir `src/lib/planilla-alta.ts`**
 
 ```ts
-// Carga masiva de cadenas de aprobación y datos bancarios desde un Excel.
+// Carga de empleados desde un Excel: crea a quien no está y completa a quien sí.
 // Helpers puros: los usa la vista previa en el navegador Y la acción del
 // servidor, que vuelve a resolver todo antes de escribir — el navegador no es
 // fuente de verdad. Módulo común, SIN 'use server'.
@@ -132,15 +145,15 @@ fallo por importación es el esperado: el archivo todavía no existe.
 // Spec: docs/superpowers/specs/2026-10-01-planilla-de-alta-design.md
 
 // Para COMPARAR. En la base los 55 RUT están con puntos y 5 con la k en
-// minúscula, así que sin normalizar los dos lados la búsqueda no encuentra nada.
+// minúscula, así que sin normalizar los dos lados no se encuentra nada.
 export function normalizarRut(rut: string): string {
   const limpio = rut.trim().toUpperCase().replace(/[^0-9K]/g, '')
   if (limpio.length < 2) return ''
   return `${limpio.slice(0, -1)}-${limpio.slice(-1)}`
 }
 
-// Para GUARDAR: con puntos, que es el formato que ya tienen los 55 y el que
-// espera el export a Defontana (toSheetRut).
+// Para GUARDAR: con puntos, el formato que ya tienen los 55 y el que espera el
+// export a Defontana (toSheetRut).
 export function formatearRut(rut: string): string {
   const n = normalizarRut(rut)
   if (!n) return ''
@@ -155,13 +168,7 @@ export function normalizarNombre(nombre: string): string {
 }
 ```
 
-- [ ] **Step 4: Correr y ver que pasan**
-
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
-```
-
-Esperado: PASS (11 pruebas).
+- [ ] **Step 4: Correr y ver que pasan** — `npx vitest run src/tests/planilla-alta.test.ts`. Esperado: PASS (11).
 
 - [ ] **Step 5: Commit**
 
@@ -179,42 +186,36 @@ git commit -m "feat(planilla): normalizar RUT y nombres para poder comparar"
 - Test: `src/tests/planilla-alta.test.ts`
 
 **Interfaces:**
-- Consumes: `normalizarRut`, `normalizarNombre` de la Tarea 1.
-- Produces:
-
-```ts
-export type Persona = {
-  id: string; nombre: string; correo: string; rut: string | null
-  activo: boolean; can_approve: boolean
-}
-export function resolverPersona(
-  valor: string, personas: Persona[], por: 'rut' | 'correo' | 'nombre',
-): { persona: Persona | null; ambiguas: Persona[] }
-// Elige el modo solo (tiene '@' → correo, si no → nombre) para las celdas N1/N2
-export function resolverAprobador(
-  valor: string, personas: Persona[],
-): { persona: Persona | null; ambiguas: Persona[] }
-```
+- Consumes: Tarea 1.
+- Produces: el tipo `Persona`, `resolverPersona(valor, personas, por)` y
+  `resolverAprobador(valor, personas)`, los dos devolviendo
+  `{ persona: Persona | null; ambiguas: Persona[] }`.
 
 > **Hay dos tipos llamados `Persona` y conviene saberlo antes de pelearse con el
-> compilador.** El de `@/lib/permisos` es el que pide `validarCadena` y tiene
-> `{ id, nombre, activo, can_approve, … }`; el de acá le agrega `correo` y `rut`, que la
-> planilla necesita para identificar. **No hay que convertir entre ellos**: TypeScript
-> compara por forma, así que un `Persona[]` de la planilla entra tal cual donde se espera
+> compilador.** El de `@/lib/permisos` es el que pide `validarCadena`
+> (`{ id, nombre, activo, can_approve, … }`); el de acá le agrega `correo`, `rut`, los dos
+> permisos bancarios y los dos aprobadores. **No hay que convertir entre ellos**:
+> TypeScript compara por forma, así que el de la planilla entra tal cual donde se espera
 > el de `permisos`. No importar los dos en el mismo archivo con el mismo nombre.
 
-- [ ] **Step 1: Escribir las pruebas que fallan** — agregar al final de
-  `src/tests/planilla-alta.test.ts`:
+- [ ] **Step 1: Escribir el fixture y las pruebas que fallan** — agregar al test:
 
 ```ts
 import { resolverPersona, resolverAprobador, type Persona } from '@/lib/planilla-alta'
 
+export const p = (x: Partial<Persona> & { id: string }): Persona => ({
+  nombre: '', correo: '', rut: null, activo: true, can_approve: false,
+  can_load_bank_transfer: false, can_authorize_bank_transfer: false,
+  approver_l1_id: null, approver_l2_id: null,
+  ...x,
+})
+
 const PERSONAS: Persona[] = [
-  { id: 'u1', nombre: 'Salas Rodrigo',   correo: 'rodrigo.salas@penta.cl', rut: '11.111.111-1', activo: true,  can_approve: true },
-  { id: 'u2', nombre: 'Méndez Carla',    correo: 'carla.mendez@penta.cl',  rut: '12.345.678-k', activo: true,  can_approve: false },
-  { id: 'u3', nombre: 'Pérez Soto Ana',  correo: 'ana.perez@penta.cl',     rut: '22.222.222-2', activo: true,  can_approve: false },
-  { id: 'u4', nombre: 'Pérez Soto Ana',  correo: 'a.perez@penta.cl',       rut: null,           activo: true,  can_approve: false },
-  { id: 'u5', nombre: 'Rojas Inactivo',  correo: 'rojas@penta.cl',         rut: '66.666.666-6', activo: false, can_approve: true },
+  p({ id: 'u1', nombre: 'Salas Rodrigo',  correo: 'rodrigo.salas@penta.cl', rut: '11.111.111-1', can_approve: true }),
+  p({ id: 'u2', nombre: 'Méndez Carla',   correo: 'carla.mendez@penta.cl',  rut: '12.345.678-k' }),
+  p({ id: 'u3', nombre: 'Pérez Soto Ana', correo: 'ana.perez@penta.cl',     rut: '22.222.222-2' }),
+  p({ id: 'u4', nombre: 'Pérez Soto Ana', correo: 'a.perez@penta.cl' }),
+  p({ id: 'u5', nombre: 'Rojas Inactivo', correo: 'rojas@penta.cl', rut: '66.666.666-6', activo: false, can_approve: true }),
 ]
 
 describe('resolverPersona por rut', () => {
@@ -236,7 +237,7 @@ describe('resolverPersona por nombre', () => {
   it('dos personas con el mismo nombre no se eligen: se devuelven ambas', () => {
     const r = resolverPersona('Pérez Soto Ana', PERSONAS, 'nombre')
     expect(r.persona).toBeNull()
-    expect(r.ambiguas.map(p => p.id)).toEqual(['u3', 'u4'])
+    expect(r.ambiguas.map(x => x.id)).toEqual(['u3', 'u4'])
   })
   it('no considera a los inactivos', () => {
     expect(resolverPersona('Rojas Inactivo', PERSONAS, 'nombre').persona).toBeNull()
@@ -261,13 +262,7 @@ describe('resolverAprobador', () => {
 })
 ```
 
-- [ ] **Step 2: Correr y ver que fallan**
-
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
-```
-
-Esperado: FAIL por aserción en las nuevas, con las 11 de la Tarea 1 en verde.
+- [ ] **Step 2: Correr y ver que fallan** — FAIL por aserción, con las 11 de la Tarea 1 en verde.
 
 - [ ] **Step 3: Implementar** — agregar a `src/lib/planilla-alta.ts`:
 
@@ -275,6 +270,8 @@ Esperado: FAIL por aserción en las nuevas, con las 11 de la Tarea 1 en verde.
 export type Persona = {
   id: string; nombre: string; correo: string; rut: string | null
   activo: boolean; can_approve: boolean
+  can_load_bank_transfer: boolean; can_authorize_bank_transfer: boolean
+  approver_l1_id: string | null; approver_l2_id: string | null
 }
 
 // Un valor que coincide con varias NO elige una: devuelve las candidatas para
@@ -291,18 +288,17 @@ export function resolverPersona(
                 : normalizarNombre(valor)
   if (!buscado) return { persona: null, ambiguas: [] }
 
-  const activas = personas.filter(p => p.activo)
-  const coinciden = activas.filter(p =>
-    por === 'rut'    ? p.rut !== null && normalizarRut(p.rut) === buscado
-  : por === 'correo' ? p.correo.trim().toLowerCase() === buscado
-  :                    normalizarNombre(p.nombre) === buscado)
+  const coinciden = personas.filter(x => x.activo).filter(x =>
+    por === 'rut'    ? x.rut !== null && normalizarRut(x.rut) === buscado
+  : por === 'correo' ? x.correo.trim().toLowerCase() === buscado
+  :                    normalizarNombre(x.nombre) === buscado)
 
   if (coinciden.length === 1) return { persona: coinciden[0], ambiguas: [] }
   return { persona: null, ambiguas: coinciden.length > 1 ? coinciden : [] }
 }
 
-// Quien arma la planilla escribe lo que tiene a mano (Daniel, D3): el correo es
-// inequívoco, el nombre es cómodo. Se decide por el arroba.
+// Quien arma la planilla escribe lo que tiene a mano: el correo es inequívoco,
+// el nombre es cómodo. Se decide por el arroba.
 export function resolverAprobador(
   valor: string, personas: Persona[],
 ): { persona: Persona | null; ambiguas: Persona[] } {
@@ -312,13 +308,7 @@ export function resolverAprobador(
 }
 ```
 
-- [ ] **Step 4: Correr y ver que pasan**
-
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
-```
-
-Esperado: PASS (22 pruebas).
+- [ ] **Step 4: Correr y ver que pasan** — PASS (22).
 
 - [ ] **Step 5: Commit**
 
@@ -329,124 +319,208 @@ git commit -m "feat(planilla): resolver a una persona por RUT, correo o nombre"
 
 ---
 
-## Tarea 3: El parche — una celda vacía nunca borra
+## Tarea 3: Resolver el centro de costo
 
 **Files:**
 - Modify: `src/lib/planilla-alta.ts`
 - Test: `src/tests/planilla-alta.test.ts`
 
 **Interfaces:**
-- Consumes: `Persona`, `formatearRut` de las tareas 1 y 2.
+- Consumes: `normalizarNombre` de la Tarea 1.
 - Produces:
 
 ```ts
-export type FilaPlanilla = {
-  nombre: string; rut: string; correo: string
-  n1: string; n2: string
-  banco: string; tipoCuenta: string; numeroCuenta: string
-}
-export type ParcheEmpleado = Partial<{
-  approver_l1_id: string; approver_l2_id: string
-  rut: string
-  bank_name: string; bank_account_type: string; bank_account: string
-}>
-export function parcheDeFila(
-  fila: FilaPlanilla, persona: Persona,
-  n1: Persona | null, n2: Persona | null,
-): ParcheEmpleado
+export type CentroCosto = { id: string; codigo: string; nombre: string }
+export function resolverCentroCosto(
+  valor: string, centros: CentroCosto[],
+): { centro: CentroCosto | null; parecidos: CentroCosto[] }
 ```
 
-- [ ] **Step 1: Escribir las pruebas que fallan** — agregar al final del test:
+- [ ] **Step 1: Escribir las pruebas que fallan** — agregar al test:
 
 ```ts
-import { parcheDeFila, type FilaPlanilla, type ParcheEmpleado } from '@/lib/planilla-alta'
+import { resolverCentroCosto, type CentroCosto } from '@/lib/planilla-alta'
 
-const VACIA: FilaPlanilla = {
-  nombre: '', rut: '', correo: '', n1: '', n2: '',
-  banco: '', tipoCuenta: '', numeroCuenta: '',
-}
-const CON_RUT:    Persona = { id: 'p1', nombre: 'Con Rut',  correo: 'c@p.cl', rut: '11.111.111-1', activo: true, can_approve: false }
-const SIN_RUT:    Persona = { id: 'p2', nombre: 'Sin Rut',  correo: 's@p.cl', rut: null,           activo: true, can_approve: false }
+const CENTROS: CentroCosto[] = [
+  { id: 'c1', codigo: '45103010013', nombre: 'Administración' },
+  { id: 'c2', codigo: '45103010020', nombre: 'Operaciones Norte' },
+  { id: 'c3', codigo: '45103010021', nombre: 'Operaciones Sur' },
+]
 
-describe('parcheDeFila: vacío nunca borra', () => {
-  it('una planilla toda vacía no cambia nada', () => {
-    expect(parcheDeFila(VACIA, CON_RUT, null, null)).toEqual({})
+describe('resolverCentroCosto', () => {
+  it('encuentra por código', () => {
+    expect(resolverCentroCosto('45103010013', CENTROS).centro?.id).toBe('c1')
   })
-
-  it('solo entra lo que viene con valor', () => {
-    const fila = { ...VACIA, banco: 'Banco de Chile', numeroCuenta: '00012345678' }
-    expect(parcheDeFila(fila, CON_RUT, null, null)).toEqual({
-      bank_name: 'Banco de Chile', bank_account: '00012345678',
-    })
+  it('encuentra por nombre, sin tildes ni mayúsculas', () => {
+    expect(resolverCentroCosto('ADMINISTRACION', CENTROS).centro?.id).toBe('c1')
   })
-
-  it('una celda con solo espacios cuenta como vacía', () => {
-    expect(parcheDeFila({ ...VACIA, banco: '   ' }, CON_RUT, null, null)).toEqual({})
+  it('una celda vacía no resuelve nada y no es un error', () => {
+    const r = resolverCentroCosto('  ', CENTROS)
+    expect(r.centro).toBeNull()
+    expect(r.parecidos).toEqual([])
   })
-
-  it('los aprobadores entran por id, no por lo que diga la celda', () => {
-    const fila = { ...VACIA, n1: 'Salas Rodrigo' }
-    const n1: Persona = { id: 'u1', nombre: 'Salas Rodrigo', correo: 'r@p.cl', rut: null, activo: true, can_approve: true }
-    expect(parcheDeFila(fila, CON_RUT, n1, null)).toEqual({ approver_l1_id: 'u1' })
-  })
-
-  it('el RUT se graba solo a quien no lo tenía, y con puntos', () => {
-    const fila = { ...VACIA, rut: '22222222-2' }
-    expect(parcheDeFila(fila, SIN_RUT, null, null)).toEqual({ rut: '22.222.222-2' })
-  })
-
-  it('a quien ya tiene RUT no se le reescribe', () => {
-    const fila = { ...VACIA, rut: '11.111.111-1' }
-    expect(parcheDeFila(fila, CON_RUT, null, null)).toEqual({})
+  // Para que el error diga «¿quisiste decir…?» en vez de solo «no existe»
+  it('sin coincidencia sugiere los parecidos', () => {
+    const r = resolverCentroCosto('Operaciones', CENTROS)
+    expect(r.centro).toBeNull()
+    expect(r.parecidos.map(c => c.id)).toEqual(['c2', 'c3'])
   })
 })
 ```
 
-- [ ] **Step 2: Correr y ver que fallan**
+- [ ] **Step 2: Correr y ver que fallan** — FAIL por aserción.
 
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
+- [ ] **Step 3: Implementar** — agregar a `src/lib/planilla-alta.ts`:
+
+```ts
+export type CentroCosto = { id: string; codigo: string; nombre: string }
+
+// Acepta el código o el nombre. Sin coincidencia exacta, devuelve los que
+// contienen lo escrito, para que el error pueda sugerir en vez de solo negar.
+export function resolverCentroCosto(
+  valor: string, centros: CentroCosto[],
+): { centro: CentroCosto | null; parecidos: CentroCosto[] } {
+  const v = valor.trim()
+  if (!v) return { centro: null, parecidos: [] }
+
+  const porCodigo = centros.find(c => c.codigo.replace(/\./g, '') === v.replace(/\./g, ''))
+  if (porCodigo) return { centro: porCodigo, parecidos: [] }
+
+  const buscado = normalizarNombre(v)
+  const exacto = centros.find(c => normalizarNombre(c.nombre) === buscado)
+  if (exacto) return { centro: exacto, parecidos: [] }
+
+  return {
+    centro: null,
+    parecidos: centros.filter(c => normalizarNombre(c.nombre).includes(buscado)).slice(0, 5),
+  }
+}
 ```
 
-Esperado: FAIL por aserción en las 6 nuevas.
+- [ ] **Step 4: Correr y ver que pasan** — PASS (26).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/planilla-alta.ts src/tests/planilla-alta.test.ts
+git commit -m "feat(planilla): resolver el centro de costo por código o por nombre"
+```
+
+---
+
+## Tarea 4: El parche — una celda vacía nunca borra
+
+**Files:**
+- Modify: `src/lib/planilla-alta.ts`
+- Test: `src/tests/planilla-alta.test.ts`
+
+**Interfaces:**
+- Consumes: `Persona`, `CentroCosto`, `formatearRut`.
+- Produces: `FilaPlanilla`, `ParcheEmpleado`, y
+  `parcheDeFila(fila, persona, n1, n2, centro): ParcheEmpleado`.
+
+- [ ] **Step 1: Escribir las pruebas que fallan** — agregar al test:
+
+```ts
+import { parcheDeFila, type FilaPlanilla } from '@/lib/planilla-alta'
+
+const VACIA: FilaPlanilla = {
+  nombre: '', rut: '', correo: '', cargo: '', centroCosto: '', rol: '',
+  n1: '', n2: '', banco: '', tipoCuenta: '', numeroCuenta: '',
+}
+const CON_RUT = p({ id: 'x1', nombre: 'Con Rut', correo: 'c@p.cl', rut: '11.111.111-1' })
+const SIN_RUT = p({ id: 'x2', nombre: 'Sin Rut', correo: 's@p.cl' })
+
+describe('parcheDeFila: vacío nunca borra', () => {
+  it('una planilla toda vacía no cambia nada', () => {
+    expect(parcheDeFila(VACIA, CON_RUT, null, null, null)).toEqual({})
+  })
+  it('solo entra lo que viene con valor', () => {
+    const fila = { ...VACIA, banco: 'Banco de Chile', numeroCuenta: '00012345678', cargo: 'Jefe de Obra' }
+    expect(parcheDeFila(fila, CON_RUT, null, null, null)).toEqual({
+      bank_name: 'Banco de Chile', bank_account: '00012345678', department: 'Jefe de Obra',
+    })
+  })
+  it('una celda con solo espacios cuenta como vacía', () => {
+    expect(parcheDeFila({ ...VACIA, banco: '   ' }, CON_RUT, null, null, null)).toEqual({})
+  })
+  it('los aprobadores y el centro entran por id, no por lo que diga la celda', () => {
+    const fila = { ...VACIA, n1: 'Salas Rodrigo', centroCosto: 'Administración' }
+    const n1 = p({ id: 'u1', nombre: 'Salas Rodrigo', can_approve: true })
+    const centro: CentroCosto = { id: 'c1', codigo: '45103010013', nombre: 'Administración' }
+    expect(parcheDeFila(fila, CON_RUT, n1, null, centro)).toEqual({
+      approver_l1_id: 'u1', cost_center_id: 'c1',
+    })
+  })
+  it('el RUT se graba solo a quien no lo tenía, y con puntos', () => {
+    expect(parcheDeFila({ ...VACIA, rut: '22222222-2' }, SIN_RUT, null, null, null))
+      .toEqual({ rut: '22.222.222-2' })
+  })
+  it('a quien ya tiene RUT no se le reescribe', () => {
+    expect(parcheDeFila({ ...VACIA, rut: '11.111.111-1' }, CON_RUT, null, null, null)).toEqual({})
+  })
+  // Una planilla de RR.HH. con el nombre escrito distinto no debe renombrar a nadie
+  it('el nombre NUNCA entra al actualizar', () => {
+    expect(parcheDeFila({ ...VACIA, nombre: 'Otro Nombre' }, CON_RUT, null, null, null)).toEqual({})
+  })
+  it('el rol se normaliza a minúsculas', () => {
+    expect(parcheDeFila({ ...VACIA, rol: 'Approver' }, CON_RUT, null, null, null))
+      .toEqual({ role: 'approver' })
+  })
+})
+```
+
+- [ ] **Step 2: Correr y ver que fallan** — FAIL por aserción (8 nuevas).
 
 - [ ] **Step 3: Implementar** — agregar a `src/lib/planilla-alta.ts`:
 
 ```ts
 export type FilaPlanilla = {
   nombre: string; rut: string; correo: string
+  cargo: string; centroCosto: string; rol: string
   n1: string; n2: string
   banco: string; tipoCuenta: string; numeroCuenta: string
 }
 
 // Solo las claves que la fila trae con valor. Una clave ausente y una clave en
 // null son cosas distintas, y acá la segunda no existe: así «vacío nunca borra»
-// (Daniel, D3) lo hace cumplir el tipo y no la disciplina de quien escribe.
+// lo hace cumplir el tipo y no la disciplina de quien escribe.
 export type ParcheEmpleado = Partial<{
   approver_l1_id: string; approver_l2_id: string
-  rut: string
+  rut: string; department: string; cost_center_id: string; role: string
   bank_name: string; bank_account_type: string; bank_account: string
 }>
 
+export const ROLES = ['admin', 'approver', 'employee'] as const
+
+// `persona` es null cuando la fila CREA a alguien: ahí todo el parche entra,
+// incluido el RUT, porque no hay nada previo que respetar. Sin este null, una
+// cuenta nueva nacería sin cargo, sin banco y sin aprobadores.
 export function parcheDeFila(
   fila: FilaPlanilla,
-  persona: Persona,
+  persona: Persona | null,
   n1: Persona | null,
   n2: Persona | null,
+  centro: CentroCosto | null,
 ): ParcheEmpleado {
   const parche: ParcheEmpleado = {}
   const texto = (v: string) => { const t = v.trim(); return t === '' ? null : t }
 
   if (n1) parche.approver_l1_id = n1.id
   if (n2) parche.approver_l2_id = n2.id
+  if (centro) parche.cost_center_id = centro.id
 
   // El RUT identifica: se graba solo a quien no lo tenía, nunca se reescribe.
-  // Cambiarle el RUT a alguien es cambiarle el identificador (ver la spec).
-  if (!persona.rut && texto(fila.rut)) parche.rut = formatearRut(fila.rut)
+  if (!persona?.rut && texto(fila.rut)) parche.rut = formatearRut(fila.rut)
 
+  // `nombre` NO entra: renombrar es otra operación (spec).
+  const cargo  = texto(fila.cargo)
+  const rol    = texto(fila.rol)
   const banco  = texto(fila.banco)
   const tipo   = texto(fila.tipoCuenta)
   const numero = texto(fila.numeroCuenta)
+  if (cargo)  parche.department        = cargo
+  if (rol)    parche.role              = rol.toLowerCase()
   if (banco)  parche.bank_name         = banco
   if (tipo)   parche.bank_account_type = tipo
   if (numero) parche.bank_account      = numero
@@ -455,13 +529,7 @@ export function parcheDeFila(
 }
 ```
 
-- [ ] **Step 4: Correr y ver que pasan**
-
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
-```
-
-Esperado: PASS (28 pruebas).
+- [ ] **Step 4: Correr y ver que pasan** — PASS (34).
 
 - [ ] **Step 5: Commit**
 
@@ -472,151 +540,149 @@ git commit -m "feat(planilla): el parche de una fila, donde una celda vacía nun
 
 ---
 
-## Tarea 4: Resolver la planilla entera
+## Tarea 5: Resolver la planilla entera
 
 **Files:**
 - Modify: `src/lib/planilla-alta.ts`
 - Test: `src/tests/planilla-alta.test.ts`
 
 **Interfaces:**
-- Consumes: todo lo anterior, más `validateRut` de `@/lib/validators` y `validarCadena`
-  de `@/lib/permisos`.
-- Produces:
+- Consumes: todo lo anterior, `validateRut` de `@/lib/validators`, `validarCadena` de
+  `@/lib/permisos`.
+- Produces: `FilaResuelta`, `resolverPlanilla(filas, personas, centros, permisosPorOtorgar?)`,
+  `sinPermisoAprobar(resueltas)`.
 
-```ts
-export type FilaResuelta = {
-  fila: number
-  persona: Persona | null
-  n1: Persona | null; n2: Persona | null
-  correoNuevo: string | null
-  parche: ParcheEmpleado
-  errores: string[]
-}
-export function resolverPlanilla(
-  filas: FilaPlanilla[], personas: Persona[], permisosPorOtorgar?: Set<string>,
-): FilaResuelta[]
-export function sinPermisoAprobar(resueltas: FilaResuelta[]): Persona[]
-```
-
-`validarCadena(empleadoId, { l1, l2, suplenteL1 }, personas)` devuelve `string[]` y pide
-personas con la forma `{ id, nombre, activo, can_approve }` — `Persona` la cumple.
-
-- [ ] **Step 1: Escribir las pruebas que fallan** — agregar al final del test:
+- [ ] **Step 1: Escribir las pruebas que fallan** — agregar al test:
 
 ```ts
 import { resolverPlanilla, sinPermisoAprobar } from '@/lib/planilla-alta'
 
-const fila = (p: Partial<FilaPlanilla>): FilaPlanilla => ({ ...VACIA, ...p })
+const fila = (x: Partial<FilaPlanilla>): FilaPlanilla => ({ ...VACIA, ...x })
+const resolver = (fs: FilaPlanilla[], permisos?: Set<string>) =>
+  resolverPlanilla(fs, PERSONAS, CENTROS, permisos)
 
-describe('resolverPlanilla', () => {
-  it('una fila buena no trae errores y numera desde 1', () => {
-    const [r] = resolverPlanilla([fila({ rut: '11.111.111-1', banco: 'BCI' })], PERSONAS)
-    expect(r.fila).toBe(1)
-    expect(r.errores).toEqual([])
+describe('resolverPlanilla: crear o actualizar', () => {
+  it('un RUT que está en la base actualiza', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', banco: 'BCI' })])
+    expect(r.accion).toBe('actualizar')
     expect(r.persona?.id).toBe('u1')
     expect(r.parche).toEqual({ bank_name: 'BCI' })
+    expect(r.errores).toEqual([])
+  })
+
+  it('un RUT que no está, con nombre y correo, crea', () => {
+    const [r] = resolver([fila({ rut: '99.999.990-5', nombre: 'Nueva Persona', correo: 'nueva@penta.cl' })])
+    expect(r.accion).toBe('crear')
+    expect(r.nuevo).toEqual({ nombre: 'Nueva Persona', correo: 'nueva@penta.cl', rut: '99.999.990-5' })
+    expect(r.errores).toEqual([])
+  })
+
+  // Sin esto una cuenta nueva nacería vacía: sin cargo, sin banco y sin jefe
+  it('al crear, el parche trae TODO lo de la fila', () => {
+    const [r] = resolver([fila({
+      rut: '99.999.990-5', nombre: 'Nueva Persona', correo: 'nueva@penta.cl',
+      cargo: 'Prevencionista', centroCosto: '45103010013',
+      n1: 'rodrigo.salas@penta.cl', banco: 'BCI', numeroCuenta: '123',
+    })])
+    expect(r.accion).toBe('crear')
+    expect(r.parche).toEqual({
+      department: 'Prevencionista', cost_center_id: 'c1',
+      approver_l1_id: 'u1', bank_name: 'BCI', bank_account: '123',
+      rut: '99.999.990-5',
+    })
+  })
+
+  it('crear sin nombre o sin correo es error', () => {
+    const [sinNombre] = resolver([fila({ rut: '99.999.990-5', correo: 'x@penta.cl' })])
+    expect(sinNombre.errores.join(' ')).toContain('nombre y su correo')
+    const [sinCorreo] = resolver([fila({ rut: '99.999.990-5', nombre: 'X' })])
+    expect(sinCorreo.errores.join(' ')).toContain('nombre y su correo')
   })
 
   it('un RUT con el dígito verificador malo no busca a nadie', () => {
-    const [r] = resolverPlanilla([fila({ rut: '11.111.111-9' })], PERSONAS)
+    const [r] = resolver([fila({ rut: '11.111.111-9' })])
     expect(r.errores.join(' ')).toContain('dígito verificador')
   })
 
-  it('un RUT que no está en la base deja la fila fuera', () => {
-    const [r] = resolverPlanilla([fila({ rut: '99.999.990-5' })], PERSONAS)
-    expect(r.persona).toBeNull()
-    expect(r.errores.join(' ')).toContain('Ningún empleado')
-  })
-
-  it('si el RUT no está, el correo lo encuentra igual', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '99.999.990-5', correo: 'rodrigo.salas@penta.cl' })], PERSONAS)
-    expect(r.persona?.id).toBe('u1')
+  it('si el RUT no está, el correo lo encuentra igual y actualiza', () => {
+    const [r] = resolver([fila({ rut: '99.999.990-5', correo: 'a.perez@penta.cl' })])
+    expect(r.accion).toBe('actualizar')
+    expect(r.persona?.id).toBe('u4')
+    expect(r.parche.rut).toBe('99.999.990-5')   // u4 no tenía RUT: se le graba
   })
 
   it('una persona con OTRO rut es error, no una corrección', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '99.999.990-5', correo: 'carla.mendez@penta.cl' })], PERSONAS)
+    const [r] = resolver([fila({ rut: '99.999.990-5', correo: 'carla.mendez@penta.cl' })])
     expect(r.errores.join(' ')).toContain('otro RUT')
   })
 
   it('un aprobador ambiguo nombra a las candidatas', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '11.111.111-1', n1: 'Pérez Soto Ana' })], PERSONAS)
+    const [r] = resolver([fila({ rut: '11.111.111-1', n1: 'Pérez Soto Ana' })])
     expect(r.errores.join(' ')).toContain('coincide con 2 personas')
   })
 
+  it('un centro de costo que no existe sugiere los parecidos', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', centroCosto: 'Operaciones' })])
+    expect(r.errores.join(' ')).toContain('Operaciones Norte')
+  })
+
+  it('un rol desconocido es error', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', rol: 'jefazo' })])
+    expect(r.errores.join(' ')).toContain('Rol')
+  })
+
   it('un aprobador sin el permiso «aprueba» da error…', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' })], PERSONAS)
+    const [r] = resolver([fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' })])
     expect(r.errores.join(' ')).toContain('aprueba')
   })
 
   it('…y deja de darlo cuando su permiso está por otorgarse', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' })], PERSONAS, new Set(['u2']))
+    const [r] = resolver([fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' })], new Set(['u2']))
     expect(r.errores).toEqual([])
     expect(r.parche.approver_l1_id).toBe('u2')
   })
 
   it('una fila mala no contamina a las buenas', () => {
-    const rs = resolverPlanilla([
-      fila({ rut: '99.999.990-5' }),
-      fila({ rut: '11.111.111-1', banco: 'BCI' }),
-    ], PERSONAS)
+    const rs = resolver([fila({ rut: '11.111.111-9' }), fila({ rut: '11.111.111-1', banco: 'BCI' })])
     expect(rs[0].errores.length).toBeGreaterThan(0)
     expect(rs[1].errores).toEqual([])
   })
 
   it('el mismo RUT en dos filas marca las dos', () => {
-    const rs = resolverPlanilla([
-      fila({ rut: '11.111.111-1' }), fila({ rut: '11111111-1' }),
-    ], PERSONAS)
+    const rs = resolver([fila({ rut: '11.111.111-1' }), fila({ rut: '11111111-1' })])
     expect(rs[0].errores.join(' ')).toContain('Dos filas')
     expect(rs[1].errores.join(' ')).toContain('Dos filas')
   })
 
   it('un correo distinto del actual se marca como cambio de acceso', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '11.111.111-1', correo: 'nuevo@penta.cl' })], PERSONAS)
+    const [r] = resolver([fila({ rut: '11.111.111-1', correo: 'nuevo@penta.cl' })])
     expect(r.correoNuevo).toBe('nuevo@penta.cl')
     expect(r.errores).toEqual([])
   })
 
   it('un correo que ya usa otra persona es error', () => {
-    const [r] = resolverPlanilla(
-      [fila({ rut: '11.111.111-1', correo: 'carla.mendez@penta.cl' })], PERSONAS)
+    const [r] = resolver([fila({ rut: '11.111.111-1', correo: 'carla.mendez@penta.cl' })])
     expect(r.errores.join(' ')).toContain('ya lo usa')
   })
 
-  it('el mismo correo nuevo en dos filas marca las dos', () => {
-    const rs = resolverPlanilla([
-      fila({ rut: '11.111.111-1', correo: 'nuevo@penta.cl' }),
-      fila({ rut: '12.345.678-k', correo: 'nuevo@penta.cl' }),
-    ], PERSONAS)
-    expect(rs[0].errores.join(' ')).toContain('Dos filas')
-    expect(rs[1].errores.join(' ')).toContain('Dos filas')
+  it('una fila sin nada que cambiar no hace nada', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1' })])
+    expect(r.accion).toBe('ninguna')
   })
 })
 
 describe('sinPermisoAprobar', () => {
   it('junta a los aprobadores sin permiso, sin repetirlos', () => {
-    const rs = resolverPlanilla([
+    const rs = resolver([
       fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' }),
       fila({ rut: '22.222.222-2', n1: 'carla.mendez@penta.cl' }),
-    ], PERSONAS)
-    expect(sinPermisoAprobar(rs).map(p => p.id)).toEqual(['u2'])
+    ])
+    expect(sinPermisoAprobar(rs).map(x => x.id)).toEqual(['u2'])
   })
 })
 ```
 
-- [ ] **Step 2: Correr y ver que fallan**
-
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
-```
-
-Esperado: FAIL por aserción en las 14 nuevas.
+- [ ] **Step 2: Correr y ver que fallan** — FAIL por aserción (17 nuevas).
 
 - [ ] **Step 3: Implementar** — agregar a `src/lib/planilla-alta.ts`:
 
@@ -626,10 +692,12 @@ import { validarCadena } from '@/lib/permisos'
 
 export type FilaResuelta = {
   fila: number
+  accion: 'crear' | 'actualizar' | 'ninguna'
   persona: Persona | null
   n1: Persona | null; n2: Persona | null
   correoNuevo: string | null
   parche: ParcheEmpleado
+  nuevo: { nombre: string; correo: string; rut: string } | null
   errores: string[]
 }
 
@@ -638,6 +706,7 @@ export type FilaResuelta = {
 export function resolverPlanilla(
   filas: FilaPlanilla[],
   personas: Persona[],
+  centros: CentroCosto[],
   permisosPorOtorgar: Set<string> = new Set(),
 ): FilaResuelta[] {
   // Los duplicados DENTRO de la planilla se cuentan primero: una fila no puede
@@ -645,27 +714,26 @@ export function resolverPlanilla(
   const vecesRut    = new Map<string, number>()
   const vecesCorreo = new Map<string, number>()
   for (const f of filas) {
-    const r = normalizarRut(f.rut)
-    if (r) vecesRut.set(r, (vecesRut.get(r) ?? 0) + 1)
-    const c = f.correo.trim().toLowerCase()
-    if (c) vecesCorreo.set(c, (vecesCorreo.get(c) ?? 0) + 1)
+    const r = normalizarRut(f.rut); if (r) vecesRut.set(r, (vecesRut.get(r) ?? 0) + 1)
+    const c = f.correo.trim().toLowerCase(); if (c) vecesCorreo.set(c, (vecesCorreo.get(c) ?? 0) + 1)
   }
 
-  // Para validarCadena: un permiso por otorgar ya cuenta como dado, así el
-  // botón «Darles el permiso» saca las filas del error sin volver a subir nada.
-  const conPermisos = personas.map(p =>
-    permisosPorOtorgar.has(p.id) ? { ...p, can_approve: true } : p)
+  // Un permiso por otorgar ya cuenta como dado: así el botón «Darles el
+  // permiso» saca las filas del error sin volver a subir el archivo.
+  const conPermisos = personas.map(x =>
+    permisosPorOtorgar.has(x.id) ? { ...x, can_approve: true } : x)
 
   return filas.map((f, i) => {
     const errores: string[] = []
-    const rutNorm   = normalizarRut(f.rut)
-    const correo    = f.correo.trim().toLowerCase()
+    const rutNorm = normalizarRut(f.rut)
+    const correo  = f.correo.trim().toLowerCase()
 
     if (rutNorm && vecesRut.get(rutNorm)! > 1)   errores.push('Dos filas traen el mismo RUT')
     if (correo  && vecesCorreo.get(correo)! > 1) errores.push('Dos filas traen el mismo correo')
 
     // ── A quién le escribimos ────────────────────────────────────────────────
     let persona: Persona | null = null
+    let crear = false
     if (!f.rut.trim()) {
       errores.push('Falta el RUT, que es lo que identifica a la persona')
     } else if (!validateRut(f.rut)) {
@@ -673,41 +741,54 @@ export function resolverPlanilla(
     } else {
       const porRut = resolverPersona(f.rut, conPermisos, 'rut')
       if (porRut.ambiguas.length > 1) {
-        errores.push(`Ese RUT lo tienen ${porRut.ambiguas.length} personas: ${porRut.ambiguas.map(p => p.nombre).join(', ')}`)
+        errores.push(`Ese RUT lo tienen ${porRut.ambiguas.length} personas: ${porRut.ambiguas.map(x => x.nombre).join(', ')}`)
       } else if (porRut.persona) {
         persona = porRut.persona
       } else if (correo) {
-        // Respaldo para las 2 personas que todavía no tienen RUT cargado
         const porCorreo = resolverPersona(correo, conPermisos, 'correo')
-        if (porCorreo.persona && porCorreo.persona.rut
-            && normalizarRut(porCorreo.persona.rut) !== rutNorm) {
+        if (porCorreo.persona?.rut && normalizarRut(porCorreo.persona.rut) !== rutNorm) {
           errores.push(`${porCorreo.persona.nombre} está registrada con otro RUT (${porCorreo.persona.rut})`)
         } else if (porCorreo.persona) {
           persona = porCorreo.persona
+        } else {
+          crear = true
         }
+      } else {
+        crear = true
       }
-      if (!persona && !errores.some(e => e.includes('otro RUT') || e.includes('Ese RUT'))) {
-        errores.push('Ningún empleado tiene ese RUT, y el correo tampoco está en la base')
+      if (crear && (!f.nombre.trim() || !correo)) {
+        errores.push('Para crear a alguien hacen falta su nombre y su correo')
       }
     }
 
-    // ── Los aprobadores ──────────────────────────────────────────────────────
+    // ── Aprobadores, centro y rol ────────────────────────────────────────────
     const r1 = resolverAprobador(f.n1, conPermisos)
     const r2 = resolverAprobador(f.n2, conPermisos)
     for (const [celda, r, rol] of [[f.n1, r1, 'N1'], [f.n2, r2, 'N2']] as const) {
       if (!celda.trim()) continue
       if (r.ambiguas.length > 1) {
-        errores.push(`El aprobador ${rol} "${celda.trim()}" coincide con ${r.ambiguas.length} personas: ${r.ambiguas.map(p => p.nombre).join(', ')}`)
+        errores.push(`El aprobador ${rol} "${celda.trim()}" coincide con ${r.ambiguas.length} personas: ${r.ambiguas.map(x => x.nombre).join(', ')}`)
       } else if (!r.persona) {
         errores.push(`No se encontró al aprobador ${rol} "${celda.trim()}"`)
       }
     }
 
+    const rc = resolverCentroCosto(f.centroCosto, centros)
+    if (f.centroCosto.trim() && !rc.centro) {
+      errores.push(rc.parecidos.length
+        ? `No existe el centro de costo "${f.centroCosto.trim()}". ¿Quisiste decir ${rc.parecidos.map(c => c.nombre).join(', ')}?`
+        : `No existe el centro de costo "${f.centroCosto.trim()}"`)
+    }
+
+    const rol = f.rol.trim().toLowerCase()
+    if (rol && !(ROLES as readonly string[]).includes(rol)) {
+      errores.push(`Rol "${f.rol.trim()}" desconocido: usa admin, approver o employee`)
+    }
+
     // ── El correo nuevo ──────────────────────────────────────────────────────
     let correoNuevo: string | null = null
     if (persona && correo && correo !== persona.correo.trim().toLowerCase()) {
-      const dueño = conPermisos.find(p =>
-        p.id !== persona!.id && p.correo.trim().toLowerCase() === correo)
+      const dueño = conPermisos.find(x => x.id !== persona!.id && x.correo.trim().toLowerCase() === correo)
       if (dueño) errores.push(`Ese correo ya lo usa ${dueño.nombre}`)
       else       correoNuevo = correo
     }
@@ -721,12 +802,21 @@ export function resolverPlanilla(
       ))
     }
 
+    // Al crear se arma igual, con persona = null: la cuenta nueva necesita su
+    // cargo, su banco y sus aprobadores desde el primer momento.
+    const parche = (persona || crear)
+      ? parcheDeFila(f, persona, r1.persona, r2.persona, rc.centro)
+      : {}
+    const accion: FilaResuelta['accion'] =
+      crear ? 'crear'
+    : persona && (Object.keys(parche).length > 0 || correoNuevo) ? 'actualizar'
+    : 'ninguna'
+
     return {
-      fila: i + 1,
-      persona,
+      fila: i + 1, accion, persona,
       n1: r1.persona, n2: r2.persona,
-      correoNuevo,
-      parche: persona ? parcheDeFila(f, persona, r1.persona, r2.persona) : {},
+      correoNuevo, parche,
+      nuevo: crear ? { nombre: f.nombre.trim(), correo, rut: formatearRut(f.rut) } : null,
       errores,
     }
   })
@@ -736,60 +826,245 @@ export function resolverPlanilla(
 export function sinPermisoAprobar(resueltas: FilaResuelta[]): Persona[] {
   const vistos = new Map<string, Persona>()
   for (const r of resueltas) {
-    for (const p of [r.n1, r.n2]) {
-      if (p && !p.can_approve && !vistos.has(p.id)) vistos.set(p.id, p)
+    for (const x of [r.n1, r.n2]) {
+      if (x && !x.can_approve && !vistos.has(x.id)) vistos.set(x.id, x)
     }
   }
   return [...vistos.values()]
 }
 ```
 
-- [ ] **Step 4: Correr y ver que pasan**
-
-```bash
-npx vitest run src/tests/planilla-alta.test.ts
-```
-
-Esperado: PASS (42 pruebas). Si alguna falla por el **texto** de un error, ajustar el
-texto del mensaje, no la prueba: el mensaje es lo que lee quien corrige el Excel.
+- [ ] **Step 4: Correr y ver que pasan** — PASS (52). Si alguna falla por el **texto** de
+  un error, ajustar el mensaje, no la prueba: el mensaje es lo que lee quien corrige el Excel.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/lib/planilla-alta.ts src/tests/planilla-alta.test.ts
-git commit -m "feat(planilla): resolver la planilla entera, con los errores por fila"
+git commit -m "feat(planilla): resolver la planilla entera, creando o actualizando"
 ```
 
 ---
 
-## Tarea 5: Extraer las reglas de la cadena
+## Tarea 6: Las alertas de segregación
 
-Refactor **sin cambio de comportamiento**: hoy las reglas de la cadena viven dentro de
-`setEmployeeApprovalChain`. Si la planilla las copia, pasan a existir en dos sitios y el
-día que cambien se desincronizan.
+No bloquean: en una empresa chica pueden ser deliberadas. Se calculan sobre el estado
+**resultante** — la base más lo que la planilla va a escribir.
+
+**Files:**
+- Create: `src/lib/segregacion.ts`
+- Test: `src/tests/segregacion.test.ts`
+
+**Interfaces:**
+- Consumes: `Persona`, `FilaResuelta` de `@/lib/planilla-alta`.
+- Produces:
+
+```ts
+export type Alerta = { tipo: 'banco' | 'circular' | 'concentracion'; texto: string; personas: string[] }
+export function alertasDeSegregacion(
+  personas: Persona[], resueltas: FilaResuelta[], topeACargo?: number,
+): Alerta[]
+```
+
+- [ ] **Step 1: Escribir las pruebas que fallan** en `src/tests/segregacion.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest'
+import { alertasDeSegregacion } from '@/lib/segregacion'
+import type { Persona, FilaResuelta } from '@/lib/planilla-alta'
+
+const p = (x: Partial<Persona> & { id: string }): Persona => ({
+  nombre: x.id, correo: '', rut: null, activo: true, can_approve: false,
+  can_load_bank_transfer: false, can_authorize_bank_transfer: false,
+  approver_l1_id: null, approver_l2_id: null,
+  ...x,
+})
+const r = (x: Partial<FilaResuelta>): FilaResuelta => ({
+  fila: 1, accion: 'actualizar', persona: null, n1: null, n2: null,
+  correoNuevo: null, parche: {}, nuevo: null, errores: [],
+  ...x,
+})
+
+describe('alertasDeSegregacion', () => {
+  it('sin nada que alertar, no alerta', () => {
+    expect(alertasDeSegregacion([p({ id: 'a' }), p({ id: 'b' })], [])).toEqual([])
+  })
+
+  it('avisa de quien carga Y autoriza pagos', () => {
+    const personas = [p({ id: 'a', nombre: 'Ana', can_load_bank_transfer: true, can_authorize_bank_transfer: true })]
+    const as = alertasDeSegregacion(personas, [])
+    expect(as).toHaveLength(1)
+    expect(as[0].tipo).toBe('banco')
+    expect(as[0].personas).toEqual(['Ana'])
+  })
+
+  it('no avisa de quien tiene solo uno de los dos permisos', () => {
+    const personas = [p({ id: 'a', can_load_bank_transfer: true })]
+    expect(alertasDeSegregacion(personas, [])).toEqual([])
+  })
+
+  it('detecta a dos que ya se aprueban mutuamente en la base', () => {
+    const personas = [
+      p({ id: 'a', nombre: 'Ana',  approver_l1_id: 'b' }),
+      p({ id: 'b', nombre: 'Beto', approver_l1_id: 'a' }),
+    ]
+    const as = alertasDeSegregacion(personas, [])
+    expect(as.map(x => x.tipo)).toEqual(['circular'])
+    expect(as[0].personas.sort()).toEqual(['Ana', 'Beto'])
+  })
+
+  // Lo que la base sola no ve: el otro lado del círculo lo trae la planilla
+  it('detecta la circular que crea la propia planilla', () => {
+    const personas = [p({ id: 'a', nombre: 'Ana' }), p({ id: 'b', nombre: 'Beto', approver_l1_id: 'a' })]
+    const resueltas = [r({ persona: personas[0], parche: { approver_l1_id: 'b' } })]
+    expect(alertasDeSegregacion(personas, resueltas).map(x => x.tipo)).toEqual(['circular'])
+  })
+
+  it('no reporta el mismo par dos veces', () => {
+    const personas = [
+      p({ id: 'a', nombre: 'Ana',  approver_l1_id: 'b' }),
+      p({ id: 'b', nombre: 'Beto', approver_l1_id: 'a' }),
+    ]
+    expect(alertasDeSegregacion(personas, [])).toHaveLength(1)
+  })
+
+  it('avisa cuando un N1 queda con demasiada gente', () => {
+    const jefe = p({ id: 'j', nombre: 'Jefa' })
+    const gente = Array.from({ length: 4 }, (_, i) => p({ id: `e${i}`, approver_l1_id: 'j' }))
+    const as = alertasDeSegregacion([jefe, ...gente], [], 3)
+    expect(as.map(x => x.tipo)).toEqual(['concentracion'])
+    expect(as[0].texto).toContain('4')
+  })
+
+  it('no avisa justo en el tope', () => {
+    const jefe = p({ id: 'j', nombre: 'Jefa' })
+    const gente = Array.from({ length: 3 }, (_, i) => p({ id: `e${i}`, approver_l1_id: 'j' }))
+    expect(alertasDeSegregacion([jefe, ...gente], [], 3)).toEqual([])
+  })
+})
+```
+
+- [ ] **Step 2: Correr y ver que falla por importación**
+
+```bash
+npx vitest run src/tests/segregacion.test.ts
+```
+
+- [ ] **Step 3: Crear `src/lib/segregacion.ts`**
+
+```ts
+// Las alertas de segregación de funciones. NO bloquean: en una empresa chica
+// pueden ser deliberadas (Daniel, 2026-10-01). Se calculan sobre el estado
+// RESULTANTE — la base más lo que la planilla va a escribir —, porque el
+// problema puede nacer justo de la carga.
+//
+// Los permisos bancarios NO son columnas de la planilla: se leen de la base.
+// Es la forma de dar visibilidad sobre la segregación sin repartir esos
+// permisos desde un Excel.
+
+import type { Persona, FilaResuelta } from '@/lib/planilla-alta'
+
+export type Alerta = {
+  tipo: 'banco' | 'circular' | 'concentracion'
+  texto: string
+  personas: string[]
+}
+
+const TOPE_A_CARGO = 15
+
+export function alertasDeSegregacion(
+  personas: Persona[],
+  resueltas: FilaResuelta[],
+  topeACargo: number = TOPE_A_CARGO,
+): Alerta[] {
+  const alertas: Alerta[] = []
+  const nombre = (id: string) => personas.find(x => x.id === id)?.nombre ?? id
+
+  // El estado resultante: la cadena de cada quien, ya con el parche encima.
+  const l1 = new Map<string, string | null>()
+  const l2 = new Map<string, string | null>()
+  for (const x of personas) { l1.set(x.id, x.approver_l1_id); l2.set(x.id, x.approver_l2_id) }
+  for (const r of resueltas) {
+    if (!r.persona || r.errores.length) continue
+    if (r.parche.approver_l1_id) l1.set(r.persona.id, r.parche.approver_l1_id)
+    if (r.parche.approver_l2_id) l2.set(r.persona.id, r.parche.approver_l2_id)
+  }
+
+  // 1. Carga Y autoriza pagos. La app impide usar ambas en el MISMO pago
+  //    («quien cargó no autoriza»), pero tener las dos es lo que marca un auditor.
+  const banco = personas.filter(x =>
+    x.activo && x.can_load_bank_transfer && x.can_authorize_bank_transfer)
+  for (const x of banco) {
+    alertas.push({
+      tipo: 'banco',
+      texto: `${x.nombre} puede cargar y autorizar pagos`,
+      personas: [x.nombre],
+    })
+  }
+
+  // 2. Se aprueban mutuamente: ninguno tiene supervisión real. validarCadena no
+  //    lo ve, porque mira la cadena de una persona a la vez y nunca el conjunto.
+  const pares = new Set<string>()
+  for (const [id] of l1) {
+    for (const quien of [l1.get(id), l2.get(id)]) {
+      if (!quien) continue
+      if (l1.get(quien) === id || l2.get(quien) === id) {
+        const par = [id, quien].sort().join('|')
+        if (pares.has(par)) continue
+        pares.add(par)
+        alertas.push({
+          tipo: 'circular',
+          texto: `${nombre(id)} y ${nombre(quien)} se aprueban mutuamente`,
+          personas: [nombre(id), nombre(quien)].sort(),
+        })
+      }
+    }
+  }
+
+  // 3. Cuello de botella y punto único de falla.
+  const aCargo = new Map<string, number>()
+  for (const [, jefe] of l1) {
+    if (jefe) aCargo.set(jefe, (aCargo.get(jefe) ?? 0) + 1)
+  }
+  for (const [jefe, cuantos] of aCargo) {
+    if (cuantos > topeACargo) {
+      alertas.push({
+        tipo: 'concentracion',
+        texto: `${nombre(jefe)} queda como aprobador N1 de ${cuantos} personas`,
+        personas: [nombre(jefe)],
+      })
+    }
+  }
+
+  return alertas
+}
+```
+
+- [ ] **Step 4: Correr y ver que pasan** — `npx vitest run src/tests/segregacion.test.ts`. Esperado: PASS (8).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/segregacion.ts src/tests/segregacion.test.ts
+git commit -m "feat(planilla): alertas de segregación de funciones sobre el resultado"
+```
+
+---
+
+## Tarea 7: Extraer las reglas de la cadena
+
+Refactor **sin cambio de comportamiento**: hoy las reglas viven dentro de
+`setEmployeeApprovalChain`. Si la planilla las copia, pasan a existir en dos sitios.
 
 **Files:**
 - Create: `src/lib/cadena-aprobacion.ts`
 - Modify: `src/actions/admin.ts` — `setEmployeeApprovalChain()`
+- Test: `src/tests/cadena-aprobacion.test.ts`
 
 **Interfaces:**
-- Consumes: `validarCadena` de `@/lib/permisos`, `cargarPersonas` de
-  `@/lib/contexto-permisos`.
-- Produces:
-
-```ts
-export type Cadena = {
-  l1: string | null; l2: string | null
-  suplenteL1: string | null
-  suplenteDesde: string | null; suplenteHasta: string | null
-}
-export function erroresDeCadena(empleadoId: string, cadena: Cadena, personas: Persona[]): string[]
-export function camposDeCadena(cadena: Cadena): {
-  approver_l1_id: string | null; approver_l2_id: string | null
-  approver_l1_backup_id: string | null
-  backup_active_from: string | null; backup_active_until: string | null
-}
-```
+- Consumes: `validarCadena` de `@/lib/permisos`.
+- Produces: `Cadena`, `erroresDeCadena(empleadoId, cadena, personas): string[]`,
+  `camposDeCadena(cadena)`.
 
 - [ ] **Step 1: Escribir las pruebas que fallan** en `src/tests/cadena-aprobacion.test.ts`:
 
@@ -831,10 +1106,6 @@ describe('camposDeCadena', () => {
 ```
 
 - [ ] **Step 2: Correr y ver que falla por importación**
-
-```bash
-npx vitest run src/tests/cadena-aprobacion.test.ts
-```
 
 - [ ] **Step 3: Crear `src/lib/cadena-aprobacion.ts`**
 
@@ -893,24 +1164,17 @@ export function camposDeCadena(cadena: Cadena) {
   const nuevo = camposDeCadena(chain)
 ```
 
-  Y agregar el import al principio del archivo:
+  Y agregar el import:
 
 ```ts
 import { erroresDeCadena, camposDeCadena } from '@/lib/cadena-aprobacion'
 ```
 
-  `validarCadena` puede quedar importado si `admin.ts` lo usa en otro lado; si el lint
-  avisa que ya no se usa, quitarlo del import.
+  Si el lint avisa que `validarCadena` ya no se usa en `admin.ts`, quitarlo del import.
 
-- [ ] **Step 5: Correr todo y comprobar que nada se rompió**
-
-```bash
-npx vitest run
-npx tsc --noEmit -p .
-```
-
-Esperado: 46 pruebas (42 + 4), typecheck limpio. **Ninguna prueba existente debe cambiar**:
-es un refactor, no un cambio de comportamiento.
+- [ ] **Step 5: Correr todo** — `npx vitest run` y `npx tsc --noEmit -p .`. Esperado: 63
+  pruebas (52 + 8 + 4), typecheck limpio. **Ninguna prueba existente debe cambiar**: es un
+  refactor, no un cambio de comportamiento.
 
 - [ ] **Step 6: Commit**
 
@@ -921,55 +1185,64 @@ git commit -m "refactor(cadena): las reglas de la cadena de aprobación, en un s
 
 ---
 
-## Tarea 6: Las acciones del servidor
+## Tarea 8: Las acciones del servidor
 
 **Files:**
 - Modify: `src/actions/employees.ts`
 
 **Interfaces:**
-- Consumes: `resolverPlanilla`, `sinPermisoAprobar`, `FilaPlanilla`, `Persona` de
+- Consumes: `resolverPlanilla`, `FilaPlanilla`, `Persona`, `CentroCosto` de
   `@/lib/planilla-alta`; `requireAdmin`, `createAdminClient`, `logAudit` como ya los usa
   el archivo.
 - Produces (las tres `async`, como exige Next 16):
 
 ```ts
-export async function personasParaPlanilla(): Promise<Persona[]>
+export async function datosParaPlanilla(): Promise<{ personas: Persona[]; centros: CentroCosto[] }>
 export async function otorgarPermisoAprobar(ids: string[]): Promise<{ ok: number; errores: string[] }>
 export async function cargarPlanillaAlta(filas: FilaPlanilla[]): Promise<{
-  cargadas: number
+  creadas: number; actualizadas: number
   fallidas: { fila: number; nombre: string; motivo: string }[]
 }>
 ```
 
-- [ ] **Step 1: `personasParaPlanilla()`**
+- [ ] **Step 1: `datosParaPlanilla()`**
 
 ```ts
 // El correo vive en auth.users, no en public.users: hay que cruzarlos. Acá SÍ
 // conviene un listUsers único —son 57 y los necesitamos todos para resolver
 // aprobadores por correo—, al revés que en los avisos, donde se busca uno solo.
-export async function personasParaPlanilla(): Promise<Persona[]> {
+export async function datosParaPlanilla() {
   const { orgId } = await requireAdmin()
   const admin = createAdminClient()
 
-  const { data: filas, error } = await admin
-    .from('users')
-    .select('id, full_name, rut, is_active, blocked_at, deleted_at, can_approve')
-    .eq('org_id', orgId)
-  if (error) throw new Error(error.message)
+  const [{ data: filas, error }, { data: ccs, error: errorCc }] = await Promise.all([
+    admin.from('users')
+      .select('id, full_name, rut, is_active, blocked_at, deleted_at, can_approve, can_load_bank_transfer, can_authorize_bank_transfer, approver_l1_id, approver_l2_id')
+      .eq('org_id', orgId),
+    admin.from('cost_centers').select('id, code, name').eq('org_id', orgId),
+  ])
+  if (error)   throw new Error(error.message)
+  if (errorCc) throw new Error(errorCc.message)
 
   const { data: auth } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const correos = new Map((auth?.users ?? []).map(u => [u.id, u.email ?? '']))
 
-  return (filas ?? []).map(u => ({
-    id:          u.id,
-    nombre:      u.full_name ?? '',
-    correo:      correos.get(u.id) ?? '',
-    rut:         u.rut,
-    activo:      u.is_active && !u.blocked_at && !u.deleted_at,
-    can_approve: u.can_approve,
-  }))
+  return {
+    personas: (filas ?? []).map(u => ({
+      id: u.id, nombre: u.full_name ?? '', correo: correos.get(u.id) ?? '', rut: u.rut,
+      activo: u.is_active && !u.blocked_at && !u.deleted_at,
+      can_approve: u.can_approve,
+      can_load_bank_transfer: u.can_load_bank_transfer,
+      can_authorize_bank_transfer: u.can_authorize_bank_transfer,
+      approver_l1_id: u.approver_l1_id, approver_l2_id: u.approver_l2_id,
+    })),
+    centros: (ccs ?? []).map(c => ({ id: c.id, codigo: c.code, nombre: c.name })),
+  }
 }
 ```
+
+  Si los nombres de columna de `cost_centers` no son `code` / `name`, mirarlos primero con
+  `select *` y ajustar el mapeo — no adivinar.
 
 - [ ] **Step 2: `otorgarPermisoAprobar()`**
 
@@ -1001,7 +1274,6 @@ export async function otorgarPermisoAprobar(ids: string[]) {
     })
     ok++
   }
-
   revalidatePath('/admin/employees')
   return { ok, errores }
 }
@@ -1015,50 +1287,75 @@ export async function otorgarPermisoAprobar(ids: string[]) {
 // idempotente — volver a subir la misma planilla deja el mismo estado (spec).
 export async function cargarPlanillaAlta(filas: FilaPlanilla[]) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
-  const admin    = createAdminClient()
-  const personas = await personasParaPlanilla()
-  const resueltas = resolverPlanilla(filas, personas)
+  const admin = createAdminClient()
+  const { personas, centros } = await datosParaPlanilla()
+  const resueltas = resolverPlanilla(filas, personas, centros)
 
   const fallidas: { fila: number; nombre: string; motivo: string }[] = []
-  let cargadas = 0
+  let creadas = 0, actualizadas = 0
 
   for (const r of resueltas) {
-    const quien = r.persona?.nombre ?? `fila ${r.fila}`
-    if (r.errores.length || !r.persona) {
+    const quien = r.persona?.nombre ?? r.nuevo?.nombre ?? `fila ${r.fila}`
+    if (r.errores.length) {
       fallidas.push({ fila: r.fila, nombre: quien, motivo: r.errores.join('. ') })
       continue
     }
-    if (Object.keys(r.parche).length === 0 && !r.correoNuevo) continue
+    if (r.accion === 'ninguna') continue
 
     try {
+      if (r.accion === 'crear' && r.nuevo) {
+        const { data: creado, error: errAuth } = await admin.auth.admin.createUser({
+          email: r.nuevo.correo, email_confirm: false,
+        })
+        if (errAuth || !creado?.user) throw new Error(errAuth?.message ?? 'no se pudo crear la cuenta')
+
+        const { error: errFila } = await admin.from('users').insert({
+          id: creado.user.id, org_id: orgId,
+          full_name: r.nuevo.nombre, rut: r.nuevo.rut,
+          role: r.parche.role ?? 'employee', can_submit: true,
+          ...r.parche,
+        })
+        if (errFila) {
+          // Sin esto queda una cuenta de Auth sin perfil, que nadie puede
+          // arreglar desde la app.
+          await admin.auth.admin.deleteUser(creado.user.id)
+          throw new Error(errFila.message)
+        }
+        await logAudit({
+          orgId, actorId, actorName,
+          action: 'created', entityType: 'user', entityId: creado.user.id,
+          entityLabel: r.nuevo.nombre, newValue: { ...r.nuevo, ...r.parche },
+        })
+        creadas++
+        continue
+      }
+
       if (Object.keys(r.parche).length > 0) {
         const { data, error } = await supabase
           .from('users').update(r.parche)
-          .eq('id', r.persona.id).eq('org_id', orgId).select('id')
+          .eq('id', r.persona!.id).eq('org_id', orgId).select('id')
         if (error || !data?.length) throw new Error(error?.message ?? 'no se pudo guardar')
       }
-
       if (r.correoNuevo) {
         const { error } = await admin.auth.admin.updateUserById(
-          r.persona.id, { email: r.correoNuevo, email_confirm: true })
+          r.persona!.id, { email: r.correoNuevo, email_confirm: true })
         if (error) throw new Error(`correo: ${error.message}`)
       }
-
       await logAudit({
         orgId, actorId, actorName,
-        action: 'config_changed', entityType: 'user', entityId: r.persona.id,
+        action: 'config_changed', entityType: 'user', entityId: r.persona!.id,
         entityLabel: quien,
-        oldValue: { correo: r.persona.correo, rut: r.persona.rut },
+        oldValue: { correo: r.persona!.correo, rut: r.persona!.rut },
         newValue: { ...r.parche, ...(r.correoNuevo ? { correo: r.correoNuevo } : {}) },
       })
-      cargadas++
+      actualizadas++
     } catch (e) {
       fallidas.push({ fila: r.fila, nombre: quien, motivo: String(e instanceof Error ? e.message : e) })
     }
   }
 
   revalidatePath('/admin/employees')
-  return { cargadas, fallidas }
+  return { creadas, actualizadas, fallidas }
 }
 ```
 
@@ -1066,11 +1363,8 @@ export async function cargarPlanillaAlta(filas: FilaPlanilla[]) {
 
 ```bash
 npx tsc --noEmit -p .
-npx eslint src/actions/employees.ts src/lib/planilla-alta.ts src/lib/cadena-aprobacion.ts
+npx eslint src/actions/employees.ts src/lib/planilla-alta.ts src/lib/segregacion.ts src/lib/cadena-aprobacion.ts
 ```
-
-Esperado: ambos limpios. Si `tsc` se queja de `r.parche` contra el tipo de `users`,
-castear el valor como ya hace el resto del archivo (`as never` solo donde haga falta).
 
 - [ ] **Step 5: Commit**
 
@@ -1081,128 +1375,133 @@ git commit -m "feat(planilla): las acciones que cargan la planilla y otorgan el 
 
 ---
 
-## Tarea 7: La pantalla
-
-La vista previa está aprobada: https://claude.ai/artifact/J93gJ35kXJkvCZ1EvCE1sk — el
-resumen arriba, los permisos pendientes en su bloque, la tabla con los errores explicados
-y el cambio de correo destacado en ámbar.
+## Tarea 9: La pantalla
 
 **Files:**
 - Create: `src/components/admin/PlanillaAlta.tsx`
 - Modify: `src/app/(app)/admin/employees/page.tsx` — el estado `panel` (línea ~50), el
-  botón (junto al de «Importar nómina», ~línea 348) y el panel (~línea 374).
+  botón (~348) y el panel (~374).
 
 **Interfaces:**
-- Consumes: `personasParaPlanilla`, `cargarPlanillaAlta`, `otorgarPermisoAprobar` de
-  `@/actions/employees`; `resolverPlanilla`, `sinPermisoAprobar`, `FilaPlanilla` de
-  `@/lib/planilla-alta`; `useDialogos` de `@/components/ui/Dialogos`.
+- Consumes: `datosParaPlanilla`, `cargarPlanillaAlta`, `otorgarPermisoAprobar`;
+  `resolverPlanilla`, `sinPermisoAprobar`, `FilaPlanilla`; `alertasDeSegregacion`;
+  `useDialogos`.
 - Produces: `<PlanillaAlta onDone={() => void} />`.
 
-- [ ] **Step 1: El mapeo de cabeceras**, al principio de `PlanillaAlta.tsx`. Tolerante
-  como el de `EmployeeImport`, con las ocho columnas de la spec:
+- [ ] **Step 1: El mapeo de cabeceras y la plantilla**, al principio del componente:
 
 ```tsx
+const CABECERAS = ['Apellido y nombre', 'RUT', 'Correo', 'Cargo', 'Centro de costo', 'Rol',
+  'Aprobador 1er Nivel (N1)', 'Aprobador 2do Nivel (N2)',
+  'Banco', 'Tipo de Cuenta', 'N° de Cuenta']
+
+const EJEMPLO = ['Contreras Pía', '11.111.111-1', 'pia.contreras@penta.cl',
+  'Jefa de Obra', 'Administración', 'employee',
+  'rodrigo.salas@penta.cl', 'Méndez Carla',
+  'Banco de Chile', 'Cuenta Corriente', '00012345678']
+
 function mapHeader(h: string): keyof FilaPlanilla | null {
   const s = h.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '')
   if (['apellido y nombre', 'nombre y apellido', 'nombre', 'nombre completo'].includes(s)) return 'nombre'
   if (['rut', 'r.u.t.', 'rut empleado'].includes(s)) return 'rut'
   if (['correo', 'email', 'e-mail', 'correo electronico'].includes(s)) return 'correo'
-  if (['aprobador 1er nivel (n1)', 'aprobador 1er nivel', 'aprobador n1', 'n1', 'aprobador 1'].includes(s)) return 'n1'
-  if (['aprobador 2do nivel (n2)', 'aprobador 2do nivel', 'aprobador n2', 'n2', 'aprobador 2'].includes(s)) return 'n2'
+  if (['cargo', 'puesto', 'departamento', 'area'].includes(s)) return 'cargo'
+  if (['centro de costo', 'centro costo', 'cc', 'centro'].includes(s)) return 'centroCosto'
+  if (['rol', 'role', 'perfil'].includes(s)) return 'rol'
+  if (['aprobador 1er nivel (n1)', 'aprobador 1er nivel', 'aprobador n1', 'n1'].includes(s)) return 'n1'
+  if (['aprobador 2do nivel (n2)', 'aprobador 2do nivel', 'aprobador n2', 'n2'].includes(s)) return 'n2'
   if (['banco'].includes(s)) return 'banco'
   if (['tipo de cuenta', 'tipo cuenta'].includes(s)) return 'tipoCuenta'
-  if (['n° de cuenta', 'no de cuenta', 'numero de cuenta', 'n de cuenta', 'cuenta'].includes(s)) return 'numeroCuenta'
+  if (['n° de cuenta', 'no de cuenta', 'numero de cuenta', 'cuenta'].includes(s)) return 'numeroCuenta'
   return null
 }
 ```
 
-- [ ] **Step 2: La plantilla descargable**, con los ocho encabezados en el orden de la
-  spec y una fila de ejemplo. Mismo patrón que `descargarPlantilla` de `EmployeeImport`
-  (`XLSX.utils.aoa_to_sheet` + `XLSX.writeFile`):
+  La plantilla descargable sigue el patrón de `descargarPlantilla` en `EmployeeImport`
+  (`XLSX.utils.aoa_to_sheet([CABECERAS, EJEMPLO])` + `XLSX.writeFile`).
 
-```tsx
-const CABECERAS = ['Apellido y nombre', 'RUT', 'Correo',
-  'Aprobador 1er Nivel (N1)', 'Aprobador 2do Nivel (N2)',
-  'Banco', 'Tipo de Cuenta', 'N° de Cuenta']
-const EJEMPLO = ['Contreras Pía', '11.111.111-1', 'pia.contreras@penta.cl',
-  'rodrigo.salas@penta.cl', 'Méndez Carla',
-  'Banco de Chile', 'Cuenta Corriente', '00012345678']
-```
-
-- [ ] **Step 3: La lectura del archivo.** `XLSX.read` sobre el `ArrayBuffer`,
+- [ ] **Step 2: La lectura del archivo.** `XLSX.read` sobre el `ArrayBuffer`,
   `sheet_to_json` con `{ defval: '' }`, mapear cada fila con `mapHeader` a `FilaPlanilla`
   (toda clave ausente queda `''`). Si ninguna cabecera mapea a `rut`, no seguir: mostrar
   «No se encontró la columna RUT» con las columnas detectadas, igual que hace
   `EmployeeImport` con «Nombre».
 
-- [ ] **Step 4: La vista previa.** El esqueleto, que es donde están las decisiones; el
-  resto del JSX sale del Artifact aprobado:
+- [ ] **Step 3: El esqueleto del componente**, que es donde están las decisiones:
 
 ```tsx
 export function PlanillaAlta({ onDone }: { onDone: () => void }) {
   const { confirmar, avisar } = useDialogos()
   const [personas, setPersonas] = useState<Persona[]>([])
+  const [centros,  setCentros]  = useState<CentroCosto[]>([])
   const [filas,    setFilas]    = useState<FilaPlanilla[]>([])
   const [otorgar,  setOtorgar]  = useState<Set<string>>(new Set())
   const [error,    setError]    = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
   const [fallidas, setFallidas] = useState<{ fila: number; nombre: string; motivo: string }[]>([])
 
-  useEffect(() => { personasParaPlanilla().then(setPersonas).catch(e => setError(String(e))) }, [])
+  useEffect(() => {
+    datosParaPlanilla()
+      .then(d => { setPersonas(d.personas); setCentros(d.centros) })
+      .catch(e => setError(String(e)))
+  }, [])
 
   // Recalcular acá y no al leer el archivo: así «Darles el permiso» saca las
   // filas del error sin que haya que volver a subir el Excel.
   const resueltas = useMemo(
-    () => resolverPlanilla(filas, personas, otorgar),
-    [filas, personas, otorgar])
+    () => resolverPlanilla(filas, personas, centros, otorgar),
+    [filas, personas, centros, otorgar])
 
-  const validas    = resueltas.filter(r => r.errores.length === 0 && r.persona)
-  const conError   = resueltas.filter(r => r.errores.length > 0)
-  const cambianMail = validas.filter(r => r.correoNuevo)
+  const validas      = resueltas.filter(r => r.errores.length === 0 && r.accion !== 'ninguna')
+  const conError     = resueltas.filter(r => r.errores.length > 0)
+  const porCrear     = validas.filter(r => r.accion === 'crear')
+  const cambianMail  = validas.filter(r => r.correoNuevo)
   const faltaPermiso = sinPermisoAprobar(resueltas)
+  const alertas      = useMemo(
+    () => alertasDeSegregacion(personas, resueltas), [personas, resueltas])
 
   async function darPermiso() {
-    const r = await otorgarPermisoAprobar(faltaPermiso.map(p => p.id))
+    const r = await otorgarPermisoAprobar(faltaPermiso.map(x => x.id))
     if (r.errores.length) avisar(r.errores.join('. '), 'error')
-    setPersonas(await personasParaPlanilla())
+    const d = await datosParaPlanilla()
+    setPersonas(d.personas)
     setOtorgar(new Set())   // ya está en la base: el recálculo lo toma de ahí
   }
 
   async function cargar() {
-    const aviso = cambianMail.length
-      ? `Se van a actualizar ${validas.length} empleados, y ${cambianMail.length} cambia de correo de acceso. ¿Seguimos?`
-      : `Se van a actualizar ${validas.length} empleados. ¿Seguimos?`
-    if (!await confirmar(aviso)) return
+    const partes = [`${validas.length} empleados`]
+    if (porCrear.length)    partes.push(`${porCrear.length} son cuentas NUEVAS`)
+    if (cambianMail.length) partes.push(`${cambianMail.length} cambia de correo de acceso`)
+    if (!await confirmar(`Se van a cargar ${partes.join(', y ')}. ¿Seguimos?`)) return
+
     setCargando(true)
     try {
       const r = await cargarPlanillaAlta(validas.map(v => filas[v.fila - 1]))
       setFallidas(r.fallidas)
-      avisar(`Se cargaron ${r.cargadas} empleados`)
+      avisar(`Se crearon ${r.creadas} y se actualizaron ${r.actualizadas}`)
       if (!r.fallidas.length) onDone()
     } catch (e) {
       avisar(String(e instanceof Error ? e.message : e), 'error')
     } finally { setCargando(false) }
   }
-  // … el render, según el Artifact
+  // … el render
 }
 ```
 
-  Render según el Artifact:
-  - Resumen: válidas, con error, y cuántas cambian de correo.
-  - Bloque de `sinPermisoAprobar(resueltas)` con el botón, solo si hay alguna.
-  - Tabla: las válidas con sus datos; las que fallan, con el motivo en `text-warning-700`
-    y fondo `bg-danger-50`; el cambio de correo con el anterior al lado.
-  - Pie: «Cancelar» y «Cargar las N válidas».
-  - Materiales: `.hoja` para la tabla y las tarjetas, `rounded-item` / `rounded-card`,
-    íconos Lucide, **ningún hexadecimal**.
+- [ ] **Step 4: El render.** Según la vista previa aprobada
+  (https://claude.ai/artifact/J93gJ35kXJkvCZ1EvCE1sk), con los bloques en este orden:
+  - **Resumen:** se crean N · se actualizan M · quedan fuera K · cambian de correo J.
+    Las cuentas nuevas se destacan: es lo que la versión anterior del diseño no permitía.
+  - **Permisos pendientes** (`faltaPermiso`), con el botón, solo si hay alguno.
+  - **Alertas** (`alertas`), en un bloque ámbar aparte, que **no impide cargar**: dice
+    «Revisa antes de confirmar», no «Corrige esto».
+  - **Tabla:** las válidas con sus datos; una insignia «nueva» en las que se crean; las
+    que fallan con el motivo en `text-warning-700` sobre `bg-danger-50`; el cambio de
+    correo con el anterior al lado.
+  - **Pie:** «Cancelar» y «Cargar las N válidas».
+  - Materiales: `.hoja`, `rounded-item` / `rounded-card`, Lucide, **ningún hexadecimal**.
 
-- [ ] **Step 5: Enviar.** El botón manda **solo las filas sin errores** a
-  `cargarPlanillaAlta`. Con el resultado: `avisar()` con «Se cargaron N empleados» y, si
-  `fallidas.length`, mostrarlas en pantalla (no en el aviso, que se va solo). Después
-  `onDone()`.
-
-- [ ] **Step 6: El panel en `/admin/employees/page.tsx`**
-  - Línea ~50: `useState<'none' | 'add' | 'import'>` → `useState<'none' | 'add' | 'import' | 'planilla'>`.
+- [ ] **Step 5: El panel en `/admin/employees/page.tsx`**
+  - Línea ~50: `useState<'none' | 'add' | 'import'>` → `… | 'planilla'`.
   - Junto al botón «Importar nómina» (~348), uno nuevo «Cargar planilla» con
     `setPanel(p => p === 'planilla' ? 'none' : 'planilla')`.
   - Junto al panel de `EmployeeImport` (~374):
@@ -1216,7 +1515,7 @@ export function PlanillaAlta({ onDone }: { onDone: () => void }) {
 )}
 ```
 
-- [ ] **Step 7: Verificar**
+- [ ] **Step 6: Verificar**
 
 ```bash
 npx vitest run
@@ -1225,23 +1524,23 @@ npx eslint src/components/admin/PlanillaAlta.tsx "src/app/(app)/admin/employees/
 npx next build
 ```
 
-Esperado: 46 pruebas, typecheck limpio, lint sin errores, build con código 0.
+Esperado: 64 pruebas, typecheck limpio, lint sin errores, build con código 0.
 
-- [ ] **Step 8: Probarla con un archivo de verdad, antes de commitear.** Armar un Excel
-  de 3 filas: una buena, una con el RUT que no existe y una con un aprobador ambiguo.
-  Comprobar que entra solo la buena y que las otras dos explican por qué. **Mostrarle la
-  pantalla a Daniel con datos reales.**
+- [ ] **Step 7: Probarla con un archivo de verdad, antes de commitear.** Un Excel de 4
+  filas: una que actualiza, una que crea, una con el RUT mal (DV) y una con un aprobador
+  ambiguo. Comprobar que entran las dos primeras, que las otras explican por qué, y que
+  la confirmación avisa de la cuenta nueva. **Mostrarle la pantalla a Daniel.**
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/components/admin/PlanillaAlta.tsx "src/app/(app)/admin/employees/page.tsx"
-git commit -m "feat(planilla): la pantalla de carga, con vista previa y errores por fila"
+git commit -m "feat(planilla): la pantalla de carga, con vista previa, alertas y errores por fila"
 ```
 
 ---
 
-## Tarea 8: Cerrar
+## Tarea 10: Cerrar
 
 - [ ] **Step 1: Correr todo**
 
@@ -1252,9 +1551,9 @@ npx next build
 npm run audit:materiales
 ```
 
-Esperado: 46 pruebas · `0 errors` · build limpio · materiales **2 passed**. Si el audit
-encuentra texto oscuro sobre el degradado, es que algo de la pantalla nueva quedó fuera
-de una `.hoja`: arreglarlo antes de seguir.
+Esperado: 64 pruebas · `0 errors` · build limpio · materiales **2 passed**. Si el audit
+encuentra texto oscuro sobre el degradado, algo de la pantalla nueva quedó fuera de una
+`.hoja`.
 
 - [ ] **Step 2: Desplegar** con Daniel en «pedir aprobación»: `merge --ff-only`,
   `push origin main`, y confirmar con `get_deployment` que el commit queda `READY` con el
@@ -1262,7 +1561,7 @@ de una `.hoja`: arreglarlo antes de seguir.
   escudo anti-bot de Vercel y parece que la app se cayó.
 
 - [ ] **Step 3: La carga de verdad.** Daniel arma la planilla con los datos de RR.HH. y la
-  sube. Comprobar después, en la base:
+  sube. Comprobar después:
 
 ```sql
 select count(*) filter (where can_submit and approver_l1_id is null)  as rinden_sin_n1,
@@ -1273,15 +1572,22 @@ from public.users where deleted_at is null and blocked_at is null and is_active;
 Hecho cuando `rinden_sin_n1 = 0` (o solo quienes Daniel decida que no rinden, con
 `can_submit = false`) y `rinden_sin_banco = 0`.
 
-- [ ] **Step 4: Regenerar la línea base visual**, porque `/admin/employees` cambia:
+- [ ] **Step 4: Retirar «Importar nómina»** — **solo después** de que la carga real esté
+  hecha y Daniel esté conforme (decisión del 2026-10-01: no antes, para no quedarse sin
+  camino si la planilla falla el día de la carga). Borrar
+  `src/components/admin/EmployeeImport.tsx`, su botón y su panel en `page.tsx`, y sacar
+  `'import'` del tipo de `panel`. Correr `npx eslint .` y `npx next build`.
+  Commit: `chore(empleados): queda una sola carga de nómina`.
+
+- [ ] **Step 5: Regenerar la línea base visual**, porque `/admin/employees` cambia:
   `npm run baseline:verificar` primero y **mirar el reporte antes de recapturar** — un
   rojo inesperado puede ser un defecto real, como pasó el 2026-10-01 con el paginador de
   auditoría. Después `npm run baseline:crear` y commitear `e2e/baseline/`.
 
-- [ ] **Step 5: Actualizar la documentación.** En el SKILL.md: la planilla en «Estructura
-  de carpetas» y en el estado del proyecto. En la hoja de ruta: marcar la Tarea 3.2,
-  agregar la fila al «Registro de avance» y sacar del backlog lo que corresponda.
-  Commit `docs(contexto): …`.
+- [ ] **Step 6: Actualizar la documentación.** En el SKILL.md: la planilla en «Estructura
+  de carpetas» y en el estado del proyecto; que `EmployeeImport` ya no existe. En la hoja
+  de ruta: marcar la Tarea 3.2, agregar la fila al «Registro de avance» y sacar del
+  backlog lo que corresponda. Commit `docs(contexto): …`.
 
 ---
 
@@ -1291,8 +1597,11 @@ Hecho cuando `rinden_sin_n1 = 0` (o solo quienes Daniel decida que no rinden, co
   aprobador "Perez"» tiene que saber qué corregir. Si un mensaje no dice qué hacer,
   cambiarlo.
 - **Los aprobadores se resuelven contra el estado actual de la base**, no contra lo que la
-  planilla va a escribir. Por eso el orden de las filas no cambia el resultado.
-- **No agregar un `confirm()` nativo** antes de cargar: `confirmar()` de
-  `@/components/ui/Dialogos`. Quedan 0 nativos en `src/` y no debe volver a entrar uno.
-- Si en el camino aparece que hace falta una migración, **parar**: este plan no toca la
-  base. La columna `rut` ya existe, y `can_approve` también.
+  planilla va a escribir. Por eso **alguien que la planilla crea no puede ser aprobador en
+  esa misma carga**: hay que subir la planilla otra vez. Es deliberado — evita que el
+  resultado dependa del orden de las filas.
+- **Las alertas no bloquean.** Si alguna termina impidiendo cargar, está mal implementada.
+- **No agregar un `confirm()` nativo**: `confirmar()` de `@/components/ui/Dialogos`.
+  Quedan 0 nativos en `src/` y no debe volver a entrar uno.
+- Si aparece que hace falta una migración, **parar**: este plan no toca la base. Todas las
+  columnas que escribe ya existen.
