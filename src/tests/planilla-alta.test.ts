@@ -51,8 +51,10 @@ describe('normalizarNombre', () => {
 import { resolverPersona, resolverAprobador, type Persona } from '@/lib/planilla-alta'
 
 export const p = (x: Partial<Persona> & { id: string }): Persona => ({
-  nombre: '', correo: '', rut: null, activo: true, can_approve: false,
+  nombre: '', correo: '', rut: null, activo: true,
+  can_submit: true, can_approve: false, can_manage_petty_cash: false,
   can_load_bank_transfer: false, can_authorize_bank_transfer: false,
+  bank_load_backup: false, bank_auth_backup: false,
   approver_l1_id: null, approver_l2_id: null,
   ...x,
 })
@@ -191,5 +193,132 @@ describe('parcheDeFila: vacío nunca borra', () => {
     expect(parcheDeFila(fila, null, null, null, null)).toEqual({
       rut: '22.222.222-2', department: 'Prevencionista', bank_name: 'BCI',
     })
+  })
+})
+
+// ── Tarea 5: la planilla entera ──────────────────────────────────────────────
+
+import { resolverPlanilla, sinPermisoAprobar } from '@/lib/planilla-alta'
+
+const fila = (x: Partial<FilaPlanilla>): FilaPlanilla => ({ ...VACIA, ...x })
+const resolver = (fs: FilaPlanilla[], permisos?: Set<string>) =>
+  resolverPlanilla(fs, PERSONAS, CENTROS, permisos)
+
+describe('resolverPlanilla: crear o actualizar', () => {
+  it('un RUT que está en la base actualiza', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', banco: 'BCI' })])
+    expect(r.accion).toBe('actualizar')
+    expect(r.persona?.id).toBe('u1')
+    expect(r.parche).toEqual({ bank_name: 'BCI' })
+    expect(r.errores).toEqual([])
+  })
+
+  it('un RUT que no está, con nombre y correo, crea', () => {
+    const [r] = resolver([fila({ rut: '99.999.990-5', nombre: 'Nueva Persona', correo: 'nueva@penta.cl' })])
+    expect(r.accion).toBe('crear')
+    expect(r.nuevo).toEqual({ nombre: 'Nueva Persona', correo: 'nueva@penta.cl', rut: '99.999.990-5' })
+    expect(r.errores).toEqual([])
+  })
+
+  it('al crear, el parche trae TODO lo de la fila', () => {
+    const [r] = resolver([fila({
+      rut: '99.999.990-5', nombre: 'Nueva Persona', correo: 'nueva@penta.cl',
+      cargo: 'Prevencionista', centroCosto: '45103010013',
+      n1: 'rodrigo.salas@penta.cl', banco: 'BCI', numeroCuenta: '123',
+    })])
+    expect(r.accion).toBe('crear')
+    expect(r.parche).toEqual({
+      department: 'Prevencionista', cost_center_id: 'c1',
+      approver_l1_id: 'u1', bank_name: 'BCI', bank_account: '123',
+      rut: '99.999.990-5',
+    })
+  })
+
+  it('crear sin nombre o sin correo es error', () => {
+    const [sinNombre] = resolver([fila({ rut: '99.999.990-5', correo: 'x@penta.cl' })])
+    expect(sinNombre.errores.join(' ')).toContain('nombre y su correo')
+    const [sinCorreo] = resolver([fila({ rut: '99.999.990-5', nombre: 'X' })])
+    expect(sinCorreo.errores.join(' ')).toContain('nombre y su correo')
+  })
+
+  it('un RUT con el dígito verificador malo no busca a nadie', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-9' })])
+    expect(r.errores.join(' ')).toContain('dígito verificador')
+  })
+
+  it('si el RUT no está, el correo lo encuentra igual y actualiza', () => {
+    const [r] = resolver([fila({ rut: '99.999.990-5', correo: 'a.perez@penta.cl' })])
+    expect(r.accion).toBe('actualizar')
+    expect(r.persona?.id).toBe('u4')
+    expect(r.parche.rut).toBe('99.999.990-5')
+  })
+
+  it('una persona con OTRO rut es error, no una corrección', () => {
+    const [r] = resolver([fila({ rut: '99.999.990-5', correo: 'carla.mendez@penta.cl' })])
+    expect(r.errores.join(' ')).toContain('otro RUT')
+  })
+
+  it('un aprobador ambiguo nombra a las candidatas', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', n1: 'Pérez Soto Ana' })])
+    expect(r.errores.join(' ')).toContain('coincide con 2 personas')
+  })
+
+  it('un centro de costo que no existe sugiere los parecidos', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', centroCosto: 'Operaciones' })])
+    expect(r.errores.join(' ')).toContain('Operaciones Norte')
+  })
+
+  it('un rol desconocido es error', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', rol: 'jefazo' })])
+    expect(r.errores.join(' ')).toContain('Rol')
+  })
+
+  it('un aprobador sin el permiso aprueba da error', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' })])
+    expect(r.errores.join(' ')).toContain('aprueba')
+  })
+
+  it('y deja de darlo cuando su permiso está por otorgarse', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' })], new Set(['u2']))
+    expect(r.errores).toEqual([])
+    expect(r.parche.approver_l1_id).toBe('u2')
+  })
+
+  it('una fila mala no contamina a las buenas', () => {
+    const rs = resolver([fila({ rut: '11.111.111-9' }), fila({ rut: '11.111.111-1', banco: 'BCI' })])
+    expect(rs[0].errores.length).toBeGreaterThan(0)
+    expect(rs[1].errores).toEqual([])
+  })
+
+  it('el mismo RUT en dos filas marca las dos', () => {
+    const rs = resolver([fila({ rut: '11.111.111-1' }), fila({ rut: '11111111-1' })])
+    expect(rs[0].errores.join(' ')).toContain('Dos filas')
+    expect(rs[1].errores.join(' ')).toContain('Dos filas')
+  })
+
+  it('un correo distinto del actual se marca como cambio de acceso', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', correo: 'nuevo@penta.cl' })])
+    expect(r.correoNuevo).toBe('nuevo@penta.cl')
+    expect(r.errores).toEqual([])
+  })
+
+  it('un correo que ya usa otra persona es error', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1', correo: 'carla.mendez@penta.cl' })])
+    expect(r.errores.join(' ')).toContain('ya lo usa')
+  })
+
+  it('una fila sin nada que cambiar no hace nada', () => {
+    const [r] = resolver([fila({ rut: '11.111.111-1' })])
+    expect(r.accion).toBe('ninguna')
+  })
+})
+
+describe('sinPermisoAprobar', () => {
+  it('junta a los aprobadores sin permiso, sin repetirlos', () => {
+    const rs = resolver([
+      fila({ rut: '11.111.111-1', n1: 'carla.mendez@penta.cl' }),
+      fila({ rut: '22.222.222-2', n1: 'carla.mendez@penta.cl' }),
+    ])
+    expect(sinPermisoAprobar(rs).map(x => x.id)).toEqual(['u2'])
   })
 })

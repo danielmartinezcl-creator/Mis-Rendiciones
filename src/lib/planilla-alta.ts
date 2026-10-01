@@ -5,6 +5,9 @@
 //
 // Spec: docs/superpowers/specs/2026-10-01-planilla-de-alta-design.md
 
+import { validateRut } from '@/lib/validators'
+import { validarCadena, type Persona as PersonaPermisos } from '@/lib/permisos'
+
 // Para COMPARAR. En la base los 55 RUT están con puntos y 5 con la k en
 // minúscula, así que sin normalizar los dos lados no se encuentra nada.
 export function normalizarRut(rut: string): string {
@@ -33,11 +36,15 @@ export function normalizarNombre(nombre: string): string {
 
 // ── Personas ─────────────────────────────────────────────────────────────────
 
-export type Persona = {
-  id: string; nombre: string; correo: string; rut: string | null
-  activo: boolean; can_approve: boolean
-  can_load_bank_transfer: boolean; can_authorize_bank_transfer: boolean
-  approver_l1_id: string | null; approver_l2_id: string | null
+// EXTIENDE la de permisos en vez de repetir sus campos: validarCadena() recibe
+// esta misma lista, así que si las dos se escribieran por separado bastaría con
+// que permisos sumara un campo para que dejaran de encajar, y el error saldría
+// lejos de acá. Así el compilador lo avisa en el momento.
+export type Persona = PersonaPermisos & {
+  correo: string
+  rut: string | null
+  approver_l1_id: string | null
+  approver_l2_id: string | null
 }
 
 // Un valor que coincide con varias NO elige una: devuelve las candidatas para
@@ -151,4 +158,150 @@ export function parcheDeFila(
   if (numero) parche.bank_account      = numero
 
   return parche
+}
+
+// ── La planilla entera ───────────────────────────────────────────────────────
+
+export type FilaResuelta = {
+  fila: number
+  accion: 'crear' | 'actualizar' | 'ninguna'
+  persona: Persona | null
+  n1: Persona | null; n2: Persona | null
+  correoNuevo: string | null
+  parche: ParcheEmpleado
+  nuevo: { nombre: string; correo: string; rut: string } | null
+  errores: string[]
+}
+
+// Los errores NO cortan en el primero: se juntan todos, para que quien corrige
+// el Excel no tenga que hacerlo en varias pasadas.
+export function resolverPlanilla(
+  filas: FilaPlanilla[],
+  personas: Persona[],
+  centros: CentroCosto[],
+  permisosPorOtorgar: Set<string> = new Set(),
+): FilaResuelta[] {
+  // Los duplicados DENTRO de la planilla se cuentan primero: una fila no puede
+  // saber sola que otra trae su mismo RUT.
+  const vecesRut    = new Map<string, number>()
+  const vecesCorreo = new Map<string, number>()
+  for (const f of filas) {
+    const r = normalizarRut(f.rut); if (r) vecesRut.set(r, (vecesRut.get(r) ?? 0) + 1)
+    const c = f.correo.trim().toLowerCase(); if (c) vecesCorreo.set(c, (vecesCorreo.get(c) ?? 0) + 1)
+  }
+
+  // Un permiso por otorgar ya cuenta como dado: así el botón «Darles el
+  // permiso» saca las filas del error sin volver a subir el archivo.
+  const conPermisos = personas.map(x =>
+    permisosPorOtorgar.has(x.id) ? { ...x, can_approve: true } : x)
+
+  return filas.map((f, i) => {
+    const errores: string[] = []
+    const rutNorm = normalizarRut(f.rut)
+    const correo  = f.correo.trim().toLowerCase()
+
+    if (rutNorm && (vecesRut.get(rutNorm) ?? 0) > 1)   errores.push('Dos filas traen el mismo RUT')
+    if (correo  && (vecesCorreo.get(correo) ?? 0) > 1) errores.push('Dos filas traen el mismo correo')
+
+    // ── A quién le escribimos ───────────────────────────────────────────────
+    let persona: Persona | null = null
+    let crear = false
+    if (!f.rut.trim()) {
+      errores.push('Falta el RUT, que es lo que identifica a la persona')
+    } else if (!validateRut(f.rut)) {
+      errores.push(`RUT inválido "${f.rut.trim()}" — revisa el dígito verificador`)
+    } else {
+      const porRut = resolverPersona(f.rut, conPermisos, 'rut')
+      if (porRut.ambiguas.length > 1) {
+        errores.push(`Ese RUT lo tienen ${porRut.ambiguas.length} personas: ${porRut.ambiguas.map(x => x.nombre).join(', ')}`)
+      } else if (porRut.persona) {
+        persona = porRut.persona
+      } else if (correo) {
+        const porCorreo = resolverPersona(correo, conPermisos, 'correo')
+        if (porCorreo.persona?.rut && normalizarRut(porCorreo.persona.rut) !== rutNorm) {
+          errores.push(`${porCorreo.persona.nombre} está registrada con otro RUT (${porCorreo.persona.rut})`)
+        } else if (porCorreo.persona) {
+          persona = porCorreo.persona
+        } else {
+          crear = true
+        }
+      } else {
+        crear = true
+      }
+      if (crear && (!f.nombre.trim() || !correo)) {
+        errores.push('Para crear a alguien hacen falta su nombre y su correo')
+      }
+    }
+
+    // ── Aprobadores, centro y rol ───────────────────────────────────────────
+    const r1 = resolverAprobador(f.n1, conPermisos)
+    const r2 = resolverAprobador(f.n2, conPermisos)
+    for (const [celda, r, rol] of [[f.n1, r1, 'N1'], [f.n2, r2, 'N2']] as const) {
+      if (!celda.trim()) continue
+      if (r.ambiguas.length > 1) {
+        errores.push(`El aprobador ${rol} "${celda.trim()}" coincide con ${r.ambiguas.length} personas: ${r.ambiguas.map(x => x.nombre).join(', ')}`)
+      } else if (!r.persona) {
+        errores.push(`No se encontró al aprobador ${rol} "${celda.trim()}"`)
+      }
+    }
+
+    const rc = resolverCentroCosto(f.centroCosto, centros)
+    if (f.centroCosto.trim() && !rc.centro) {
+      errores.push(rc.parecidos.length
+        ? `No existe el centro de costo "${f.centroCosto.trim()}". ¿Quisiste decir ${rc.parecidos.map(c => c.nombre).join(', ')}?`
+        : `No existe el centro de costo "${f.centroCosto.trim()}"`)
+    }
+
+    const rol = f.rol.trim().toLowerCase()
+    if (rol && !(ROLES as readonly string[]).includes(rol)) {
+      errores.push(`Rol "${f.rol.trim()}" desconocido: usa admin, approver o employee`)
+    }
+
+    // ── El correo nuevo ─────────────────────────────────────────────────────
+    let correoNuevo: string | null = null
+    if (persona && correo && correo !== persona.correo.trim().toLowerCase()) {
+      const actual = persona
+      const otro = conPermisos.find(x => x.id !== actual.id && x.correo.trim().toLowerCase() === correo)
+      if (otro) errores.push(`Ese correo ya lo usa ${otro.nombre}`)
+      else      correoNuevo = correo
+    }
+
+    // ── Las reglas de la cadena, las mismas que /admin/employees ────────────
+    if (persona) {
+      errores.push(...validarCadena(
+        persona.id,
+        { l1: r1.persona?.id ?? null, l2: r2.persona?.id ?? null, suplenteL1: null },
+        conPermisos,
+      ))
+    }
+
+    // Al crear se arma igual, con persona = null: la cuenta nueva necesita su
+    // cargo, su banco y sus aprobadores desde el primer momento.
+    const parche = (persona || crear)
+      ? parcheDeFila(f, persona, r1.persona, r2.persona, rc.centro)
+      : {}
+    const accion: FilaResuelta['accion'] =
+      crear ? 'crear'
+    : persona && (Object.keys(parche).length > 0 || correoNuevo) ? 'actualizar'
+    : 'ninguna'
+
+    return {
+      fila: i + 1, accion, persona,
+      n1: r1.persona, n2: r2.persona,
+      correoNuevo, parche,
+      nuevo: crear ? { nombre: f.nombre.trim(), correo, rut: formatearRut(f.rut) } : null,
+      errores,
+    }
+  })
+}
+
+// Los nombrados como N1 o N2 que todavía no pueden aprobar, sin repetir.
+export function sinPermisoAprobar(resueltas: FilaResuelta[]): Persona[] {
+  const vistos = new Map<string, Persona>()
+  for (const r of resueltas) {
+    for (const x of [r.n1, r.n2]) {
+      if (x && !x.can_approve && !vistos.has(x.id)) vistos.set(x.id, x)
+    }
+  }
+  return [...vistos.values()]
 }
