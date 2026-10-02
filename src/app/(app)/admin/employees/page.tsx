@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, enableBlockedEmployee, getCostCenters } from '@/actions/admin'
 import { sendInvitations, setEmployeePassword } from '@/actions/employees'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
+import { PlanillaAlta } from '@/components/admin/PlanillaAlta'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck, FileSpreadsheet } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 import { useDialogos } from '@/components/ui/Dialogos'
@@ -47,7 +48,7 @@ export default function AdminEmployeesPage() {
   const [employees,        setEmployees]        = useState<EmployeeWithEmail[]>([])
   const [loading,          setLoading]          = useState(true)
   const [saving,           setSaving]           = useState<string | null>(null)
-  const [panel,            setPanel]            = useState<'none' | 'add' | 'import'>('none')
+  const [panel,            setPanel]            = useState<'none' | 'add' | 'import' | 'planilla'>('none')
   const [expandedApprover, setExpandedApprover] = useState<string | null>(null)
 
   // Selección para invitación masiva
@@ -357,6 +358,19 @@ export default function AdminEmployeesPage() {
               : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar nómina</>
             }
           </button>
+          <button
+            onClick={() => setPanel(p => p === 'planilla' ? 'none' : 'planilla')}
+            className={[
+              'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item transition-all duration-[180ms] active:scale-[.97] shadow-sm hover:shadow-md',
+              panel === 'planilla' ? 'bg-ink-500' : '',
+            ].join(' ')}
+            style={panel !== 'planilla' ? { background: 'var(--cta-brand)' } : undefined}
+          >
+            {panel === 'planilla'
+              ? <><X size={12} />Cerrar</>
+              : <><FileSpreadsheet size={13} />Cargar planilla</>
+            }
+          </button>
         </div>
       </div>
 
@@ -373,6 +387,14 @@ export default function AdminEmployeesPage() {
         <div className="hoja p-5 border-t-4 border-t-brand-600">
           <h2 className="text-sm font-semibold text-ink-800 mb-4">Importar empleados desde Excel</h2>
           <EmployeeImport onDone={() => { setPanel('none'); load() }} />
+        </div>
+      )}
+
+      {/* Panel: planilla de alta */}
+      {panel === 'planilla' && (
+        <div className="hoja p-5 border-t-4 border-t-brand-600">
+          <h2 className="text-sm font-semibold text-ink-800 mb-4">Cargar planilla de alta</h2>
+          <PlanillaAlta onDone={() => { setPanel('none'); load() }} />
         </div>
       )}
 
