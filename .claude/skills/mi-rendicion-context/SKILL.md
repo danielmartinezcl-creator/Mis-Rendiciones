@@ -211,7 +211,8 @@ src/
 │   ├── admin.ts            ← KPIs, reportes, empleados, Defontana, CC masivo, fondos, getBankQueue
 │   ├── approvals.ts        ← aprobaciones L1/L2/backup, reembolso, análisis IA
 │   ├── cost-centers.ts     ← getCostCenters (sin requireAdmin — cualquier user)
-│   ├── employees.ts        ← importEmployees, setApprovers, setBackup
+│   ├── employees.ts        ← importEmployees, setApprovers, setBackup + la planilla de alta:
+│   │                         datosParaPlanilla, cargarPlanillaAlta, otorgarPermisoAprobar
 │   ├── expenses.ts         ← CRUD rendiciones, addItem (con CC + supplier_rut + km)
 │   ├── exchange-rate.ts    ← TC histórico con cache 24h
 │   ├── fund-transfers.ts   ← traspasos entre cajas chicas
@@ -229,7 +230,8 @@ src/
 │   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
 │   ├── ui/                 ← InsigniaEstado, Button, CurrencyAmount, MedidorArco,
 │   │                         VerticalTimeline, CompactStepper, AdminKpiHero, Badge, Card
-│   ├── admin/              ← EmployeeImport, AddEmployeeForm, ApproverConfig, DefontanaTypePanel
+│   ├── admin/              ← PlanillaAlta (la carga de empleados), EmployeeImport (la vieja, a retirar),
+│   │                         AddEmployeeForm, ApproverConfig, DefontanaTypePanel
 │   ├── petty-cash/         ← TarjetaFondo, RecorridoFondo, FundTimeline, AddFundItemForm,
 │   │                         EditFundItemForm, FundDefontanaPanel
 │   └── expenses/           ← ExpenseItemForm (OCR, km, viáticos, políticas), PhotoUpload, ExportButton
@@ -248,6 +250,15 @@ src/
 │   ├── report-helpers.ts      ← UnifiedReportItem, buildPeriodRange, computeUnifiedKpis (byMovement)
 │   ├── respaldos.ts           ← puedeBorrarRespaldo, puedeSubirRespaldo, destinoDelRespaldo (037)
 │   ├── archivos.ts            ← archivosQueCaen, retirarArchivos: los archivos que un borrado de verdad deja sin fila
+│   ├── papelera.ts            ← qué impide eliminar de verdad un documento (hoy: aparecer en un traspaso)
+│   ├── planilla-alta.ts       ← la carga de empleados desde Excel: normalizarRut/formatearRut (la base
+│   │                            los guarda CON puntos y 5 con la k minúscula), resolverPersona,
+│   │                            resolverCentroCosto, parcheDeFila (vacío nunca borra), resolverPlanilla
+│   ├── segregacion.ts         ← las 3 alertas sobre el resultado: carga Y autoriza pagos, se aprueban
+│   │                            mutuamente (validarCadena no lo ve: mira una persona, no el conjunto),
+│   │                            demasiada gente a cargo. NO bloquean
+│   ├── cadena-aprobacion.ts   ← erroresDeCadena + camposDeCadena: las reglas de la cadena en un solo
+│   │                            lugar, que usan setEmployeeApprovalChain y la planilla
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
@@ -313,7 +324,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **410 tests Vitest en 31 archivos** (`.test.ts` y `.test.tsx`, contados el 2026-09-28; vueltos a correr el 2026-10-01: 410/410), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`, 2026-10-01)
+- **482 tests Vitest en 35 archivos** (2026-10-02; eran 410 en 31 antes de la planilla de alta), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
   redundancia: **eslint 9 con flat config no lee `.gitignore`**, y `npm run lint` es
@@ -381,6 +392,34 @@ y la deuda de sistema tiene su propio detector (`npm run audit:deuda`, hoy en **
 dominio («mi-rendicion.com dice:») y en Android se ven como avisos de error aunque
 pregunten algo inofensivo. Un borrado usa el diálogo en rojo, con ícono de alerta y
 el verbo real en el botón («Eliminar», no «Confirmar»).
+
+### ✅ Planilla de alta — la carga de empleados desde Excel (2026-10-02)
+
+Un panel en `/admin/employees`: **once columnas** con todo lo que define a una persona
+(nombre, RUT, correo, cargo, centro de costo, rol, N1, N2, banco, tipo y número de
+cuenta). **Crea a quien no está y completa a quien sí.** Spec y plan:
+`docs/superpowers/specs/2026-10-01-planilla-de-alta-design.md`.
+
+**Reemplaza a «Importar nómina»** (`EmployeeImport`), que solo creaba y se retira cuando
+Daniel esté conforme con la primera carga real. Hasta entonces conviven.
+
+Decisiones que NO se cambian sin volver a hablarlas:
+
+- **El RUT identifica a la persona, no el correo.** Si no está, cae al correo y le graba
+  el RUT. Si el correo encuentra a alguien con OTRO rut, es error: no se le cambia.
+- **Una celda vacía nunca borra.** El tipo `ParcheEmpleado` solo admite las claves que la
+  fila trae con valor, así que lo hace cumplir el compilador y no la disciplina.
+- **El nombre no se escribe al actualizar**: una planilla de RR.HH. con el nombre escrito
+  distinto no renombra a nadie.
+- **Las filas válidas entran aunque otras queden fuera.**
+- **Los permisos NO son columnas.** En una pantalla, dar el permiso de autorizar pagos es
+  un acto visible; en la fila 43 de un Excel no lo ve nadie. El de «aprueba» se señala y
+  se ofrece dar en bloque, con un botón aparte.
+- **Alguien que la planilla crea no puede ser aprobador en esa misma carga**: los
+  aprobadores se resuelven contra el estado actual de la base, para que el orden de las
+  filas no cambie el resultado. Hay que subir la planilla dos veces.
+- **Las alertas de segregación no bloquean** (`src/lib/segregacion.ts`). Si alguna
+  impide cargar, está mal implementada.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1034,4 +1073,5 @@ una columna `NOT NULL`.
 | Suscribir un canal Realtime sin esperar el token de la sesión | realtime-js 2.106 arma el join en el `subscribe()` y busca el token en paralelo: con la sesión recuperada de cookies (recargar, reabrir la PWA) el join sale sin `access_token`, el canal queda como anon y RLS descarta cada fila **sin ningún error** | `await supabase.realtime.setAuth()` antes de `.subscribe()` (ver `useRealtimeNotifications`). Para diagnosticar, mirar el frame `phx_join` en el websocket: si no trae `access_token`, es esto |
 | Borrar de verdad un documento o un gasto que tiene archivos | La cascada borra las filas de `attachments` y `approval_attachments`, pero no los archivos: Storage no tiene llaves foráneas. Quedaron 6 huérfanos (~12 MB) de la papelera y de borradores, hasta el 2026-09-28 | `archivosQueCaen()` antes del borrado (después la cascada ya se llevó las filas), borrado con `.select('id')`, y `retirarArchivos()` recién si cayó la fila (`src/lib/archivos.ts`). Un huérfano se retira por la API de Storage, nunca con un DELETE en `storage.objects`: el archivo físico queda |
 | Sondear el sitio con `curl` en bucle para esperar un despliegue | Vercel lo toma por un bot y responde **403 a todo** —`/login`, la raíz, `/api/cron`—, con `X-Vercel-Mitigated: challenge` y una página «Vercel Security Checkpoint». Parece que la app se cayó justo después de desplegar, y de aplicar migraciones, que es el peor momento para creerlo. Pasó el 2026-10-01 tras 38 peticiones en 380 s | Antes de declarar nada roto, mirar la cabecera `X-Vercel-Mitigated` del 403: si dice `challenge`, es el escudo y no la app. Confirmar con un navegador de verdad (el panel del navegador resuelve el reto solo) y, para esperar un despliegue, preguntarle a la API de Vercel (`list_deployments` / `get_deployment` hasta `READY`) en vez de martillar el dominio |
+| Correr `next build` y después `next dev` sin limpiar | Los dos escriben en el mismo `.next`, y con Turbopack ese estado mezclado deja **TODAS las rutas en 404** — `/login` incluido—, con el dev server arrancando normal («Ready in 1.6s») y sin un solo error en los logs. Parece que la app se rompió entera. Pasó el 2026-10-02 al verificar la planilla | `rm -rf .next` y relevantar. Mejor aún: el build va **después** de probar en dev, no antes. Si hay que hacer las dos cosas, parar el dev server, borrar `.next` y recién ahí construir |
 | Buscar el buildId en el HTML de `/login` para saber si el despliegue entró | **Ya no está ahí**: el `"b":"…"` que la hoja de ruta daba por hecho no aparece en el HTML servido (verificado el 2026-10-01). Buscarlo da una cadena vacía, no un error | Confirmar con `get_deployment` que el despliegue del commit está `READY` y que tiene el alias `www.mi-rendicion.com`. Como huella secundaria sirve el nombre de un chunk de `/_next/static/chunks/`, que cambia entre builds |
