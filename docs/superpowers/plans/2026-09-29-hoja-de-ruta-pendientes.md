@@ -738,8 +738,12 @@ from public.users where deleted_at is null and blocked_at is null;
 
 Hoy `public/icons/icon-192.png` e `icon-512.png` son el degradado índigo de «Penta Rend» (verificado el 2026-09-29), y el `manifest.json` ya usa `#03191C`. Es lo primero que ve cada empleado al instalar la PWA.
 
-- [ ] **Step 1:** Dos o tres propuestas con los colores de `src/lib/design-tokens.ts`, mostradas como Artifact. Daniel elige.
-- [ ] **Step 2:** Ajustar `scripts/generate-icons.mjs` (Tarea 0.3) a la elegida, regenerar los dos PNG y el `src/app/favicon.ico`, y desplegar con la tanda 1.
+- [x] **Step 1:** Dos o tres propuestas con los colores de `src/lib/design-tokens.ts`, mostradas como Artifact. Daniel elige. → **Hecho el 2026-10-06.** Tres: (A) el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand`, (B) la «M» del logotipo sobre teal→aqua, (C) un recibo sólido troquelado. **Daniel eligió la A**, con la que el ícono del escritorio pasa a ser el mismo que `<Marca>` ya usa en el riel, la barra y el acceso. Canvas: https://claude.ai/artifact/3SstK4gphKDmBvv51eUTWc
+- [x] **Step 2:** Ajustar `scripts/generate-icons.mjs` (Tarea 0.3) a la elegida, regenerar los dos PNG y el `src/app/favicon.ico`, y desplegar con la tanda 1. → **Generado y construido el 2026-10-06; falta solo desplegarlo.** El script se reescribió entero: ya no pinta rectángulos con hit-tests booleanos, rasteriza el path de Lucide. Tres cosas que se midieron y que conviene no volver a descubrir:
+  - **El trazo se rasteriza por distancia, sin dependencias.** Un stroke con puntas y uniones redondas es, exactamente, el conjunto de puntos a distancia ≤ grosor/2 de la curva: no hay que construir el contorno del trazo. Y como la distancia es continua, el suavizado de bordes sale gratis (el generador anterior no tenía ninguno).
+  - **El favicon lleva otro encuadre que el ícono de la app.** El del manifest es `maskable` y debe caber en el círculo del 80 %; al favicon no lo recorta nadie, así que reservarle ese margen es tirar píxeles. `ALTO_APP = 280` y `ALTO_FAVICON = 370`.
+  - **A 16 px el recibo va sin sus tres líneas** (`CON_LINEAS_DESDE`). Medido ampliando el `.ico`: a 32 se distinguen, a 16 se funden entre sí y contra el borde, y el ícono se lee como un rectángulo relleno.
+- [ ] **Step 3:** Desplegar con la tanda 1 y comprobar en un teléfono que la PWA ya instalada toma el ícono nuevo. Android cachea el ícono del launcher: puede exigir reinstalar el acceso directo, y eso **no** es un defecto del archivo.
 
 ---
 

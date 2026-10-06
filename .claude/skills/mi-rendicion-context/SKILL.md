@@ -326,6 +326,7 @@ references/
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
 - **482 tests Vitest en 35 archivos** (2026-10-02; eran 410 en 31 antes de la planilla de alta), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
+- **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
   redundancia: **eslint 9 con flat config no lee `.gitignore`**, y `npm run lint` es
   `eslint` a secas. Sin esa lista, el comando linteaba lo que hubiera en disco —el
@@ -839,11 +840,10 @@ una columna `NOT NULL`.
 >
 > · *«Penta Rend» hardcodeado* — el nombre no se muestra en ninguna pantalla desde
 >   `46d62ab`. Lo que sigue pendiente es el white-label (punto 1), no ese literal.
->   **Corrección del 2026-10-01: «en ningún archivo» era falso.** Queda en el comentario
->   de cabecera de `scripts/generate-icons.mjs`, que describe el ícono que ese script
->   dibuja — y el ícono *sí* sigue siendo el degradado índigo de «Penta Rend». No es un
->   literal que alguien vea en la app; lo reemplaza la Tarea 3.6 de la hoja de ruta, que
->   rediseña el ícono con la marca actual.
+>   El 2026-10-01 quedaba un último rastro, en el comentario de cabecera de
+>   `scripts/generate-icons.mjs`, porque **el ícono mismo seguía siendo el degradado
+>   índigo de «Penta Rend»**. **Cerrado el 2026-10-06** (Tarea 3.6): el ícono se
+>   rehízo con la marca actual y el comentario se reescribió. Ya no queda ninguno.
 
 ---
 
@@ -1075,3 +1075,4 @@ una columna `NOT NULL`.
 | Sondear el sitio con `curl` en bucle para esperar un despliegue | Vercel lo toma por un bot y responde **403 a todo** —`/login`, la raíz, `/api/cron`—, con `X-Vercel-Mitigated: challenge` y una página «Vercel Security Checkpoint». Parece que la app se cayó justo después de desplegar, y de aplicar migraciones, que es el peor momento para creerlo. Pasó el 2026-10-01 tras 38 peticiones en 380 s | Antes de declarar nada roto, mirar la cabecera `X-Vercel-Mitigated` del 403: si dice `challenge`, es el escudo y no la app. Confirmar con un navegador de verdad (el panel del navegador resuelve el reto solo) y, para esperar un despliegue, preguntarle a la API de Vercel (`list_deployments` / `get_deployment` hasta `READY`) en vez de martillar el dominio |
 | Correr `next build` y después `next dev` sin limpiar | Los dos escriben en el mismo `.next`, y con Turbopack ese estado mezclado deja **TODAS las rutas en 404** — `/login` incluido—, con el dev server arrancando normal («Ready in 1.6s») y sin un solo error en los logs. Parece que la app se rompió entera. Pasó el 2026-10-02 al verificar la planilla | `rm -rf .next` y relevantar. Mejor aún: el build va **después** de probar en dev, no antes. Si hay que hacer las dos cosas, parar el dev server, borrar `.next` y recién ahí construir |
 | Buscar el buildId en el HTML de `/login` para saber si el despliegue entró | **Ya no está ahí**: el `"b":"…"` que la hoja de ruta daba por hecho no aparece en el HTML servido (verificado el 2026-10-01). Buscarlo da una cadena vacía, no un error | Confirmar con `get_deployment` que el despliegue del commit está `READY` y que tiene el alias `www.mi-rendicion.com`. Como huella secundaria sirve el nombre de un chunk de `/_next/static/chunks/`, que cambia entre builds |
+| Meter un PNG RGB dentro de un `.ico` | Un ICO con PNG embebido exige que ese PNG sea de **32 bits con alfa**. Quien lo hace cumplir es el build: Next procesa `src/app/favicon.ico` como metadata de ruta y corta con «Format error decoding Ico: The PNG is not in RGBA format!». El archivo se ve perfecto en cualquier visor, así que sin construir no se nota | Escribir el favicon en RGBA (tipo de color 6) aunque el ícono sea opaco: el canal constante lo comprime deflate y no pesa. Pasó el 2026-10-06 al rehacer el ícono |
