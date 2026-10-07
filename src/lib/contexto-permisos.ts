@@ -35,7 +35,36 @@ export async function cargarPersonas(admin: AdminClient, orgId: string): Promise
   }))
 }
 
-export async function cargarCadena(admin: AdminClient, userId: string): Promise<Cadena> {
+/** La cadena que un documento ya congeló, si la congeló. */
+export interface CadenaCongelada {
+  l1:       string | null
+  l2:       string | null
+  fijadaAt: string | null
+}
+
+/**
+ * La cadena de aprobación de un documento.
+ *
+ * Desde la 039 **manda el documento, no la ficha**: la cadena se congela al
+ * enviar. Si siguiera calculándose en vivo, reasignar un jefe de proyecto
+ * movería las aprobaciones que están pendientes, y un documento ya aprobado
+ * quedaría con un historial que no coincide con su cadena actual.
+ *
+ * El respaldo —leer `users` cuando el documento no trae cadena— cubre a los
+ * documentos anteriores a la migración y a cualquiera que se cree entre el
+ * despliegue y la aplicación. Sin él, esos documentos quedan sin aprobador y
+ * nadie puede moverlos, en silencio.
+ *
+ * **El suplente se sigue leyendo en vivo a propósito.** Es una ausencia temporal
+ * de una persona, no parte de la ruta del documento: si alguien se va de
+ * vacaciones después de que se envió una rendición, su suplente tiene que poder
+ * actuar. Congelarlo dejaría documentos esperando a quien no está.
+ */
+export async function cargarCadena(
+  admin: AdminClient,
+  userId: string,
+  congelada?: CadenaCongelada,
+): Promise<Cadena> {
   const { data, error } = await admin
     .from('users')
     .select('approver_l1_id, approver_l2_id, approver_l1_backup_id, backup_active_from, backup_active_until')
@@ -43,11 +72,14 @@ export async function cargarCadena(admin: AdminClient, userId: string): Promise<
     .single()
   if (error || !data) throw new Error('No se encontró la cadena de aprobación')
 
-  return {
-    l1:                data.approver_l1_id,
-    l2:                data.approver_l2_id,
-    suplenteL1Vigente: suplenteVigente(data.approver_l1_backup_id, data.backup_active_from, data.backup_active_until, hoy()),
+  const suplenteL1Vigente = suplenteVigente(
+    data.approver_l1_backup_id, data.backup_active_from, data.backup_active_until, hoy(),
+  )
+
+  if (congelada?.fijadaAt) {
+    return { l1: congelada.l1, l2: congelada.l2, suplenteL1Vigente }
   }
+  return { l1: data.approver_l1_id, l2: data.approver_l2_id, suplenteL1Vigente }
 }
 
 export interface ContextoRendicion {
@@ -64,7 +96,7 @@ export async function contextoRendicion(reportId: string): Promise<ContextoRendi
   const admin = createAdminClient()
   const { data: reporte } = await admin
     .from('expense_reports')
-    .select('id, org_id, submitter_id, status, title, approved_amount, is_historical_import')
+    .select('id, org_id, submitter_id, status, title, approved_amount, is_historical_import, proyecto_id, cadena_l1_id, cadena_l2_id, cadena_fijada_at')
     .eq('id', reportId)
     .is('deleted_at', null)
     .single()
@@ -72,7 +104,9 @@ export async function contextoRendicion(reportId: string): Promise<ContextoRendi
 
   const [personas, cadena, { data: log }] = await Promise.all([
     cargarPersonas(admin, reporte.org_id),
-    cargarCadena(admin, reporte.submitter_id),
+    cargarCadena(admin, reporte.submitter_id, {
+      l1: reporte.cadena_l1_id, l2: reporte.cadena_l2_id, fijadaAt: reporte.cadena_fijada_at,
+    }),
     admin.from('expense_report_approvals')
       .select('approver_id, action, level')
       .eq('report_id', reportId)
@@ -107,15 +141,24 @@ export async function contextoFondo(fundId: string): Promise<ContextoFondo> {
   const admin = createAdminClient()
   const { data: fondo } = await admin
     .from('petty_cash_funds')
-    .select('id, org_id, employee_id, manager_id, status, name, amount_requested, amount_approved')
+    .select('id, org_id, employee_id, manager_id, status, name, amount_requested, amount_approved, proyecto_id, cadena_l1_id, cadena_l2_id, cadena_fijada_at, liq_cadena_l1_id, liq_cadena_l2_id, liq_cadena_fijada_at')
     .eq('id', fundId)
     .is('deleted_at', null)
     .single()
   if (!fondo) throw new Error('Fondo no encontrado')
 
+  // El fondo y su liquidación son dos documentos, y cada uno congeló su propia
+  // cadena: la del fondo sobre lo que se pidió, la de la liquidación sobre lo
+  // que se gastó. Leer la equivocada haría que una liquidación que se pasó del
+  // umbral no escale, que es justo el caso que el diseño quiere cubrir.
+  const esLiquidacion = tipoDeFondo(fondo.status) === 'liquidacion'
+  const congeladaFondo: CadenaCongelada = esLiquidacion
+    ? { l1: fondo.liq_cadena_l1_id, l2: fondo.liq_cadena_l2_id, fijadaAt: fondo.liq_cadena_fijada_at }
+    : { l1: fondo.cadena_l1_id,     l2: fondo.cadena_l2_id,     fijadaAt: fondo.cadena_fijada_at }
+
   const [personas, cadena, { data: log }] = await Promise.all([
     cargarPersonas(admin, fondo.org_id),
-    cargarCadena(admin, fondo.employee_id),
+    cargarCadena(admin, fondo.employee_id, congeladaFondo),
     admin.from('petty_cash_approvals')
       .select('actor_id, action, level')
       .eq('fund_id', fundId)
