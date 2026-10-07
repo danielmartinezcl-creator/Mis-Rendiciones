@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, enableBlockedEmployee, getCostCenters } from '@/actions/admin'
 import { sendInvitations, setEmployeePassword } from '@/actions/employees'
+import { confirmacionInvitacion } from '@/lib/invitaciones'
 import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { PlanillaAlta } from '@/components/admin/PlanillaAlta'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
@@ -129,19 +130,15 @@ export default function AdminEmployeesPage() {
   }
 
   async function handleSendInvitations(userIds: string[]) {
-    const alreadyInvited = employees.filter(e => userIds.includes(e.id) && e.invited_at)
-    if (alreadyInvited.length > 0) {
-      /* La pregunta va en el título y la explicación abajo: al revés —como
-         estaba— lo importante quedaba al final de un párrafo largo. */
-      const detalle = alreadyInvited.map(e => `· ${e.full_name} (invitado el ${formatDate(e.invited_at!)})`).join('\n')
-      const titulo = alreadyInvited.length === 1
-        ? `${alreadyInvited[0].full_name} ya fue invitado el ${formatDate(alreadyInvited[0].invited_at!)}. ¿Reenviar igual?`
-        : `${alreadyInvited.length} de los seleccionados ya recibieron una invitación. ¿Reenviar igual?`
-      const cuerpo = alreadyInvited.length === 1
-        ? 'El nuevo correo llega como «restablecer contraseña» — puede ignorarlo si no quiere cambiar su clave.'
-        : `${detalle}\n\nEl correo llegará como «restablecer contraseña».`
-      if (!await confirmar({ titulo, detalle: cuerpo, aceptar: 'Reenviar' })) return
-    }
+    /* Varias personas exigen escribir INVITAR; una sola, solo si es reenvío.
+       La regla vive en `confirmacionInvitacion` (src/lib/invitaciones.ts), con
+       sus pruebas: antes un lote nuevo salía sin preguntar, y así salieron 52
+       invitaciones el 2026-10-07. */
+    const yaInvitados = employees
+      .filter(e => userIds.includes(e.id) && e.invited_at)
+      .map(e => ({ nombre: e.full_name, fecha: formatDate(e.invited_at!) }))
+    const pedido = confirmacionInvitacion(userIds.length, yaInvitados)
+    if (pedido && !await confirmar(pedido)) return
     const key = userIds.length > 1 ? 'bulk' : userIds[0]
     setInviting(key)
     setInviteResults(null)
