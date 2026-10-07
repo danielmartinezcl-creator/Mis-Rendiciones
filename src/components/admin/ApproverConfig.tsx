@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import { setEmployeeApprovalChain } from '@/actions/admin'
+import { setEmployeeApprovalChain, updateEmployee } from '@/actions/admin'
 import type { UserProfile } from '@/lib/supabase/types'
 
 interface Props {
@@ -17,6 +17,8 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
   const [backupId,    setBackupId]    = useState<string>(employee.approver_l1_backup_id ?? '')
   const [backupFrom,  setBackupFrom]  = useState<string>(employee.backup_active_from    ?? '')
   const [backupUntil, setBackupUntil] = useState<string>(employee.backup_active_until   ?? '')
+  const [umbral,      setUmbral]      = useState<string>(
+    employee.umbral_n2_clp != null ? String(employee.umbral_n2_clp) : '')
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
   const [error,  setError]  = useState<string | null>(null)
@@ -40,6 +42,11 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
         suplenteL1:    backupId    || null,
         suplenteDesde: backupFrom  || null,
         suplenteHasta: backupUntil || null,
+      })
+      /* `=== ''` y no un chequeo de verdad: 0 significa «todo pasa por N2» y
+         un `umbral ? …` lo convertiría en «sin umbral», al revés de lo pedido. */
+      await updateEmployee(employee.id, {
+        umbral_n2_clp: umbral === '' ? null : parseInt(umbral, 10),
       })
       setSaved(true)
       setTimeout(() => { setSaved(false); onSaved() }, 1200)
@@ -107,6 +114,34 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
           </p>
         </div>
       )}
+
+      {/* Umbral propio — le gana al de la organización. Se puede poner aunque no
+          haya N1 propio: el N2 y el umbral se heredan por separado, así que esta
+          persona puede tener su umbral y usar el N2 de la organización. */}
+      <div>
+        <label className="block text-xs font-medium text-ink-600 mb-1">
+          Desde cuánto va al segundo aprobador
+          <span className="text-ink-400 font-normal ml-1">— en blanco, usa el de la organización</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-ink-500 font-mono-amount">$</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={umbral}
+            onChange={e => setUmbral(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="Hereda de la organización"
+            className="campo w-full font-mono-amount"
+          />
+        </div>
+        {umbral !== '' && (
+          <p className="text-xs text-ink-400 mt-1">
+            {parseInt(umbral) === 0
+              ? 'Todo lo de esta persona pasa por el segundo aprobador'
+              : `Desde $ ${parseInt(umbral).toLocaleString('es-CL')} CLP`}
+          </p>
+        )}
+      </div>
 
       {/* Aprobador suplente — solo si hay N1 */}
       {l1Id && (

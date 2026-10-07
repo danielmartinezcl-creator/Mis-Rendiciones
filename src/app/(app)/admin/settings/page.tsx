@@ -9,6 +9,7 @@ import {
   getOrgEmployees, updateEmployee, updateEmployeeEmail,
   resendInvitation, deleteEmployee,
   getSpendingLimits, updateSpendingLimits,
+  getAprobadoresPorDefecto, setAprobadoresPorDefecto,
   getDefontanaSettings, updateDefontanaSettings, updateCategoryDefontanaCode,
   getCostCenters,
   getDefontanaSuppliers, addDefontanaSupplier, deleteDefontanaSupplier,
@@ -666,14 +667,103 @@ function EmployeesTab() {
 
 /* ── Tab: Cadenas de aprobación ────────────────────────────────────────── */
 function ChainsTab() {
+  const [gente, setGente]   = useState<{ id: string; full_name: string }[]>([])
+  const [n1, setN1]         = useState('')
+  const [n2, setN2]         = useState('')
+  const [loading, setLoad]  = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved]   = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([getAprobadoresPorDefecto(), getOrgEmployees()])
+      .then(([def, todos]) => {
+        setN1(def.n1 ?? '')
+        setN2(def.n2 ?? '')
+        /* Solo quienes pueden aprobar: la acción lo exige igual, pero ofrecer en
+           la lista a alguien que va a ser rechazado es hacer perder el viaje. */
+        setGente(todos.filter(p => p.can_approve && p.is_active && !p.blocked_at))
+        setLoad(false)
+      })
+      .catch(() => setLoad(false))
+  }, [])
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true); setError(null)
+    try {
+      await setAprobadoresPorDefecto(n1 || null, n2 || null)
+      setSaved(true); setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return <Spinner />
+
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-base font-display font-bold text-ink-900">Quién aprueba</h2>
+        <p className="text-sm tor-on-gradient-soft mt-0.5">
+          El aprobador de un documento sale del proyecto al que pertenece. Lo de acá es el
+          respaldo: a quién va lo que <strong>no</strong> es de un proyecto.
+        </p>
+      </div>
+
+      <form onSubmit={guardar} className="hoja p-5 space-y-5">
+        <div>
+          <label className="block text-sm font-semibold text-ink-700 mb-1">
+            Aprobador por defecto
+          </label>
+          <p className="text-xs text-ink-400 mb-2">
+            Cubre a todos los que no tengan un jefe propio en su ficha. Sin esto, quien no
+            tenga jefe configurado no puede enviar nada.
+          </p>
+          <select value={n1} onChange={e => setN1(e.target.value)} className="campo w-full max-w-sm">
+            <option value="">Sin aprobador por defecto</option>
+            {gente.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-ink-700 mb-1">
+            Segundo aprobador por defecto
+          </label>
+          <p className="text-xs text-ink-400 mb-2">
+            Solo interviene cuando el monto supera el umbral que está en <strong>Límites</strong>.
+            Si una persona tiene su propio N2 en la ficha, ese manda.
+          </p>
+          <select value={n2} onChange={e => setN2(e.target.value)} className="campo w-full max-w-sm">
+            <option value="">Sin segundo aprobador</option>
+            {gente.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+          </select>
+        </div>
+
+        {error && (
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">{error}</div>
+        )}
+        {saved && (
+          <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">
+            ✓ Guardado
+          </div>
+        )}
+
+        <button type="submit" disabled={saving} className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm">
+          {saving ? 'Guardando…' : 'Guardar'}
+        </button>
+      </form>
+
       <div className="bg-brand-50 border border-brand-200 rounded-card p-4 flex gap-3 items-start">
         <Link2 size={18} className="text-brand-600 shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-medium text-brand-800">Las aprobaciones se configuran por empleado</p>
+          <p className="text-sm font-medium text-brand-800">Las excepciones van por empleado</p>
           <p className="text-xs text-brand-600 mt-1">
-            Ve a <strong>Empleados</strong> en el menú y desplegá la tarjeta de cada persona para asignar su aprobador N1 y, si corresponde, un aprobador N2 en cadena.
+            En <strong>Empleados</strong>, la ficha de cada persona permite darle un jefe propio
+            —que le gana al de acá— y marcar quién es <strong>jefe de proyecto</strong>, que es
+            la lista que el empleado ve al rendir a una obra.
           </p>
         </div>
       </div>
@@ -1058,6 +1148,7 @@ function DefontanaTab() {
 function LimitsTab() {
   const [maxItem, setMaxItem] = useState('')
   const [maxFund, setMaxFund] = useState('')
+  const [umbralN2, setUmbralN2] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving,  setSaving]  = useState(false)
   const [saved,   setSaved]   = useState(false)
@@ -1067,6 +1158,7 @@ function LimitsTab() {
     getSpendingLimits().then(limits => {
       setMaxItem(limits.maxItemAmount != null ? String(limits.maxItemAmount) : '')
       setMaxFund(limits.maxFundAmount != null ? String(limits.maxFundAmount) : '')
+      setUmbralN2(limits.umbralN2 != null ? String(limits.umbralN2) : '')
       setLoading(false)
     })
   }, [])
@@ -1079,6 +1171,9 @@ function LimitsTab() {
       await updateSpendingLimits({
         maxItemAmount: maxItem ? parseInt(maxItem.replace(/\./g, ''), 10) : null,
         maxFundAmount: maxFund ? parseInt(maxFund.replace(/\./g, ''), 10) : null,
+        // `=== ''` y no `umbralN2 ?`: el 0 es un valor con significado —«todo pasa
+        // por N2»— y un chequeo de verdad lo trataría como «sin umbral».
+        umbralN2: umbralN2 === '' ? null : parseInt(umbralN2.replace(/\./g, ''), 10),
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -1150,6 +1245,39 @@ function LimitsTab() {
               = $ {parseInt(maxFund).toLocaleString('es-CL')} CLP por fondo
             </p>
           )}
+        </div>
+
+        <div className="border-t border-ink-100 pt-5">
+          <label className="block text-sm font-semibold text-ink-700 mb-1">
+            Desde cuánto se necesita una segunda firma (CLP)
+          </label>
+          <p className="text-xs text-ink-400 mb-2">
+            A diferencia de los límites de arriba, esto no rechaza nada: manda el documento a
+            un segundo aprobador. Se mide sobre el total al enviar — en una liquidación de caja
+            chica, sobre lo gastado. <strong>0 = todo pasa por N2; en blanco = nunca.</strong>
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-ink-500 font-mono-amount">$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={umbralN2}
+              onChange={e => setUmbralN2(e.target.value.replace(/[^\d.]/g, ''))}
+              placeholder="Nunca"
+              className="campo w-full max-w-xs font-mono-amount"
+            />
+          </div>
+          {umbralN2 !== '' && !isNaN(parseInt(umbralN2)) && (
+            <p className="text-xs text-ink-400 mt-1">
+              {parseInt(umbralN2) === 0
+                ? 'Todo pasa por una segunda firma'
+                : `Desde $ ${parseInt(umbralN2).toLocaleString('es-CL')} CLP, segunda firma`}
+            </p>
+          )}
+          <p className="text-xs text-ink-400 mt-2">
+            Quién es ese segundo aprobador se configura en <strong>Aprobación</strong>, o por
+            persona en su ficha.
+          </p>
         </div>
 
         {error && (

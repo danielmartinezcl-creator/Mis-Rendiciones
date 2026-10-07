@@ -776,6 +776,8 @@ export async function updateEmployee(
     role?:                       'admin' | 'approver' | 'employee'
     can_submit?:                 boolean
     can_approve?:                boolean
+    es_jefe_proyecto?:           boolean
+    umbral_n2_clp?:              number | null
     can_manage_petty_cash?:      boolean
     can_load_bank_transfer?:     boolean
     can_authorize_bank_transfer?: boolean
@@ -794,7 +796,7 @@ export async function updateEmployee(
   // Capture before state
   const { data: before } = await supabase
     .from('users')
-    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_load_backup, bank_auth_backup, rut, bank_account, blocked_at')
+    .select('full_name, role, department, cost_center_id, approver_l1_id, approver_l2_id, is_active, can_submit, can_approve, es_jefe_proyecto, umbral_n2_clp, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_load_backup, bank_auth_backup, rut, bank_account, blocked_at')
     .eq('id', userId)
     .single()
 
@@ -1343,18 +1345,21 @@ export async function getSpendingLimits() {
   const { supabase, orgId } = await requireAdmin()
   const { data } = await supabase
     .from('organizations')
-    .select('max_item_amount_clp, max_fund_amount_clp')
+    .select('max_item_amount_clp, max_fund_amount_clp, umbral_n2_clp')
     .eq('id', orgId)
     .single()
   return {
     maxItemAmount: data?.max_item_amount_clp ?? null,
     maxFundAmount: data?.max_fund_amount_clp ?? null,
+    umbralN2:      data?.umbral_n2_clp ?? null,
   }
 }
 
 export async function updateSpendingLimits(limits: {
   maxItemAmount: number | null
   maxFundAmount: number | null
+  /** Desde cuánto una rendición o un fondo pasa además por N2. 0 = siempre; null = nunca. */
+  umbralN2?:     number | null
 }) {
   const { supabase, orgId } = await requireAdmin()
   const { error } = await supabase
@@ -1362,6 +1367,7 @@ export async function updateSpendingLimits(limits: {
     .update({
       max_item_amount_clp: limits.maxItemAmount,
       max_fund_amount_clp: limits.maxFundAmount,
+      ...(limits.umbralN2 !== undefined ? { umbral_n2_clp: limits.umbralN2 } : {}),
     })
     .eq('id', orgId)
   if (error) throw new Error(error.message)
@@ -2985,4 +2991,47 @@ export async function confirmHistoricalDefontanaByType(
   revalidatePath('/petty-cash')
 
   return { confirmedItems: ids.length }
+}
+
+// ─── Aprobadores por defecto de la organización (039) ────────────────────────
+
+/**
+ * A quién va lo que no es de un proyecto y es de alguien sin jefe propio.
+ *
+ * Es lo que cubre a todos sin tocar fichas: hoy 50 de 57 empleados no tienen N1
+ * configurado, y sin esto no pueden enviar nada.
+ */
+export async function getAprobadoresPorDefecto() {
+  const { supabase, orgId } = await requireAdmin()
+  const { data } = await supabase
+    .from('organizations')
+    .select('aprobador_defecto_id, aprobador_n2_defecto_id')
+    .eq('id', orgId)
+    .single()
+  return { n1: data?.aprobador_defecto_id ?? null, n2: data?.aprobador_n2_defecto_id ?? null }
+}
+
+export async function setAprobadoresPorDefecto(n1: string | null, n2: string | null) {
+  const { supabase, orgId } = await requireAdmin()
+  if (n1 && n1 === n2) throw new Error('El N1 y el N2 por defecto no pueden ser la misma persona')
+
+  // Quien queda de aprobador por defecto tiene que poder aprobar: si no,
+  // `validarCadena` lo rechazaría y nadie se enteraría hasta el primer envío
+  // fallido — y para entonces el problema parece del empleado, no de la config.
+  for (const [id, nivel] of [[n1, 'N1'], [n2, 'N2']] as const) {
+    if (!id) continue
+    const { data } = await supabase
+      .from('users').select('full_name, can_approve, is_active')
+      .eq('id', id).eq('org_id', orgId).maybeSingle()
+    if (!data) throw new Error(`El aprobador ${nivel} no pertenece a esta organización`)
+    if (!data.is_active) throw new Error(`${data.full_name} no está activo`)
+    if (!data.can_approve) throw new Error(`${data.full_name} no tiene el permiso «aprueba»`)
+  }
+
+  const { error } = await supabase
+    .from('organizations')
+    .update({ aprobador_defecto_id: n1, aprobador_n2_defecto_id: n2 })
+    .eq('id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/settings')
 }

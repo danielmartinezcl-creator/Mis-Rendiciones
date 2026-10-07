@@ -18,6 +18,7 @@ type EmployeeWithEmail = UserProfile & { email: string }
 const PERMISOS = [
   { campo: 'can_submit',                  chip: 'rinde' },
   { campo: 'can_approve',                 chip: 'aprueba' },
+  { campo: 'es_jefe_proyecto',            chip: 'jefe de proyecto' },
   { campo: 'can_manage_petty_cash',       chip: 'EFF' },
   { campo: 'can_load_bank_transfer',      chip: 'carga banco' },
   { campo: 'can_authorize_bank_transfer', chip: 'autoriza banco' },
@@ -788,6 +789,17 @@ export default function AdminEmployeesPage() {
                       onChange={e => handleUpdate(emp.id, { can_approve: e.target.checked })}
                       className="rounded text-brand-600" />
                     Puede aprobar
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer" title="Aparece en la lista de jefes que el empleado elige al rendir a una obra">
+                    <input type="checkbox" checked={emp.es_jefe_proyecto} disabled={saving === emp.id}
+                      /* Marcarlo otorga también «puede aprobar»: validarCadena lo
+                         exige para estar en una cadena, así que sin eso quedaría
+                         en la lista pero no podría aprobar nada. */
+                      onChange={e => handleUpdate(emp.id, e.target.checked
+                        ? { es_jefe_proyecto: true, can_approve: true }
+                        : { es_jefe_proyecto: false })}
+                      className="rounded text-brand-600" />
+                    Jefe de proyecto
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
                     <input type="checkbox" checked={emp.can_manage_petty_cash} disabled={saving === emp.id}
