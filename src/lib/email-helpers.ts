@@ -21,10 +21,53 @@ export type EstadoCorreo =
 const PREFIJO = 're_'
 const LARGO_MINIMO = 20
 
+/**
+ * Lo que decide si un correo puede salir, además de la clave.
+ *
+ * Existe por un incidente del 2026-10-07: una prueba automatizada corrida contra
+ * el servidor LOCAL —que apunta a la base real de producción y tenía una clave
+ * de Resend que funcionaba— hizo clic en «Invitar sin invitar», y salieron 52
+ * invitaciones a empleados reales con la app a medio reconfigurar.
+ */
+export interface EntornoCorreo {
+  /** Vercel lo pone en 'production' solo en el despliegue de producción */
+  VERCEL_ENV?:     string
+  /** Pausa todo correo saliente. Vacío, '0', 'false' o 'no' = sin pausa */
+  CORREO_PAUSADO?: string
+}
+
+export function entornoCorreoActual(): EntornoCorreo {
+  return { VERCEL_ENV: process.env.VERCEL_ENV, CORREO_PAUSADO: process.env.CORREO_PAUSADO }
+}
+
+const VALORES_SIN_PAUSA = new Set(['', '0', 'false', 'no'])
+
 export function revisarConfigCorreo(
   clave: string | undefined | null,
   remitente: string | undefined | null,
+  entorno: EntornoCorreo = entornoCorreoActual(),
 ): EstadoCorreo {
+  // 1. Fuera de producción no sale nada: ni en local ni en los previews de
+  //    Vercel, que comparten la base con producción. Va ANTES de mirar la
+  //    clave: que una clave sea válida es justamente lo que lo hacía peligroso.
+  if (entorno.VERCEL_ENV !== 'production') {
+    return {
+      puedeEnviar: false,
+      motivo: 'Fuera de producción no se envían correos (VERCEL_ENV no es «production»).',
+    }
+  }
+
+  // 2. Pausa global. Falla cerrado: un valor que no se reconoce como «sin
+  //    pausa» pausa. Un error de tipeo al apagarla deja todo callado, que es el
+  //    error barato; el caro es el que acaba de pasar.
+  const pausa = (entorno.CORREO_PAUSADO ?? '').trim().toLowerCase()
+  if (!VALORES_SIN_PAUSA.has(pausa)) {
+    return {
+      puedeEnviar: false,
+      motivo: 'Los correos están pausados (CORREO_PAUSADO). Se reanudan quitando esa variable en Vercel.',
+    }
+  }
+
   const k = (clave ?? '').trim()
 
   if (!k) {

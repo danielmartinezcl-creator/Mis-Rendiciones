@@ -6,6 +6,7 @@
 // actor que quisiera — correos con nuestro remitente a quien la persona eligiera.
 // Solo lo importan acciones del servidor (src/actions/), después de escribir.
 
+import { revisarConfigCorreo } from '@/lib/email-helpers'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { destinatarios, type Paso, type Persona } from '@/lib/permisos'
@@ -13,15 +14,17 @@ import { contextoRendicion, contextoFondo } from '@/lib/contexto-permisos'
 import { escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo } from '@/lib/avisos-helpers'
 import { correoDeRecordatorios, filaDeRecordatorio, type Recordatorio } from '@/lib/recordatorios'
 
-// Solo envía si Resend está configurado
+// Pasa por la MISMA regla que las invitaciones (`revisarConfigCorreo`): fuera de
+// producción o con la pausa puesta, no sale nada. Hasta el 2026-10-07 este
+// envío tenía su propio chequeo —solo «hay clave y no es placeholder»—, así que
+// el candado de un lado no cubría el otro. Ahora hay una sola puerta.
 async function trySendEmail(to: string[], subject: string, html: string) {
   if (!to.length) return
-  const apiKey     = process.env.RESEND_API_KEY
-  const fromEmail  = process.env.RESEND_FROM_EMAIL ?? 'noreply@mi-rendicion.com'
-  if (!apiKey || apiKey === 'placeholder') return
-  const resend = new Resend(apiKey)
+  const correo = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
+  if (!correo.puedeEnviar) return
+  const resend = new Resend((process.env.RESEND_API_KEY ?? '').trim())
   // Nombre visible en el campo "De:" del correo
-  const from = `Mi Rendición <${fromEmail}>`
+  const from = `Mi Rendición <${correo.desde}>`
   await resend.emails.send({ from, to, subject, html }).catch(() => {
     // Email no crítico — fallo silencioso
   })
