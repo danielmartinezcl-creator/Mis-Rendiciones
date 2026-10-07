@@ -11,6 +11,7 @@ import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
+import { PreviaCadena } from '@/components/ui/PreviaCadena'
 import { formatDisplayTitle } from '@/lib/utils'
 import { puedeCambiarGastos } from '@/lib/expense-helpers'
 import {
@@ -465,6 +466,11 @@ export default function ExpenseDetailPage() {
           {/* Solo con gastos cargados: quien entra a una rendición vacía no ve
               ninguna opción de adjuntar, así que no puede creer que sea el camino. */}
           {items.length > 0 && !showForm && respaldos}
+
+          {/* A quién le va a llegar, justo antes del botón que lo manda */}
+          {items.length > 0 && !showForm && (
+            <PreviaCadena reportId={id} recargarCon={items.length} />
+          )}
 
           {items.length > 0 && !showForm && (
             <button

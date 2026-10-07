@@ -1,0 +1,64 @@
+'use client'
+
+// A quién le va a llegar el documento, dicho ANTES de enviarlo.
+//
+// Es la pieza que hace que el selector de proyecto no sea una pregunta a
+// ciegas: muestra el efecto de haber elegido una obra (o de no haberla
+// elegido), y convierte el error en algo que se nota antes de enviar y no tres
+// días después, cuando alguien pregunta por qué le llegó esto.
+//
+// El texto sale de la misma función que decide de verdad la cadena, así que no
+// puede desincronizarse con lo que va a pasar.
+
+import { useEffect, useState } from 'react'
+import { ArrowRight, TriangleAlert } from 'lucide-react'
+import { previaDeCadena } from '@/actions/expenses'
+import { formatCLP } from '@/lib/utils'
+
+type Previa = Awaited<ReturnType<typeof previaDeCadena>>
+
+export function PreviaCadena({ reportId, recargarCon }: { reportId: string; recargarCon?: unknown }) {
+  const [previa, setPrevia] = useState<Previa>(null)
+  const [listo, setListo]   = useState(false)
+
+  useEffect(() => {
+    let vigente = true
+    previaDeCadena(reportId)
+      .then(p => { if (vigente) { setPrevia(p); setListo(true) } })
+      .catch(() => { if (vigente) setListo(true) })
+    return () => { vigente = false }
+  }, [reportId, recargarCon])
+
+  // Mientras carga no se muestra nada: un hueco que aparece y desaparece
+  // molesta más de lo que informa en algo que se lee una vez.
+  if (!listo || !previa) return null
+
+  if (!previa.n1) {
+    return (
+      <div className="hoja p-4 flex items-start gap-2.5">
+        <TriangleAlert size={16} className="text-warning-600 shrink-0 mt-0.5" />
+        <p className="card-label text-ink-700">
+          <span className="font-semibold">Todavía no hay quién apruebe esto.</span>{' '}
+          Si es de un proyecto, elegí el jefe de la obra; si no, pedile a administración
+          que configure tu aprobador.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="hoja p-4 flex items-start gap-2.5">
+      <ArrowRight size={16} className="text-brand-600 shrink-0 mt-0.5" />
+      <p className="card-label text-ink-700">
+        Esto va a <span className="font-semibold text-ink-900">{previa.n1}</span>
+        {previa.esSuplente && <span className="text-ink-500"> (suplente)</span>}.
+        {previa.n2 && (
+          <>
+            {' '}Y como supera {previa.umbral !== null ? formatCLP(previa.umbral) : 'el límite'},
+            después a <span className="font-semibold text-ink-900">{previa.n2}</span>.
+          </>
+        )}
+      </p>
+    </div>
+  )
+}

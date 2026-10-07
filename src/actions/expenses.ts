@@ -956,3 +956,64 @@ export async function getReportApprovals(reportId: string): Promise<ReportApprov
     notes:         a.notes ?? null,
   }))
 }
+
+/**
+ * A quién le va a llegar esta rendición si se envía ahora.
+ *
+ * Resuelve con la MISMA `resolverCadenaDeDocumento()` que usa `submitReport`, a
+ * propósito: si la pantalla calculara la previa por su cuenta, al tercer cambio
+ * mostraría una cosa y pasaría otra. La única diferencia es que esto no escribe
+ * nada.
+ */
+export async function previaDeCadena(reportId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const admin = createAdminClient()
+  const { data: reporte } = await admin
+    .from('expense_reports')
+    .select('id, org_id, submitter_id, status, proyecto_id, cadena_l1_id, cadena_l2_id, cadena_fijada_at')
+    .eq('id', reportId)
+    .is('deleted_at', null)
+    .single()
+  if (!reporte) return null
+
+  // La previa es para quien está por enviar. Para los demás, lo que importa no
+  // es la previsión sino el historial, que la pantalla ya muestra.
+  if (reporte.submitter_id !== user.id) return null
+
+  const { data: items } = await admin
+    .from('expense_items')
+    .select('amount_clp')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+  const total = (items ?? []).reduce((s, i) => s + Number(i.amount_clp ?? 0), 0)
+
+  const cadena = await resolverCadenaDeDocumento(admin, {
+    orgId:          reporte.org_id,
+    beneficiarioId: reporte.submitter_id,
+    proyectoId:     reporte.proyecto_id,
+    total,
+  })
+
+  const nombre = async (id: string | null) => {
+    if (!id) return null
+    const { data } = await admin.from('users').select('full_name').eq('id', id).single()
+    return data?.full_name ?? null
+  }
+
+  // El umbral que efectivamente se aplicó, para poder explicar por qué escala
+  const [{ data: persona }, { data: org }] = await Promise.all([
+    admin.from('users').select('umbral_n2_clp').eq('id', reporte.submitter_id).single(),
+    admin.from('organizations').select('umbral_n2_clp').eq('id', reporte.org_id).single(),
+  ])
+
+  return {
+    n1:       await nombre(cadena.suplenteL1Vigente ?? cadena.l1),
+    esSuplente: Boolean(cadena.suplenteL1Vigente),
+    n2:       await nombre(cadena.l2),
+    umbral:   persona?.umbral_n2_clp ?? org?.umbral_n2_clp ?? null,
+    total,
+  }
+}
