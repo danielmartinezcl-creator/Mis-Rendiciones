@@ -29,6 +29,10 @@ export interface Database {
           defontana_doc_type_advance:      string | null
           defontana_doc_type_return:       string | null
           mileage_rate_per_km:        number | null
+          /* 039 — lo que cubre a todos sin tocar fichas */
+          aprobador_defecto_id:       string | null
+          aprobador_n2_defecto_id:    string | null
+          umbral_n2_clp:              number | null
         }
         Insert: {
           id?: string
@@ -52,6 +56,9 @@ export interface Database {
           defontana_doc_type_advance?:      string | null
           defontana_doc_type_return?:       string | null
           mileage_rate_per_km?:        number | null
+          aprobador_defecto_id?:       string | null
+          aprobador_n2_defecto_id?:    string | null
+          umbral_n2_clp?:              number | null
         }
         Update: {
           id?: string
@@ -75,6 +82,9 @@ export interface Database {
           defontana_doc_type_advance?:      string | null
           defontana_doc_type_return?:       string | null
           mileage_rate_per_km?:        number | null
+          aprobador_defecto_id?:       string | null
+          aprobador_n2_defecto_id?:    string | null
+          umbral_n2_clp?:              number | null
         }
         Relationships: []
       }
@@ -91,6 +101,10 @@ export interface Database {
           can_authorize_bank_transfer: boolean
           bank_load_backup: boolean
           bank_auth_backup: boolean
+          /* 039 — quién aparece en la lista de jefes que ve el empleado */
+          es_jefe_proyecto: boolean
+          /* 039 — null hereda el umbral de la organización */
+          umbral_n2_clp: number | null
           department: string | null
           rut: string | null
           bank_account: string | null
@@ -120,6 +134,8 @@ export interface Database {
           can_authorize_bank_transfer?: boolean
           bank_load_backup?: boolean
           bank_auth_backup?: boolean
+          es_jefe_proyecto?: boolean
+          umbral_n2_clp?: number | null
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -149,6 +165,8 @@ export interface Database {
           can_authorize_bank_transfer?: boolean
           bank_load_backup?: boolean
           bank_auth_backup?: boolean
+          es_jefe_proyecto?: boolean
+          umbral_n2_clp?: number | null
           department?: string | null
           rut?: string | null
           bank_account?: string | null
@@ -281,6 +299,11 @@ export interface Database {
           modified_by: string | null
           ai_analysis:    Json | null
           ai_analysis_at: string | null
+          /* 039 — el proyecto y la cadena, congelada al enviar */
+          proyecto_id: string | null
+          cadena_l1_id: string | null
+          cadena_l2_id: string | null
+          cadena_fijada_at: string | null
         }
         Insert: {
           id?: string
@@ -311,6 +334,10 @@ export interface Database {
           modified_by?: string | null
           ai_analysis?:    Json | null
           ai_analysis_at?: string | null
+          proyecto_id?: string | null
+          cadena_l1_id?: string | null
+          cadena_l2_id?: string | null
+          cadena_fijada_at?: string | null
         }
         Update: {
           id?: string
@@ -341,6 +368,10 @@ export interface Database {
           modified_by?: string | null
           ai_analysis?:    Json | null
           ai_analysis_at?: string | null
+          proyecto_id?: string | null
+          cadena_l1_id?: string | null
+          cadena_l2_id?: string | null
+          cadena_fijada_at?: string | null
         }
         Relationships: [
           {
@@ -603,6 +634,16 @@ export interface Database {
           deleted_at: string | null
           deleted_by: string | null
           is_historical_import: boolean
+          /* 039 — el fondo y su liquidación son dos documentos: cada uno
+             congela su propia cadena, y la de la liquidación se calcula
+             sobre lo gastado, no sobre lo que se pidió */
+          proyecto_id: string | null
+          cadena_l1_id: string | null
+          cadena_l2_id: string | null
+          cadena_fijada_at: string | null
+          liq_cadena_l1_id: string | null
+          liq_cadena_l2_id: string | null
+          liq_cadena_fijada_at: string | null
           defontana_exported_at: string | null
           defontana_export_ref: string | null
         }
@@ -625,6 +666,13 @@ export interface Database {
           deleted_at?: string | null
           deleted_by?: string | null
           is_historical_import?: boolean
+          proyecto_id?: string | null
+          cadena_l1_id?: string | null
+          cadena_l2_id?: string | null
+          cadena_fijada_at?: string | null
+          liq_cadena_l1_id?: string | null
+          liq_cadena_l2_id?: string | null
+          liq_cadena_fijada_at?: string | null
           defontana_exported_at?: string | null
           defontana_export_ref?: string | null
         }
@@ -638,6 +686,13 @@ export interface Database {
           deleted_at?: string | null
           deleted_by?: string | null
           is_historical_import?: boolean
+          proyecto_id?: string | null
+          cadena_l1_id?: string | null
+          cadena_l2_id?: string | null
+          cadena_fijada_at?: string | null
+          liq_cadena_l1_id?: string | null
+          liq_cadena_l2_id?: string | null
+          liq_cadena_fijada_at?: string | null
           defontana_exported_at?: string | null
           defontana_export_ref?: string | null
         }
@@ -822,6 +877,47 @@ export interface Database {
         }
         Relationships: [
           { foreignKeyName: 'cost_centers_org_id_fkey'; columns: ['org_id']; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
+      }
+      /**
+       * 039 — el catálogo de obras. No se carga a mano: se arma con el uso, la
+       * primera vez que alguien rinde a un número que no existía. Por eso no hay
+       * pantalla de alta, solo una de corrección.
+       */
+      proyectos: {
+        Row: {
+          id:         string
+          org_id:     string
+          /** Lo que identifica a la obra. El nombre es ayuda para el humano */
+          numero:     string
+          nombre:     string | null
+          /** El N1 que se sugiere; se guarda el último usado */
+          jefe_id:    string | null
+          activo:     boolean
+          creado_por: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?:         string
+          org_id:      string
+          numero:      string
+          nombre?:     string | null
+          jefe_id?:    string | null
+          activo?:     boolean
+          creado_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          numero?:  string
+          nombre?:  string | null
+          jefe_id?: string | null
+          activo?:  boolean
+        }
+        Relationships: [
+          { foreignKeyName: 'proyectos_org_id_fkey'; columns: ['org_id']; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'proyectos_jefe_id_fkey'; columns: ['jefe_id']; referencedRelation: 'users'; referencedColumns: ['id'] }
         ]
       }
       defontana_suppliers: {
@@ -1103,6 +1199,7 @@ export type UserProfile = Database['public']['Tables']['users']['Row']
 export type ApprovalPolicy = Database['public']['Tables']['approval_policies']['Row']
 export type ExpenseReport = Database['public']['Tables']['expense_reports']['Row']
 export type ExpenseItem = Database['public']['Tables']['expense_items']['Row']
+export type Proyecto = Database['public']['Tables']['proyectos']['Row']
 export type Attachment = Database['public']['Tables']['attachments']['Row']
 export type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
 export type ExpenseReportApproval = Database['public']['Tables']['expense_report_approvals']['Row']
