@@ -13,6 +13,7 @@ import {
   resolverPlanilla,
   type FilaPlanilla, type Persona, type CentroCosto,
 } from '@/lib/planilla-alta'
+import type { AprobacionDeDocumento } from '@/lib/segregacion'
 
 export type ImportEmployeeRow = {
   full_name:       string
@@ -255,11 +256,15 @@ async function requireAdmin() {
 //
 // En cost_centers el código ES el id (varchar) y el nombre está en
 // `descripcion`: la tabla no tiene columnas `code` ni `name`.
-export async function datosParaPlanilla(): Promise<{ personas: Persona[]; centros: CentroCosto[] }> {
+export async function datosParaPlanilla(): Promise<{
+  personas: Persona[]
+  centros: CentroCosto[]
+  aprobacionesDeDocumentos: AprobacionDeDocumento[]
+}> {
   const { orgId } = await requireAdmin()
   const admin = createAdminClient()
 
-  const [usuarios, centros] = await Promise.all([
+  const [usuarios, centros, rendiciones, fondos] = await Promise.all([
     admin.from('users')
       .select('id, full_name, rut, is_active, blocked_at, deleted_at, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_load_backup, bank_auth_backup, approver_l1_id, approver_l2_id')
       .eq('org_id', orgId),
@@ -267,9 +272,28 @@ export async function datosParaPlanilla(): Promise<{ personas: Persona[]; centro
       .select('id, descripcion')
       .eq('org_id', orgId)
       .eq('activo', true),
+    // Las cadenas congeladas: desde el aprobador por proyecto, quién aprueba a
+    // quién también vive en los documentos, no solo en la ficha.
+    admin.from('expense_reports')
+      .select('submitter_id, cadena_l1_id, cadena_l2_id')
+      .eq('org_id', orgId).is('deleted_at', null).not('cadena_fijada_at', 'is', null),
+    admin.from('petty_cash_funds')
+      .select('employee_id, cadena_l1_id, cadena_l2_id, liq_cadena_l1_id, liq_cadena_l2_id')
+      .eq('org_id', orgId).is('deleted_at', null),
   ])
   if (usuarios.error) throw new Error(usuarios.error.message)
   if (centros.error)  throw new Error(centros.error.message)
+
+  const aprobacionesDeDocumentos: AprobacionDeDocumento[] = []
+  const sumar = (de: string, aprueba: string | null) => {
+    if (aprueba) aprobacionesDeDocumentos.push({ de, aprueba })
+  }
+  for (const r of rendiciones.data ?? []) {
+    sumar(r.submitter_id, r.cadena_l1_id); sumar(r.submitter_id, r.cadena_l2_id)
+  }
+  for (const f of fondos.data ?? []) {
+    for (const id of [f.cadena_l1_id, f.cadena_l2_id, f.liq_cadena_l1_id, f.liq_cadena_l2_id]) sumar(f.employee_id, id)
+  }
 
   const { data: auth } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const correos = new Map((auth?.users ?? []).map(u => [u.id, u.email ?? '']))
@@ -294,6 +318,7 @@ export async function datosParaPlanilla(): Promise<{ personas: Persona[]; centro
     centros: (centros.data ?? []).map(c => ({
       id: c.id, codigo: c.id, nombre: c.descripcion ?? '',
     })),
+    aprobacionesDeDocumentos,
   }
 }
 

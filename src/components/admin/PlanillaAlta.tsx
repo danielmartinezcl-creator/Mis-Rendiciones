@@ -14,7 +14,7 @@ import {
   resolverPlanilla, sinPermisoAprobar,
   type FilaPlanilla, type Persona, type CentroCosto,
 } from '@/lib/planilla-alta'
-import { alertasDeSegregacion } from '@/lib/segregacion'
+import { alertasDeSegregacion, type AprobacionDeDocumento } from '@/lib/segregacion'
 
 const CABECERAS = [
   'Apellido y nombre', 'RUT', 'Correo', 'Cargo', 'Centro de costo', 'Rol',
@@ -62,6 +62,7 @@ async function descargarPlantilla() {
 export function PlanillaAlta({ onDone }: { onDone: () => void }) {
   const { confirmar, avisar } = useDialogos()
   const [personas, setPersonas] = useState<Persona[]>([])
+  const [docs, setDocs]         = useState<AprobacionDeDocumento[]>([])
   const [centros,  setCentros]  = useState<CentroCosto[]>([])
   const [filas,    setFilas]    = useState<FilaPlanilla[]>([])
   const [archivo,  setArchivo]  = useState<string | null>(null)
@@ -72,7 +73,7 @@ export function PlanillaAlta({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     datosParaPlanilla()
-      .then(d => { setPersonas(d.personas); setCentros(d.centros) })
+      .then(d => { setPersonas(d.personas); setCentros(d.centros); setDocs(d.aprobacionesDeDocumentos) })
       .catch(e => setError(e instanceof Error ? e.message : String(e)))
   }, [])
 
@@ -89,7 +90,7 @@ export function PlanillaAlta({ onDone }: { onDone: () => void }) {
   const cambianMail  = validas.filter(r => r.correoNuevo)
   const faltaPermiso = sinPermisoAprobar(resueltas)
   const alertas      = useMemo(
-    () => alertasDeSegregacion(personas, resueltas), [personas, resueltas])
+    () => alertasDeSegregacion(personas, resueltas, undefined, docs), [personas, resueltas, docs])
 
   async function leerArchivo(file: File) {
     setError(null); setFallidas([])
@@ -131,6 +132,7 @@ export function PlanillaAlta({ onDone }: { onDone: () => void }) {
       if (r.errores.length) avisar(r.errores.join('. '), 'error')
       const d = await datosParaPlanilla()
       setPersonas(d.personas)
+      setDocs(d.aprobacionesDeDocumentos)
       setOtorgar(new Set())   // ya está en la base: el recálculo lo toma de ahí
       if (r.ok) avisar(`${r.ok} ${r.ok === 1 ? 'persona ahora puede' : 'personas ahora pueden'} aprobar`)
     } catch (e) {

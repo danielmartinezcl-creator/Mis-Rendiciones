@@ -80,3 +80,37 @@ describe('alertasDeSegregacion', () => {
     expect(alertasDeSegregacion(personas, resueltas)).toEqual([])
   })
 })
+
+/* Con aprobador por proyecto (2026-10-07) la cadena ya no vive solo en la ficha:
+   sale de la obra y queda congelada en cada documento. La aprobación mutua
+   aparece entonces EN LOS DOCUMENTOS —A aprueba lo de B en una obra, B lo de A
+   en otra— aunque ninguno de los dos tenga al otro como jefe en su ficha. */
+describe('alertasDeSegregacion — cadenas que vienen de los documentos', () => {
+  it('detecta a dos que se aprueban mutuamente a través de obras', () => {
+    const personas = [p({ id: 'a', nombre: 'Ana' }), p({ id: 'b', nombre: 'Beto' })]
+    const docs = [{ de: 'b', aprueba: 'a' }, { de: 'a', aprueba: 'b' }]
+    const as = alertasDeSegregacion(personas, [], undefined, docs)
+    expect(as.map(x => x.tipo)).toEqual(['circular'])
+    expect(as[0].personas.slice().sort()).toEqual(['Ana', 'Beto'])
+  })
+
+  it('una sola dirección no es circular', () => {
+    const personas = [p({ id: 'a', nombre: 'Ana' }), p({ id: 'b', nombre: 'Beto' })]
+    expect(alertasDeSegregacion(personas, [], undefined, [{ de: 'b', aprueba: 'a' }])).toEqual([])
+  })
+
+  it('mezcla: una mitad en la ficha y la otra en un documento', () => {
+    const personas = [p({ id: 'a', nombre: 'Ana' }), p({ id: 'b', nombre: 'Beto', approver_l1_id: 'a' })]
+    const as = alertasDeSegregacion(personas, [], undefined, [{ de: 'a', aprueba: 'b' }])
+    expect(as.map(x => x.tipo)).toEqual(['circular'])
+  })
+
+  it('el mismo par por varias vías se reporta una vez', () => {
+    const personas = [
+      p({ id: 'a', nombre: 'Ana',  approver_l1_id: 'b' }),
+      p({ id: 'b', nombre: 'Beto', approver_l1_id: 'a' }),
+    ]
+    const docs = [{ de: 'a', aprueba: 'b' }, { de: 'b', aprueba: 'a' }]
+    expect(alertasDeSegregacion(personas, [], undefined, docs)).toHaveLength(1)
+  })
+})

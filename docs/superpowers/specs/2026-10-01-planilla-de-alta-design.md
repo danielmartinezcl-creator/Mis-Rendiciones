@@ -7,6 +7,20 @@
 > ser **la única carga de empleados** —crea y actualiza— y absorbe a «Importar nómina».
 > Eso tumbó la decisión original de «solo actualiza, nunca crea», y trajo las columnas de
 > cargo, centro de costo y rol, más las alertas de segregación de funciones.
+>
+> **Revisión del 2026-10-07 — las columnas N1 y N2 dejaron de ser urgentes.** Con el
+> aprobador por proyecto (`docs/superpowers/specs/2026-10-07-aprobador-por-proyecto-design.md`),
+> el aprobador sale de la obra, y lo que no es de una obra va al **aprobador por defecto
+> de la organización** cuando la persona no tiene jefe propio. O sea: un empleado sin N1
+> en su ficha **ya puede enviar**, siempre que el aprobador por defecto esté configurado.
+> Las columnas siguen sirviendo, pero para lo que ahora son —la **excepción**: el jefe
+> propio de quien tiene uno distinto del de la organización—, no para destrabar el envío.
+> Lo que esta spec dice más abajo sobre «50 de 57 sin N1» describe el problema que la
+> planilla venía a resolver, y que el aprobador por defecto resuelve de otra forma.
+>
+> Las alertas de segregación miran ahora también las cadenas congeladas en los
+> documentos (`alertasDeSegregacion(…, documentos)`): la aprobación mutua puede venir de
+> las obras y no estar en ninguna ficha.
 
 ## Qué resuelve
 

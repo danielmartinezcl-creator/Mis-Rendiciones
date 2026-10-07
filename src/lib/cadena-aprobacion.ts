@@ -42,3 +42,23 @@ export function camposDeCadena(cadena: Cadena) {
     backup_active_until:   cadena.suplenteL1 ? cadena.suplenteHasta : null,
   }
 }
+
+/**
+ * Mantiene coherentes «jefe de proyecto» y «puede aprobar».
+ *
+ * - Marcar jefe de proyecto otorga «puede aprobar»: `validarCadena` lo exige
+ *   para estar en una cadena, así que sin eso quedaría en la lista que ve el
+ *   empleado al rendir a una obra, pero sin poder aprobar nada.
+ * - Quitar «puede aprobar» saca de la lista de jefes de proyecto, por lo mismo.
+ * - Si llegan contradictorias, gana la restrictiva.
+ *
+ * Hasta el 2026-10-07 esto lo garantizaba solo la pantalla, que mandaba las dos
+ * marcas juntas; una llamada directa a la acción podía dejarlas desalineadas.
+ */
+export function coherenciaJefeProyecto<T extends { es_jefe_proyecto?: boolean; can_approve?: boolean }>(
+  cambios: T,
+): T {
+  if (cambios.can_approve === false) return { ...cambios, es_jefe_proyecto: false }
+  if (cambios.es_jefe_proyecto === true) return { ...cambios, can_approve: true }
+  return cambios
+}

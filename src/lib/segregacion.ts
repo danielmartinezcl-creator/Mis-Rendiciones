@@ -19,10 +19,23 @@ export type Alerta = {
 
 const TOPE_A_CARGO = 15
 
+/**
+ * Una aprobación que ya ocurrió o está por ocurrir en un documento: `aprueba`
+ * está en la cadena congelada de un documento de `de`. Desde el aprobador por
+ * proyecto (2026-10-07), la cadena sale de la obra y no de la ficha, así que
+ * dos personas pueden aprobarse mutuamente sin que ninguna tenga a la otra como
+ * jefe en su ficha. Sin esto, la alerta quedaba ciega justo a los casos nuevos.
+ */
+export interface AprobacionDeDocumento {
+  de:      string
+  aprueba: string
+}
+
 export function alertasDeSegregacion(
   personas: Persona[],
   resueltas: FilaResuelta[],
   topeACargo: number = TOPE_A_CARGO,
+  documentos: AprobacionDeDocumento[] = [],
 ): Alerta[] {
   const alertas: Alerta[] = []
   const nombre = (id: string) => personas.find(x => x.id === id)?.nombre ?? id
@@ -52,21 +65,27 @@ export function alertasDeSegregacion(
 
   // 2. Se aprueban mutuamente: ninguno tiene supervisión real. validarCadena no
   //    lo ve, porque mira la cadena de una persona a la vez y nunca el conjunto.
+  //    Las aristas «de → aprueba» salen de la ficha (con el parche encima) Y de
+  //    las cadenas congeladas en documentos: una mitad puede estar en cada lado.
+  const aristas = new Set<string>()
+  const agregar = (de: string, aprueba: string | null | undefined) => {
+    if (aprueba && aprueba !== de) aristas.add(`${de}>${aprueba}`)
+  }
+  for (const id of l1.keys()) { agregar(id, l1.get(id)); agregar(id, l2.get(id)) }
+  for (const d of documentos) agregar(d.de, d.aprueba)
+
   const pares = new Set<string>()
-  for (const id of l1.keys()) {
-    for (const quien of [l1.get(id), l2.get(id)]) {
-      if (!quien) continue
-      if (l1.get(quien) === id || l2.get(quien) === id) {
-        const par = [id, quien].sort().join('|')
-        if (pares.has(par)) continue
-        pares.add(par)
-        alertas.push({
-          tipo: 'circular',
-          texto: `${nombre(id)} y ${nombre(quien)} se aprueban mutuamente`,
-          personas: [nombre(id), nombre(quien)].sort(),
-        })
-      }
-    }
+  for (const arista of aristas) {
+    const [de, aprueba] = arista.split('>')
+    if (!aristas.has(`${aprueba}>${de}`)) continue
+    const par = [de, aprueba].sort().join('|')
+    if (pares.has(par)) continue
+    pares.add(par)
+    alertas.push({
+      tipo: 'circular',
+      texto: `${nombre(de)} y ${nombre(aprueba)} se aprueban mutuamente`,
+      personas: [nombre(de), nombre(aprueba)].sort(),
+    })
   }
 
   // 3. Cuello de botella y punto único de falla.

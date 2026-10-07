@@ -695,7 +695,7 @@ from public.users where deleted_at is null and blocked_at is null;
   - Las columnas `rut`, `bank_name`, `bank_account_type` y `bank_account` de `users`.
 
   Reglas: vista previa con errores por fila, nada se escribe si hay algún error, y un `logAudit` por empleado.
-- [ ] **Hecho cuando** la consulta de partida da `rinden_sin_n1 = 0` (o solo quienes Daniel decida que no rinden, con `can_submit = false`) y `rinden_sin_banco = 0`, o hay un plan explícito para que lo completen.
+- [ ] **Hecho cuando** `rinden_sin_banco = 0`, o hay un plan explícito para que lo completen. ~~y `rinden_sin_n1 = 0`~~ — **ya no hace falta desde el 2026-10-07**: con el aprobador por proyecto, quien no tiene N1 en su ficha va al **aprobador por defecto de la organización**, así que lo que destraba el envío es configurar ese aprobador por defecto, no cargar 57 jefes. El N1 de la ficha pasó a ser la excepción. Ver `docs/superpowers/specs/2026-10-07-aprobador-por-proyecto-design.md`.
 
 ### Tarea 3.3: Manual (D4)
 

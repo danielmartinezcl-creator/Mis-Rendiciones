@@ -16,7 +16,7 @@ import type { DefontanaMovement } from '@/lib/export/defontana'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import { cargarPersonas } from '@/lib/contexto-permisos'
 import { puedeActuar, pasoSegunEstado, dependientesDe, type Documento } from '@/lib/permisos'
-import { erroresDeCadena, camposDeCadena } from '@/lib/cadena-aprobacion'
+import { erroresDeCadena, camposDeCadena, coherenciaJefeProyecto } from '@/lib/cadena-aprobacion'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 import { motivoBloqueoPorTraspasos, traspasosDe, traspasosPorDocumento } from '@/lib/papelera'
 
@@ -792,6 +792,12 @@ export async function updateEmployee(
   }
 ) {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  // «Jefe de proyecto» y «puede aprobar» se mantienen coherentes en el
+  // servidor, no solo en la pantalla: una llamada directa podía desalinearlos.
+  // Va antes del chequeo de dependientes, para que quitar «puede aprobar» siga
+  // exigiendo reasignar las cadenas ajenas primero.
+  updates = coherenciaJefeProyecto(updates)
 
   // Capture before state
   const { data: before } = await supabase
