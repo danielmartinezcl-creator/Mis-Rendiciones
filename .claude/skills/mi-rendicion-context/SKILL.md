@@ -198,6 +198,7 @@ src/
 │   │   │   ├── fondos/                   ← Dashboard saldos caja chica activos
 │   │   │   ├── analisis/                 ← Pivot gastos por centro de costo
 │   │   │   ├── carga-historica/          ← Importador histórico Excel
+│   │   │   ├── proyectos/                ← Catálogo de proyectos: corregir número, nombre, jefe, activo (039)
 │   │   │   ├── auditoria/                ← Registro append-only (incluye reversas Defontana)
 │   │   │   └── trash/                    ← Papelera (soft delete; nada la purga sola)
 │   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica (flujo bancario)
@@ -225,6 +226,8 @@ src/
 │   ├── profile.ts          ← getMyProfile, updateProfile, sendPasswordReset
 │   ├── reports.ts          ← getReportFilterOptions + getUnifiedReportItems (4 fuentes)
 │   ├── suggestions.ts      ← CRUD sugerencias
+│   ├── proyectos.ts        ← buscarProyecto, jefesDeProyecto, resolverOCrearProyecto (el catálogo se
+│   │                         arma con el uso), listarProyectos / corregirProyecto (admin)
 │   └── approval-attachments.ts ← adjuntos de respaldo de aprobaciones; escribe y firma solo el servidor (037)
 ├── components/
 │   ├── layout/             ← Sidebar (drag&drop, personalizable por admin), MobileNav, LogoutButton
@@ -258,7 +261,11 @@ src/
 │   │                            mutuamente (validarCadena no lo ve: mira una persona, no el conjunto),
 │   │                            demasiada gente a cargo. NO bloquean
 │   ├── cadena-aprobacion.ts   ← erroresDeCadena + camposDeCadena: las reglas de la cadena en un solo
-│   │                            lugar, que usan setEmployeeApprovalChain y la planilla
+│   │                            lugar, que usan setEmployeeApprovalChain y la planilla.
+│   │                            coherenciaJefeProyecto: «jefe de proyecto» y «aprueba» van juntos
+│   ├── cadena-proyecto.ts     ← resolverCadena / umbralAplicable / requiereN2: QUIÉN aprueba un
+│   │                            documento (039). La usan el envío y la previa: la misma función
+│   ├── invitaciones.ts        ← confirmacionInvitacion: varias personas exigen escribir INVITAR
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
@@ -302,7 +309,8 @@ supabase/
 │   ├── 035_adjuntos_solo_desde_servidor.sql          ← ✅ APLICADA el 2026-09-25, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 035, 9 de 12 pruebas rotas, que eran los agujeros; con la 035, 12/12; en vivo, 12/12): ninguna sesión escribe en `attachments` ni en el bucket `expense-attachments`, lo hace el servidor con la llave de servicio tras `puedeCambiarAdjuntos()`; la lectura del bucket queda en la carpeta de la propia org. Pruebas: supabase/tests/035_adjuntos.sql
 │   ├── 036_tipo_recordatorio.sql                     ← ✅ APLICADA el 2026-09-28, antes del despliegue; tipo 'reminder' en notifications. Aditiva: el código viejo nunca escribe ese tipo. Ensayo con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
 │   ├── 037_respaldos_solo_desde_servidor.sql         ← ✅ APLICADA el 2026-09-28, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 037, 12 de 17 pruebas rotas, que eran los agujeros; con la 037, 17/17; en vivo, 17/17). Un rollback de Vercel a código anterior deja sin subir, abrir ni borrar respaldos: el código viejo lo hacía con la sesión. Ninguna sesión escribe en `approval_attachments` ni toca el bucket `approval-attachments`, ni para leer: el servidor sube, borra y firma con la llave de servicio tras `src/lib/respaldos.ts`. La tabla se lee solo con el documento a la vista (subselect que hereda la RLS de la rendición o del fondo). Pruebas: supabase/tests/037_respaldos.sql
-│   └── 038_funciones_sin_acceso_publico.sql          ← ✅ APLICADA el 2026-10-01, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 038, 22 de sus 26 pruebas en `false`, que eran los agujeros; con la 038, 26/26, y las otras tres baterías intactas — 033: 41 ok + 1 no concluyente · 035: 12/12 · 037: 17/17; en vivo, 26/26). Las 12 funciones `SECURITY DEFINER` eran ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc`. Las 8 de disparador no las necesita nadie: **Postgres verifica `EXECUTE` al CREAR el disparador, no cada vez que dispara** (comprobado en vivo: una sesión `authenticated` sigue siendo rechazada por `proteger_estado_rendicion` con su mensaje, no con «permission denied for function»). Las 4 que usan las políticas las conserva `authenticated`, nunca `anon`. Lo que cierra el acceso es el `revoke ... from public`: `anon` y `authenticated` heredan de PUBLIC. `set_updated_at` queda además con `search_path = ''` (su cuerpo solo usa `now()`, de `pg_catalog`). Pruebas: supabase/tests/038_funciones.sql
+│   ├── 038_funciones_sin_acceso_publico.sql          ← ✅ APLICADA el 2026-10-01, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 038, 22 de sus 26 pruebas en `false`, que eran los agujeros; con la 038, 26/26, y las otras tres baterías intactas — 033: 41 ok + 1 no concluyente · 035: 12/12 · 037: 17/17; en vivo, 26/26). Las 12 funciones `SECURITY DEFINER` eran ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc`. Las 8 de disparador no las necesita nadie: **Postgres verifica `EXECUTE` al CREAR el disparador, no cada vez que dispara** (comprobado en vivo: una sesión `authenticated` sigue siendo rechazada por `proteger_estado_rendicion` con su mensaje, no con «permission denied for function»). Las 4 que usan las políticas las conserva `authenticated`, nunca `anon`. Lo que cierra el acceso es el `revoke ... from public`: `anon` y `authenticated` heredan de PUBLIC. `set_updated_at` queda además con `search_path = ''` (su cuerpo solo usa `now()`, de `pg_catalog`). Pruebas: supabase/tests/038_funciones.sql
+│   └── 039_aprobador_por_proyecto.sql                ← ✅ APLICADA el 2026-10-07, ANTES del despliegue (es aditiva y nullable: el código viejo no lee ninguna de sus columnas — al revés que la 033/035/037, que protegían y tenían que ir después). Ensayo con BEGIN/ROLLBACK: 23/23, más un segundo ensayo apuntando el relleno a los borradores (no había documentos en vuelo y el bloque no se ejercitaba): 9 filas, N1 copiado igual al de la ficha. En vivo: 23/23. Tabla `proyectos` (número único por organización), `users.es_jefe_proyecto` / `umbral_n2_clp`, `organizations.aprobador_defecto_id` / `aprobador_n2_defecto_id` / `umbral_n2_clp`, y la cadena congelada en `expense_reports` y `petty_cash_funds` (`cadena_*`, y `liq_cadena_*` para la liquidación). Pruebas: supabase/tests/039_proyectos.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -324,7 +332,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **482 tests Vitest en 35 archivos** (2026-10-02; eran 410 en 31 antes de la planilla de alta), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **537 tests Vitest en 37 archivos** (2026-10-07; eran 482 en 35 antes del aprobador por proyecto), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -370,11 +378,11 @@ Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
 **Antes de tocar estilos, leer `docs/Rediseño/tornasol-spec.md` — empezando por su fe de
 erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
 
-**Hay una línea base visual de 50 capturas** (25 escritorio + 25 móvil — recapturada
-el 2026-10-01; eran 52 hasta que `aprobacion-detalle` salió por no haber ninguna
-aprobación pendiente que abrir: sin datos esa ruta queda en «skipped» y **no tiene
-base**, que el arnés trata como información, no como falla. Cuando vuelva a haber una,
-hay que recapturarla — `e2e/`,
+**Hay una línea base visual de 52 capturas** (26 escritorio + 26 móvil — recapturada
+el 2026-10-07, cuando entró `admin-proyectos`). `aprobacion-detalle` sigue afuera por no
+haber ninguna aprobación pendiente que abrir: sin datos esa ruta queda en «skipped» y
+**no tiene base**, que el arnés trata como información, no como falla. Cuando vuelva a
+haber una, hay que recapturarla — `e2e/`,
 `npm run baseline:verificar`). Un cambio de estilo que la deje en verde no tocó nada
 visible; si la ensucia, el reporte dice dónde. Leer `e2e/README.md` antes de confiar
 en un resultado: solo captura el estado de reposo, así que errores y hover no se ven.
@@ -422,9 +430,47 @@ Decisiones que NO se cambian sin volver a hablarlas:
 - **Las alertas de segregación no bloquean** (`src/lib/segregacion.ts`). Si alguna
   impide cargar, está mal implementada.
 
+### ✅ Aprobador por proyecto (migración 039, 2026-10-07)
+
+PENTA trabaja por obras (150 activas, +50 al año) y quién aprueba depende de la obra, no
+de la persona. Spec `docs/superpowers/specs/2026-10-07-aprobador-por-proyecto-design.md`,
+plan `docs/superpowers/plans/2026-10-07-aprobador-por-proyecto.md` (su «Registro de
+avance» dice si ya se desplegó).
+
+**Quién aprueba** — una sola función, `resolverCadena()` de `src/lib/cadena-proyecto.ts`,
+que usan el envío y la previa («esto va a…»), así lo que se ve es lo que pasa:
+
+| | Sale de |
+|---|---|
+| **N1** | el jefe del proyecto elegido → si no es de obra, el jefe propio de la ficha (`approver_l1_id`, ahora una **excepción**) → si no tiene, `organizations.aprobador_defecto_id` |
+| **N2** | el N2 de la ficha → si no, el de la organización |
+| **Monto del N2** | **sin monto, firma siempre**; con monto, desde ese total (`>=`). El de la ficha vale para los dos N2; el de la organización, solo para el suyo |
+
+- **La cadena se congela en el documento al enviar** (`cadena_l1_id/l2_id/fijada_at`), sobre
+  el total solicitado; la liquidación de un fondo congela **la suya**, sobre lo gastado.
+  `cargarCadena()` lee la del documento y cae a la ficha solo si no hay. **El suplente se
+  sigue leyendo en vivo**: es una ausencia, no parte de la ruta
+- La cadena se resuelve **antes** de `puedeEnviar()`: si se validara con la ficha, los 50
+  sin jefe propio seguirían sin poder enviar aunque eligieran una obra
+- **El catálogo se arma con el uso**: nadie carga los 150. El número manda
+  (`normalizarNumeroProyecto`: sin ceros a la izquierda, en mayúsculas); el empleado elige
+  jefe de la lista de `es_jefe_proyecto`, y el sistema sugiere el último usado
+- **Caja chica**: cualquier empleado con `can_submit` pide **su** fondo; a nombre de otro
+  sigue exigiendo `can_manage_petty_cash`. El jefe directo del beneficiario, si no es el
+  que aprueba, **se entera, no autoriza** (`jefeQueSeEntera`)
+- Admin: «Jefe de proyecto» en la ficha (da «aprueba»; quitar «aprueba» lo saca de la
+  lista — `coherenciaJefeProyecto`), aprobadores por defecto en Configuración → Aprobación,
+  monto en Límites, y `/admin/proyectos` para corregir el catálogo
+
+**Configuración real (2026-10-07):** aprobadora por defecto **Claudia Lobos** (Gestión de
+Personas), con «aprueba»; lo de ella lo aprueba Francisco Hagar. 50 de los 57 no tienen
+jefe propio y van a ella con lo que no sea de obra. **Jefes de proyecto: ninguno todavía**,
+los configura Daniel. Hecho por SQL con su fila en `audit_log`.
+
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
-- Cadena de aprobación L1/L2 por empleado: `approver_l1_id`, `approver_l2_id` en `users`
+- Cadena de aprobación L1/L2 por empleado: `approver_l1_id`, `approver_l2_id` en `users` — desde
+  la 039 es el caso específico, no la regla (ver «Aprobador por proyecto»)
 - **Aprobador suplente (R8)**: `approver_l1_backup_id`, backup_from/until — el suplente ve las rendiciones en el período configurado
 - `ApproverConfig.tsx`: preview "Ana → Carlos → Aprobado"
 - Admin puede establecer contraseña de empleado directamente desde el panel
@@ -1120,4 +1166,5 @@ una columna `NOT NULL`.
 | Leer el código de salida de `playwright ... | tail` | El código es el de `tail`, no el de Playwright: una corrida con 14 capturas en rojo informa **exit code 0**. Pasó el 2026-10-07 y por poco se toma por verde | Leer el resumen («N failed / N passed») del final de la salida, nunca el código de salida de un comando con tubería |
 | Mirar el `-diff.png` de `rendicion-detalle` y creer que el cambio es enorme | Esa captura entra por el primer enlace de `/admin/reports`, y esa lista cambia: la base puede tener una rendición y la corrida otra, así que el diff compara dos documentos distintos y sale casi todo rojo | Mirar el `-actual.png`, no el `-diff.png`, cuando la captura navega por un enlace en vez de ir a una URL fija |
 | Correr pruebas automatizadas con la sesión de admin contra el servidor local, y hacer clic por posición | El servidor local apunta a la **base real** y tenía la **clave real** de Resend (bajada de Vercel por el target «development»). Un `button:has(svg)` número 4 cayó en «Invitar sin invitar» y mandó 52 invitaciones a empleados reales el 2026-10-07 | Nunca clics a ciegas: elegir siempre por nombre o etiqueta (`getByRole('button', { name: … })`). Nunca automatizar pantallas de administración que disparan acciones hacia afuera (invitar, aprobar, cargar, autorizar). Desde `764e43f` fuera de producción no sale correo, pero la base sigue siendo la real |
-| Una acción masiva sin confirmación | «Invitar sin invitar (N)» enviaba N correos con un solo clic: `handleSendInvitations` solo pedía confirmación cuando alguno ya estaba invitado | Toda acción que llega a muchas personas pide confirmación con el número a la vista. Pendiente para el botón de invitar |
+| Una acción masiva sin confirmación | «Invitar sin invitar (N)» enviaba N correos con un solo clic: `handleSendInvitations` solo pedía confirmación cuando alguno ya estaba invitado | Toda acción que llega a muchas personas pide confirmación con el número a la vista. Para invitar, desde `c3ecd2a`: dos o más personas exigen escribir INVITAR (`confirmacionInvitacion` en `src/lib/invitaciones.ts`) |
+| Dejar en blanco el monto de N2 y creer que «nunca escala» | Hasta el 2026-10-07 el diseño decía «sin umbral = nunca», y nadie había cargado montos: quien tenía N2 en la ficha (Francisco Díaz) lo perdía en silencio al desplegar | **Un N2 sin monto firma siempre.** El monto de la ficha vale para los dos N2; el de la organización, solo para el suyo (`umbralAplicable`). Ante un cambio de regla de aprobación, consultar quién tiene hoy esa configuración ANTES de desplegar |

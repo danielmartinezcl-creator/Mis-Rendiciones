@@ -1155,4 +1155,12 @@ Expected: pruebas en verde, typecheck limpio, **0 errores de lint**, build con c
 
 | Fecha | Tarea | Resultado | Commit |
 |---|---|---|---|
-| | | | |
+| 2026-10-07 | 1 | Reglas puras de la cadena, con TDD | `137a676` |
+| 2026-10-07 | 2 | 039 ensayada (23/23, más un segundo ensayo del relleno sobre borradores: 9 filas) y **aplicada antes del despliegue**; en vivo 23/23 | `51ebc39` |
+| 2026-10-07 | 3–5 | Tipos, `cargarCadena` desde el documento, congelar al enviar (la liquidación, la suya) | `a52be46`, `68471c6`, `c37db6c` |
+| 2026-10-07 | 6–9 | Catálogo que se arma solo, selector, previa de la cadena, cambiar el proyecto en borrador | `e06b329`…`975c504` |
+| 2026-10-07 | 10–11 | Caja chica para cualquier empleado; el jefe del beneficiario se entera | `7e4c5a4`, `356d518` |
+| 2026-10-07 | 12–13 | Administración (jefe de proyecto, aprobadores por defecto, umbral) y `/admin/proyectos` | `f4c4a68`, `162cb96` |
+| 2026-10-07 | — | **Incidente**: una prueba automatizada mandó 52 invitaciones reales. Candado de correo, pausa global, links anulados, INVITAR obligatorio | `764e43f`, `c3ecd2a` |
+| 2026-10-07 | 14 | Segregación y permisos alineados con los jefes de proyecto | `7fd8500` |
+| 2026-10-07 | 15 (parcial) | **Corrección de diseño antes de desplegar:** «N2 sin monto = nunca» le quitaba la segunda firma a Francisco Díaz → **N2 sin monto firma siempre** (`umbralAplicable`). Auditoría de los aprobadores por defecto. Configurado por SQL con su rastro: Claudia Lobos aprobadora por defecto, Francisco Hagar para lo de ella. 537 pruebas, línea base en 52 capturas, materiales en verde. **Falta: push, `READY`, prueba de humo con un no-admin** | `dbf9e1d`, `6973756`, `85dc4ca` |
