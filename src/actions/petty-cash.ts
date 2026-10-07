@@ -11,6 +11,7 @@ import { soloCampos, FONDO_AJENO } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
 import { contextoFondo, exigirPaso, permisoEn, resolverCadenaDeDocumento, type ContextoFondo } from '@/lib/contexto-permisos'
+import { resolverOCrearProyecto } from '@/actions/proyectos'
 import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
@@ -23,7 +24,7 @@ async function getProfile() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('id, org_id, role, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, full_name')
+    .select('id, org_id, role, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, full_name')
     .eq('id', user.id)
     .single()
 
@@ -95,11 +96,24 @@ export async function createPettyCashFund(data: {
   period_start:     string
   period_end:       string
   description?:     string
+  /* Null = gastos generales. El número crea la obra si no existía. */
+  proyecto_numero?: string | null
+  proyecto_nombre?: string | null
+  proyecto_jefe?:   string | null
 }) {
   const { supabase, userId, profile } = await getProfile()
 
-  if (!profile.can_manage_petty_cash && profile.role !== 'admin') {
-    throw new Error('Sin permiso para crear fondos')
+  /* Cualquiera pide el suyo; pedir a nombre de OTRA persona sigue necesitando
+     el permiso. `can_manage_petty_cash` deja de significar «puede usar caja
+     chica» y pasa a significar lo único que no puede hacer cualquiera.
+     Antes esto exigía el permiso siempre, y lo tenían 6 de 57: el flujo que
+     Daniel describe —el empleado pide y el jefe de obra autoriza— no existía. */
+  const paraOtro = data.employee_id !== userId
+  if (paraOtro && !profile.can_manage_petty_cash && profile.role !== 'admin') {
+    throw new Error('No puedes pedir un fondo a nombre de otra persona')
+  }
+  if (!paraOtro && !profile.can_submit) {
+    throw new Error('Tu usuario no puede solicitar fondos')
   }
 
   if (!validateStringLength(data.name ?? '', 200)) throw new Error('Nombre requerido (máx 200 caracteres)')
@@ -118,6 +132,10 @@ export async function createPettyCashFund(data: {
     throw new Error(`El monto solicitado excede el límite máximo por fondo ($${limit} CLP). Contacta al administrador.`)
   }
 
+  const proyectoId = data.proyecto_numero?.trim()
+    ? await resolverOCrearProyecto(data.proyecto_numero, data.proyecto_nombre ?? null, data.proyecto_jefe ?? null)
+    : null
+
   const { data: fund, error } = await supabase
     .from('petty_cash_funds')
     .insert({
@@ -125,6 +143,7 @@ export async function createPettyCashFund(data: {
       name:             data.name.trim(),
       employee_id:      data.employee_id,
       manager_id:       userId,
+      proyecto_id:      proyectoId,
       amount_requested: data.amount_requested,
       currency:         data.currency,
       period_start:     data.period_start,
@@ -1276,4 +1295,62 @@ export async function revertFundDefontana(
   revalidatePath(`/petty-cash/${fundId}`)
   revalidatePath('/petty-cash')
   return { reverted, headerCleared }
+}
+
+/**
+ * A quién le va a llegar el fondo si se envía ahora.
+ *
+ * El fondo y su liquidación son dos documentos distintos, y la cadena de cada
+ * uno se mide sobre un monto distinto: el solicitado cuando se pide, lo gastado
+ * cuando se liquida. Mostrar el solicitado en la liquidación diría que no
+ * escala justo en el caso que el diseño quiere atrapar.
+ */
+export async function previaDeCadenaFondo(fundId: string) {
+  const { userId } = await getProfile()
+  const admin = createAdminClient()
+
+  const { data: fondo } = await admin
+    .from('petty_cash_funds')
+    .select('id, org_id, employee_id, manager_id, status, amount_requested, proyecto_id')
+    .eq('id', fundId)
+    .is('deleted_at', null)
+    .single()
+  if (!fondo) return null
+
+  // Solo a quien está por enviarlo: el que lo pide, o el beneficiario al liquidar
+  if (fondo.manager_id !== userId && fondo.employee_id !== userId) return null
+
+  const esLiquidacion = fondo.status === 'funds_sent'
+  let total = Number(fondo.amount_requested ?? 0)
+  if (esLiquidacion) {
+    const { data: gastos } = await admin
+      .from('petty_cash_items').select('amount_clp')
+      .eq('fund_id', fundId).neq('status', 'rejected')
+    total = (gastos ?? []).reduce((s, i) => s + Number(i.amount_clp ?? 0), 0)
+  }
+
+  const cadena = await resolverCadenaDeDocumento(admin, {
+    orgId:          fondo.org_id,
+    beneficiarioId: fondo.employee_id,
+    proyectoId:     fondo.proyecto_id,
+    total,
+  })
+
+  const nombre = async (id: string | null) => {
+    if (!id) return null
+    const { data } = await admin.from('users').select('full_name').eq('id', id).single()
+    return data?.full_name ?? null
+  }
+  const [{ data: persona }, { data: org }] = await Promise.all([
+    admin.from('users').select('umbral_n2_clp').eq('id', fondo.employee_id).single(),
+    admin.from('organizations').select('umbral_n2_clp').eq('id', fondo.org_id).single(),
+  ])
+
+  return {
+    n1:         await nombre(cadena.suplenteL1Vigente ?? cadena.l1),
+    esSuplente: Boolean(cadena.suplenteL1Vigente),
+    n2:         await nombre(cadena.l2),
+    umbral:     persona?.umbral_n2_clp ?? org?.umbral_n2_clp ?? null,
+    total,
+  }
 }

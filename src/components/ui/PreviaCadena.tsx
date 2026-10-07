@@ -13,21 +13,33 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, TriangleAlert } from 'lucide-react'
 import { previaDeCadena } from '@/actions/expenses'
+import { previaDeCadenaFondo } from '@/actions/petty-cash'
 import { formatCLP } from '@/lib/utils'
 
 type Previa = Awaited<ReturnType<typeof previaDeCadena>>
 
-export function PreviaCadena({ reportId, recargarCon }: { reportId: string; recargarCon?: unknown }) {
+interface Props {
+  /** Uno de los dos, nunca ambos: el documento del que se previsualiza la cadena. */
+  reportId?: string
+  fundId?:   string
+  /** Cualquier valor que, al cambiar, obligue a recalcular (proyecto, monto, ítems). */
+  recargarCon?: unknown
+}
+
+export function PreviaCadena({ reportId, fundId, recargarCon }: Props) {
   const [previa, setPrevia] = useState<Previa>(null)
   const [listo, setListo]   = useState(false)
 
   useEffect(() => {
     let vigente = true
-    previaDeCadena(reportId)
+    const pedir = reportId
+      ? previaDeCadena(reportId)
+      : fundId ? previaDeCadenaFondo(fundId) : Promise.resolve(null)
+    pedir
       .then(p => { if (vigente) { setPrevia(p); setListo(true) } })
       .catch(() => { if (vigente) setListo(true) })
     return () => { vigente = false }
-  }, [reportId, recargarCon])
+  }, [reportId, fundId, recargarCon])
 
   // Mientras carga no se muestra nada: un hueco que aparece y desaparece
   // molesta más de lo que informa en algo que se lee una vez.

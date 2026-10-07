@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { createPettyCashFund } from '@/actions/petty-cash'
+import { SelectorProyecto, VALOR_VACIO, proyectoCompleto, type ValorProyecto } from '@/components/expenses/SelectorProyecto'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -12,6 +13,9 @@ export default function NewPettyCashFundPage() {
   const [employees, setEmployees]   = useState<Employee[]>([])
   const [error, setError]           = useState<string | null>(null)
   const [pending, startTrans]       = useTransition()
+  const [yoId, setYoId]             = useState<string | null>(null)
+  const [paraOtros, setParaOtros]   = useState(false)
+  const [proyecto, setProyecto]     = useState<ValorProyecto>(VALOR_VACIO)
 
   const [form, setForm] = useState({
     name:             '',
@@ -24,6 +28,19 @@ export default function NewPettyCashFundPage() {
 
   useEffect(() => {
     const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setYoId(user.id)
+      /* Quien no administra caja chica solo puede pedir el suyo, así que el
+         selector de empleado ni se muestra: la acción lo rechazaría igual, pero
+         ofrecer una opción que va a fallar es peor que no ofrecerla. */
+      supabase.from('users').select('can_manage_petty_cash, role').eq('id', user.id).single()
+        .then(({ data }) => {
+          const puede = Boolean(data?.can_manage_petty_cash) || data?.role === 'admin'
+          setParaOtros(puede)
+          if (!puede) setForm(f => ({ ...f, employee_id: user.id }))
+        })
+    })
     supabase.from('users').select('id, full_name, department').eq('is_active', true).order('full_name')
       .then(({ data }) => setEmployees(data ?? []))
   }, [])
@@ -37,6 +54,7 @@ export default function NewPettyCashFundPage() {
     const amount = parseFloat(form.amount_requested)
     if (!form.name.trim())      { setError('El nombre del fondo es obligatorio'); return }
     if (!form.employee_id)      { setError('Seleccioná el empleado'); return }
+    if (!proyectoCompleto(proyecto)) { setError('Indicá si el fondo es para un proyecto'); return }
     if (isNaN(amount) || amount <= 0) { setError('Monto inválido'); return }
     if (!form.period_start)     { setError('Indicá la fecha de inicio'); return }
     if (!form.period_end)       { setError('Indicá la fecha de término'); return }
@@ -53,6 +71,9 @@ export default function NewPettyCashFundPage() {
           period_start:     form.period_start,
           period_end:       form.period_end,
           description:      form.description,
+          proyecto_numero:  proyecto.esProyecto ? proyecto.numero : null,
+          proyecto_nombre:  proyecto.nombre || null,
+          proyecto_jefe:    proyecto.jefeId || null,
         })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al crear el fondo')
@@ -84,22 +105,33 @@ export default function NewPettyCashFundPage() {
           />
         </div>
 
-        {/* Empleado */}
-        <div>
-          <label className="block text-xs font-semibold text-ink-700 mb-1">Empleado asignado *</label>
-          <select
-            value={form.employee_id}
-            onChange={e => set('employee_id', e.target.value)}
-            className="campo w-full"
-          >
-            <option value="">Seleccioná un empleado...</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>
-                {emp.full_name}{emp.department ? ` — ${emp.department}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectorProyecto
+          valor={proyecto}
+          onChange={setProyecto}
+          recordarComo={yoId ? `tipo_fondo_${yoId}` : undefined}
+        />
+
+        {/* Empleado — solo para quien puede pedir a nombre de otra persona */}
+        {paraOtros && (
+          <div>
+            <label className="block text-xs font-semibold text-ink-700 mb-1">Empleado asignado *</label>
+            <select
+              value={form.employee_id}
+              onChange={e => set('employee_id', e.target.value)}
+              className="campo w-full"
+            >
+              <option value="">Seleccioná un empleado...</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.full_name}{emp.department ? ` — ${emp.department}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="card-meta text-ink-400 mt-1">
+              Si el fondo es para otra persona, su jefe directo recibe un aviso
+            </p>
+          </div>
+        )}
 
         {/* Monto */}
         <div>

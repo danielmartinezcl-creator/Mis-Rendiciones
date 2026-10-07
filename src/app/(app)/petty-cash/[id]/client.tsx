@@ -26,6 +26,7 @@ import { RecorridoFondo }    from '@/components/petty-cash/RecorridoFondo'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { FundDefontanaPanel } from '@/components/petty-cash/FundDefontanaPanel'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
+import { PreviaCadena } from '@/components/ui/PreviaCadena'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import {
   calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation,
@@ -207,6 +208,9 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       {fund.status === 'draft' && fund.manager_id === currentUser.id && (
         <div className="hoja p-4 border-t-2 border-t-warning-400">
           <p className="text-sm font-semibold text-ink-800 mb-3">Paso 1 — Enviar a autorización</p>
+          <div className="mb-3">
+            <PreviaCadena fundId={fund.id} recargarCon={fund.amount_requested} />
+          </div>
           <button
             disabled={pending}
             onClick={() => act(() => submitFundForApproval(fund.id))}
@@ -506,6 +510,11 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             {balance.employeeOwes && ` Te sobran ${fmtCLP(balance.pending)}: los devolverás a la empresa.`}
             {balance.companyOwes && ` Gastaste ${fmtCLP(Math.abs(balance.pending))} de más: la empresa te los pagará.`}
           </p>
+          {/* La previa se recalcula con lo GASTADO: si el empleado se pasó del
+              umbral, lo ve acá antes de presentar y no después */}
+          <div className="my-3">
+            <PreviaCadena fundId={fund.id} recargarCon={balance.spent} />
+          </div>
           <button
             disabled={pending}
             onClick={() => act(() => submitLiquidation(fund.id))}
