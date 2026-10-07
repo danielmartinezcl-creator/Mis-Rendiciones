@@ -85,6 +85,7 @@ export const RUTAS_ESTATICAS: Ruta[] = [
   { slug: 'admin',               path: '/admin',                  nombre: 'Dashboard admin',              rol: 'admin', datosVivos: true },
   { slug: 'admin-rendiciones',   path: '/admin/reports',          nombre: 'Admin · rendiciones',          rol: 'admin', datosVivos: true },
   { slug: 'admin-empleados',     path: '/admin/employees',        nombre: 'Admin · empleados',            rol: 'admin' },
+  { slug: 'admin-proyectos',     path: '/admin/proyectos',        nombre: 'Admin · proyectos',            rol: 'admin', datosVivos: true },
   { slug: 'admin-configuracion', path: '/admin/settings',         nombre: 'Admin · configuración',        rol: 'admin' },
   { slug: 'admin-fondos',        path: '/admin/fondos',           nombre: 'Admin · saldos de caja chica', rol: 'admin' },
   { slug: 'admin-analisis',      path: '/admin/analisis',         nombre: 'Admin · análisis por CC',      rol: 'admin', datosVivos: true },
