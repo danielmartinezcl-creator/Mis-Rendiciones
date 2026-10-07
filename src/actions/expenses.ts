@@ -629,6 +629,7 @@ export async function getReportWithItems(reportId: string) {
     .from('expense_reports')
     .select(`
       *,
+      proyectos (numero, nombre),
       expense_items (
         *,
         expense_categories (name, icon, color),
@@ -639,6 +640,53 @@ export async function getReportWithItems(reportId: string) {
     .single()
 
   return report
+}
+
+/**
+ * Cambiar a qué proyecto pertenece una rendición.
+ *
+ * Solo quien rinde y solo en borrador: una vez enviada, el proyecto es parte de
+ * lo que el aprobador ya vio, y la cadena está congelada. Si se equivocó, el
+ * camino es que se la rechacen — ahí vuelve a borrador y puede corregirla.
+ *
+ * `numero` en null significa que pasa a ser de gastos generales.
+ */
+export async function cambiarProyectoDeReporte(
+  reportId: string,
+  numero: string | null,
+  nombre: string | null,
+  jefeId: string | null,
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Sesión no encontrada')
+
+  const admin = createAdminClient()
+  const { data: reporte } = await admin
+    .from('expense_reports')
+    .select('id, submitter_id, status')
+    .eq('id', reportId)
+    .is('deleted_at', null)
+    .single()
+  if (!reporte) throw new Error('Rendición no encontrada')
+  if (reporte.submitter_id !== user.id) throw new Error('Solo quien rinde puede cambiar el proyecto')
+  if (reporte.status !== 'draft') throw new Error('La rendición ya fue enviada')
+
+  const proyectoId = numero?.trim()
+    ? await resolverOCrearProyecto(numero, nombre, jefeId)
+    : null
+
+  // `.select('id')` y no confiar en que no haya error: un update que no alcanza
+  // ninguna fila devuelve éxito con 0 filas, y el cambio se pierde en silencio.
+  const { data, error } = await admin
+    .from('expense_reports')
+    .update({ proyecto_id: proyectoId })
+    .eq('id', reportId)
+    .eq('status', 'draft')
+    .select('id')
+  if (error || !data?.length) throw new Error('No se pudo cambiar el proyecto. Recargá la página')
+
+  revalidatePath(`/expenses/${reportId}`)
 }
 
 // ── Adjuntos de un gasto ─────────────────────────────────────────────────────

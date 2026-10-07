@@ -387,6 +387,16 @@ export interface Database {
             isOneToOne: false
             referencedRelation: 'users'
             referencedColumns: ['id']
+          },
+          /* Sin esta entrada, el select anidado `proyectos (numero, nombre)`
+             no se puede inferir y TODO el tipo de la fila colapsa a `never`:
+             el error no habla de proyectos, habla de que `title` no existe. */
+          {
+            foreignKeyName: 'expense_reports_proyecto_id_fkey'
+            columns: ['proyecto_id']
+            isOneToOne: false
+            referencedRelation: 'proyectos'
+            referencedColumns: ['id']
           }
         ]
       }

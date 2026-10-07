@@ -12,6 +12,8 @@ import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { PreviaCadena } from '@/components/ui/PreviaCadena'
+import { SelectorProyecto, VALOR_VACIO, proyectoCompleto, type ValorProyecto } from '@/components/expenses/SelectorProyecto'
+import { cambiarProyectoDeReporte } from '@/actions/expenses'
 import { formatDisplayTitle } from '@/lib/utils'
 import { puedeCambiarGastos } from '@/lib/expense-helpers'
 import {
@@ -44,6 +46,9 @@ export default function ExpenseDetailPage() {
   const router  = useRouter()
 
   const [report, setReport]                       = useState<ReportWithItems>(null)
+  const [editandoProyecto, setEditandoProyecto]   = useState(false)
+  const [proyectoNuevo, setProyectoNuevo]         = useState<ValorProyecto>(VALOR_VACIO)
+  const [guardandoProyecto, setGuardandoProyecto] = useState(false)
   const [categories, setCategories]               = useState<ExpenseCategory[]>([])
   const [costCenters, setCostCenters]             = useState<CostCenter[]>([])
   const [employeeCostCenterId, setEmployeeCC]     = useState<string | null>(null)
@@ -250,6 +255,11 @@ export default function ExpenseDetailPage() {
   const isRejected           = report.status === 'rejected'
   const isPartiallyApproved  = report.status === 'partially_approved'
   const showRejectionBanner  = isRejected || isPartiallyApproved
+  /* El join `proyectos (numero, nombre)` tipa como never[] en los selects
+     anidados de supabase-js, así que se castea a mano — trampa conocida. */
+  const proyectoDelReporte = (report as unknown as {
+    proyectos: { numero: string; nombre: string | null } | null
+  }).proyectos ?? null
 
   /* El mismo bloque en dos sitios, y por eso una constante y no JSX repetido:
      en el borrador va entre «Agregar ítem» y «Enviar», que es el orden en que se
@@ -315,6 +325,23 @@ export default function ExpenseDetailPage() {
           {report.description && (
             <p className="card-label tor-on-gradient-soft mt-1">{report.description}</p>
           )}
+          {/* A qué obra pertenece. Quién la aprueba lo dice la previa, abajo:
+              repetirlo acá sería decir lo mismo en dos lugares que pueden
+              terminar discrepando. */}
+          <p className="card-label tor-on-gradient-soft mt-1 flex items-center gap-2">
+            {proyectoDelReporte
+              ? <span><span className="font-semibold">Proyecto {proyectoDelReporte.numero}</span>
+                  {proyectoDelReporte.nombre ? ` · ${proyectoDelReporte.nombre}` : ''}</span>
+              : <span>Gastos generales</span>}
+            {isMyDraft && !editandoProyecto && (
+              <button
+                onClick={() => setEditandoProyecto(true)}
+                className="underline underline-offset-2 hover:opacity-80"
+              >
+                Cambiar
+              </button>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <InsigniaEstado tipo="reporte" estado={report.status as ReportStatus} />
@@ -343,6 +370,47 @@ export default function ExpenseDetailPage() {
       {error && (
         <div className="bg-danger-50 border border-danger-200 text-danger-700 card-label rounded-item p-3">
           {error}
+        </div>
+      )}
+
+      {/* Cambiar de obra. En hoja: es un formulario, se llena. */}
+      {editandoProyecto && (
+        <div className="hoja p-4 space-y-4">
+          <SelectorProyecto valor={proyectoNuevo} onChange={setProyectoNuevo} />
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setEditandoProyecto(false); setProyectoNuevo(VALOR_VACIO) }}
+              disabled={guardandoProyecto}
+              className="btn-secundario flex-1 py-2.5 card-label"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                setGuardandoProyecto(true)
+                try {
+                  await cambiarProyectoDeReporte(
+                    id,
+                    proyectoNuevo.esProyecto ? proyectoNuevo.numero : null,
+                    proyectoNuevo.nombre || null,
+                    proyectoNuevo.jefeId || null,
+                  )
+                  setEditandoProyecto(false)
+                  setProyectoNuevo(VALOR_VACIO)
+                  await load()
+                  avisar('Proyecto actualizado')
+                } catch (err) {
+                  avisar(err instanceof Error ? err.message : 'No se pudo cambiar', 'error')
+                } finally {
+                  setGuardandoProyecto(false)
+                }
+              }}
+              disabled={guardandoProyecto || !proyectoCompleto(proyectoNuevo)}
+              className="btn-primario flex-1 py-2.5 card-label"
+            >
+              {guardandoProyecto ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -467,9 +535,16 @@ export default function ExpenseDetailPage() {
               ninguna opción de adjuntar, así que no puede creer que sea el camino. */}
           {items.length > 0 && !showForm && respaldos}
 
-          {/* A quién le va a llegar, justo antes del botón que lo manda */}
+          {/* A quién le va a llegar, justo antes del botón que lo manda.
+              `recargarCon` lleva el proyecto además de la cantidad de ítems: sin
+              él, cambiar de obra actualizaba el encabezado pero dejaba la previa
+              nombrando al jefe anterior — es decir, mintiendo justo donde más
+              importa. El monto también mueve la cadena, vía el umbral de N2. */}
           {items.length > 0 && !showForm && (
-            <PreviaCadena reportId={id} recargarCon={items.length} />
+            <PreviaCadena
+              reportId={id}
+              recargarCon={`${items.length}:${report.proyecto_id ?? ''}:${report.total_amount}`}
+            />
           )}
 
           {items.length > 0 && !showForm && (
