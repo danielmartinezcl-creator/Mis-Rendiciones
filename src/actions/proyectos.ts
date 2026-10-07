@@ -76,22 +76,7 @@ export async function resolverOCrearProyecto(
   if (!n) throw new Error('El número de proyecto no puede estar vacío')
 
   const admin = createAdminClient()
-
-  let jefeValido: string | null = null
-  if (jefeId) {
-    const { data: jefe } = await admin
-      .from('users')
-      .select('id')
-      .eq('id', jefeId)
-      .eq('org_id', perfil.org_id)
-      .eq('es_jefe_proyecto', true)
-      .eq('is_active', true)
-      .is('blocked_at', null)
-      .is('deleted_at', null)
-      .maybeSingle()
-    if (!jefe) throw new Error('Esa persona no está habilitada como jefe de proyecto')
-    jefeValido = jefe.id
-  }
+  const jefeValido = await jefeHabilitado(admin, perfil.org_id, jefeId)
 
   const { data: existente } = await admin
     .from('proyectos')
@@ -123,4 +108,114 @@ export async function resolverOCrearProyecto(
     .single()
   if (error || !data) throw new Error('No se pudo registrar el proyecto')
   return data.id
+}
+
+/**
+ * Comprueba que un id que vino del navegador sea de verdad un jefe de proyecto
+ * habilitado, activo y de esta organización. Lo usan el alta por uso y la
+ * corrección desde admin: una sola regla, escrita una vez.
+ */
+async function jefeHabilitado(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+  jefeId: string | null,
+): Promise<string | null> {
+  if (!jefeId) return null
+  const { data: jefe } = await admin
+    .from('users')
+    .select('id')
+    .eq('id', jefeId)
+    .eq('org_id', orgId)
+    .eq('es_jefe_proyecto', true)
+    .eq('is_active', true)
+    .is('blocked_at', null)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!jefe) throw new Error('Esa persona no está habilitada como jefe de proyecto')
+  return jefe.id
+}
+
+async function exigirAdmin() {
+  const perfil = await getAuthProfile()
+  if (!perfil || perfil.role !== 'admin') throw new Error('Acceso restringido a administradores')
+  return perfil
+}
+
+interface FilaProyecto {
+  id:          string
+  numero:      string
+  nombre:      string | null
+  jefe_id:     string | null
+  jefe_nombre: string | null
+  activo:      boolean
+  documentos:  number
+  updated_at:  string
+}
+
+/**
+ * El catálogo completo, para corregirlo. Con la cantidad de documentos de cada
+ * obra: una obra con cero documentos es un número mal tecleado que nadie volvió
+ * a usar, y es lo primero que conviene mirar.
+ */
+export async function listarProyectos(): Promise<FilaProyecto[]> {
+  const perfil = await exigirAdmin()
+  const admin = createAdminClient()
+
+  const [{ data: proyectos }, { data: reps }, { data: fondos }] = await Promise.all([
+    admin.from('proyectos')
+      .select('id, numero, nombre, jefe_id, activo, updated_at')
+      .eq('org_id', perfil.org_id)
+      .order('numero'),
+    admin.from('expense_reports').select('proyecto_id')
+      .eq('org_id', perfil.org_id).not('proyecto_id', 'is', null).is('deleted_at', null),
+    admin.from('petty_cash_funds').select('proyecto_id')
+      .eq('org_id', perfil.org_id).not('proyecto_id', 'is', null).is('deleted_at', null),
+  ])
+
+  const cuenta = new Map<string, number>()
+  for (const r of [...(reps ?? []), ...(fondos ?? [])]) {
+    if (r.proyecto_id) cuenta.set(r.proyecto_id, (cuenta.get(r.proyecto_id) ?? 0) + 1)
+  }
+
+  const jefeIds = [...new Set((proyectos ?? []).map(p => p.jefe_id).filter(Boolean))] as string[]
+  const { data: jefes } = jefeIds.length
+    ? await admin.from('users').select('id, full_name').in('id', jefeIds)
+    : { data: [] as { id: string; full_name: string }[] }
+  const nombreJefe = new Map((jefes ?? []).map(j => [j.id, j.full_name]))
+
+  return (proyectos ?? []).map(p => ({
+    ...p,
+    jefe_nombre: p.jefe_id ? nombreJefe.get(p.jefe_id) ?? null : null,
+    documentos:  cuenta.get(p.id) ?? 0,
+  }))
+}
+
+/**
+ * Corregir una obra: el nombre, el jefe sugerido, o marcarla cerrada. El número
+ * no se toca — es lo que la identifica y lo que ya está en los documentos.
+ *
+ * Cambiar el jefe acá cambia la SUGERENCIA para los documentos nuevos; los ya
+ * enviados no se mueven, porque su cadena está congelada.
+ */
+export async function corregirProyecto(
+  id: string,
+  cambios: { nombre?: string | null; jefe_id?: string | null; activo?: boolean },
+) {
+  const perfil = await exigirAdmin()
+  const admin = createAdminClient()
+
+  const patch: { nombre?: string | null; jefe_id?: string | null; activo?: boolean } = {}
+  if (cambios.nombre !== undefined)  patch.nombre  = cambios.nombre?.trim() || null
+  if (cambios.activo !== undefined)  patch.activo  = cambios.activo
+  if (cambios.jefe_id !== undefined) patch.jefe_id = await jefeHabilitado(admin, perfil.org_id, cambios.jefe_id)
+
+  // `.eq('org_id')` además del id: el id viene del navegador, y sin esto un
+  // admin podría corregir una obra de otra organización conociendo su id.
+  const { data, error } = await admin
+    .from('proyectos')
+    .update(patch)
+    .eq('id', id)
+    .eq('org_id', perfil.org_id)
+    .select('id')
+  if (error || !data?.length) throw new Error('No se pudo guardar la corrección')
 }
