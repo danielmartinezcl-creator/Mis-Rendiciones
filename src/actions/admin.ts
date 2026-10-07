@@ -3018,7 +3018,7 @@ export async function getAprobadoresPorDefecto() {
 }
 
 export async function setAprobadoresPorDefecto(n1: string | null, n2: string | null) {
-  const { supabase, orgId } = await requireAdmin()
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
   if (n1 && n1 === n2) throw new Error('El N1 y el N2 por defecto no pueden ser la misma persona')
 
   // Quien queda de aprobador por defecto tiene que poder aprobar: si no,
@@ -3034,10 +3034,32 @@ export async function setAprobadoresPorDefecto(n1: string | null, n2: string | n
     if (!data.can_approve) throw new Error(`${data.full_name} no tiene el permiso «aprueba»`)
   }
 
+  const { data: before } = await supabase
+    .from('organizations')
+    .select('aprobador_defecto_id, aprobador_n2_defecto_id')
+    .eq('id', orgId)
+    .single()
+
+  const nuevo = { aprobador_defecto_id: n1, aprobador_n2_defecto_id: n2 }
   const { error } = await supabase
     .from('organizations')
-    .update({ aprobador_defecto_id: n1, aprobador_n2_defecto_id: n2 })
+    .update(nuevo)
     .eq('id', orgId)
   if (error) throw new Error(error.message)
+
+  // Es a quién va todo lo que no es de una obra: si cambiar la ficha de UNA
+  // persona deja rastro, esto con más razón.
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'config_changed',
+    entityType:  'approver_assignment',
+    entityId:    orgId,
+    entityLabel: 'Aprobadores por defecto de la organización',
+    oldValue:    before as unknown as Record<string, unknown>,
+    newValue:    nuevo,
+  })
+
   revalidatePath('/admin/settings')
 }
