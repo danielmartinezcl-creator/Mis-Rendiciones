@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  resolverCadena, requiereN2, normalizarNumeroProyecto, entradaDesdeFilas,
+  resolverCadena, requiereN2, umbralAplicable, normalizarNumeroProyecto, entradaDesdeFilas,
   type EntradaCadena,
 } from '@/lib/cadena-proyecto'
 
@@ -38,9 +38,23 @@ describe('resolverCadena — de dónde sale el N1', () => {
 })
 
 describe('resolverCadena — cuándo aparece el N2', () => {
-  it('sin umbral configurado, nunca', () => {
-    const c = resolverCadena({ ...base, jefePropio: 'p', n2Propio: 'n2', totalSolicitado: 9_000_000 })
-    expect(c.l2).toBeNull()
+  // Daniel, 2026-10-07: un N2 sin monto firma siempre, como antes de la 039.
+  // Con «sin monto = nunca», quien ya tenía N2 en la ficha lo perdía en
+  // silencio al desplegar, porque nadie había cargado un número todavía.
+  it('un N2 propio sin monto firma siempre', () => {
+    const c = resolverCadena({ ...base, jefePropio: 'p', n2Propio: 'n2', totalSolicitado: 1 })
+    expect(c.l2).toBe('n2')
+    expect(c.umbral).toBeNull()
+  })
+
+  it('el N2 de la organización sin monto también firma siempre', () => {
+    const c = resolverCadena({ ...base, defectoOrg: 'org', n2Org: 'n2org', totalSolicitado: 1 })
+    expect(c.l2).toBe('n2org')
+  })
+
+  it('sin ningún N2 no hay segunda firma, haya o no monto', () => {
+    expect(resolverCadena({ ...base, jefePropio: 'p' }).l2).toBeNull()
+    expect(resolverCadena({ ...base, jefePropio: 'p', umbralPropio: 100, totalSolicitado: 500 }).l2).toBeNull()
   })
 
   it('umbral 0 significa siempre', () => {
@@ -51,6 +65,7 @@ describe('resolverCadena — cuándo aparece el N2', () => {
   it('alcanzar el umbral ya escala', () => {
     const c = resolverCadena({ ...base, jefePropio: 'p', n2Propio: 'n2', umbralPropio: 500_000, totalSolicitado: 500_000 })
     expect(c.l2).toBe('n2')
+    expect(c.umbral).toBe(500_000)
   })
 
   it('por debajo del umbral, no escala', () => {
@@ -58,33 +73,52 @@ describe('resolverCadena — cuándo aparece el N2', () => {
     expect(c.l2).toBeNull()
   })
 
-  // Lo que evita que configurar un umbral borre en silencio el N2 de la organización
-  it('el umbral y el N2 se heredan por separado', () => {
-    const c = resolverCadena({ ...base, jefePropio: 'p', umbralPropio: 100, n2Org: 'n2org', totalSolicitado: 500 })
-    expect(c.l2).toBe('n2org')
+  it('el N2 de la organización respeta el monto de la organización', () => {
+    expect(resolverCadena({ ...base, defectoOrg: 'org', n2Org: 'n2org', umbralOrg: 500, totalSolicitado: 499 }).l2).toBeNull()
+    expect(resolverCadena({ ...base, defectoOrg: 'org', n2Org: 'n2org', umbralOrg: 500, totalSolicitado: 500 }).l2).toBe('n2org')
   })
 
-  it('supera el umbral pero no hay ningún N2: queda sin N2, no falla', () => {
-    const c = resolverCadena({ ...base, jefePropio: 'p', umbralPropio: 100, totalSolicitado: 500 })
-    expect(c.l2).toBeNull()
+  // El monto de la organización acompaña a SU N2, no al de la ficha: si no, que
+  // el admin ponga un monto general le sacaría la segunda firma a quien la
+  // tiene configurada a mano (Francisco Díaz: siempre Katherine y después Hagar).
+  it('un N2 propio sin monto ignora el monto de la organización', () => {
+    const c = resolverCadena({ ...base, jefePropio: 'p', n2Propio: 'n2', umbralOrg: 1_000_000, totalSolicitado: 1 })
+    expect(c.l2).toBe('n2')
+  })
+
+  // Lo que evita que configurar un umbral borre en silencio el N2 de la organización
+  it('el monto de la ficha también vale para el N2 de la organización', () => {
+    const c = resolverCadena({ ...base, jefePropio: 'p', umbralPropio: 100, n2Org: 'n2org', umbralOrg: 9_000, totalSolicitado: 500 })
+    expect(c.l2).toBe('n2org')
+    expect(c.umbral).toBe(100)
   })
 
   // Nadie decide dos veces el mismo documento
   it('si el N2 resuelto es el mismo que el N1, se descarta', () => {
-    const c = resolverCadena({ ...base, jefePropio: 'x', n2Propio: 'x', umbralPropio: 0, totalSolicitado: 1 })
+    const c = resolverCadena({ ...base, jefePropio: 'x', n2Propio: 'x', totalSolicitado: 1 })
     expect(c.l2).toBeNull()
   })
 })
 
 describe('requiereN2', () => {
-  it('el umbral propio le gana al de la organización', () => {
-    expect(requiereN2(300, 1000, 100)).toBe(false)
+  it('sin monto, siempre', () => {
+    expect(requiereN2(1, null)).toBe(true)
   })
-  it('sin umbral propio, cae al de la organización', () => {
-    expect(requiereN2(300, null, 100)).toBe(true)
+  it('con monto, desde ese monto', () => {
+    expect(requiereN2(999, 1000)).toBe(false)
+    expect(requiereN2(1000, 1000)).toBe(true)
   })
-  it('sin ningún umbral, nunca', () => {
-    expect(requiereN2(9_999_999, null, null)).toBe(false)
+})
+
+describe('umbralAplicable', () => {
+  it('el monto de la ficha le gana al de la organización', () => {
+    expect(umbralAplicable({ n2Propio: null, umbralPropio: 1000, umbralOrg: 100 })).toBe(1000)
+  })
+  it('sin monto en la ficha y con el N2 de la organización, el de la organización', () => {
+    expect(umbralAplicable({ n2Propio: null, umbralPropio: null, umbralOrg: 100 })).toBe(100)
+  })
+  it('sin monto en la ficha y con N2 propio, ninguno: firma siempre', () => {
+    expect(umbralAplicable({ n2Propio: 'n2', umbralPropio: null, umbralOrg: 100 })).toBeNull()
   })
 })
 

@@ -95,7 +95,7 @@ export async function cargarCadena(
 export async function resolverCadenaDeDocumento(
   admin: AdminClient,
   opts: { orgId: string; beneficiarioId: string; proyectoId: string | null; total: number },
-): Promise<Cadena> {
+): Promise<Cadena & { umbral: number | null }> {
   const [{ data: persona }, { data: org }, { data: proyecto }] = await Promise.all([
     admin.from('users')
       .select('approver_l1_id, approver_l2_id, umbral_n2_clp, approver_l1_backup_id, backup_active_from, backup_active_until')
@@ -119,6 +119,7 @@ export async function resolverCadenaDeDocumento(
   return {
     l1: resuelta.l1,
     l2: resuelta.l2,
+    umbral: resuelta.umbral,
     suplenteL1Vigente: suplenteVigente(
       persona.approver_l1_backup_id, persona.backup_active_from, persona.backup_active_until, hoy(),
     ),

@@ -73,7 +73,14 @@ lista corta, con el N2 por monto, y con que apartarse del jefe sugerido quede vi
    congelar la ruta son la misma decisión: el empleado sabe desde el principio por dónde
    va a pasar, y N1 no puede recortar un ítem para evitar que escale.
 5. **N2 y umbral unificados.** Un N2 y un umbral por persona, heredados de la
-   organización. **Umbral 0 = siempre pasa por N2; sin umbral = nunca.**
+   organización. **Un N2 sin monto firma siempre; con monto, desde ese monto** (0 es lo
+   mismo que ninguno).
+   > *Corregido el 2026-10-07, antes del despliegue.* Decía «sin umbral = nunca». Al
+   > revisar los datos reales salió que Francisco Díaz ya tenía N2 en la ficha
+   > (Katherine Corvalán → Francisco Hagar, que es justo el caso que Daniel quería
+   > mantener) y que ningún umbral estaba cargado: con la regla vieja **perdía su
+   > segunda firma en silencio al desplegar**. Daniel eligió «firma siempre, salvo que
+   > tenga un monto», que es lo que la ficha hacía antes de la 039.
 6. **El proyecto se identifica por número** (`2991`), único por organización. Tiene nombre,
    pero **el número manda**. El catálogo **se arma solo con el uso**: nadie carga los 150.
 7. **El jefe se sugiere por proyecto y el empleado puede cambiarlo.** Apartarse de la
@@ -153,15 +160,18 @@ al enviar, se congela:
   N1 = el jefe elegido (si es de proyecto)
        | el jefe propio      (si lo tiene)
        | el aprobador por defecto de la organización
-  N2 = si el total solicitado supera el umbral (el propio; si es null, el de la org)
-       → el N2 propio; si es null, el N2 por defecto de la organización
-       si no supera, o si no hay ningún N2 que usar → sin N2
+  N2 = el N2 propio; si es null, el N2 por defecto de la organización
+       monto = el de la ficha; si es null y el N2 es el de la organización, el de la org
+       firma si no hay monto, o si el total solicitado lo alcanza (>=)
+       si no hay ningún N2 que usar → sin N2
 ```
 
-**El umbral y el N2 se heredan por separado.** Alguien puede tener umbral propio y N2
-heredado, o al revés: cada campo cae a la organización por su cuenta. Mezclarlos —«si
-tiene umbral propio, usa su N2»— haría que configurar un umbral borre en silencio el N2
-que venía de la organización.
+**El monto de la ficha vale para cualquiera de los dos N2; el de la organización, solo
+para el suyo** (`umbralAplicable()`). Lo primero es lo que ya decía este diseño: alguien
+puede tener monto propio y N2 heredado, y configurarle un monto no le borra en silencio el
+N2 de la organización. Lo segundo es nuevo (2026-10-07): si el monto de la organización
+valiera también para un N2 puesto a mano en la ficha, subir el monto general le quitaría
+la segunda firma a quien la tiene configurada a propósito.
 
 **Si no queda ningún N1** —la persona no tiene jefe propio y la organización no tiene
 aprobador por defecto configurado— el envío se bloquea con el mensaje de `cadenaActiva()`,

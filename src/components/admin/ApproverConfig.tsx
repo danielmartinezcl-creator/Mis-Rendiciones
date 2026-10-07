@@ -43,8 +43,9 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
         suplenteDesde: backupFrom  || null,
         suplenteHasta: backupUntil || null,
       })
-      /* `=== ''` y no un chequeo de verdad: 0 significa «todo pasa por N2» y
-         un `umbral ? …` lo convertiría en «sin umbral», al revés de lo pedido. */
+      /* `=== ''` y no un chequeo de verdad: sin N2 propio, 0 significa «todo
+         pasa por el N2 de la organización» y en blanco, «el monto de la
+         organización». Un `umbral ? …` convertiría lo primero en lo segundo. */
       await updateEmployee(employee.id, {
         umbral_n2_clp: umbral === '' ? null : parseInt(umbral, 10),
       })
@@ -60,6 +61,8 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
   const l1Name     = options.find(u => u.id === l1Id)?.full_name
   const l2Name     = options.find(u => u.id === l2Id)?.full_name
   const backupName = options.find(u => u.id === backupId)?.full_name
+  // 0 y vacío significan lo mismo: el N2 firma todo
+  const montoUmbral = umbral === '' ? 0 : parseInt(umbral, 10)
 
   if (saved) {
     return (
@@ -110,18 +113,19 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
             ))}
           </select>
           <p className="text-xs text-ink-400 mt-1">
-            Flujo: {employee.full_name.split(' ')[0]} → {l1Name}{l2Id ? ` → ${l2Name}` : ''} → Aprobado
+            Flujo: {employee.full_name.split(' ')[0]} → {l1Name}
+            {l2Id ? ` → ${l2Name}${montoUmbral ? ` (desde $ ${montoUmbral.toLocaleString('es-CL')})` : ''}` : ''} → Aprobado
           </p>
         </div>
       )}
 
-      {/* Umbral propio — le gana al de la organización. Se puede poner aunque no
-          haya N1 propio: el N2 y el umbral se heredan por separado, así que esta
-          persona puede tener su umbral y usar el N2 de la organización. */}
+      {/* Umbral propio. Vale para cualquiera de los dos N2: se puede poner aunque
+          no haya N2 en la ficha, y entonces es el monto desde el que escala al N2
+          de la organización. Lo que cambia según haya o no N2 propio es qué
+          significa dejarlo en blanco (ver umbralAplicable en cadena-proyecto.ts). */}
       <div>
         <label className="block text-xs font-medium text-ink-600 mb-1">
-          Desde cuánto va al segundo aprobador
-          <span className="text-ink-400 font-normal ml-1">— en blanco, usa el de la organización</span>
+          Desde cuánto firma el segundo aprobador
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-ink-500 font-mono-amount">$</span>
@@ -130,17 +134,19 @@ export function ApproverConfig({ employee, allUsers, onSaved }: Props) {
             inputMode="numeric"
             value={umbral}
             onChange={e => setUmbral(e.target.value.replace(/[^\d]/g, ''))}
-            placeholder="Hereda de la organización"
+            placeholder={l2Id ? 'Firma siempre' : 'El de la organización'}
             className="campo w-full font-mono-amount"
           />
         </div>
-        {umbral !== '' && (
-          <p className="text-xs text-ink-400 mt-1">
-            {parseInt(umbral) === 0
-              ? 'Todo lo de esta persona pasa por el segundo aprobador'
-              : `Desde $ ${parseInt(umbral).toLocaleString('es-CL')} CLP`}
-          </p>
-        )}
+        <p className="text-xs text-ink-400 mt-1">
+          {montoUmbral > 0
+            ? `Desde $ ${montoUmbral.toLocaleString('es-CL')} CLP`
+            : l2Id
+              ? `${l2Name ?? 'El N2'} firma todo lo de ${employee.full_name.split(' ')[0]}`
+              : umbral === ''
+                ? 'En blanco, usa el monto de la organización con su segundo aprobador'
+                : 'Todo pasa por el segundo aprobador de la organización'}
+        </p>
       </div>
 
       {/* Aprobador suplente — solo si hay N1 */}

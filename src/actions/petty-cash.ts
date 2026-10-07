@@ -1341,16 +1341,11 @@ export async function previaDeCadenaFondo(fundId: string) {
     const { data } = await admin.from('users').select('full_name').eq('id', id).single()
     return data?.full_name ?? null
   }
-  const [{ data: persona }, { data: org }] = await Promise.all([
-    admin.from('users').select('umbral_n2_clp').eq('id', fondo.employee_id).single(),
-    admin.from('organizations').select('umbral_n2_clp').eq('id', fondo.org_id).single(),
-  ])
-
   return {
     n1:         await nombre(cadena.suplenteL1Vigente ?? cadena.l1),
     esSuplente: Boolean(cadena.suplenteL1Vigente),
     n2:         await nombre(cadena.l2),
-    umbral:     persona?.umbral_n2_clp ?? org?.umbral_n2_clp ?? null,
+    umbral:     cadena.umbral,
     total,
   }
 }

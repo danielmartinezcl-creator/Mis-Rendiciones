@@ -733,8 +733,8 @@ function ChainsTab() {
             Segundo aprobador por defecto
           </label>
           <p className="text-xs text-ink-400 mb-2">
-            Solo interviene cuando el monto supera el umbral que está en <strong>Límites</strong>.
-            Si una persona tiene su propio N2 en la ficha, ese manda.
+            Firma todo lo de quien no tenga su propio N2 en la ficha; si en <strong>Límites</strong> hay
+            un monto, solo desde ese monto. Si una persona tiene su propio N2, ese manda.
           </p>
           <select value={n2} onChange={e => setN2(e.target.value)} className="campo w-full max-w-sm">
             <option value="">Sin segundo aprobador</option>
@@ -1171,8 +1171,8 @@ function LimitsTab() {
       await updateSpendingLimits({
         maxItemAmount: maxItem ? parseInt(maxItem.replace(/\./g, ''), 10) : null,
         maxFundAmount: maxFund ? parseInt(maxFund.replace(/\./g, ''), 10) : null,
-        // `=== ''` y no `umbralN2 ?`: el 0 es un valor con significado —«todo pasa
-        // por N2»— y un chequeo de verdad lo trataría como «sin umbral».
+        // En la organización, 0 y en blanco ya significan lo mismo (firma todo),
+        // pero se guarda lo que el admin escribió: que vuelva y vea su 0.
         umbralN2: umbralN2 === '' ? null : parseInt(umbralN2.replace(/\./g, ''), 10),
       })
       setSaved(true)
@@ -1254,7 +1254,7 @@ function LimitsTab() {
           <p className="text-xs text-ink-400 mb-2">
             A diferencia de los límites de arriba, esto no rechaza nada: manda el documento a
             un segundo aprobador. Se mide sobre el total al enviar — en una liquidación de caja
-            chica, sobre lo gastado. <strong>0 = todo pasa por N2; en blanco = nunca.</strong>
+            chica, sobre lo gastado. <strong>En blanco o 0, el segundo aprobador firma todo.</strong>
           </p>
           <div className="flex items-center gap-2">
             <span className="text-sm text-ink-500 font-mono-amount">$</span>
@@ -1263,20 +1263,22 @@ function LimitsTab() {
               inputMode="numeric"
               value={umbralN2}
               onChange={e => setUmbralN2(e.target.value.replace(/[^\d.]/g, ''))}
-              placeholder="Nunca"
+              placeholder="Todo"
               className="campo w-full max-w-xs font-mono-amount"
             />
           </div>
-          {umbralN2 !== '' && !isNaN(parseInt(umbralN2)) && (
+          {umbralN2 !== '' && !isNaN(parseInt(umbralN2)) && parseInt(umbralN2) > 0 && (
             <p className="text-xs text-ink-400 mt-1">
-              {parseInt(umbralN2) === 0
-                ? 'Todo pasa por una segunda firma'
-                : `Desde $ ${parseInt(umbralN2).toLocaleString('es-CL')} CLP, segunda firma`}
+              Desde $ {parseInt(umbralN2).toLocaleString('es-CL')} CLP, segunda firma
             </p>
           )}
+          {/* El monto de la organización acompaña solo a SU segundo aprobador
+              (umbralAplicable en cadena-proyecto.ts): decirlo acá evita que
+              alguien lo suba esperando que afecte a todos. */}
           <p className="text-xs text-ink-400 mt-2">
-            Quién es ese segundo aprobador se configura en <strong>Aprobación</strong>, o por
-            persona en su ficha.
+            Vale para el segundo aprobador de la organización, que se elige en <strong>Aprobación</strong>.
+            Quien tenga su propio N2 en la ficha usa el monto de su ficha: si allí está en blanco,
+            su N2 firma todo.
           </p>
         </div>
 

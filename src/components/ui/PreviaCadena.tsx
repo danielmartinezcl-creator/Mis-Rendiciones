@@ -64,10 +64,12 @@ export function PreviaCadena({ reportId, fundId, recargarCon }: Props) {
       <p className="card-label text-ink-700">
         Esto va a <span className="font-semibold text-ink-900">{previa.n1}</span>
         {previa.esSuplente && <span className="text-ink-500"> (suplente)</span>}.
+        {/* Sin monto (o con 0) el N2 firma siempre, y no hay nada que explicar:
+            «como llega a $0» confundiría más de lo que aclara. */}
         {previa.n2 && (
           <>
-            {' '}Y como supera {previa.umbral !== null ? formatCLP(previa.umbral) : 'el límite'},
-            después a <span className="font-semibold text-ink-900">{previa.n2}</span>.
+            {' '}{previa.umbral ? <>Y como llega a {formatCLP(previa.umbral)}, después</> : 'Después'} a{' '}
+            <span className="font-semibold text-ink-900">{previa.n2}</span>.
           </>
         )}
       </p>

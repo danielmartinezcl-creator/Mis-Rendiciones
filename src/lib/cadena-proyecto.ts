@@ -28,23 +28,33 @@ export interface CadenaResuelta {
   l1:     string | null
   l2:     string | null
   origen: OrigenCadena
+  /** Desde cuánto firma el N2; `null` = firma siempre */
+  umbral: number | null
 }
 
 /**
- * Si el monto alcanza el umbral que corresponde.
+ * Desde cuánto firma el N2, o `null` si firma siempre.
  *
- * Es `>=` y no `>`: así un umbral de 0 significa «siempre pasa por N2» sin casos
- * raros, y `null` significa «nunca». El umbral propio le gana al de la
- * organización; si no hay ninguno, no hay N2.
+ * **Un N2 sin monto firma siempre** (Daniel, 2026-10-07): es lo que hacía la
+ * ficha antes de la 039. Con «sin monto = nunca», quien ya tenía un N2
+ * configurado lo perdía en silencio al desplegar.
+ *
+ * El monto de la ficha vale para cualquiera de los dos N2 —así, ponerle un
+ * monto a una persona no le borra el N2 de la organización—. El de la
+ * organización, en cambio, acompaña solo a SU N2: si valiera también para el de
+ * la ficha, poner un monto general le quitaría la segunda firma a quien la
+ * tiene configurada a mano.
  */
-export function requiereN2(
-  total: number,
-  umbralPropio: number | null,
-  umbralOrg: number | null,
-): boolean {
-  const umbral = umbralPropio ?? umbralOrg
-  if (umbral === null || umbral === undefined) return false
-  return total >= umbral
+export function umbralAplicable(
+  e: Pick<EntradaCadena, 'n2Propio' | 'umbralPropio' | 'umbralOrg'>,
+): number | null {
+  if (e.umbralPropio !== null) return e.umbralPropio
+  return e.n2Propio ? null : e.umbralOrg
+}
+
+/** Si el total alcanza el umbral. Es `>=`, así que un umbral de 0 es lo mismo que ninguno. */
+export function requiereN2(total: number, umbral: number | null): boolean {
+  return umbral === null || total >= umbral
 }
 
 export function resolverCadena(e: EntradaCadena): CadenaResuelta {
@@ -56,19 +66,15 @@ export function resolverCadena(e: EntradaCadena): CadenaResuelta {
     : e.defectoOrg ? 'organizacion'
     : 'ninguno'
 
-  // El umbral y el N2 se heredan POR SEPARADO, a propósito: atarlos haría que
-  // ponerle un umbral propio a una persona le borre en silencio el N2 que venía
-  // de la organización.
-  let l2: string | null = null
-  if (requiereN2(e.totalSolicitado, e.umbralPropio, e.umbralOrg)) {
-    l2 = e.n2Propio ?? e.n2Org ?? null
-  }
+  const n2     = e.n2Propio ?? e.n2Org ?? null
+  const umbral = umbralAplicable(e)
+  let l2 = n2 !== null && requiereN2(e.totalSolicitado, umbral) ? n2 : null
 
   // Nadie decide dos veces el mismo documento. Pasa de verdad cuando el jefe de
   // un proyecto es, además, el N2 por defecto de la organización.
   if (l2 !== null && l2 === l1) l2 = null
 
-  return { l1, l2, origen }
+  return { l1, l2, origen, umbral }
 }
 
 /**

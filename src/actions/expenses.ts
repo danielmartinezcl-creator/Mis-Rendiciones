@@ -1051,17 +1051,13 @@ export async function previaDeCadena(reportId: string) {
     return data?.full_name ?? null
   }
 
-  // El umbral que efectivamente se aplicó, para poder explicar por qué escala
-  const [{ data: persona }, { data: org }] = await Promise.all([
-    admin.from('users').select('umbral_n2_clp').eq('id', reporte.submitter_id).single(),
-    admin.from('organizations').select('umbral_n2_clp').eq('id', reporte.org_id).single(),
-  ])
-
   return {
     n1:       await nombre(cadena.suplenteL1Vigente ?? cadena.l1),
     esSuplente: Boolean(cadena.suplenteL1Vigente),
     n2:       await nombre(cadena.l2),
-    umbral:   persona?.umbral_n2_clp ?? org?.umbral_n2_clp ?? null,
+    // El que se aplicó de verdad —sale de la misma función que decide—, para
+    // poder explicar por qué escala
+    umbral:   cadena.umbral,
     total,
   }
 }
