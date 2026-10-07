@@ -822,7 +822,7 @@ Esta fase no se implementa desde acá: cada pieza pasa por brainstorming con Art
 Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran consultas lentas.
 
 - [ ] **Medir primero.** `get_advisors performance` y las consultas más costosas (`pg_stat_statements`).
-- [ ] **039 — políticas.** `auth.uid()` → `(select auth.uid())` en las 28 marcadas (`auth_rls_initplan`). Se ensaya con las pruebas 033, 035, 037 y 038, para garantizar que ningún permiso cambia.
+- [ ] **Políticas, en una migración nueva** (la 039 ya es la del aprobador por proyecto: usar el siguiente número libre). `auth.uid()` → `(select auth.uid())` en las 28 marcadas (`auth_rls_initplan`). Se ensaya con las pruebas 033, 035, 037 y 038, para garantizar que ningún permiso cambia.
 - [ ] **Índices.** Para las FK que usan los joins reales, de las 37 sin índice. Los 10 `unused_index` se borran solo después de un período representativo de uso.
 - [ ] **Políticas duplicadas.** Consolidar las 155 permisivas con la misma batería de pruebas. Es lo más delicado: dos políticas permisivas se combinan con OR, y juntarlas mal abre o cierra acceso.
 
