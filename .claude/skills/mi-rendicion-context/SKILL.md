@@ -852,6 +852,13 @@ una columna `NOT NULL`.
 >   limpiar **dos** lugares, `auth.users.recovery_token` **y** `auth.one_time_tokens`
 >   (`token_type = 'recovery_token'`). Limpiar solo uno deja el link funcionando.
 >
+>   Para sacar a alguien que ya entró alcanza con **cambiarle la contraseña desde el
+>   panel** (`setEmployeePassword`): Supabase revoca todas sus sesiones al hacerlo,
+>   aunque el código no llame a ningún `signOut`. Verificado el 2026-10-07 con la única
+>   persona que alcanzó a entrar: 1 sesión abierta antes, 0 después. Con los links
+>   anulados y los correos pausados no hay otra vía para conseguir contraseña —ningún
+>   flujo usa el correo propio de Supabase—, así que no hizo falta un bloqueo de acceso
+>
 > · *Defontana — `Codigo Legal` en facturas* — va vacío a propósito (la factura ya
 >   está en Defontana; el asiento solo rebaja al proveedor), fijado en un test. Si el
 >   importador llegara a exigirlo, es una línea en `rowToArray`.
