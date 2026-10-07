@@ -830,8 +830,27 @@ una columna `NOT NULL`.
 >   ambos.** Todo link de contraseña sale por Resend hacia `/set-password?token_hash=…`
 >   y se canjea recién al guardar (`verifyOtp`), así que los escáneres de Outlook ya no
 >   lo queman. `revisarConfigCorreo` corta antes del bucle si el correo no puede salir.
->   El `.env.local` sigue con la clave vieja: en local la recuperación no envía, y es lo
->   correcto.
+>
+>   **⚠️ INCIDENTE 2026-10-07 — esto decía que «en local la recuperación no envía». Era
+>   FALSO.** En Vercel, `RESEND_API_KEY` está marcada para *development, preview y
+>   production*: «development» es lo que baja a `.env.local`, así que **la clave real de
+>   producción estaba en local**, y el servidor local apunta a la base real. Una prueba
+>   automatizada con la sesión de admin hizo clic por posición en «Invitar sin invitar» y
+>   salieron **52 invitaciones reales**, con la app a medio reconfigurar. El botón no pedía
+>   confirmación para un lote nuevo (solo para reenvíos).
+>
+>   Desde `764e43f` hay **un candado en `revisarConfigCorreo`**, que es la única puerta —
+>   `trySendEmail` de `avisos.ts` también pasa por ella—:
+>   1. **Fuera de producción no sale ningún correo**: `VERCEL_ENV` tiene que ser
+>      `production`. Ni local ni previews (que también apuntan a la base real).
+>   2. **`CORREO_PAUSADO`** corta todo en producción. **Está en `1` desde el
+>      2026-10-07, por decisión de Daniel, hasta que la app esté operativa.** Para
+>      reanudar: borrar la variable en Vercel y redesplegar. Falla cerrado: un valor que
+>      no sea vacío/`0`/`false`/`no` pausa.
+>
+>   Los 51 links que seguían vivos se anularon a mano (ensayado con ROLLBACK): hay que
+>   limpiar **dos** lugares, `auth.users.recovery_token` **y** `auth.one_time_tokens`
+>   (`token_type = 'recovery_token'`). Limpiar solo uno deja el link funcionando.
 >
 > · *Defontana — `Codigo Legal` en facturas* — va vacío a propósito (la factura ya
 >   está en Defontana; el asiento solo rebaja al proveedor), fijado en un test. Si el
@@ -1093,3 +1112,5 @@ una columna `NOT NULL`.
 | Creer que la captura «Cola bancaria» de la línea base muestra `/banco` | Muestra el **dashboard**: el admin del arnés no tiene permisos bancarios —ser admin no da acceso al banco— así que `/banco` lo redirige a `/`. La captura se llama `banco.png` y fotografía otra pantalla, y encima la ruta no está marcada `datosVivos`, así que falla cada vez que cambian los números del dashboard y parece una regresión. Visto el 2026-10-07 | Para auditar la cola bancaria de verdad, el arnés necesita un usuario con `can_load_bank_transfer` / `can_authorize_bank_transfer`. Mientras tanto, tratar ese rojo como dato vivo |
 | Leer el código de salida de `playwright ... | tail` | El código es el de `tail`, no el de Playwright: una corrida con 14 capturas en rojo informa **exit code 0**. Pasó el 2026-10-07 y por poco se toma por verde | Leer el resumen («N failed / N passed») del final de la salida, nunca el código de salida de un comando con tubería |
 | Mirar el `-diff.png` de `rendicion-detalle` y creer que el cambio es enorme | Esa captura entra por el primer enlace de `/admin/reports`, y esa lista cambia: la base puede tener una rendición y la corrida otra, así que el diff compara dos documentos distintos y sale casi todo rojo | Mirar el `-actual.png`, no el `-diff.png`, cuando la captura navega por un enlace en vez de ir a una URL fija |
+| Correr pruebas automatizadas con la sesión de admin contra el servidor local, y hacer clic por posición | El servidor local apunta a la **base real** y tenía la **clave real** de Resend (bajada de Vercel por el target «development»). Un `button:has(svg)` número 4 cayó en «Invitar sin invitar» y mandó 52 invitaciones a empleados reales el 2026-10-07 | Nunca clics a ciegas: elegir siempre por nombre o etiqueta (`getByRole('button', { name: … })`). Nunca automatizar pantallas de administración que disparan acciones hacia afuera (invitar, aprobar, cargar, autorizar). Desde `764e43f` fuera de producción no sale correo, pero la base sigue siendo la real |
+| Una acción masiva sin confirmación | «Invitar sin invitar (N)» enviaba N correos con un solo clic: `handleSendInvitations` solo pedía confirmación cuando alguno ya estaba invitado | Toda acción que llega a muchas personas pide confirmación con el número a la vista. Pendiente para el botón de invitar |
