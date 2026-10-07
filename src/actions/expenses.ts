@@ -9,7 +9,7 @@ import {
   type DocumentoDelGasto,
 } from '@/lib/expense-helpers'
 import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/lib/avisos'
-import { contextoRendicion } from '@/lib/contexto-permisos'
+import { contextoRendicion, resolverCadenaDeDocumento } from '@/lib/contexto-permisos'
 import { puedeEnviar } from '@/lib/permisos'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
@@ -247,15 +247,19 @@ export async function submitExpenseReport(reportId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { count } = await supabase
+  // Se traen los montos y no solo la cuenta: el total decide si la rendición
+  // escala a N2, y eso se resuelve en el envío (nunca después, para que N1 no
+  // pueda recortar un ítem y evitar que escale).
+  const { data: itemsDelEnvio } = await supabase
     .from('expense_items')
-    .select('*', { count: 'exact', head: true })
+    .select('amount_clp')
     .eq('report_id', reportId)
     .is('deleted_at', null)
 
-  if (!count || count === 0) {
+  if (!itemsDelEnvio?.length) {
     throw new Error('La rendición debe tener al menos un ítem')
   }
+  const totalSolicitado = itemsDelEnvio.reduce((s, i) => s + (i.amount_clp ?? 0), 0)
 
   const ctx = await contextoRendicion(reportId)
   if (ctx.reporte.submitter_id !== user.id) throw new Error('Solo quien rinde puede enviar su rendición')
@@ -264,17 +268,35 @@ export async function submitExpenseReport(reportId: string) {
   const yo = ctx.personas.find(p => p.id === user.id)
   if (!yo) throw new Error('Rendición no encontrada')
 
-  const envio = puedeEnviar('rendicion', yo, ctx.doc.cadena)
+  // La cadena se resuelve ANTES de validar: con aprobador por proyecto, quien no
+  // tiene jefe propio igual tiene cadena si eligió una obra. Validar contra la
+  // ficha dejaría afuera justo a quienes el cambio viene a destrabar.
+  const cadenaCongelada = await resolverCadenaDeDocumento(ctx.admin, {
+    orgId:          ctx.reporte.org_id,
+    beneficiarioId: ctx.reporte.submitter_id,
+    proyectoId:     ctx.reporte.proyecto_id,
+    total:          totalSolicitado,
+  })
+
+  const envio = puedeEnviar('rendicion', yo, cadenaCongelada)
   if (!envio.ok) {
-    if (!ctx.doc.cadena.l1) {
+    if (!cadenaCongelada.l1) {
       notifyAdminsMissingApprover(ctx.reporte.org_id, yo.nombre, 'una rendición').catch(() => {})
     }
     throw new Error(envio.motivo)
   }
 
+  // Estado y cadena en el MISMO update: partirlo en dos dejaría, ante un fallo
+  // entre medio, una rendición enviada sin aprobador.
   const { data: enviada, error } = await ctx.admin
     .from('expense_reports')
-    .update({ status: 'submitted', submitted_at: new Date().toISOString() })
+    .update({
+      status:           'submitted',
+      submitted_at:     new Date().toISOString(),
+      cadena_l1_id:     cadenaCongelada.l1,
+      cadena_l2_id:     cadenaCongelada.l2,
+      cadena_fijada_at: new Date().toISOString(),
+    })
     .eq('id', reportId)
     .eq('status', 'draft')
     .select('id')

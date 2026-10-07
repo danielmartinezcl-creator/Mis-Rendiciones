@@ -10,7 +10,7 @@ import { validateStringLength, validateDateRange } from '@/lib/validators'
 import { soloCampos, FONDO_AJENO } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
 import type { DefontanaItem } from '@/lib/export/defontana'
-import { contextoFondo, exigirPaso, permisoEn, type ContextoFondo } from '@/lib/contexto-permisos'
+import { contextoFondo, exigirPaso, permisoEn, resolverCadenaDeDocumento, type ContextoFondo } from '@/lib/contexto-permisos'
 import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
@@ -152,16 +152,29 @@ export async function submitFundForApproval(fundId: string) {
 
   const yo = ctx.personas.find(p => p.id === userId)
   if (!yo) throw new Error('Fondo no encontrado')
-  const envio = puedeEnviar('fondo', yo, ctx.doc.cadena)
+  // La cadena del fondo se resuelve sobre lo que se PIDE, y antes de validar:
+  // el beneficiario puede no tener jefe propio y sí tener obra.
+  const cadenaCongelada = await resolverCadenaDeDocumento(ctx.admin, {
+    orgId:          ctx.fondo.org_id,
+    beneficiarioId: ctx.fondo.employee_id,
+    proyectoId:     ctx.fondo.proyecto_id,
+    total:          Number(ctx.fondo.amount_requested ?? 0),
+  })
+
+  const envio = puedeEnviar('fondo', yo, cadenaCongelada)
   if (!envio.ok) {
-    if (!ctx.doc.cadena.l1) {
+    if (!cadenaCongelada.l1) {
       const beneficiario = ctx.personas.find(p => p.id === ctx.fondo.employee_id)?.nombre ?? 'Un empleado'
       notifyAdminsMissingApprover(ctx.fondo.org_id, beneficiario, 'un fondo').catch(() => {})
     }
     throw new Error(envio.motivo)
   }
 
-  await moverFondo(ctx, 'draft', 'pending_approval')
+  await moverFondo(ctx, 'draft', 'pending_approval', {
+    cadena_l1_id:     cadenaCongelada.l1,
+    cadena_l2_id:     cadenaCongelada.l2,
+    cadena_fijada_at: new Date().toISOString(),
+  })
   await registrar(ctx, userId, 'submitted_for_approval')
   notifyFundStep(fundId, 'decidir_l1', userId).catch(() => {})
   revalidarFondo(fundId)
@@ -389,14 +402,36 @@ export async function submitLiquidation(fundId: string) {
 
   const yo = ctx.personas.find(p => p.id === userId)
   if (!yo) throw new Error('Fondo no encontrado')
-  const envio = puedeEnviar('liquidacion', yo, ctx.doc.cadena)
+  // La liquidación congela su PROPIA cadena, y sobre lo GASTADO — no sobre lo
+  // que se pidió. Es lo que cierra el agujero de pedir por debajo del umbral
+  // para no escalar y después gastar bastante más: en caja chica el empleado ya
+  // tiene la plata en la mano cuando gasta, al revés que en una rendición.
+  const { data: gastos } = await ctx.admin
+    .from('petty_cash_items')
+    .select('amount_clp')
+    .eq('fund_id', fundId)
+    .neq('status', 'rejected')
+  const totalGastado = (gastos ?? []).reduce((s, i) => s + Number(i.amount_clp ?? 0), 0)
+
+  const cadenaCongelada = await resolverCadenaDeDocumento(ctx.admin, {
+    orgId:          ctx.fondo.org_id,
+    beneficiarioId: ctx.fondo.employee_id,
+    proyectoId:     ctx.fondo.proyecto_id,
+    total:          totalGastado,
+  })
+
+  const envio = puedeEnviar('liquidacion', yo, cadenaCongelada)
   if (!envio.ok) {
-    if (!ctx.doc.cadena.l1) notifyAdminsMissingApprover(ctx.fondo.org_id, yo.nombre, 'una liquidación').catch(() => {})
+    if (!cadenaCongelada.l1) notifyAdminsMissingApprover(ctx.fondo.org_id, yo.nombre, 'una liquidación').catch(() => {})
     throw new Error(envio.motivo)
   }
 
   // Directo al N1: el paso «elevar» del EFF se eliminó (D6)
-  await moverFondo(ctx, 'funds_sent', 'pending_liquidation_approval')
+  await moverFondo(ctx, 'funds_sent', 'pending_liquidation_approval', {
+    liq_cadena_l1_id:     cadenaCongelada.l1,
+    liq_cadena_l2_id:     cadenaCongelada.l2,
+    liq_cadena_fijada_at: new Date().toISOString(),
+  })
   await registrar(ctx, userId, 'liquidation_submitted')
   notifyFundStep(fundId, 'decidir_l1', userId).catch(() => {})
   revalidarFondo(fundId)

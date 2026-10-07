@@ -9,6 +9,7 @@ import {
   suplenteVigente, pasoSegunEstado, puedeActuar, destinatarios, tipoDeFondo, cadenaActiva,
   type Cadena, type Documento, type Paso, type Persona,
 } from '@/lib/permisos'
+import { resolverCadena, entradaDesdeFilas } from '@/lib/cadena-proyecto'
 
 export type AdminClient = ReturnType<typeof createAdminClient>
 
@@ -82,11 +83,54 @@ export async function cargarCadena(
   return { l1: data.approver_l1_id, l2: data.approver_l2_id, suplenteL1Vigente }
 }
 
+/**
+ * La cadena que le corresponde a un documento HOY, lista para congelar.
+ *
+ * Se usa en los tres envíos (rendición, fondo y liquidación) y **antes** de
+ * `puedeEnviar()`, no después: con aprobador por proyecto, quien no tiene jefe
+ * propio igual tiene cadena si eligió una obra. Validar con la de la ficha y
+ * congelar la del proyecto bloquearía a los 50 empleados sin N1 configurado,
+ * que es justo a quienes este cambio viene a destrabar.
+ */
+export async function resolverCadenaDeDocumento(
+  admin: AdminClient,
+  opts: { orgId: string; beneficiarioId: string; proyectoId: string | null; total: number },
+): Promise<Cadena> {
+  const [{ data: persona }, { data: org }, { data: proyecto }] = await Promise.all([
+    admin.from('users')
+      .select('approver_l1_id, approver_l2_id, umbral_n2_clp, approver_l1_backup_id, backup_active_from, backup_active_until')
+      .eq('id', opts.beneficiarioId).single(),
+    admin.from('organizations')
+      .select('aprobador_defecto_id, aprobador_n2_defecto_id, umbral_n2_clp')
+      .eq('id', opts.orgId).single(),
+    opts.proyectoId
+      ? admin.from('proyectos').select('jefe_id').eq('id', opts.proyectoId).single()
+      : Promise.resolve({ data: null }),
+  ])
+  if (!persona || !org) throw new Error('No se encontró la cadena de aprobación')
+
+  const resuelta = resolverCadena(entradaDesdeFilas({
+    proyecto: proyecto ?? null,
+    persona:  persona,
+    org:      org,
+    total:    opts.total,
+  }))
+
+  return {
+    l1: resuelta.l1,
+    l2: resuelta.l2,
+    suplenteL1Vigente: suplenteVigente(
+      persona.approver_l1_backup_id, persona.backup_active_from, persona.backup_active_until, hoy(),
+    ),
+  }
+}
+
 export interface ContextoRendicion {
   admin:    AdminClient
   reporte:  {
     id: string; org_id: string; submitter_id: string; status: string; title: string
     approved_amount: number | null; is_historical_import: boolean
+    proyecto_id: string | null
   }
   personas: Persona[]
   doc:      Documento
@@ -132,6 +176,7 @@ export interface ContextoFondo {
   fondo:    {
     id: string; org_id: string; employee_id: string; manager_id: string; status: string
     name: string; amount_requested: number; amount_approved: number | null
+    proyecto_id: string | null
   }
   personas: Persona[]
   doc:      Documento
