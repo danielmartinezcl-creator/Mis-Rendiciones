@@ -250,6 +250,26 @@ export default function ExpenseDetailPage() {
   const isPartiallyApproved  = report.status === 'partially_approved'
   const showRejectionBanner  = isRejected || isPartiallyApproved
 
+  /* El mismo bloque en dos sitios, y por eso una constante y no JSX repetido:
+     en el borrador va entre «Agregar ítem» y «Enviar», que es el orden en que se
+     trabaja; en una rendición ya enviada no hay botones y va suelto al final.
+
+     Estuvo arriba de todo hasta el 2026-10-07, y en las pruebas con empleados
+     salió lo previsible: un bloque que pide archivos, antes que cualquier otra
+     cosa y aceptando PDF e imágenes, se lee como el lugar donde van las boletas.
+     El OCR está en «Agregar ítem». La pantalla los mandaba al lugar equivocado. */
+  const respaldos = (
+    <div className="hoja p-4">
+      <ApprovalAttachments
+        attachments={approvalAtts}
+        target={{ reportId: id }}
+        onRefresh={loadApprovalAtts}
+        titulo="Respaldos extras de la rendición"
+        nota="Correos de autorización, comprobantes de transferencia, órdenes de compra o cotizaciones. Las boletas y facturas van en cada gasto."
+      />
+    </div>
+  )
+
   // R-03: balance de rendición
   const totalAprobado  = items.filter(i => i.status === 'approved').reduce((s, i) => s + (i.amount_clp ?? 0), 0)
   const totalRechazado = items.filter(i => i.status === 'rejected').reduce((s, i) => s + (i.amount_clp ?? 0), 0)
@@ -324,17 +344,6 @@ export default function ExpenseDetailPage() {
           {error}
         </div>
       )}
-
-      {/* Adjuntos del informe (aprobadores/admin).
-          En hoja: el componente no trae superficie propia y sobre el degradado
-          su texto de ayuda queda ilegible. Es un formulario, se llena. */}
-      <div className="hoja p-4">
-        <ApprovalAttachments
-          attachments={approvalAtts}
-          target={{ reportId: id }}
-          onRefresh={loadApprovalAtts}
-        />
-      </div>
 
       {/* Lista de ítems */}
       <div className="space-y-2">
@@ -453,6 +462,10 @@ export default function ExpenseDetailPage() {
             </button>
           )}
 
+          {/* Solo con gastos cargados: quien entra a una rendición vacía no ve
+              ninguna opción de adjuntar, así que no puede creer que sea el camino. */}
+          {items.length > 0 && !showForm && respaldos}
+
           {items.length > 0 && !showForm && (
             <button
               onClick={handleSubmit}
@@ -476,6 +489,10 @@ export default function ExpenseDetailPage() {
           )}
         </div>
       )}
+
+      {/* Ya enviada: no hay botones, pero lo adjuntado sigue a la vista — es
+          parte del expediente y quien rinde tiene que poder consultarlo. */}
+      {!isMyDraft && respaldos}
 
       {/* Banner de rechazo (para empleado) */}
       {showRejectionBanner && (

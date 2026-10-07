@@ -455,6 +455,20 @@ Decisiones que NO se cambian sin volver a hablarlas:
   `approval-attachments` para respaldos de aprobadores, ruta `{org_id}/{report_id | fund_id}/{timestamp}_{user_id}.{ext}`
 - Un comprobante se sube o se borra solo si se puede cambiar su gasto: `puedeCambiarAdjuntos()`.
   Lo escribe solo el servidor (ver «Permisos por asignación» y la migración 035)
+- **Dónde va cada cosa en la pantalla de rendición (2026-10-07, NO volver a subirlo).**
+  «Adjuntos de respaldo» estaba **arriba de todo**, antes de los gastos, y en las pruebas
+  con empleados pasó lo previsible: un bloque que pide archivos, primero en la pantalla y
+  aceptando PDF e imágenes, se lee como el lugar donde van las boletas — y el OCR está en
+  «Agregar ítem». La pantalla los mandaba al lugar equivocado. Ahora, en `expenses/[id]`:
+  va **entre «+ Agregar ítem» y «Enviar a revisión»**, se llama **«Respaldos extras de la
+  rendición»** y **solo aparece con al menos un gasto cargado** (quien entra a una
+  rendición vacía no ve ninguna opción de adjuntar, así que no puede creer que sea el
+  camino). En una rendición ya enviada va suelto al final: no hay botones, pero lo
+  adjuntado es parte del expediente y quien rindió tiene que poder consultarlo — por eso
+  es una constante usada en dos sitios y no JSX dentro del `isMyDraft`.
+  `ApprovalAttachments` recibe `titulo` y `nota` del llamador: en `approvals/[id]` y en
+  `petty-cash/[id]` el nombre de siempre es correcto y esas dos pantallas **ya tenían el
+  bloque al final** (líneas 498/570 y 640/657) — el desorden era de una sola pantalla
 
 ### ✅ Defontana v2 — export contable real (migración 012)
 - `cost_centers`: 46 centros PENTA seeded; `imputable=true` → recibe asientos
@@ -1076,3 +1090,6 @@ una columna `NOT NULL`.
 | Correr `next build` y después `next dev` sin limpiar | Los dos escriben en el mismo `.next`, y con Turbopack ese estado mezclado deja **TODAS las rutas en 404** — `/login` incluido—, con el dev server arrancando normal («Ready in 1.6s») y sin un solo error en los logs. Parece que la app se rompió entera. Pasó el 2026-10-02 al verificar la planilla | `rm -rf .next` y relevantar. Mejor aún: el build va **después** de probar en dev, no antes. Si hay que hacer las dos cosas, parar el dev server, borrar `.next` y recién ahí construir |
 | Buscar el buildId en el HTML de `/login` para saber si el despliegue entró | **Ya no está ahí**: el `"b":"…"` que la hoja de ruta daba por hecho no aparece en el HTML servido (verificado el 2026-10-01). Buscarlo da una cadena vacía, no un error | Confirmar con `get_deployment` que el despliegue del commit está `READY` y que tiene el alias `www.mi-rendicion.com`. Como huella secundaria sirve el nombre de un chunk de `/_next/static/chunks/`, que cambia entre builds |
 | Meter un PNG RGB dentro de un `.ico` | Un ICO con PNG embebido exige que ese PNG sea de **32 bits con alfa**. Quien lo hace cumplir es el build: Next procesa `src/app/favicon.ico` como metadata de ruta y corta con «Format error decoding Ico: The PNG is not in RGBA format!». El archivo se ve perfecto en cualquier visor, así que sin construir no se nota | Escribir el favicon en RGBA (tipo de color 6) aunque el ícono sea opaco: el canal constante lo comprime deflate y no pesa. Pasó el 2026-10-06 al rehacer el ícono |
+| Creer que la captura «Cola bancaria» de la línea base muestra `/banco` | Muestra el **dashboard**: el admin del arnés no tiene permisos bancarios —ser admin no da acceso al banco— así que `/banco` lo redirige a `/`. La captura se llama `banco.png` y fotografía otra pantalla, y encima la ruta no está marcada `datosVivos`, así que falla cada vez que cambian los números del dashboard y parece una regresión. Visto el 2026-10-07 | Para auditar la cola bancaria de verdad, el arnés necesita un usuario con `can_load_bank_transfer` / `can_authorize_bank_transfer`. Mientras tanto, tratar ese rojo como dato vivo |
+| Leer el código de salida de `playwright ... | tail` | El código es el de `tail`, no el de Playwright: una corrida con 14 capturas en rojo informa **exit code 0**. Pasó el 2026-10-07 y por poco se toma por verde | Leer el resumen («N failed / N passed») del final de la salida, nunca el código de salida de un comando con tubería |
+| Mirar el `-diff.png` de `rendicion-detalle` y creer que el cambio es enorme | Esa captura entra por el primer enlace de `/admin/reports`, y esa lista cambia: la base puede tener una rendición y la corrida otra, así que el diff compara dos documentos distintos y sale casi todo rojo | Mirar el `-actual.png`, no el `-diff.png`, cuando la captura navega por un enlace en vez de ir a una URL fija |

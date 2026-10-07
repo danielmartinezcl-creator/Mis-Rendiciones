@@ -19,6 +19,15 @@ interface Props {
   attachments: AttachmentWithMeta[]
   target: { reportId?: string; fundId?: string }
   onRefresh: () => void
+  /**
+   * El aprobador adjunta el respaldo de SU decisión, y ahí «Adjuntos de respaldo»
+   * se entiende solo. Quien rinde está en otra conversación: lo suyo es lo que
+   * acompaña a los gastos, y necesita que el título diga «extras» para no leerlo
+   * como el lugar donde van las boletas. Por eso el texto es del llamador.
+   */
+  titulo?: string
+  /** Línea de ayuda bajo el título: qué va acá y, sobre todo, qué no. */
+  nota?: string
 }
 
 function formatBytes(n: number | null) {
@@ -28,7 +37,7 @@ function formatBytes(n: number | null) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
+export function ApprovalAttachments({ attachments, target, onRefresh, titulo, nota }: Props) {
   const { confirmar } = useDialogos()
   const [description, setDescription] = useState('')
   const [uploading, startUpload] = useTransition()
@@ -90,8 +99,10 @@ export function ApprovalAttachments({ attachments, target, onRefresh }: Props) {
     <div className="space-y-3">
       <p className="card-label font-semibold text-ink-600 flex items-center gap-2">
         <Paperclip size={13} />
-        Adjuntos de respaldo ({attachments.length})
+        {titulo ?? 'Adjuntos de respaldo'} ({attachments.length})
       </p>
+
+      {nota && <p className="card-meta text-ink-400 -mt-1.5">{nota}</p>}
 
       {/* Lista de adjuntos existentes */}
       {attachments.map(att => (
