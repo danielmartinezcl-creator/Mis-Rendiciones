@@ -34,3 +34,33 @@ export function destinatariosResultadoFondo(
   if (resultado === 'funds_sent') return employeeId === actorId ? [] : [employeeId]
   return destinatariosInformativos(managerId, employeeId, [actorId])
 }
+
+/**
+ * Quién se entera —sin poder decidir— de que a una persona le pidieron un fondo.
+ *
+ * Regla de Daniel (2026-10-07): cuando administración crea el fondo a nombre de
+ * otro, el jefe del beneficiario **no autoriza, solo se entera**. Quien autoriza
+ * es el jefe de la obra. Y si el beneficiario no tiene jefe definido, no se
+ * envía nada a nadie.
+ *
+ * Separar «quién decide» de «quién se entera» es lo que evita tener que
+ * ensanchar la cadena a una lista: `bloqueo()` compara contra UNA persona, y en
+ * el momento en que un paso admite «cualquiera de estos dos» hay que revisar
+ * todo lo que lee la cadena — avisos, recordatorios, cola bancaria, alertas de
+ * segregación.
+ */
+export function jefeQueSeEntera(opts: {
+  solicitanteId:         string
+  beneficiarioId:        string
+  jefeDelBeneficiario:   string | null
+  aprobadorDelDocumento: string | null
+}): string | null {
+  // Pidió el suyo: su jefe no tiene nada que enterarse que no sepa
+  if (opts.solicitanteId === opts.beneficiarioId) return null
+  const jefe = opts.jefeDelBeneficiario
+  if (!jefe) return null
+  // Ya le va a llegar como aprobador, o es el beneficiario mismo
+  if (jefe === opts.aprobadorDelDocumento) return null
+  if (jefe === opts.beneficiarioId) return null
+  return jefe
+}

@@ -11,7 +11,7 @@ import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { destinatarios, type Paso, type Persona } from '@/lib/permisos'
 import { contextoRendicion, contextoFondo } from '@/lib/contexto-permisos'
-import { escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo } from '@/lib/avisos-helpers'
+import { escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo, jefeQueSeEntera } from '@/lib/avisos-helpers'
 import { correoDeRecordatorios, filaDeRecordatorio, type Recordatorio } from '@/lib/recordatorios'
 
 // Pasa por la MISMA regla que las invitaciones (`revisarConfigCorreo`): fuera de
@@ -242,6 +242,38 @@ export async function notifyFundStep(fundId: string, paso: Paso, actorId: string
     html:    `<p>${t.cuerpo}</p>
      <p><a href="${appUrl()}/petty-cash/${fundId}">Ver fondo →</a></p>`,
   })
+
+  /* Cuando el fondo lo pidió otra persona, el jefe del beneficiario se entera
+     —no autoriza—. Es plata que va a quedar a nombre de su gente, y sin esto se
+     entera recién cuando aparece en un informe. Solo al pedirlo: en los pasos
+     siguientes ya no hay novedad que no haya visto. */
+  if (paso === 'decidir_l1' && !liq) {
+    const jefe = jefeQueSeEntera({
+      solicitanteId:         fondo.manager_id,
+      beneficiarioId:        fondo.employee_id,
+      jefeDelBeneficiario:   await jefeDirectoDe(fondo.employee_id),
+      aprobadorDelDocumento: doc.cadena.l1,
+    })
+    if (jefe) {
+      await avisar({
+        orgId:   fondo.org_id,
+        userIds: [jefe],
+        tipo:    'submission',
+        fundId,
+        asunto:  `Fondo solicitado para ${plano}: ${fondo.name}`,
+        html:    `<p>Se pidió un fondo de caja chica a nombre de <strong>${quien}</strong>,
+                  de tu equipo. Lo autoriza el jefe del proyecto; este aviso es para que estés al tanto.</p>
+         <p><a href="${appUrl()}/petty-cash/${fundId}">Ver fondo →</a></p>`,
+      })
+    }
+  }
+}
+
+/** El `approver_l1_id` de una persona, para los avisos que solo informan. */
+async function jefeDirectoDe(userId: string): Promise<string | null> {
+  const admin = createAdminClient()
+  const { data } = await admin.from('users').select('approver_l1_id').eq('id', userId).single()
+  return data?.approver_l1_id ?? null
 }
 
 // Resultados que solo informan (destinatariosResultadoFondo: spec §4).

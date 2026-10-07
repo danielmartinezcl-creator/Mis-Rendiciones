@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo } from '@/lib/avisos-helpers'
+import { jefeQueSeEntera, escaparHtml, claveAvisoSinAprobador, destinatariosResultadoFondo } from '@/lib/avisos-helpers'
 
 describe('escaparHtml', () => {
   it('neutraliza las etiquetas y las comillas', () => {
@@ -43,5 +43,39 @@ describe('destinatariosResultadoFondo (F16)', () => {
   it('rechazo y liquidación cerrada: el EFF y el beneficiario, sin quien actuó', () => {
     expect(destinatariosResultadoFondo('rejected', 'kc', 'fd', 'fh')).toEqual(['kc', 'fd'])
     expect(destinatariosResultadoFondo('settled', 'kc', 'fd', 'kc')).toEqual(['fd'])
+  })
+})
+
+/* El jefe del beneficiario se entera, no autoriza (Daniel, 2026-10-07).
+   El caso que esto cubre: administración le pide un fondo a alguien de terreno.
+   Quien autoriza es el jefe de la obra; el jefe de la persona tiene derecho a
+   saber que a su gente le van a entregar plata, pero no decide. */
+describe('jefeQueSeEntera', () => {
+  const base = {
+    solicitanteId:         'admin',
+    beneficiarioId:        'empleado',
+    jefeDelBeneficiario:   'jefe-directo',
+    aprobadorDelDocumento: 'jefe-de-obra',
+  }
+
+  it('avisa al jefe del beneficiario cuando lo pidió otra persona', () => {
+    expect(jefeQueSeEntera(base)).toBe('jefe-directo')
+  })
+
+  it('no avisa a nadie si el empleado pidió el suyo', () => {
+    expect(jefeQueSeEntera({ ...base, solicitanteId: 'empleado' })).toBeNull()
+  })
+
+  // Daniel fue explícito: sin jefe definido no se envía nada a nadie
+  it('sin jefe definido, no avisa', () => {
+    expect(jefeQueSeEntera({ ...base, jefeDelBeneficiario: null })).toBeNull()
+  })
+
+  it('no duplica: si el jefe del beneficiario ya es quien aprueba, no se le avisa dos veces', () => {
+    expect(jefeQueSeEntera({ ...base, aprobadorDelDocumento: 'jefe-directo' })).toBeNull()
+  })
+
+  it('tampoco se avisa a sí mismo si el beneficiario fuera su propio jefe', () => {
+    expect(jefeQueSeEntera({ ...base, jefeDelBeneficiario: 'empleado' })).toBeNull()
   })
 })
