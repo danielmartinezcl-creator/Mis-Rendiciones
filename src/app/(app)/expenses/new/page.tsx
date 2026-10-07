@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { createExpenseReport } from '@/actions/expenses'
+import { SelectorProyecto, VALOR_VACIO, proyectoCompleto, type ValorProyecto } from '@/components/expenses/SelectorProyecto'
 import { RotateCcw, X } from 'lucide-react'
 
 const DRAFT_KEY = (userId: string) => `draft_expense_${userId}`
@@ -17,6 +18,7 @@ export default function NewExpensePage() {
   const [draft, setDraft]       = useState<Draft | null>(null)
   const [title, setTitle]       = useState('')
   const [description, setDesc]  = useState('')
+  const [proyecto, setProyecto] = useState<ValorProyecto>(VALOR_VACIO)
   const router = useRouter()
   const titleRef = useRef<HTMLInputElement>(null)
 
@@ -64,6 +66,11 @@ export default function NewExpensePage() {
     const form = new FormData()
     form.append('title', title)
     form.append('description', description)
+    if (proyecto.esProyecto) {
+      form.append('proyecto_numero', proyecto.numero)
+      form.append('proyecto_nombre', proyecto.nombre)
+      form.append('proyecto_jefe',   proyecto.jefeId)
+    }
 
     try {
       // Limpiar draft antes del redirect
@@ -149,6 +156,8 @@ export default function NewExpensePage() {
           </p>
         </div>
 
+        <SelectorProyecto valor={proyecto} onChange={setProyecto} recordarComo={userId ? `tipo_rendicion_${userId}` : undefined} />
+
         <div>
           <label htmlFor="description" className="block card-label font-semibold text-ink-700 mb-1">
             Descripción (opcional)
@@ -175,7 +184,7 @@ export default function NewExpensePage() {
           </button>
           <button
             type="submit"
-            disabled={loading || !title.trim()}
+            disabled={loading || !title.trim() || !proyectoCompleto(proyecto)}
             className="btn-primario flex-1 py-3 px-4 card-label"
           >
             {loading ? 'Creando...' : 'Crear rendición →'}

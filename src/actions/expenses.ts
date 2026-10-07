@@ -10,6 +10,7 @@ import {
 } from '@/lib/expense-helpers'
 import { notifyReportApprovers, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { contextoRendicion, resolverCadenaDeDocumento } from '@/lib/contexto-permisos'
+import { resolverOCrearProyecto } from '@/actions/proyectos'
 import { puedeEnviar } from '@/lib/permisos'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
 import type { Json } from '@/lib/supabase/types'
@@ -32,6 +33,20 @@ export async function createExpenseReport(formData: FormData) {
 
   if (!title?.trim()) throw new Error('El título es obligatorio')
 
+  // El proyecto llega solo si eligió «Un proyecto». Se resuelve acá y no en el
+  // envío para que el aprobador se vea desde el principio: el número crea la
+  // obra si no existía, y `resolverOCrearProyecto` comprueba que el jefe esté
+  // habilitado antes de guardarlo.
+  const numeroProyecto = (formData.get('proyecto_numero') as string | null)?.trim()
+  let proyectoId: string | null = null
+  if (numeroProyecto) {
+    proyectoId = await resolverOCrearProyecto(
+      numeroProyecto,
+      (formData.get('proyecto_nombre') as string | null) ?? null,
+      (formData.get('proyecto_jefe')   as string | null) || null,
+    )
+  }
+
   const { data, error } = await supabase
     .from('expense_reports')
     .insert({
@@ -39,6 +54,7 @@ export async function createExpenseReport(formData: FormData) {
       submitter_id:    user.id,
       title:           title.trim(),
       description:     description?.trim() || null,
+      proyecto_id:     proyectoId,
       status:          'draft',
       current_level:   0,
       total_amount:    0,
