@@ -69,21 +69,13 @@ export interface UnifiedReportItem {
   notes:                 string | null
 }
 
+/**
+ * Lo que los fetchers reciben hoy: SOLO el período. Las otras diez dimensiones
+ * se resuelven en el navegador desde el 2026-10-08 — ver getUnifiedReportItems.
+ */
 export interface UnifiedReportFilters {
-  sourceTypes:     ('rendicion' | 'caja_chica')[]
-  dataAge:         'new' | 'historical' | 'all'
-  dateFrom?:       string
-  dateTo?:         string
-  departments?:    string[]
-  employeeIds?:    string[]
-  categoryIds?:    string[]
-  reportIds?:      string[]   // rendición IDs específicas
-  fundIds?:        string[]   // fondo IDs específicos
-  reportStatuses?: string[]   // filtro sobre parent status
-  itemStatuses?:   ('pending' | 'approved' | 'rejected')[]
-  reimb?:          'all' | 'pending' | 'reimbursed'
-  defontana?:      'all' | 'notExported' | 'exported'
-  movements?:      UnifiedMovement[]
+  dateFrom?: string
+  dateTo?:   string
 }
 
 export interface UnifiedKpis {

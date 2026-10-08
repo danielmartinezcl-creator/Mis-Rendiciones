@@ -496,7 +496,7 @@ Siete dimensiones: Empleado, Estado, Fecha de envío, Proyecto, Departamento, Re
 - Consumes: `UnifiedReportItem` (con los campos de obra de la Tarea 4), `computeUnifiedKpis`.
 - Produces: `aplicarFiltroItems(items, valores)`.
 
-- [ ] **Paso 1: Las pruebas de las doce dimensiones**
+- [x] **Paso 1: Las pruebas de las doce dimensiones**
 
 Período · Proyecto · Empleado · Categoría · Estado del informe · Fuente · Datos · Departamento · Movimiento · Estado del ítem · Reembolso · Contabilización.
 
@@ -507,26 +507,26 @@ Casos que importan más que el resto:
 - «Datos: históricos» y «Fuente: caja chica» se cumplen **a la vez**, no una o la otra.
 - Los KPIs se recalculan sobre lo filtrado: `computeUnifiedKpis(aplicarFiltroItems(…))`, y el KPI principal sigue siendo `byMovement.expense.approvedCLP`, nunca `totalCLP`.
 
-- [ ] **Paso 2: Correrlas y verlas fallar**
+- [x] **Paso 2: Correrlas y verlas fallar**
 
-- [ ] **Paso 3: Adelgazar el servidor**
+- [x] **Paso 3: Adelgazar el servidor**
 
 `getUnifiedReportItems` pasa a recibir **solo** `{ desde, hasta }` y devuelve los ítems de las cuatro fuentes en ese rango. Las nueve ramas de filtrado del servidor se borran; `fetchRendicionItems`, `fetchCajaChicaNewItems` y `fetchCajaChicaHistItems` pierden sus parámetros de filtro.
 
 **Conservar el comentario que explica por qué el movimiento se filtra en memoria** — sigue siendo cierto y ahora se aplica a todo.
 
-- [ ] **Paso 4: La pantalla**
+- [x] **Paso 4: La pantalla**
 
 - Se borran el panel de 378 líneas (las siete filas) y el botón «Buscar».
 - Barra con los chips **Período · Proyecto · Empleado · Categoría** y «Más filtros» con las otras ocho.
 - Junto al chip de período, el control del alcance: «Trayendo 2026 · *todo el histórico*». Cambiar el alcance **sí** vuelve al servidor, con su espera a la vista; los chips no.
 - Vistas: «Gastos del año» y «Sin contabilizar».
 
-- [ ] **Paso 5: Medir lo que viaja**
+- [x] **Paso 5: Medir lo que viaja**
 
 Con `read_network_requests`, anotar el tamaño de la respuesta del año en curso. **Si pasa de 2 MB, parar y avisar a Daniel antes de seguir**: la spec lo dimensionó en ~1,5 MB para 6.000 ítems y ese número hay que confirmarlo, no suponerlo.
 
-- [ ] **Paso 6: Verde, navegador, commit**
+- [x] **Paso 6: Verde, navegador, commit**
 
 ---
 
@@ -621,3 +621,4 @@ Filas nuevas en errores conocidos:
 | 2026-10-08 | 3 · La tabla de vistas | **Hecha y APLICADA.** Migración 040 (`20261008220657`): ensayo con BEGIN/ROLLBACK 23 ok / 0 rotas / 1 no concluyente, sin dejar rastro; en vivo 24/24, tabla con 0 filas y sus 2 políticas. Más `src/lib/filtros/vistas.ts` (18 pruebas) y `src/actions/vistas-filtro.ts`. **721 pruebas en 48 archivos**, lint 0/22. Correcciones sobre el plan: (a) la migración **no siembra** —dos de las ocho vistas de fábrica son predicados, no valores de filtro, y las otras seis apuntan a claves que aún no existen—; (b) `authenticated` no puede escribir en la tabla temporal del resultado y el intento aborta la transacción: lo medido con otro rol se guarda en variables; (c) `updated_at > created_at` no prueba el disparador, porque dentro de una transacción `now()` es siempre la hora de inicio. De paso, `normalizarNombre` se mudó de `planilla-alta` a `src/lib/texto.ts`: las vistas la necesitan para que «Más de 5 días» y «Mas de 5 dias» no convivan. |
 | 2026-10-08 | 4 · La obra hasta el admin | **Hecha.** `UnifiedReportItem` suma `proyecto_id` y `proyecto_numero`; los tres mapeos de `reports.ts` y `getAdminReports` los rellenan contra un catálogo que se resuelve **una vez por consulta**, no uno por fetcher. `obraDe` devuelve los dos campos juntos a propósito: separarlos es la forma de que un sitio se olvide del otro. **725 pruebas en 48 archivos**, lint 0/22. **Hallazgo:** el catálogo de obras está VACÍO (0 obras; 0 de 114 rendiciones y 0 de 6 fondos con obra), porque se arma con el uso y el aprobador por proyecto se desplegó recién ayer. De ahí la regla de esconder el chip mientras no haya ninguna. |
 | 2026-10-08 | 5 · Rendiciones | **Hecha.** Panel de 130 líneas borrado; barra de chips + «Más filtros» + vistas. El archivo pasó de 1.245 a 1.166 líneas. **745 pruebas en 49 archivos**, lint 0/22. Verificado a 360, 390, 768, 1024 y 1280 px: sin desborde y sin errores en consola. Línea base de `admin-rendiciones` recapturada (las dos). Decisiones del camino: (a) un **borrador sin enviar queda fuera de cualquier rango de fecha** —antes pasaba cualquiera, porque la condición se salteaba al no haber fecha—; (b) el PDF ya no recibe cinco campos sueltos de filtro sino **la misma línea de resumen que muestra la pantalla**, así no pueden decir cosas distintas y una dimensión nueva no hay que acordarse de sumarla; (c) las vistas se **depuran una sola vez** contra las dimensiones de hoy, antes de compararlas: depurar solo al elegirlas dejaría la pestaña sin volver a marcarse nunca. **No se sembró ninguna vista de fábrica** — ver la nota de abajo. |
+| 2026-10-08 | 6 · Informes al instante | **Hecha.** El panel de 378 líneas y el botón «Generar informe» se fueron; `informes/client.tsx` pasó de **682 a 324 líneas** y `reports.ts` de 433 a 392. El servidor recibe un período y nada más; las doce dimensiones corren en el navegador. **766 pruebas en 50 archivos**, lint 0/22, sin desborde a 360, 390, 768, 1024, 1280 y 1440 px. **MEDICIÓN DEL PESO: 387 KB para 478 ítems** (~0,81 KB por ítem). Hoy entra sobrado, pero la proyección a 6.000 ítems al año es **~4,9 MB**, no los ~1,5 MB que la spec estimó: el estimado estaba 3 veces corto y queda corregido acá. No dispara el alto del plan (el umbral era que la medición de HOY pasara 2 MB), pero antes de que PENTA lleve un año de uso hay que achicar el ítem —`employee_name`, `department`, `parent_title` y `category_name` se repiten en cada fila y podrían ir por diccionario— o dejar el alcance más corto. De paso se arregló un desborde de 5 px a 768 px en el KPI «Por fuente» que **estaba latente desde siempre**: no se veía porque los KPIs esperaban a que alguien apretara el botón. |

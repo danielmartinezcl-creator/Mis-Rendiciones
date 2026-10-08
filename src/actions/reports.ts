@@ -71,19 +71,6 @@ async function fetchRendicionItems(
     q = q.or('is_historical_import.is.null,is_historical_import.eq.false').is('historical_type', null)
   }
 
-  if (filters.reportStatuses?.length) q = q.in('status', filters.reportStatuses as never[])
-  if (filters.reportIds?.length)      q = q.in('id', filters.reportIds)
-  if (filters.employeeIds?.length)    q = q.in('submitter_id', filters.employeeIds)
-
-  if (filters.reimb === 'pending') {
-    q = q.is('reimbursed_at', null)
-  } else if (filters.reimb === 'reimbursed') {
-    q = q.not('reimbursed_at', 'is', null)
-  }
-
-  if (filters.defontana === 'notExported') q = q.is('defontana_exported_at', null)
-  if (filters.defontana === 'exported')    q = q.not('defontana_exported_at', 'is', null)
-
   const { data: reports } = await q
   if (!reports?.length) return []
 
@@ -97,10 +84,7 @@ async function fetchRendicionItems(
     (users ?? []).map(u => [u.id, { name: u.full_name, department: u.department ?? null }])
   )
 
-  const filteredReports = reports.filter(r => {
-    if (filters.departments?.length && !filters.departments.includes(userMap[r.submitter_id]?.department ?? '')) return false
-    return true
-  })
+  const filteredReports = reports
   if (!filteredReports.length) return []
 
   const reportMap = Object.fromEntries(filteredReports.map(r => [r.id, r]))
@@ -116,8 +100,6 @@ async function fetchRendicionItems(
 
   if (filters.dateFrom)              itemsQ = itemsQ.gte('date', filters.dateFrom)
   if (filters.dateTo)                itemsQ = itemsQ.lte('date', filters.dateTo)
-  if (filters.itemStatuses?.length)  itemsQ = itemsQ.in('status', filters.itemStatuses)
-  if (filters.categoryIds?.length)   itemsQ = itemsQ.in('category_id', filters.categoryIds)
 
   const { data: items } = await itemsQ
   if (!items?.length) return []
@@ -168,14 +150,10 @@ async function fetchCajaChicaNewItems(
   /** El catálogo de obras, resuelto una vez para toda la consulta. */
   obras: Map<string, string>,
 ): Promise<UnifiedReportItem[]> {
-  let fundsQ = supabase
+  const fundsQ = supabase
     .from('petty_cash_funds')
     .select('id, name, status, employee_id, defontana_exported_at, proyecto_id')
     .eq('org_id', orgId)
-
-  if (filters.reportStatuses?.length) fundsQ = fundsQ.in('status', filters.reportStatuses as never[])
-  if (filters.fundIds?.length)        fundsQ = fundsQ.in('id', filters.fundIds)
-  if (filters.employeeIds?.length)    fundsQ = fundsQ.in('employee_id', filters.employeeIds)
 
   const { data: funds } = await fundsQ
   if (!funds?.length) return []
@@ -187,10 +165,7 @@ async function fetchCajaChicaNewItems(
     (users ?? []).map(u => [u.id, { name: u.full_name, department: u.department ?? null }])
   )
 
-  const filteredFunds = funds.filter(f => {
-    if (filters.departments?.length && !filters.departments.includes(userMap[f.employee_id]?.department ?? '')) return false
-    return true
-  })
+  const filteredFunds = funds
   if (!filteredFunds.length) return []
 
   const fundMap = Object.fromEntries(filteredFunds.map(f => [f.id, f]))
@@ -204,8 +179,6 @@ async function fetchCajaChicaNewItems(
 
   if (filters.dateFrom)              itemsQ = itemsQ.gte('date', filters.dateFrom)
   if (filters.dateTo)                itemsQ = itemsQ.lte('date', filters.dateTo)
-  if (filters.itemStatuses?.length)  itemsQ = itemsQ.in('status', filters.itemStatuses)
-  if (filters.categoryIds?.length)   itemsQ = itemsQ.in('category_id', filters.categoryIds)
 
   const { data: items } = await itemsQ
   if (!items?.length) return []
@@ -256,17 +229,13 @@ async function fetchCajaChicaHistItems(
   /** El catálogo de obras, resuelto una vez para toda la consulta. */
   obras: Map<string, string>,
 ): Promise<UnifiedReportItem[]> {
-  let q = supabase
+  const q = supabase
     .from('expense_reports')
     .select('id, title, status, submitter_id, defontana_exported_at, proyecto_id')
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
     .eq('historical_type', 'caja_chica')
     .is('deleted_at', null)
-
-  if (filters.reportStatuses?.length) q = q.in('status', filters.reportStatuses as never[])
-  if (filters.fundIds?.length)        q = q.in('id', filters.fundIds)  // fundIds ≡ report IDs para históricas
-  if (filters.employeeIds?.length)    q = q.in('submitter_id', filters.employeeIds)
 
   const { data: reports } = await q
   if (!reports?.length) return []
@@ -278,10 +247,7 @@ async function fetchCajaChicaHistItems(
     (users ?? []).map(u => [u.id, { name: u.full_name, department: u.department ?? null }])
   )
 
-  const filteredReports = reports.filter(r => {
-    if (filters.departments?.length && !filters.departments.includes(userMap[r.submitter_id]?.department ?? '')) return false
-    return true
-  })
+  const filteredReports = reports
   if (!filteredReports.length) return []
 
   const reportMap = Object.fromEntries(filteredReports.map(r => [r.id, r]))
@@ -296,8 +262,6 @@ async function fetchCajaChicaHistItems(
 
   if (filters.dateFrom)              itemsQ = itemsQ.gte('date', filters.dateFrom)
   if (filters.dateTo)                itemsQ = itemsQ.lte('date', filters.dateTo)
-  if (filters.itemStatuses?.length)  itemsQ = itemsQ.in('status', filters.itemStatuses)
-  if (filters.categoryIds?.length)   itemsQ = itemsQ.in('category_id', filters.categoryIds)
 
   const { data: items } = await itemsQ
   if (!items?.length) return []
@@ -389,15 +353,23 @@ export async function getReportFilterOptions(): Promise<ReportFilterOptions> {
 
 // ─── Exported: consulta principal ────────────────────────────────────────────
 
+/**
+ * Los ítems de las CUATRO fuentes en un período. Nada más.
+ *
+ * Hasta el 2026-10-08 recibía once filtros y los resolvía en la base. Diez de
+ * ellos solo DESCARTABAN de lo traído —no cambiaban cuántas filas viajan—, así
+ * que obligaban a un viaje por cada clic sin ahorrar nada. Ahora los resuelve
+ * el navegador (`src/lib/filtro-items.ts`) y cada chip responde al instante.
+ *
+ * Lo único que sigue viajando es el período, porque es lo único que decide
+ * CUÁNTAS filas se traen.
+ */
 export async function getUnifiedReportItems(
-  filters: UnifiedReportFilters
+  periodo: { desde?: string; hasta?: string } = {},
 ): Promise<{ items: UnifiedReportItem[] } & UnifiedKpis> {
   const { supabase, orgId } = await requireAdminOrApprover()
 
-  const includeRend = filters.sourceTypes.includes('rendicion')
-  const includeCC   = filters.sourceTypes.includes('caja_chica')
-  const includeNew  = filters.dataAge !== 'historical'
-  const includeHist = filters.dataAge !== 'new'
+  const filters: UnifiedReportFilters = { dateFrom: periodo.desde, dateTo: periodo.hasta }
 
   /* El catálogo de obras, una sola vez para las cuatro fuentes: son pocas
      decenas de filas y los cuatro fetchers resolverían lo mismo. */
@@ -405,26 +377,14 @@ export async function getUnifiedReportItems(
     .from('proyectos').select('id, numero').eq('org_id', orgId)
   const obras = mapaDeObras(proyectos ?? [])
 
-  const promises: Promise<UnifiedReportItem[]>[] = []
-
-  if (includeRend && includeNew)  promises.push(fetchRendicionItems(supabase, orgId, filters, false, obras))
-  if (includeRend && includeHist) promises.push(fetchRendicionItems(supabase, orgId, filters, true, obras))
-  if (includeCC   && includeNew)  promises.push(fetchCajaChicaNewItems(supabase, orgId, filters, obras))
-  if (includeCC   && includeHist) promises.push(fetchCajaChicaHistItems(supabase, orgId, filters, obras))
-
-  if (!promises.length) {
-    return { items: [], ...computeUnifiedKpis([]) }
-  }
-
-  const results = await Promise.all(promises)
-  let items = results.flat().sort((a, b) => a.date.localeCompare(b.date))
-
-  // Filtro por movimiento en memoria: los ítems de un fondo vivo no tienen
-  // columna item_type, así que no se puede resolver en la query de cada fuente
-  if (filters.movements?.length) {
-    const wanted = new Set(filters.movements)
-    items = items.filter(i => wanted.has(i.item_type))
-  }
+  // Las cuatro, siempre: cuál mirar lo decide el chip de Fuente, en el navegador.
+  const results = await Promise.all([
+    fetchRendicionItems(supabase, orgId, filters, false, obras),
+    fetchRendicionItems(supabase, orgId, filters, true,  obras),
+    fetchCajaChicaNewItems(supabase, orgId, filters, obras),
+    fetchCajaChicaHistItems(supabase, orgId, filters, obras),
+  ])
+  const items = results.flat().sort((a, b) => a.date.localeCompare(b.date))
 
   const kpis = computeUnifiedKpis(items)
 
