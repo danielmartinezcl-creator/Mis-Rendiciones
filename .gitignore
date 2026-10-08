@@ -67,3 +67,11 @@ e2e/reporte-materiales.md
 *-tmp.mjs
 *-tmp.json
 *-tmp.png
+
+# El manual de usuario y los guiones que lo capturan. Fuera de git desde que se
+# generaron (2026-09-24) y SIN DECIDIR todavía si se versionan — es el punto 10
+# del backlog. Mientras tanto están acá porque son 17 MB de PNG más un PDF de 8,
+# y un `git add -A docs` se los lleva enteros sin que nadie lo note: pasó el
+# 2026-10-08. Si se decide versionarlos, se borran estas dos líneas.
+/docs/manual/
+/e2e/manual/
