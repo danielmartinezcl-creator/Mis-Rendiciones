@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import type { Json } from '@/lib/supabase/types'
 import type { AttachmentKind } from '@/lib/attachment-types'
 import { logAudit } from '@/lib/audit'
+import { mapaDeObras, obraDe } from '@/lib/report-helpers'
 import { revisarConfigCorreo } from '@/lib/email-helpers'
 import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
@@ -135,7 +136,7 @@ export async function getAdminReports() {
 
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, reimbursed_amount, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number')
+    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, reimbursed_amount, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number, proyecto_id')
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .or('historical_type.neq.caja_chica,historical_type.is.null')
@@ -151,10 +152,18 @@ export async function getAdminReports() {
 
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u]))
 
+  /* El catálogo de obras, en una consulta para todas las filas, igual que los
+     nombres de arriba. Una carga histórica no tiene obra y queda en null: el
+     filtro la muestra como «Sin proyecto», no la esconde. */
+  const { data: proyectos } = await supabase
+    .from('proyectos').select('id, numero').eq('org_id', orgId)
+  const obras = mapaDeObras(proyectos ?? [])
+
   return data.map(r => ({
     ...r,
     submitter_name: userMap[r.submitter_id]?.full_name ?? 'Desconocido',
     department:     userMap[r.submitter_id]?.department ?? null,
+    ...obraDe(r.proyecto_id, obras),
   }))
 }
 

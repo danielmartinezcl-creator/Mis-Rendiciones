@@ -417,26 +417,33 @@ git commit -m "feat(vistas): la tabla de vistas de filtro, de la organización"
 
 **Lo medido el 2026-10-08:** la palabra «proyecto» no aparece **ni una vez** en `src/actions/reports.ts` ni en `src/lib/report-helpers.ts`, y `getAdminReports` selecciona dieciocho columnas sin `proyecto_id`. El chip no es solo un chip.
 
-- [ ] **Paso 1: La prueba del mapeo**
+- [x] **Paso 1: La prueba del mapeo**
 
 Una carga histórica no tiene obra y **no se esconde**: entra como `SIN_PROYECTO`. Probar que los cuatro orígenes (rendición nueva, rendición histórica, caja chica viva, caja chica histórica) rellenan los dos campos, y que una sin obra queda en `null` (el centinela lo pone el filtro, no el fetcher).
 
-- [ ] **Paso 2: Correrla y ver que falla**
+- [x] **Paso 2: Correrla y ver que falla**
 
-- [ ] **Paso 3: Llevar el dato**
+- [x] **Paso 3: Llevar el dato**
 
 - `getAdminReports`: `proyecto_id` al select; un `in` sobre `proyectos` para el número, igual que ya se resuelve el nombre del empleado (una consulta para todos, no una por fila).
 - `reports.ts`: `proyecto_id` a los tres selects de cabecera y los dos campos a cada fetcher, contra un mapa `id → numero` armado una sola vez.
 
-- [ ] **Paso 4: Pruebas, tipos y lint en verde**
+- [x] **Paso 4: Pruebas, tipos y lint en verde**
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git commit -am "feat(informes): la obra llega hasta las consultas del admin"
 ```
 
 ---
+
+> **El chip de Proyecto se esconde con el catálogo vacío.** Medido el
+> 2026-10-08: **0 obras en el catálogo**, y 0 de 114 rendiciones y 0 de 6
+> fondos tienen obra — el catálogo se arma con el uso y nadie rindió a una
+> todavía. Un chip cuya única opción es «Sin proyecto» es ruido, así que las
+> Tareas 5 y 6 lo incluyen en `dimensiones` **solo si hay al menos una obra**.
+> Aparece solo cuando empiece a servir.
 
 ## Tarea 5: Rendiciones — barra, «Más filtros» y vistas
 
@@ -612,3 +619,4 @@ Filas nuevas en errores conocidos:
 | 2026-10-08 | 1 · Las dimensiones genéricas | **Hecha.** `src/lib/filtros/dimensiones.ts` + 28 pruebas. **680 pruebas en 46 archivos** (eran 652 en 45), tsc limpio, lint 0/22. Dos correcciones al plan, hechas sobre la marcha: (a) la barra **conserva** el resumen por props — la línea del empleado dice cuánto queda y cuánta plata, no qué está puesto, y calcularla sola habría movido su línea base; (b) `Dimension` de tipo `multi` necesita `plural`, o el chip no puede decir «2 tipos de gasto» como dice hoy. De paso se sacó una duplicación: `ETIQUETA_PRESET` y el formato corto de fecha pasaron de `filtro-etiquetas` (el del empleado) al módulo genérico, que es de las seis pantallas. |
 | 2026-10-08 | 2 · La barra genérica | **Hecha.** `BarraFiltros`, `HojaOpciones` y el nuevo `HojaMasFiltros` dejaron de saber de rendiciones; los dos llamadores del empleado pasan por `aValores`/`aFiltro`. **703 pruebas en 47 archivos**, lint 0/22. **El portón se pasó**: en los diffs de Caja chica y Mis rendiciones la barra sale entera en gris —idéntica, y sin botón «Más filtros» de más—. Lo único rojo era el riel lateral, y NO era de esta tarea: la entrada «Centros de costo» del 2026-10-08 invalidó las 27 capturas de escritorio y solo se habían recapturado las 2 de la pantalla nueva. Recapturadas las 27 (las 27 del teléfono no cambiaron, porque el riel es de `md:` para arriba). En el camino: una corrida entera se cayó con `ERR_CONNECTION_REFUSED` por el servidor del arnés, no por el código; repetida, 56 pasaron y 0 rojas. |
 | 2026-10-08 | 3 · La tabla de vistas | **Hecha y APLICADA.** Migración 040 (`20261008220657`): ensayo con BEGIN/ROLLBACK 23 ok / 0 rotas / 1 no concluyente, sin dejar rastro; en vivo 24/24, tabla con 0 filas y sus 2 políticas. Más `src/lib/filtros/vistas.ts` (18 pruebas) y `src/actions/vistas-filtro.ts`. **721 pruebas en 48 archivos**, lint 0/22. Correcciones sobre el plan: (a) la migración **no siembra** —dos de las ocho vistas de fábrica son predicados, no valores de filtro, y las otras seis apuntan a claves que aún no existen—; (b) `authenticated` no puede escribir en la tabla temporal del resultado y el intento aborta la transacción: lo medido con otro rol se guarda en variables; (c) `updated_at > created_at` no prueba el disparador, porque dentro de una transacción `now()` es siempre la hora de inicio. De paso, `normalizarNombre` se mudó de `planilla-alta` a `src/lib/texto.ts`: las vistas la necesitan para que «Más de 5 días» y «Mas de 5 dias» no convivan. |
+| 2026-10-08 | 4 · La obra hasta el admin | **Hecha.** `UnifiedReportItem` suma `proyecto_id` y `proyecto_numero`; los tres mapeos de `reports.ts` y `getAdminReports` los rellenan contra un catálogo que se resuelve **una vez por consulta**, no uno por fetcher. `obraDe` devuelve los dos campos juntos a propósito: separarlos es la forma de que un sitio se olvide del otro. **725 pruebas en 48 archivos**, lint 0/22. **Hallazgo:** el catálogo de obras está VACÍO (0 obras; 0 de 114 rendiciones y 0 de 6 fondos con obra), porque se arma con el uso y el aprobador por proyecto se desplegó recién ayer. De ahí la regla de esconder el chip mientras no haya ninguna. |

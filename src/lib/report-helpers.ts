@@ -14,6 +14,30 @@ export const MOVEMENT_LABELS: Record<UnifiedMovement, string> = {
   transfer: 'Traspasos',
 }
 
+/**
+ * La obra de un documento, resuelta contra el catálogo.
+ *
+ * Devuelve los DOS campos juntos a propósito: los cinco sitios que arman un
+ * `UnifiedReportItem` o una fila de `/admin/reports` necesitan el id (que es lo
+ * que el filtro compara) y el número (que es lo que se lee), y separarlos es la
+ * forma de que uno se olvide del otro.
+ */
+export function mapaDeObras(obras: { id: string; numero: string }[]): Map<string, string> {
+  return new Map(obras.map(o => [o.id, o.numero]))
+}
+
+export function obraDe(
+  proyectoId: string | null,
+  numeros: Map<string, string>,
+): { proyecto_id: string | null; proyecto_numero: string | null } {
+  // Sin obra —toda carga histórica— los dos quedan en null, y NO se esconde:
+  // es el filtro el que la muestra como «Sin proyecto».
+  if (!proyectoId) return { proyecto_id: null, proyecto_numero: null }
+  // El id vive en el documento y la obra pudo borrarse del catálogo: se
+  // conserva el id y el número queda sin resolver, en vez de inventarlo.
+  return { proyecto_id: proyectoId, proyecto_numero: numeros.get(proyectoId) ?? null }
+}
+
 export interface UnifiedReportItem {
   source:                UnifiedItemSource
   item_type:             UnifiedMovement
@@ -23,6 +47,9 @@ export interface UnifiedReportItem {
   parent_id:             string
   parent_title:          string
   parent_status:         string
+  /** La obra del documento. null en toda carga histórica. */
+  proyecto_id:           string | null
+  proyecto_numero:       string | null
   defontana_exported_at: string | null
   reimbursed_at:         string | null
   item_id:               string

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildPeriodRange, computeUnifiedKpis, toUnifiedMovement } from '@/lib/report-helpers'
+import { buildPeriodRange, computeUnifiedKpis, toUnifiedMovement, mapaDeObras, obraDe } from '@/lib/report-helpers'
 import type { UnifiedReportItem } from '@/lib/report-helpers'
 
 describe('buildPeriodRange', () => {
@@ -30,6 +30,8 @@ describe('computeUnifiedKpis', () => {
     employee_id:           'u1',
     employee_name:         'Ana',
     department:            null,
+    proyecto_id:           null,
+    proyecto_numero:       null,
     parent_id:             'r1',
     parent_title:          'Rendición 1',
     parent_status:         'approved',
@@ -101,6 +103,8 @@ describe('KPIs por movimiento', () => {
     employee_id:           'u1',
     employee_name:         'Ana',
     department:            null,
+    proyecto_id:           null,
+    proyecto_numero:       null,
     parent_id:             'r1',
     parent_title:          'Caja Chica N° 174',
     parent_status:         'approved',
@@ -178,5 +182,36 @@ describe('toUnifiedMovement', () => {
     expect(toUnifiedMovement(null)).toBe('expense')
     expect(toUnifiedMovement(undefined)).toBe('expense')
     expect(toUnifiedMovement('otra_cosa')).toBe('expense')
+  })
+})
+
+/* La obra de un documento. Desde la 039 las rendiciones y los fondos la tienen,
+   pero NINGUNA consulta del admin la traía: la palabra «proyecto» no aparecía
+   una sola vez en reports.ts ni acá (medido el 2026-10-08). */
+describe('obraDe', () => {
+  const mapa = mapaDeObras([
+    { id: 'p1', numero: '2991' },
+    { id: 'p2', numero: 'A-17' },
+  ])
+
+  it('resuelve el número de la obra', () => {
+    expect(obraDe('p1', mapa)).toEqual({ proyecto_id: 'p1', proyecto_numero: '2991' })
+  })
+
+  /* Una carga histórica no tiene obra. Queda en null y NO se esconde: es el
+     filtro el que la muestra como «Sin proyecto». */
+  it('sin obra, los dos campos en null', () => {
+    expect(obraDe(null, mapa)).toEqual({ proyecto_id: null, proyecto_numero: null })
+  })
+
+  /* El id vive en el documento y la obra pudo borrarse del catálogo. Se
+     conserva el id —es lo que el filtro compara— y el número queda sin
+     resolver, en vez de inventarlo. */
+  it('una obra que ya no está en el catálogo conserva el id y pierde el número', () => {
+    expect(obraDe('borrada', mapa)).toEqual({ proyecto_id: 'borrada', proyecto_numero: null })
+  })
+
+  it('mapaDeObras tolera la lista vacía', () => {
+    expect(obraDe('p1', mapaDeObras([]))).toEqual({ proyecto_id: 'p1', proyecto_numero: null })
   })
 })

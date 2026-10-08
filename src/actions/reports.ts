@@ -1,5 +1,6 @@
 'use server'
 
+import { mapaDeObras, obraDe } from '@/lib/report-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { computeUnifiedKpis, toUnifiedMovement } from '@/lib/report-helpers'
@@ -52,13 +53,15 @@ async function fetchRendicionItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orgId: string,
   filters: UnifiedReportFilters,
-  isHistorical: boolean
+  isHistorical: boolean,
+  /** El catálogo de obras, resuelto una vez para toda la consulta. */
+  obras: Map<string, string>,
 ): Promise<UnifiedReportItem[]> {
   const source: UnifiedItemSource = isHistorical ? 'rendicion_hist' : 'rendicion_new'
 
   let q = supabase
     .from('expense_reports')
-    .select('id, title, status, reimbursed_at, defontana_exported_at, submitter_id')
+    .select('id, title, status, reimbursed_at, defontana_exported_at, submitter_id, proyecto_id')
     .eq('org_id', orgId)
     .is('deleted_at', null)
 
@@ -134,6 +137,7 @@ async function fetchRendicionItems(
       parent_id:             i.report_id,
       parent_title:          r.title,
       parent_status:         r.status,
+      ...obraDe(r.proyecto_id, obras),
       defontana_exported_at: r.defontana_exported_at,
       reimbursed_at:         r.reimbursed_at,
       item_id:               i.id,
@@ -160,11 +164,13 @@ async function fetchRendicionItems(
 async function fetchCajaChicaNewItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orgId: string,
-  filters: UnifiedReportFilters
+  filters: UnifiedReportFilters,
+  /** El catálogo de obras, resuelto una vez para toda la consulta. */
+  obras: Map<string, string>,
 ): Promise<UnifiedReportItem[]> {
   let fundsQ = supabase
     .from('petty_cash_funds')
-    .select('id, name, status, employee_id, defontana_exported_at')
+    .select('id, name, status, employee_id, defontana_exported_at, proyecto_id')
     .eq('org_id', orgId)
 
   if (filters.reportStatuses?.length) fundsQ = fundsQ.in('status', filters.reportStatuses as never[])
@@ -219,6 +225,7 @@ async function fetchCajaChicaNewItems(
       parent_id:             i.fund_id,
       parent_title:          fund.name,
       parent_status:         fund.status,
+      ...obraDe(fund.proyecto_id, obras),
       defontana_exported_at: fund.defontana_exported_at,
       reimbursed_at:         null,
       item_id:               i.id,
@@ -245,11 +252,13 @@ async function fetchCajaChicaNewItems(
 async function fetchCajaChicaHistItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orgId: string,
-  filters: UnifiedReportFilters
+  filters: UnifiedReportFilters,
+  /** El catálogo de obras, resuelto una vez para toda la consulta. */
+  obras: Map<string, string>,
 ): Promise<UnifiedReportItem[]> {
   let q = supabase
     .from('expense_reports')
-    .select('id, title, status, submitter_id, defontana_exported_at')
+    .select('id, title, status, submitter_id, defontana_exported_at, proyecto_id')
     .eq('org_id', orgId)
     .eq('is_historical_import', true)
     .eq('historical_type', 'caja_chica')
@@ -308,6 +317,7 @@ async function fetchCajaChicaHistItems(
       parent_id:             i.report_id,
       parent_title:          r.title,
       parent_status:         r.status,
+      ...obraDe(r.proyecto_id, obras),
       defontana_exported_at: r.defontana_exported_at,
       reimbursed_at:         null,
       item_id:               i.id,
@@ -389,12 +399,18 @@ export async function getUnifiedReportItems(
   const includeNew  = filters.dataAge !== 'historical'
   const includeHist = filters.dataAge !== 'new'
 
+  /* El catálogo de obras, una sola vez para las cuatro fuentes: son pocas
+     decenas de filas y los cuatro fetchers resolverían lo mismo. */
+  const { data: proyectos } = await supabase
+    .from('proyectos').select('id, numero').eq('org_id', orgId)
+  const obras = mapaDeObras(proyectos ?? [])
+
   const promises: Promise<UnifiedReportItem[]>[] = []
 
-  if (includeRend && includeNew)  promises.push(fetchRendicionItems(supabase, orgId, filters, false))
-  if (includeRend && includeHist) promises.push(fetchRendicionItems(supabase, orgId, filters, true))
-  if (includeCC   && includeNew)  promises.push(fetchCajaChicaNewItems(supabase, orgId, filters))
-  if (includeCC   && includeHist) promises.push(fetchCajaChicaHistItems(supabase, orgId, filters))
+  if (includeRend && includeNew)  promises.push(fetchRendicionItems(supabase, orgId, filters, false, obras))
+  if (includeRend && includeHist) promises.push(fetchRendicionItems(supabase, orgId, filters, true, obras))
+  if (includeCC   && includeNew)  promises.push(fetchCajaChicaNewItems(supabase, orgId, filters, obras))
+  if (includeCC   && includeHist) promises.push(fetchCajaChicaHistItems(supabase, orgId, filters, obras))
 
   if (!promises.length) {
     return { items: [], ...computeUnifiedKpis([]) }
