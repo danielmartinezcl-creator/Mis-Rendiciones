@@ -22,10 +22,15 @@ const CABECERAS = [
   'Banco', 'Tipo de Cuenta', 'N° de Cuenta',
 ]
 
+/* N1 y N2 van VACÍOS en el ejemplo, a propósito (2026-10-07). Con el aprobador
+   por proyecto, quien no tiene jefe propio va al aprobador por defecto de la
+   organización, así que llenar esa columna es declarar una EXCEPCIÓN. Un
+   ejemplo que las trae llenas invita a completarlas para los 57, y cada una
+   apaga el aprobador por defecto de esa persona sin que se note. */
 const EJEMPLO = [
   'Contreras Pía', '11.111.111-1', 'pia.contreras@penta.cl',
   'Jefa de Obra', 'Administración', 'employee',
-  'rodrigo.salas@penta.cl', 'Méndez Carla',
+  '', '',
   'Banco de Chile', 'Cuenta Corriente', '00012345678',
 ]
 
@@ -70,10 +75,14 @@ export function PlanillaAlta({ onDone }: { onDone: () => void }) {
   const [error,    setError]    = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
   const [fallidas, setFallidas] = useState<{ fila: number; nombre: string; motivo: string }[]>([])
+  const [porDefecto, setPorDefecto] = useState<string | null>(null)
 
   useEffect(() => {
     datosParaPlanilla()
-      .then(d => { setPersonas(d.personas); setCentros(d.centros); setDocs(d.aprobacionesDeDocumentos) })
+      .then(d => {
+        setPersonas(d.personas); setCentros(d.centros); setDocs(d.aprobacionesDeDocumentos)
+        setPorDefecto(d.aprobadorPorDefecto)
+      })
       .catch(e => setError(e instanceof Error ? e.message : String(e)))
   }, [])
 
@@ -167,11 +176,29 @@ export function PlanillaAlta({ onDone }: { onDone: () => void }) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-ink-600">
-          Una sola planilla con todo lo que define a una persona: su cadena de aprobación,
-          sus datos bancarios, su cargo y su centro de costo. Crea a quien no está y
-          completa a quien sí. <strong className="font-semibold">Una celda vacía nunca borra</strong> lo
-          que la persona ya tenía.
+          Una sola planilla con todo lo que define a una persona: sus datos bancarios, su
+          cargo, su centro de costo y, si corresponde, su cadena de aprobación. Crea a quien
+          no está y completa a quien sí. <strong className="font-semibold">Una celda vacía
+          nunca borra</strong> lo que la persona ya tenía.
         </p>
+
+        {/* Sin esto, lo natural es llenar N1 para todos «por las dudas», y cada
+            una de esas filas apaga el aprobador por defecto de esa persona sin
+            que se note hasta que alguien pregunta por qué le llegó una
+            rendición. La frase nombra a quien está configurado hoy, no al
+            concepto: «el aprobador por defecto» no le dice nada a nadie. */}
+        <div className="hoja border border-brand-200 bg-brand-50/50 p-4">
+          <p className="text-sm text-ink-700">
+            <strong className="font-semibold">Las columnas N1 y N2 van vacías casi siempre.</strong>{' '}
+            {porDefecto
+              ? <>Quien no tiene jefe propio va al jefe de la obra que elija al rendir y, si no es
+                  de una obra, a <strong className="font-semibold">{porDefecto}</strong>. Llenar N1 es
+                  declarar una excepción para esa persona.</>
+              : <>Quien no tiene jefe propio va al jefe de la obra que elija al rendir. Para lo que
+                  no es de una obra todavía no hay aprobador por defecto configurado
+                  (Configuración → Aprobación), así que esas personas no pueden enviar.</>}
+          </p>
+        </div>
 
         {error && (
           <div className="hoja border border-danger-200 p-4">

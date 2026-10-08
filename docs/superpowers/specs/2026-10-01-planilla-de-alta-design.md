@@ -21,6 +21,27 @@
 > Las alertas de segregación miran ahora también las cadenas congeladas en los
 > documentos (`alertasDeSegregacion(…, documentos)`): la aprobación mutua puede venir de
 > las obras y no estar en ninguna ficha.
+>
+> **Revisión del 2026-10-08, antes de la primera carga real.** Las once columnas siguen
+> siendo las mismas y nada se rompió, pero N1 y N2 cambiaron de significado y la pantalla
+> no lo decía. Dos ajustes:
+> - **El ejemplo de la plantilla descargable ya NO trae N1 ni N2.** Los traía llenos, y
+>   un ejemplo así invita a completarlos para los 57: cada uno apaga el aprobador por
+>   defecto de esa persona, en silencio, hasta que alguien pregunta por qué le llegó una
+>   rendición.
+> - **La pantalla nombra al aprobador por defecto configurado** (`datosParaPlanilla`
+>   devuelve `aprobadorPorDefecto`), o avisa que no hay ninguno. Decir «el aprobador por
+>   defecto» no le dice nada a quien está armando el Excel; decir «Claudia Lobos», sí.
+>
+> **Lo que la planilla sigue sin poder cargar, a propósito:** el permiso «jefe de
+> proyecto» y `umbral_n2_clp`, el monto desde el que firma el N2. El primero es un
+> permiso y va a mano (decisión del 2026-10-01). El segundo no se agregó porque hoy
+> ninguna persona lo necesita distinto; **ojo con la consecuencia**: un N2 cargado por
+> planilla firma TODO lo de esa persona, sin importar el monto.
+>
+> **Punto ciego que se cerró de paso:** la planilla vive detrás del botón «Cargar
+> planilla» y **nunca se había auditado** —no estaba en los `PANELES` de
+> `e2e/materiales.spec.ts`— desde que se construyó, el 2026-10-02.
 
 ## Qué resuelve
 

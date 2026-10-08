@@ -260,11 +260,15 @@ export async function datosParaPlanilla(): Promise<{
   personas: Persona[]
   centros: CentroCosto[]
   aprobacionesDeDocumentos: AprobacionDeDocumento[]
+  /** A quién va lo que no es de una obra cuando la persona no tiene jefe propio.
+   *  La pantalla lo nombra para que nadie llene N1 «por las dudas»: desde el
+   *  aprobador por proyecto, esa columna es la excepción y no la regla. */
+  aprobadorPorDefecto: string | null
 }> {
   const { orgId } = await requireAdmin()
   const admin = createAdminClient()
 
-  const [usuarios, centros, rendiciones, fondos] = await Promise.all([
+  const [usuarios, centros, rendiciones, fondos, org] = await Promise.all([
     admin.from('users')
       .select('id, full_name, rut, is_active, blocked_at, deleted_at, can_submit, can_approve, can_manage_petty_cash, can_load_bank_transfer, can_authorize_bank_transfer, bank_load_backup, bank_auth_backup, approver_l1_id, approver_l2_id')
       .eq('org_id', orgId),
@@ -280,6 +284,7 @@ export async function datosParaPlanilla(): Promise<{
     admin.from('petty_cash_funds')
       .select('employee_id, cadena_l1_id, cadena_l2_id, liq_cadena_l1_id, liq_cadena_l2_id')
       .eq('org_id', orgId).is('deleted_at', null),
+    admin.from('organizations').select('aprobador_defecto_id').eq('id', orgId).maybeSingle(),
   ])
   if (usuarios.error) throw new Error(usuarios.error.message)
   if (centros.error)  throw new Error(centros.error.message)
@@ -319,6 +324,9 @@ export async function datosParaPlanilla(): Promise<{
       id: c.id, codigo: c.id, nombre: c.descripcion ?? '',
     })),
     aprobacionesDeDocumentos,
+    aprobadorPorDefecto: org.data?.aprobador_defecto_id
+      ? (usuarios.data ?? []).find(u => u.id === org.data!.aprobador_defecto_id)?.full_name ?? null
+      : null,
   }
 }
 

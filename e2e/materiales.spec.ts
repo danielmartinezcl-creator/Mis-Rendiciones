@@ -92,6 +92,13 @@ const PANELES: Panel[] = [
   { detalle: 'caja-chica-detalle', panel: 'Nuevo gasto',    pasos: [{ boton: 'Agregar gasto' }],  condicional: true },
   { ruta: '/admin/employees',      panel: 'Nuevo empleado', pasos: [{ boton: 'Agregar empleado' }] },
 
+  /* La planilla de alta (2026-10-08). Estuvo sin auditar desde que se construyó
+     el 2026-10-02: vive detrás de «Cargar planilla» y nadie la sumó acá, que es
+     el punto ciego exacto que este archivo existe para evitar. El paso solo
+     abre el panel — queda en el primer paso, el de elegir archivo, sin tocar
+     nada. */
+  { ruta: '/admin/employees',      panel: 'Planilla de alta', pasos: [{ boton: 'Cargar planilla' }] },
+
   /* Los permisos de cada empleado pasaron a un cajón plegado: sin esto, seis
      casillas por persona dejarían de auditarse. */
   { ruta: '/admin/employees',      panel: 'Permisos',       pasos: [{ boton: 'Permisos' }] },
