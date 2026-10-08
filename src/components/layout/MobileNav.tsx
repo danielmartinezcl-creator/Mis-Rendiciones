@@ -38,7 +38,11 @@ const ALL_ITEMS: NavItemDef[] = [
   /* Solo admin mientras no sirva para rendiciones — ver (app)/quick/layout.tsx. */
   { href: '/quick',                 label: 'Gasto rápido',    shortLabel: 'Rápido',   Icon: Zap,             roles: ['admin'],                     section: 'primary' },
   { href: '/petty-cash',            label: 'Caja Chica',      shortLabel: 'C. Chica', Icon: Wallet,          roles: ['admin','approver','employee'], section: 'primary' },
-  { href: '/approvals',             label: 'Aprobaciones',    shortLabel: 'Aprobar',  Icon: CheckCircle2,    roles: ['admin','approver'],           section: 'primary', requiresApprove: true },
+  /* Lo decide `requiresApprove`, no el rol: los 11 que aprueban en PENTA son
+     `employee` con el permiso, y cortando por rol la bandeja no salía ni en la
+     barra ni en «Más» — en el teléfono no se podía aprobar. El riel de
+     escritorio ya tenía su escapatoria por permiso; esta barra no. */
+  { href: '/approvals',             label: 'Aprobaciones',    shortLabel: 'Aprobar',  Icon: CheckCircle2,    roles: ['admin','approver','employee'], section: 'primary', requiresApprove: true },
   { href: '/mis-gastos',            label: 'Mis gastos',      shortLabel: 'Gastos',   Icon: TrendingUp,      roles: ['admin','approver','employee'], section: 'personal' },
   { href: '/suggestions',           label: 'Sugerencias',     shortLabel: 'Ideas',    Icon: Lightbulb,       roles: ['admin','approver','employee'], section: 'personal' },
   { href: '/profile',               label: 'Mi perfil',       shortLabel: 'Perfil',   Icon: User,            roles: ['admin','approver','employee'], section: 'personal' },
