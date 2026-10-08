@@ -97,11 +97,10 @@ export default async function DashboardPage() {
               />
             ))}
           </div>
-          {reports.length > 5 && (
-            <Link href="/reimbursements" className="block text-center card-label text-brand-600 hover:underline mt-3">
-              Ver todas ({reports.length})
-            </Link>
-          )}
+          {/* Siempre, no solo con más de 5: es la puerta a la lista con filtro */}
+          <Link href="/reimbursements" className="block text-center card-label text-brand-600 hover:underline mt-3">
+            Ver todas mis rendiciones
+          </Link>
         </div>
       )}
 

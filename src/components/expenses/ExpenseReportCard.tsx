@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Tag } from 'lucide-react'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { formatDate, formatDisplayTitle, getStatusLabel, isLongStatusLabel } from '@/lib/utils'
@@ -15,9 +16,11 @@ interface ExpenseReportCardProps {
     submitted_at:    string | null
     created_at:      string
   }
+  /** Con tipo de gasto elegido en el filtro: «2 gastos de Combustible · $ 38.400» */
+  coincidencia?: string | null
 }
 
-export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
+export function ExpenseReportCard({ report, coincidencia }: ExpenseReportCardProps) {
   const isDraft = report.status === 'draft'
 
   // Los estados bancarios tienen etiquetas de 24 y 31 caracteres. Como el badge
@@ -66,6 +69,13 @@ export function ExpenseReportCard({ report }: ExpenseReportCardProps) {
             <div className="mt-2.5 flex justify-end">
               <InsigniaEstado tipo="reporte" estado={report.status} />
             </div>
+          )}
+
+          {coincidencia && (
+            <p className="mt-2 card-meta font-semibold text-brand-600 flex items-center gap-1.5">
+              <Tag size={14} className="shrink-0" aria-hidden="true" />
+              {coincidencia}
+            </p>
           )}
 
           {report.status === 'partially_approved' && report.approved_amount > 0 && (

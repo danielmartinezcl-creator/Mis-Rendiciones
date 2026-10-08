@@ -68,7 +68,7 @@ export const RUTAS_ESTATICAS: Ruta[] = [
   { slug: 'mis-gastos',          path: '/mis-gastos',             nombre: 'Mis gastos',                   rol: 'employee' },
   { slug: 'gasto-rapido',        path: '/quick',                  nombre: 'Gasto rápido (3 pasos)',       rol: 'admin' },   // oculto para empleados (2026-09-23)
   { slug: 'rendicion-nueva',     path: '/expenses/new',           nombre: 'Nueva rendición',              rol: 'employee' },
-  { slug: 'reembolsos',          path: '/reimbursements',         nombre: 'Historial de reembolsos',      rol: 'employee', datosVivos: true },
+  { slug: 'reembolsos',          path: '/reimbursements',         nombre: 'Mis rendiciones',      rol: 'employee', datosVivos: true },
   { slug: 'perfil',              path: '/profile',                nombre: 'Perfil y datos bancarios',     rol: 'employee' },
   { slug: 'sugerencias',         path: '/suggestions',            nombre: 'Sugerencias',                  rol: 'employee' },
 
