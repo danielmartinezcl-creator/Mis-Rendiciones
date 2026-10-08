@@ -330,8 +330,19 @@ create trigger set_updated_at_vistas_filtro
   for each row execute function public.set_updated_at();
 ```
 
-Más el `insert` de las ocho vistas de fábrica para cada organización existente
-(§5.4 de la spec), con `de_fabrica = true` y `orden` 0..n.
+**La migración NO siembra ninguna vista**, al revés de lo que decía la spec.
+Dos de las ocho que listaba no son valores de filtro sino predicados:
+
+- **«Más de 5 días»** — ningún preset de fecha dice «hace más de 5 días», y
+  guardar una fecha fija deja la vista vencida al día siguiente.
+- **«Sin datos bancarios»** — «activos sin banco» no es un valor de Estado ni
+  de Departamento.
+
+Las dos necesitan **una dimensión propia de opciones ya cocinadas**, que se
+decide en la tarea de su pantalla (5 y 8). Y las otras seis apuntan a claves
+—`estados`, `contabilizacion`, `movimiento`— que recién existen cuando esa
+pantalla se construye: sembrarlas acá es fabricar jsonb roto. **Cada pantalla
+siembra las suyas en su tarea.**
 
 - [ ] **Paso 2: Ensayar contra la base real SIN dejar rastro**
 
