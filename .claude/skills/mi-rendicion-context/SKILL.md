@@ -479,7 +479,8 @@ los configura Daniel. Hecho por SQL con su fila en `audit_log`.
 
 Spec `docs/superpowers/specs/2026-10-07-filtro-del-empleado-design.md`; diseños en
 https://claude.ai/artifact/LXLQ3CbUgYbaSPYk8jRMkZ (Daniel eligió la A, barra de chips).
-Plan `docs/superpowers/plans/2026-10-07-filtro-del-empleado.md`.
+Plan `docs/superpowers/plans/2026-10-07-filtro-del-empleado.md` — su «Registro de avance»
+dice si ya se desplegó (al cerrar el 2026-10-08 estaba en `main`, sin subir).
 
 - **Un solo filtro** —Proyecto · Tipo de gasto · Fecha · Estado, y Empleado para quien
   administra fondos— en «Mis rendiciones» (`/reimbursements`) y en «Caja chica».

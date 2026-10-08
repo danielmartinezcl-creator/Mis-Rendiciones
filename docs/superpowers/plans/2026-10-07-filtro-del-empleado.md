@@ -72,7 +72,7 @@
   - `interface OpcionesFiltro { proyectos: { id: string; numero: string; nombre: string | null }[]; categorias: { id: string; name: string }[] }`
   - `interface RendicionFiltrable extends DocumentoFiltrable { title: string; status: ReportStatus; total_amount: number; approved_amount: number; currency: string | null; submitted_at: string | null; created_at: string; reimbursed_at: string | null; payment_reference: string | null }`
 
-- [ ] **Step 1: Escribir las pruebas**
+- [x] **Step 1: Escribir las pruebas**
 
 Crear `src/tests/filtro-documentos.test.ts`:
 
@@ -272,12 +272,12 @@ describe('desde las filas de la base', () => {
 })
 ```
 
-- [ ] **Step 2: Correrlas y ver que fallan**
+- [x] **Step 2: Correrlas y ver que fallan**
 
 Run: `npx vitest run src/tests/filtro-documentos.test.ts`
 Expected: FAIL — «Failed to resolve import "@/lib/filtro-documentos"».
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Crear `src/lib/filtro-documentos.ts`:
 
@@ -535,12 +535,12 @@ export interface RendicionFiltrable extends DocumentoFiltrable {
 }
 ```
 
-- [ ] **Step 4: Correr las pruebas**
+- [x] **Step 4: Correr las pruebas**
 
 Run: `npx vitest run src/tests/filtro-documentos.test.ts`
 Expected: PASS, 27 pruebas.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/filtro-documentos.ts src/tests/filtro-documentos.test.ts
@@ -561,7 +561,7 @@ git commit -m "feat(filtro): las reglas del filtro del empleado, como funciones 
   - `@/lib/filtro-url`: `leerFiltro(params: URLSearchParams): Filtro`, `escribirFiltro(f: Filtro): string` (`''` o `'?…'`), `depurarFiltro(f: Filtro, validos: { proyectos: string[]; categorias: string[]; empleados: string[] }): Filtro`, `paramsDePagina(sp: Record<string, string | string[] | undefined>): URLSearchParams`
   - `@/lib/filtro-etiquetas`: `type ClaveChip = 'proyectos' | 'categorias' | 'fecha' | 'estados' | 'empleados'`, `interface Opcion { id: string; etiqueta: string }`, `ETIQUETA_PRESET: Record<PresetFecha, string>`, `nombreDeChip(c: ClaveChip): string`, `chipActivo(c: ClaveChip, f: Filtro): boolean`, `quitarChip(c: ClaveChip, f: Filtro): Filtro`, `etiquetaDeChip(c: ClaveChip, f: Filtro, opciones: Opcion[]): string`, `etiquetaDeProyecto(p: { numero: string; nombre: string | null }): string`, `textoResumen(r: { visibles: number; total: number; totalClp: number }, f: Filtro, categorias: Opcion[]): string`, `textoCoincidencia(c: { gastos: number; montoClp: number }, f: Filtro, categorias: Opcion[]): string`
 
-- [ ] **Step 1: Escribir las pruebas**
+- [x] **Step 1: Escribir las pruebas**
 
 Crear `src/tests/filtro-url.test.ts`:
 
@@ -679,12 +679,12 @@ describe('las líneas de texto', () => {
 })
 ```
 
-- [ ] **Step 2: Correrlas y ver que fallan**
+- [x] **Step 2: Correrlas y ver que fallan**
 
 Run: `npx vitest run src/tests/filtro-url.test.ts src/tests/filtro-etiquetas.test.ts`
 Expected: FAIL — no resuelven `@/lib/filtro-url` ni `@/lib/filtro-etiquetas`.
 
-- [ ] **Step 3: Implementar `src/lib/filtro-url.ts`**
+- [x] **Step 3: Implementar `src/lib/filtro-url.ts`**
 
 ```ts
 // El filtro vive en la dirección de la página: recargar, volver atrás o
@@ -760,7 +760,7 @@ export function paramsDePagina(sp: Record<string, string | string[] | undefined>
 }
 ```
 
-- [ ] **Step 4: Implementar `src/lib/filtro-etiquetas.ts`**
+- [x] **Step 4: Implementar `src/lib/filtro-etiquetas.ts`**
 
 ```ts
 // Los textos del filtro: qué dice cada chip, la línea de resultado y la de
@@ -852,12 +852,12 @@ export function textoCoincidencia(
 }
 ```
 
-- [ ] **Step 5: Correr las pruebas**
+- [x] **Step 5: Correr las pruebas**
 
 Run: `npx vitest run src/tests/filtro-url.test.ts src/tests/filtro-etiquetas.test.ts`
 Expected: PASS (6 + 12 pruebas).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/filtro-url.ts src/lib/filtro-etiquetas.ts src/tests/filtro-url.test.ts src/tests/filtro-etiquetas.test.ts
@@ -880,7 +880,7 @@ git commit -m "feat(filtro): el filtro en la dirección de la página y los text
   - `@/lib/mis-gastos`: `interface GastoMio { documentoId: string; fecha: string; montoClp: number; categoriaId: string | null; categoriaNombre: string | null; aprobado: boolean; esperandoDecision: boolean }`, `interface ResumenMisGastos { meses: string[]; porMes: Record<string, number>; porCategoria: { id: string | null; nombre: string; total: number }[]; totalAprobado: number; mesesConGastos: number; promedioMensual: number; pendiente: { montoClp: number; documentos: number } }`, `ultimosDoceMeses(hoy: string): string[]`, `esperaDecision(tipo: 'rendicion' | 'fondo', status: string): boolean`, `resumenMisGastos(gastos: GastoMio[], hoy: string): ResumenMisGastos`
   - `@/actions/expenses`: `getMisGastos(): Promise<GastoMio[]>`
 
-- [ ] **Step 1: Escribir las pruebas**
+- [x] **Step 1: Escribir las pruebas**
 
 Crear `src/tests/mis-gastos.test.ts`:
 
@@ -964,12 +964,12 @@ describe('esperaDecision', () => {
 })
 ```
 
-- [ ] **Step 2: Correrlas y ver que fallan**
+- [x] **Step 2: Correrlas y ver que fallan**
 
 Run: `npx vitest run src/tests/mis-gastos.test.ts`
 Expected: FAIL — no resuelve `@/lib/mis-gastos`.
 
-- [ ] **Step 3: Implementar `src/lib/mis-gastos.ts`**
+- [x] **Step 3: Implementar `src/lib/mis-gastos.ts`**
 
 ```ts
 // Los indicadores de «Mis gastos», desde gastos ya cargados.
@@ -1059,12 +1059,12 @@ export function resumenMisGastos(gastos: GastoMio[], hoy: string): ResumenMisGas
 }
 ```
 
-- [ ] **Step 4: Correr las pruebas**
+- [x] **Step 4: Correr las pruebas**
 
 Run: `npx vitest run src/tests/mis-gastos.test.ts`
 Expected: PASS (9 pruebas).
 
-- [ ] **Step 5: Reemplazar la acción en `src/actions/expenses.ts`**
+- [x] **Step 5: Reemplazar la acción en `src/actions/expenses.ts`**
 
 Borrar el bloque desde `// ── Resumen mensual del empleado (R6) ──…` hasta el cierre de `getMyMonthlySummary` (hoy líneas 816-884, `MonthlyCategoryRow` incluido) y poner en su lugar:
 
@@ -1151,7 +1151,7 @@ import { esGasto } from '@/lib/filtro-documentos'
 import { esperaDecision, type GastoMio } from '@/lib/mis-gastos'
 ```
 
-- [ ] **Step 6: Reescribir `src/app/(app)/mis-gastos/page.tsx`**
+- [x] **Step 6: Reescribir `src/app/(app)/mis-gastos/page.tsx`**
 
 ```tsx
 import { getMisGastos } from '@/actions/expenses'
@@ -1309,12 +1309,12 @@ export default async function MisGastosPage() {
 
 (Las etiquetas de mes y la burbuja pasan de 9-10 px a 11 px: el piso tipográfico de Tornasol.)
 
-- [ ] **Step 7: Verificar**
+- [x] **Step 7: Verificar**
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint .`
 Expected: todo en verde, sin salida de `tsc`, 0 errores de lint. `grep -rn "getMyMonthlySummary\|MonthlyCategoryRow" src` no devuelve nada.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/lib/mis-gastos.ts src/tests/mis-gastos.test.ts src/actions/expenses.ts "src/app/(app)/mis-gastos/page.tsx"
@@ -1337,7 +1337,7 @@ git commit -m "feat(mis-gastos): total aprobado, pendiente y promedio, con caja 
   - `@/actions/expenses`: `getMisRendicionesFiltrables(): Promise<RendicionFiltrable[]>`
   - `@/actions/petty-cash`: `listPettyCashFunds()` devuelve además, por fondo, `proyecto_id` y los campos de `DocumentoFiltrable` (`proyectoId`, `familia`, `beneficiarioId`, `creadoEl`, `gastos`). `FundListItem` cambia solo (es `ReturnType`). **Un empleado sin `can_manage_petty_cash` ni rol admin recibe solo sus fondos.**
 
-- [ ] **Step 1: Crear `src/lib/opciones-filtro.ts`**
+- [x] **Step 1: Crear `src/lib/opciones-filtro.ts`**
 
 ```ts
 // Los nombres de lo que aparece en los chips, desde los ids que traen los
@@ -1367,7 +1367,7 @@ export async function cargarOpcionesFiltro(supabase: Cliente, docs: DocumentoFil
 }
 ```
 
-- [ ] **Step 2: Agregar `getMisRendicionesFiltrables` en `src/actions/expenses.ts`**
+- [x] **Step 2: Agregar `getMisRendicionesFiltrables` en `src/actions/expenses.ts`**
 
 Después de `getMyReports` (que se queda: la usa el inicio):
 
@@ -1420,7 +1420,7 @@ import type { ReportStatus } from '@/lib/constants'
 
 (Si el import de `@/lib/filtro-documentos` de la Tarea 3 ya existe, sumar estos nombres a esa misma línea.)
 
-- [ ] **Step 3: Cambiar `listPettyCashFunds` en `src/actions/petty-cash.ts`**
+- [x] **Step 3: Cambiar `listPettyCashFunds` en `src/actions/petty-cash.ts`**
 
 Reemplazar la función entera (hoy líneas 587-624) por:
 
@@ -1484,12 +1484,12 @@ export async function listPettyCashFunds() {
 
 Import arriba: `import { documentoDeFondo } from '@/lib/filtro-documentos'`.
 
-- [ ] **Step 4: Verificar**
+- [x] **Step 4: Verificar**
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint .`
 Expected: todo en verde. (`listPettyCashFunds` tiene un solo llamador, `petty-cash/page.tsx`; `FundListItem` gana campos y nada se rompe.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/opciones-filtro.ts src/actions/expenses.ts src/actions/petty-cash.ts
@@ -1512,7 +1512,7 @@ git commit -m "feat(filtro): rendiciones y fondos llegan con el resumen de sus g
   - `export function BarraFiltros(props: { filtro: Filtro; onCambio: (f: Filtro) => void; dimensiones: Dimension[]; contar: (f: Filtro) => number; sustantivo: [string, string]; resumen: string | null })`
   - `export function HojaOpciones(props: { dimension: Dimension; filtro: Filtro; contar: (f: Filtro) => number; sustantivo: [string, string]; onAplicar: (f: Filtro) => void; onCerrar: () => void })`
 
-- [ ] **Step 1: Escribir la prueba**
+- [x] **Step 1: Escribir la prueba**
 
 Crear `src/tests/barra-filtros.test.tsx`:
 
@@ -1599,12 +1599,12 @@ describe('BarraFiltros', () => {
 })
 ```
 
-- [ ] **Step 2: Correrla y ver que falla**
+- [x] **Step 2: Correrla y ver que falla**
 
 Run: `npx vitest run src/tests/barra-filtros.test.tsx`
 Expected: FAIL — no resuelve `@/components/filtros/BarraFiltros`.
 
-- [ ] **Step 3: Crear `src/components/filtros/HojaOpciones.tsx`**
+- [x] **Step 3: Crear `src/components/filtros/HojaOpciones.tsx`**
 
 ```tsx
 'use client'
@@ -1761,7 +1761,7 @@ export function HojaOpciones({ dimension, filtro, contar, sustantivo, onAplicar,
 
 Nota: la prueba de «Limpiar» de la línea de resultado busca el único botón «Limpiar» de la pantalla; con la hoja cerrada, el de la hoja no existe.
 
-- [ ] **Step 4: Crear `src/components/filtros/BarraFiltros.tsx`**
+- [x] **Step 4: Crear `src/components/filtros/BarraFiltros.tsx`**
 
 ```tsx
 'use client'
@@ -1863,16 +1863,16 @@ export function BarraFiltros({ filtro, onCambio, dimensiones, contar, sustantivo
 
 (`h-10` = 40 px de chip; con los 12 px de la fila arriba y abajo, el área de toque supera los 44 px.)
 
-- [ ] **Step 5: Correr la prueba**
+- [x] **Step 5: Correr la prueba**
 
 Run: `npx vitest run src/tests/barra-filtros.test.tsx`
 Expected: PASS (7 pruebas).
 
-- [ ] **Step 6: Ajustar la spec**
+- [x] **Step 6: Ajustar la spec**
 
 En `docs/superpowers/specs/2026-10-07-filtro-del-empleado-design.md`, § «Materiales», reemplazar «Chip activo con el relleno `--anod` corregido de la fe de erratas (`#199C90 → #12807C → #0B4448`).» por «Chip activo con `var(--cta-brand)`, el degradado de acción de la app: `--anod` no existe como variable, y escribir sus hexadecimales en un componente rompería el sistema.»
 
-- [ ] **Step 7: Verificar y commit**
+- [x] **Step 7: Verificar y commit**
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint .` — todo en verde.
 
@@ -1896,7 +1896,7 @@ git commit -m "feat(filtro): la barra de chips y su hoja de opciones" -m "Co-Aut
 - Consumes: `getMisRendicionesFiltrables` (Tarea 4), `cargarOpcionesFiltro` (Tarea 4), `aplicarFiltro`, `contarPorCategoria`, `hayFiltro`, `fechaEnChile`, `FILTRO_VACIO`, `SIN_PROYECTO`, `ETIQUETAS_ESTADO`, `ORDEN_FAMILIAS`, `Filtro`, `OpcionesFiltro`, `RendicionFiltrable` (Tarea 1), `leerFiltro`, `escribirFiltro`, `depurarFiltro`, `paramsDePagina`, `textoResumen`, `textoCoincidencia`, `etiquetaDeProyecto` (Tarea 2), `BarraFiltros`, `Dimension` (Tarea 5).
 - Produces: `ExpenseReportCard` acepta `coincidencia?: string | null`.
 
-- [ ] **Step 1: `ExpenseReportCard` con su línea de coincidencia**
+- [x] **Step 1: `ExpenseReportCard` con su línea de coincidencia**
 
 En `src/components/expenses/ExpenseReportCard.tsx`:
 
@@ -1921,7 +1921,7 @@ import { Tag } from 'lucide-react'
           )}
 ```
 
-- [ ] **Step 2: Crear `src/app/(app)/reimbursements/MisRendiciones.tsx`**
+- [x] **Step 2: Crear `src/app/(app)/reimbursements/MisRendiciones.tsx`**
 
 ```tsx
 'use client'
@@ -2050,7 +2050,7 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy }: Pro
 
 (Las dos líneas bajo una tarjeta quedan sobre el degradado: van en blanco, como pide `tor-on-gradient`. Hoy eran `text-ink-400` y `text-danger-500` apoyados en el fondo oscuro.)
 
-- [ ] **Step 3: Reescribir `src/app/(app)/reimbursements/page.tsx`**
+- [x] **Step 3: Reescribir `src/app/(app)/reimbursements/page.tsx`**
 
 ```tsx
 import { redirect } from 'next/navigation'
@@ -2084,7 +2084,7 @@ export default async function ReimbursementsPage({
 }
 ```
 
-- [ ] **Step 4: «Ver todas» siempre en el inicio**
+- [x] **Step 4: «Ver todas» siempre en el inicio**
 
 En `src/app/(app)/page.tsx`, reemplazar:
 
@@ -2107,15 +2107,15 @@ por:
 
 (Está dentro de `{recent.length > 0 && …}`, así que solo aparece si hay al menos una.)
 
-- [ ] **Step 5: Nombre de la ruta en el arnés**
+- [x] **Step 5: Nombre de la ruta en el arnés**
 
 En `e2e/rutas.ts:71`, cambiar `nombre: 'Historial de reembolsos'` por `nombre: 'Mis rendiciones'`. El `slug` (`reembolsos`) **no cambia**: es el nombre del archivo de la captura.
 
-- [ ] **Step 6: Verificar con pruebas y tipos**
+- [x] **Step 6: Verificar con pruebas y tipos**
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint .` — todo en verde.
 
-- [ ] **Step 7: Verificar en el navegador**
+- [x] **Step 7: Verificar en el navegador**
 
 `preview_start` con `{ name: "mi-rendicion-dev" }`. En el panel del navegador, con la sesión que haya, ir a `/reimbursements` y `resize_window` a `mobile`:
 - La barra de chips va en una hoja blanca bajo el título.
@@ -2126,7 +2126,7 @@ Run: `npx vitest run && npx tsc --noEmit && npx eslint .` — todo en verde.
 - `read_console_messages` con `onlyErrors: true`: sin errores.
 - Volver a `resize_window` `desktop`. **Solo navegar y filtrar: ningún botón que actúe sobre datos.**
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add "src/app/(app)/reimbursements" src/components/expenses/ExpenseReportCard.tsx "src/app/(app)/page.tsx" e2e/rutas.ts
@@ -2148,7 +2148,7 @@ git commit -m "feat(rendiciones): Mis rendiciones con la barra de chips" -m "Sal
 - Consumes: Tareas 1, 2, 4 y 5 (`aplicarFiltro`, `contarPorCategoria`, `hayFiltro`, `rangoDeFecha`, `historicaEntraEnExportacion`, `fechaEnChile`, `ETIQUETAS_ESTADO`, `ORDEN_FAMILIAS`, `SIN_PROYECTO`, `FILTRO_VACIO`, `Filtro`, `OpcionesFiltro`, `leerFiltro`, `escribirFiltro`, `depurarFiltro`, `paramsDePagina`, `textoResumen`, `textoCoincidencia`, `etiquetaDeProyecto`, `cargarOpcionesFiltro`, `BarraFiltros`, `Dimension`).
 - Produces: `getPettyCashItemsForReport(filtros: { fundIds: string[]; dateFrom?: string; dateTo?: string; categoryIds?: string[]; employeeIds?: string[]; incluirHistorica: boolean }): Promise<{ items: …; totalCLP: number; deHistorica: number }>`.
 
-- [ ] **Step 1: La exportación recibe los chips**
+- [x] **Step 1: La exportación recibe los chips**
 
 En `src/actions/petty-cash.ts`, en `getPettyCashItemsForReport`:
 
@@ -2214,7 +2214,7 @@ y cambiar las dos líneas que siguen para que usen esa variable:
   return { items: all, totalCLP, deHistorica: normalizedHist.length }
 ```
 
-- [ ] **Step 2: El estado de la pantalla**
+- [x] **Step 2: El estado de la pantalla**
 
 En `src/app/(app)/petty-cash/usePettyCashState.ts`:
 
@@ -2292,7 +2292,7 @@ y sumar `filtroInicial, hoy` a la desestructuración de la firma de `usePettyCas
 ```
 (`filtered`, `employees` y `handleExport` se quedan.)
 
-- [ ] **Step 3: `FundList` sin el filtro viejo**
+- [x] **Step 3: `FundList` sin el filtro viejo**
 
 En `src/app/(app)/petty-cash/FundList.tsx`:
 
@@ -2310,7 +2310,7 @@ En `src/app/(app)/petty-cash/FundList.tsx`:
                 )}
 ```
 
-- [ ] **Step 4: `client.tsx` con la barra de chips**
+- [x] **Step 4: `client.tsx` con la barra de chips**
 
 En `src/app/(app)/petty-cash/client.tsx`:
 
@@ -2390,7 +2390,7 @@ y, antes del `return`, definir:
 (e importar `aplicarFiltro` en la línea de `@/lib/filtro-documentos`).
 8. En `<FundList …>`: reemplazar `selectedEmpIds_list={state.selectedEmpIds_list}` por `compacta={filtro.empleados.length > 0}`, `clearListFilters={clearListFilters}` por `limpiarFiltro={() => setFiltro(FILTRO_VACIO)}`, y agregar `coincidencia={coincidencia}`.
 
-- [ ] **Step 5: `page.tsx` de caja chica**
+- [x] **Step 5: `page.tsx` de caja chica**
 
 Reemplazar `src/app/(app)/petty-cash/page.tsx` por:
 
@@ -2438,7 +2438,7 @@ export default async function PettyCashPage({
 }
 ```
 
-- [ ] **Step 6: Borrar el filtro viejo**
+- [x] **Step 6: Borrar el filtro viejo**
 
 ```bash
 git rm "src/app/(app)/petty-cash/FundFilters.tsx"
@@ -2447,11 +2447,11 @@ git rm "src/app/(app)/petty-cash/FundFilters.tsx"
 Run: `grep -rn "FundFilters\|selectedEmpIds_list\|fetchReportItems\|clearSearchFilters\|ReportResult" src`
 Expected: sin resultados.
 
-- [ ] **Step 7: Ajustar la spec sobre el conteo de la exportación**
+- [x] **Step 7: Ajustar la spec sobre el conteo de la exportación**
 
 En `docs/superpowers/specs/2026-10-07-filtro-del-empleado-design.md`, §2, reemplazar «El botón dice qué exporta: «Exportar 23 gastos».» y «El botón lo dice: «Exportar 23 gastos (5 de la carga histórica)».» por: «Al terminar, un aviso dice qué salió: «Exportados 23 gastos (5 de la carga histórica)». El número va después y no en el botón porque la parte histórica se resuelve en el servidor: quien administra fondos sin ser admin no la tiene cargada en la pantalla.»
 
-- [ ] **Step 8: Verificar**
+- [x] **Step 8: Verificar**
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint .` — todo en verde.
 
@@ -2463,7 +2463,7 @@ En el navegador (`/petty-cash`, a `mobile` y a `desktop`), solo mirar y filtrar:
 - `read_console_messages` con `onlyErrors: true`: sin errores.
 - **No hace falta probar la exportación en el navegador**: baja un archivo y no cambia datos, pero la cubren las pruebas de las reglas y la prueba de humo de Daniel.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A "src/app/(app)/petty-cash" src/actions/petty-cash.ts docs/superpowers/specs/2026-10-07-filtro-del-empleado-design.md
@@ -2482,7 +2482,7 @@ git commit -m "feat(caja chica): la barra de chips reemplaza a los dos filtros, 
 **Interfaces:**
 - Produces: `pestanasPrincipales(u: { role: 'admin' | 'approver' | 'employee'; can_submit: boolean }): string[]`
 
-- [ ] **Step 1: Escribir la prueba**
+- [x] **Step 1: Escribir la prueba**
 
 Crear `src/tests/navegacion.test.ts`:
 
@@ -2508,11 +2508,11 @@ describe('pestanasPrincipales', () => {
 })
 ```
 
-- [ ] **Step 2: Correrla y ver que falla**
+- [x] **Step 2: Correrla y ver que falla**
 
 Run: `npx vitest run src/tests/navegacion.test.ts` — FAIL, no resuelve `@/lib/navegacion`.
 
-- [ ] **Step 3: Crear `src/lib/navegacion.ts`**
+- [x] **Step 3: Crear `src/lib/navegacion.ts`**
 
 ```ts
 // Las 4 pestañas de la barra de abajo según el perfil; el resto va a «Más».
@@ -2529,11 +2529,11 @@ export function pestanasPrincipales(u: { role: 'admin' | 'approver' | 'employee'
 }
 ```
 
-- [ ] **Step 4: Correr la prueba**
+- [x] **Step 4: Correr la prueba**
 
 Run: `npx vitest run src/tests/navegacion.test.ts` — PASS (3).
 
-- [ ] **Step 5: `MobileNav`**
+- [x] **Step 5: `MobileNav`**
 
 En `src/components/layout/MobileNav.tsx`:
 1. Agregar `Receipt` a los íconos importados de `lucide-react`, e `import { pestanasPrincipales } from '@/lib/navegacion'`.
@@ -2543,7 +2543,7 @@ En `src/components/layout/MobileNav.tsx`:
 ```
 3. Borrar la función `getPrimaryHrefs` entera y cambiar `const primaryHrefs  = getPrimaryHrefs(user)` por `const primaryHrefs  = pestanasPrincipales(user)`.
 
-- [ ] **Step 6: `Sidebar`**
+- [x] **Step 6: `Sidebar`**
 
 En `src/components/layout/Sidebar.tsx`:
 1. Agregar `Receipt` a los íconos importados.
@@ -2557,7 +2557,7 @@ En `src/components/layout/Sidebar.tsx`:
 ```
 (Como «Cola Bancaria»: la visibilidad depende de un permiso, no del rol.)
 
-- [ ] **Step 7: ¿Cabe «Rendiciones» en la barra?**
+- [x] **Step 7: ¿Cabe «Rendiciones» en la barra?**
 
 No hace falta entrar como empleado: se mide el ancho del texto con la misma letra que usa la barra. `preview_start` `mi-rendicion-dev`, cualquier pantalla con sesión, `resize_window` a 360×800 (el ancho más angosto que se soporta; la barra tiene 5 columnas para todos los roles), y con `javascript_tool`:
 
@@ -2575,7 +2575,7 @@ ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
 
 Volver a `resize_window` `desktop`.
 
-- [ ] **Step 8: Verificar y commit**
+- [x] **Step 8: Verificar y commit**
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint .` — todo en verde.
 
@@ -2593,14 +2593,14 @@ git commit -m "feat(navegación): «Rendiciones» en la barra del empleado; «Mi
 - Modify: `.claude/skills/mi-rendicion-context/SKILL.md`
 - Modify: `docs/superpowers/plans/2026-10-07-filtro-del-empleado.md` (Registro de avance)
 
-- [ ] **Step 1: Todo en verde, y el build**
+- [x] **Step 1: Todo en verde, y el build**
 
 Parar el servidor de desarrollo (`preview_stop`). Luego:
 
 Run: `npx vitest run && npx tsc --noEmit && npx eslint . && rm -rf .next && npx next build`
 Expected: pruebas en verde (eran 537; ahora ~600), sin salida de `tsc`, **0 errores** de lint (22 avisos o menos), build con código 0.
 
-- [ ] **Step 2: La línea base visual**
+- [x] **Step 2: La línea base visual**
 
 Run (en segundo plano, tarda ~8 min; **leer el resumen, no el código de salida**):
 
@@ -2615,11 +2615,11 @@ Cambios esperados, y **solo** estos:
 
 Mirar el `-actual.png` de cada una (no el `-diff.png`, que en las rutas con datos vivos compara documentos distintos). Una captura fuera de esta lista es una regresión: investigar antes de seguir. La prueba `[materiales]` tiene que pasar: ningún dato sobre el degradado.
 
-- [ ] **Step 3: Recapturar**
+- [x] **Step 3: Recapturar**
 
 Run: `npm run baseline:crear` (en segundo plano, ~8 min). Expected: todas `passed`, `[materiales]` en verde.
 
-- [ ] **Step 4: Actualizar el SKILL**
+- [x] **Step 4: Actualizar el SKILL**
 
 En `.claude/skills/mi-rendicion-context/SKILL.md`:
 1. Conteo de pruebas: «**537 tests Vitest en 37 archivos**» → el número real que dio el Step 1, con la fecha.
@@ -2664,7 +2664,7 @@ https://claude.ai/artifact/LXLQ3CbUgYbaSPYk8jRMkZ (Daniel eligió la A, barra de
 | Sumar `expense_items` de un empleado sin mirar `item_type` | Las cargas históricas traen adelantos, devoluciones y traspasos como ítems: «Mis gastos» los sumaba como gastos hasta el 2026-10-07 | `esGasto(item_type)` de `src/lib/filtro-documentos.ts` antes de sumar. En `petty_cash_items` no hace falta: ahí solo hay gastos |
 ```
 
-- [ ] **Step 5: Registro de avance y commit**
+- [x] **Step 5: Registro de avance y commit**
 
 Agregar al final de este plan una tabla `## Registro de avance` con una fila por tarea (fecha, tarea, resultado, commit). Luego:
 
@@ -2707,3 +2707,4 @@ git commit -m "test(línea base): recaptura con el filtro del empleado; contexto
 | 2026-10-07 | 6 | «Mis rendiciones» con filtro; sale «Total reembolsado»; «Ver todas» siempre | `55a6d48` |
 | 2026-10-07 | 7 | Caja chica con chips; `FundFilters` borrado (420 líneas); exportar lo filtrado sin «Buscar» | `ade9270` |
 | 2026-10-08 | 8 | «Rendiciones» en la barra del empleado. El rótulo de las cinco pestañas bajó a 12 px con `tracking-tight`: medido con la Hanken real, «Rendiciones» mide 61,6 px contra 72 de columna a 360 px (a 13 px medía 70,3 y rozaba el borde) | `d903fe8` |
+| 2026-10-08 | 9 | Verificación completa: **601 pruebas**, tipos limpios, lint sin errores, build en verde, deuda de sistema **0 en 25 pantallas**, materiales en verde. La corrida de verificación destapó tres cosas que las pruebas no ven: faltaba el desvanecido de la fila de chips, los montos de «Mis gastos» se partían en dos líneas en el teléfono, y el arnés de materiales apuntaba al panel borrado (falló con su propio mensaje de punto ciego). Línea base recapturada entera —cambian las 52, porque la barra de abajo y el riel ganaron un ítem—: **54 ok, 2 skipped, 0 fallas** | `0a8d3d7`, `48131b1`, *(este commit)* |
