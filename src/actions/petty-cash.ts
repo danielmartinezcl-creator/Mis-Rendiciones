@@ -16,6 +16,7 @@ import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
+import { documentoDeFondo } from '@/lib/filtro-documentos'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -586,22 +587,28 @@ export async function deletePettyCashFund(fundId: string) {
 
 export async function listPettyCashFunds() {
   const { supabase, profile } = await getProfile()
+  const esGestor = profile.role === 'admin' || !!profile.can_manage_petty_cash
 
   let query = supabase
     .from('petty_cash_funds')
-    .select('id, name, status, amount_requested, amount_approved, currency, period_start, period_end, employee_id, manager_id, created_at')
+    .select('id, name, status, amount_requested, amount_approved, currency, period_start, period_end, employee_id, manager_id, created_at, proyecto_id')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  // Qué fondos ve cada uno lo decide la RLS (migración 032): los suyos, los que
-  // creó, los de su cadena y los que esperan su paso en el banco. «Aprueba» ya
-  // no deja ver todos los pendientes de la empresa.
+  // Qué fondos PUEDE ver cada uno lo decide la RLS (migración 032): los suyos,
+  // los que creó, los de su cadena y los que esperan su paso en el banco.
+  // «Aprueba» ya no deja ver todos los pendientes de la empresa.
   if (profile.role === 'admin') {
     query = query.eq('org_id', profile.org_id)
   }
+  // Pero esta pantalla le muestra al empleado SOLO los fondos donde es el
+  // beneficiario (Daniel, 2026-10-07): los que le toca aprobar se trabajan en
+  // «Aprobaciones» y los del banco en «Cola bancaria». La RLS no cambia.
+  if (!esGestor) {
+    query = query.eq('employee_id', profile.id)
+  }
 
   const { data: funds } = await query
-
   if (!funds?.length) return []
 
   const userIds = [...new Set([
@@ -609,17 +616,28 @@ export async function listPettyCashFunds() {
     ...funds.map(f => f.manager_id),
   ])]
 
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, full_name')
-    .in('id', userIds)
+  // El resumen de gastos: lo mínimo para filtrar y sumar en la pantalla
+  const [{ data: users }, { data: items }] = await Promise.all([
+    supabase.from('users').select('id, full_name').in('id', userIds),
+    supabase
+      .from('petty_cash_items')
+      .select('fund_id, category_id, date, amount_clp, status')
+      .in('fund_id', funds.map(f => f.id)),
+  ])
 
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+  const porFondo = new Map<string, NonNullable<typeof items>>()
+  for (const i of items ?? []) {
+    const lista = porFondo.get(i.fund_id) ?? []
+    lista.push(i)
+    porFondo.set(i.fund_id, lista)
+  }
 
   return funds.map(f => ({
     ...f,
     employee_name: userMap[f.employee_id] ?? 'Desconocido',
     manager_name:  userMap[f.manager_id]  ?? 'Desconocido',
+    ...documentoDeFondo(f, porFondo.get(f.id) ?? []),
   }))
 }
 

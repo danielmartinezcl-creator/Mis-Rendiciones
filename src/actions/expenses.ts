@@ -18,7 +18,8 @@ import { logAudit } from '@/lib/audit'
 import { validateRut } from '@/lib/validators'
 import { classifyAttachment, MAX_ATTACHMENT_BYTES } from '@/lib/attachment-types'
 import { archivosQueCaen, retirarArchivos, BUCKET_COMPROBANTES } from '@/lib/archivos'
-import { esGasto } from '@/lib/filtro-documentos'
+import { esGasto, documentoDeRendicion, type RendicionFiltrable } from '@/lib/filtro-documentos'
+import type { ReportStatus } from '@/lib/constants'
 import { esperaDecision, type GastoMio } from '@/lib/mis-gastos'
 
 export async function createExpenseReport(formData: FormData) {
@@ -343,6 +344,44 @@ export async function getMyReports() {
     .limit(20)
 
   return data ?? []
+}
+
+/**
+ * Todas las rendiciones de quien consulta, con el resumen de sus gastos, para
+ * el filtro de «Mis rendiciones». Se cargan una vez y se filtran en el
+ * navegador: son pocas decenas al año por persona.
+ */
+export async function getMisRendicionesFiltrables(): Promise<RendicionFiltrable[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: reportes } = await supabase
+    .from('expense_reports')
+    .select('id, title, status, total_amount, approved_amount, currency, submitted_at, created_at, reimbursed_at, payment_reference, proyecto_id, submitter_id')
+    .eq('submitter_id', user.id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+  if (!reportes?.length) return []
+
+  const { data: items } = await supabase
+    .from('expense_items')
+    .select('report_id, item_type, category_id, date, amount_clp, status')
+    .in('report_id', reportes.map(r => r.id))
+    .is('deleted_at', null)
+
+  const porReporte = new Map<string, NonNullable<typeof items>>()
+  for (const i of items ?? []) {
+    const lista = porReporte.get(i.report_id) ?? []
+    lista.push(i)
+    porReporte.set(i.report_id, lista)
+  }
+
+  return reportes.map(r => ({
+    ...r,
+    status: r.status as ReportStatus,
+    ...documentoDeRendicion(r, porReporte.get(r.id) ?? []),
+  }))
 }
 
 // ── Detección de documentos duplicados ───────────────────────────────────────
