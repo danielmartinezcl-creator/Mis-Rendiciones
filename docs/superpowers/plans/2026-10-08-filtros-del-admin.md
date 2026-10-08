@@ -68,7 +68,7 @@
 - **No hay `limpiar`:** limpiar todo es `valoresVacios(dimensiones)`. Dos nombres para la misma función es la clase de cosa que después diverge.
 - Consumes: `PresetFecha` y `rangoDeFecha` ya existen en `src/lib/filtro-documentos.ts` — **reusar el tipo de ahí**, no declarar otro.
 
-- [ ] **Paso 1: Escribir la prueba que falla**
+- [x] **Paso 1: Escribir la prueba que falla**
 
 ```ts
 // src/tests/filtros-dimensiones.test.ts
@@ -79,7 +79,10 @@ import {
 } from '@/lib/filtros/dimensiones'
 
 const DIMS: Dimension[] = [
-  { clave: 'empleados', nombre: 'Empleado', destacada: true,  tipo: 'multi',
+  /* `plural` solo lo lleva `multi`: con dos o más elegidos el chip dice «2
+     empleados», «2 tipos de gasto». Sin él no se puede reproducir lo que el
+     chip del empleado ya dice hoy (`PLURAL` en filtro-etiquetas.ts). */
+  { clave: 'empleados', nombre: 'Empleado', plural: 'empleados', destacada: true, tipo: 'multi',
     opciones: [{ id: 'u1', etiqueta: 'Lobos Claudia' }, { id: 'u2', etiqueta: 'Seaton Edwin' }] },
   { clave: 'fecha',     nombre: 'Fecha de envío', destacada: true, tipo: 'fecha' },
   { clave: 'reembolso', nombre: 'Reembolso', destacada: false, tipo: 'unico',
@@ -170,11 +173,11 @@ describe('quitar', () => {
 })
 ```
 
-- [ ] **Paso 2: Correrla y ver que falla**
+- [x] **Paso 2: Correrla y ver que falla**
 
 `npx vitest run src/tests/filtros-dimensiones.test.ts` → falla: el módulo no existe.
 
-- [ ] **Paso 3: Escribir `src/lib/filtros/dimensiones.ts`**
+- [x] **Paso 3: Escribir `src/lib/filtros/dimensiones.ts`**
 
 Reglas que el código tiene que cumplir, además de los tests:
 
@@ -183,11 +186,11 @@ Reglas que el código tiene que cumplir, además de los tests:
 - `resumen` une con ` · ` en el **orden de `dimensiones`**, no en el de las claves puestas: así la misma selección se lee siempre igual.
 - Nada de este módulo sabe qué es una rendición. Si aparece la palabra «rendición» o «fondo», está mal puesto.
 
-- [ ] **Paso 4: Correr las pruebas y verlas pasar**
+- [x] **Paso 4: Correr las pruebas y verlas pasar**
 
 `npx vitest run src/tests/filtros-dimensiones.test.ts` → verde. Después `npx tsc --noEmit` y `npx eslint .`.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/lib/filtros/dimensiones.ts src/tests/filtros-dimensiones.test.ts
@@ -253,7 +256,7 @@ interface Props {
 - Los chips salen de `dimensiones.filter(d => d.destacada)`.
 - **El botón «Más filtros» solo aparece si hay alguna no destacada.** Con las 4 ó 5 del empleado no aparece ninguno, y por eso sus pantallas no cambian de aspecto.
 - Una dimensión `texto` no es un chip: es el campo de búsqueda, **primero en la fila**, con su lupa.
-- La línea de resumen la calcula `resumen()`; deja de venir por props.
+- **La línea de resumen SIGUE viniendo por props.** No la calcula la barra: la del empleado no nombra lo puesto, dice cuánto queda y cuánta plata («3 de 12 · $ 97.300 en Combustible», `textoResumen` de `filtro-etiquetas.ts`). Si la barra la reemplazara por `resumen()`, las dos pantallas del empleado cambiarían de texto y la línea base se movería — justo lo que esta tarea prohíbe. `resumen()` es para que el admin arme la suya.
 - `HojaMasFiltros` lista las no destacadas, cada una con su rótulo y su control, y cierra con **«Ver N rendiciones»** y **«Limpiar»**. Reusa `HojaOpciones` adentro para las de tipo `multi` y `unico`.
 
 - [ ] **Paso 4: Las pruebas y los tipos en verde**
@@ -595,4 +598,4 @@ Filas nuevas en errores conocidos:
 
 | Fecha | Tarea | Resultado |
 |---|---|---|
-| | | |
+| 2026-10-08 | 1 · Las dimensiones genéricas | **Hecha.** `src/lib/filtros/dimensiones.ts` + 28 pruebas. **680 pruebas en 46 archivos** (eran 652 en 45), tsc limpio, lint 0/22. Dos correcciones al plan, hechas sobre la marcha: (a) la barra **conserva** el resumen por props — la línea del empleado dice cuánto queda y cuánta plata, no qué está puesto, y calcularla sola habría movido su línea base; (b) `Dimension` de tipo `multi` necesita `plural`, o el chip no puede decir «2 tipos de gasto» como dice hoy. De paso se sacó una duplicación: `ETIQUETA_PRESET` y el formato corto de fecha pasaron de `filtro-etiquetas` (el del empleado) al módulo genérico, que es de las seis pantallas. |

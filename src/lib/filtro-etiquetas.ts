@@ -1,7 +1,10 @@
 // Los textos del filtro: qué dice cada chip, la línea de resultado y la de
 // cada tarjeta. Separados de los componentes para poder probarlos.
 
-import type { Filtro, PresetFecha } from '@/lib/filtro-documentos'
+import type { Filtro } from '@/lib/filtro-documentos'
+// Los textos de la fecha viven en el módulo genérico: los usan las seis
+// pantallas que filtran, no solo las dos del empleado.
+import { ETIQUETA_PRESET, fechaCorta } from '@/lib/filtros/dimensiones'
 import { formatCLP } from '@/lib/utils'
 
 export type ClaveChip = 'proyectos' | 'categorias' | 'fecha' | 'estados' | 'empleados'
@@ -19,16 +22,6 @@ const PLURAL: Record<Exclude<ClaveChip, 'fecha'>, string> = {
   proyectos: 'proyectos', categorias: 'tipos de gasto', estados: 'estados', empleados: 'empleados',
 }
 
-export const ETIQUETA_PRESET: Record<PresetFecha, string> = {
-  'este-mes': 'Este mes', 'mes-pasado': 'Mes pasado', 'ultimos-3': 'Últimos 3 meses',
-  'este-anio': 'Este año', elegir: 'Elegir fechas',
-}
-
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-const corta = (iso: string) => {
-  const [, m, d] = iso.split('-')
-  return `${Number(d)} ${MESES[Number(m) - 1]}`
-}
 
 export const nombreDeChip = (c: ClaveChip) => NOMBRE[c]
 
@@ -45,9 +38,9 @@ export function etiquetaDeChip(c: ClaveChip, f: Filtro, opciones: Opcion[]): str
   if (c === 'fecha') {
     if (!f.fecha) return NOMBRE.fecha
     if (f.fecha !== 'elegir') return ETIQUETA_PRESET[f.fecha]
-    if (f.desde && f.hasta) return `${corta(f.desde)} – ${corta(f.hasta)}`
-    if (f.desde) return `Desde ${corta(f.desde)}`
-    if (f.hasta) return `Hasta ${corta(f.hasta)}`
+    if (f.desde && f.hasta) return `${fechaCorta(f.desde)} – ${fechaCorta(f.hasta)}`
+    if (f.desde) return `Desde ${fechaCorta(f.desde)}`
+    if (f.hasta) return `Hasta ${fechaCorta(f.hasta)}`
     return ETIQUETA_PRESET.elegir
   }
   const elegidos: string[] = f[c]

@@ -7,7 +7,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import type { Filtro, PresetFecha } from '@/lib/filtro-documentos'
-import { ETIQUETA_PRESET, nombreDeChip, quitarChip } from '@/lib/filtro-etiquetas'
+import { nombreDeChip, quitarChip } from '@/lib/filtro-etiquetas'
+import { ETIQUETA_PRESET } from '@/lib/filtros/dimensiones'
 import type { Dimension } from './BarraFiltros'
 
 const PRESETS: PresetFecha[] = ['este-mes', 'mes-pasado', 'ultimos-3', 'este-anio', 'elegir']
