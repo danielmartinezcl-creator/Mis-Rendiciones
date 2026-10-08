@@ -796,11 +796,15 @@ export async function getActivePettyCashCategories() {
 // ── Informe de ítems (para export con filtros) ────────────────────────────────
 
 export async function getPettyCashItemsForReport(filters: {
-  dateFrom?:    string
-  dateTo?:      string
-  itemStatus?:  'pending' | 'approved' | 'rejected' | 'all'
-  employeeIds?: string[]
-  categoryIds?: string[]
+  /** Los fondos que quedaron a la vista: proyecto, estado y empleado ya se aplicaron en la pantalla */
+  fundIds:          string[]
+  dateFrom?:        string
+  dateTo?:          string
+  categoryIds?:     string[]
+  /** Solo para la carga histórica: en los fondos, ya lo resolvió `fundIds` */
+  employeeIds?:     string[]
+  /** `historicaEntraEnExportacion(filtro)`: la histórica no tiene proyecto y cuenta como liquidada */
+  incluirHistorica: boolean
 }) {
   const { supabase, profile } = await getProfile()
 
@@ -808,36 +812,34 @@ export async function getPettyCashItemsForReport(filters: {
     throw new Error('Sin permiso para generar informes de caja chica')
   }
 
-  // ── Fondos reales (petty_cash_funds → petty_cash_items) ─────────────────
-  let fundsQuery = supabase
-    .from('petty_cash_funds')
-    .select('id, name, employee_id')
-    .eq('org_id', profile.org_id)
-
-  if (filters.employeeIds?.length) {
-    fundsQuery = fundsQuery.in('employee_id', filters.employeeIds)
-  }
-
-  const { data: funds } = await fundsQuery
+  // ── Fondos reales: los que la pantalla dejó a la vista ───────────────────
+  const { data: funds } = filters.fundIds.length
+    ? await supabase
+        .from('petty_cash_funds')
+        .select('id, name, employee_id')
+        .eq('org_id', profile.org_id)
+        .in('id', filters.fundIds)
+    : { data: [] as { id: string; name: string; employee_id: string }[] }
   const fundIds = (funds ?? []).map(f => f.id)
   const fundMap = Object.fromEntries((funds ?? []).map(f => [f.id, f]))
 
   // ── Carga histórica (expense_reports → expense_items, historical_type='caja_chica') ──
-  let histReportsQuery = supabase
-    .from('expense_reports')
-    .select('id, title, submitter_id')
-    .eq('org_id', profile.org_id)
-    .eq('is_historical_import', true)
-    .eq('historical_type', 'caja_chica')
-    .is('deleted_at', null)
-
-  if (filters.employeeIds?.length) {
-    histReportsQuery = histReportsQuery.in('submitter_id', filters.employeeIds)
+  let histReports: { id: string; title: string; submitter_id: string }[] = []
+  if (filters.incluirHistorica) {
+    let histReportsQuery = supabase
+      .from('expense_reports')
+      .select('id, title, submitter_id')
+      .eq('org_id', profile.org_id)
+      .eq('is_historical_import', true)
+      .eq('historical_type', 'caja_chica')
+      .is('deleted_at', null)
+    if (filters.employeeIds?.length) {
+      histReportsQuery = histReportsQuery.in('submitter_id', filters.employeeIds)
+    }
+    histReports = (await histReportsQuery).data ?? []
   }
-
-  const { data: histReports } = await histReportsQuery
-  const histReportIds = (histReports ?? []).map(r => r.id)
-  const histReportMap = Object.fromEntries((histReports ?? []).map(r => [r.id, r]))
+  const histReportIds = histReports.map(r => r.id)
+  const histReportMap = Object.fromEntries(histReports.map(r => [r.id, r]))
 
   /* Las filas vuelven sin tipo porque la consulta pasa por
      `applyItemFilters`, que no se puede tipar sin pelearse con los genéricos
@@ -872,8 +874,8 @@ export async function getPettyCashItemsForReport(filters: {
     let r = q as any
     if (filters.dateFrom) r = r.gte('date', filters.dateFrom)
     if (filters.dateTo)   r = r.lte('date', filters.dateTo)
-    if (filters.itemStatus && filters.itemStatus !== 'all')
-      r = r.eq('status', filters.itemStatus)
+    // Un gasto rechazado no es plata que la empresa gastó: no se exporta (spec §3)
+    r = r.neq('status', 'rejected')
     if (filters.categoryIds?.length) r = r.in('category_id', filters.categoryIds)
     return r
   }
@@ -892,9 +894,10 @@ export async function getPettyCashItemsForReport(filters: {
     ? applyItemFilters(
         supabase
           .from('expense_items')
-          .select('id, report_id, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
+          .select('id, report_id, item_type, description, amount, currency, amount_clp, date, category_id, merchant, doc_type, doc_number, notes, status, rejection_reason')
           .in('report_id', histReportIds)
           .is('deleted_at', null)
+          .or('item_type.eq.expense,item_type.is.null')   // adelantos y devoluciones no son gastos
           .order('date', { ascending: true })
       )
     : Promise.resolve({ data: [] })
@@ -968,7 +971,7 @@ export async function getPettyCashItemsForReport(filters: {
   const all = [...normalizedReal, ...normalizedHist].sort((a, b) => a.date.localeCompare(b.date))
   const totalCLP = all.reduce((s, i) => s + i.amount_clp, 0)
 
-  return { items: all, totalCLP }
+  return { items: all, totalCLP, deHistorica: normalizedHist.length }
 }
 
 // ── Defontana por movimiento en fondos vivos ─────────────────────────────────

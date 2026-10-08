@@ -112,13 +112,14 @@ categoría», como hoy. La bajada dice «Rendiciones y caja chica · últimos 12
 
 - Los mismos chips **más «Empleado»**, con buscador y elección múltiple.
 - Ve los mismos fondos que hoy (`listPettyCashFunds` sin el filtro del empleado).
-- **Excel y PDF exportan lo filtrado**, sin el paso de «Buscar». El botón dice qué
-  exporta: «Exportar 23 gastos».
+- **Excel y PDF exportan lo filtrado**, sin el paso de «Buscar».
 - **La exportación sigue incluyendo la carga histórica de caja chica**, como hoy
   (`getPettyCashItemsForReport` ya la trae). Se le aplican los chips que tienen sentido
   para ella: Empleado, Tipo de gasto y Fecha. Una carga histórica no tiene proyecto (solo
-  entra con «Sin proyecto» o sin ese chip) y cuenta como **Liquidada**. El botón lo dice:
-  «Exportar 23 gastos (5 de la carga histórica)».
+  entra con «Sin proyecto» o sin ese chip) y cuenta como **Liquidada**. Al terminar, un
+  aviso dice qué salió: «Exportados 23 gastos (5 de la carga histórica)». El número va
+  después y no en el botón porque la parte histórica se resuelve en el servidor: quien
+  administra fondos sin ser admin no la tiene cargada en la pantalla.
   > *Agregado al escribir la spec, después de la aprobación de la sección 2:* sin esto,
   > exportar lo filtrado dejaba fuera la carga histórica sin aviso.
 - La **sección de carga histórica** sigue debajo, con sus herramientas, y el filtro **no

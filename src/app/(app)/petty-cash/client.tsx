@@ -1,42 +1,71 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, FileSpreadsheet, Download, Link2, Pencil, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { usePettyCashState, fmtCLP } from './usePettyCashState'
-import type { Category, HistoricalImport, FundListItem, FundTransferRow } from './usePettyCashState'
-import { FundFilters } from './FundFilters'
+import type { HistoricalImport, FundListItem, FundTransferRow } from './usePettyCashState'
 import { FundList } from './FundList'
 import { FundModals } from './FundModals'
 import { HistoricalSection } from './HistoricalSection'
+import { BarraFiltros, type Dimension } from '@/components/filtros/BarraFiltros'
+import {
+  aplicarFiltro, contarPorCategoria, hayFiltro, ETIQUETAS_ESTADO, FILTRO_VACIO, ORDEN_FAMILIAS, SIN_PROYECTO,
+  type Filtro, type OpcionesFiltro,
+} from '@/lib/filtro-documentos'
+import { depurarFiltro } from '@/lib/filtro-url'
+import { etiquetaDeProyecto, textoCoincidencia, textoResumen } from '@/lib/filtro-etiquetas'
 
 interface Props {
   initialFunds:      FundListItem[]
-  initialCategories: Category[]
   isManager:         boolean
   historicalImports: HistoricalImport[]
   orgEmployees:      { id: string; full_name: string }[]
   pendingTransfers:  FundTransferRow[]
+  opciones:          OpcionesFiltro
+  filtroInicial:     Filtro
+  /** La fecha de hoy en Chile, del servidor: así servidor y navegador calculan lo mismo */
+  hoy:               string
 }
 
 export function PettyCashClient({
   initialFunds,
-  initialCategories,
   isManager,
   historicalImports: initialHistoricalImports,
   orgEmployees,
   pendingTransfers: initialPendingTransfers,
+  opciones,
+  filtroInicial,
+  hoy,
 }: Props) {
+  // Empleados para el chip: los beneficiarios de los fondos que ve
+  const empleadosFondos = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const f of initialFunds) m.set(f.employee_id, f.employee_name)
+    return [...m].map(([id, etiqueta]) => ({ id, etiqueta })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+  }, [initialFunds])
+
+  const filtroDepurado = useMemo(() => depurarFiltro(filtroInicial, {
+    proyectos:  opciones.proyectos.map(p => p.id),
+    categorias: opciones.categorias.map(c => c.id),
+    empleados:  isManager ? empleadosFondos.map(e => e.id) : [],
+  }), [filtroInicial, opciones, isManager, empleadosFondos])
+
   const state = usePettyCashState({
     initialFunds,
     initialHistoricalImports,
     orgEmployees,
     initialPendingTransfers,
+    filtroInicial: filtroDepurado,
+    hoy,
   })
 
   const {
     filtered,
-    reportData,
+    filtro,
+    setFiltro,
+    resultado,
     generating,
     pendingTransfers,
     deletingTransferId,
@@ -56,8 +85,29 @@ export function PettyCashClient({
     openTransferModal,
     openEditLinkedTransfer,
     handleDeleteLinkedTransfer,
-    clearListFilters,
   } = state
+
+  const categorias = opciones.categorias.map(c => ({ id: c.id, etiqueta: c.name }))
+  const conteo = contarPorCategoria(state.funds)
+  const dimensiones: Dimension[] = [
+    { clave: 'proyectos', opciones: [
+      { id: SIN_PROYECTO, etiqueta: 'Sin proyecto' },
+      ...opciones.proyectos.map(p => ({ id: p.id, etiqueta: etiquetaDeProyecto(p) })),
+    ] },
+    { clave: 'categorias', opciones: categorias.map(c => {
+      const n = conteo.get(c.id) ?? 0
+      return { ...c, detalle: n === 1 ? '1 gasto' : `${n} gastos` }
+    }) },
+    { clave: 'fecha', opciones: [] },
+    { clave: 'estados', opciones: ORDEN_FAMILIAS.map(f => ({ id: f, etiqueta: ETIQUETAS_ESTADO.fondo[f] })) },
+    // El empleado ve solo sus fondos: filtrar por empleado es de quien administra
+    ...(isManager ? [{ clave: 'empleados' as const, opciones: empleadosFondos }] : []),
+  ]
+  const coincidencia = (fundId: string) => {
+    if (!filtro.categorias.length) return null
+    const v = resultado.visibles.find(x => x.doc.id === fundId)
+    return v ? textoCoincidencia({ gastos: v.gastos.length, montoClp: v.montoClp }, filtro, categorias) : null
+  }
 
   return (
     <div className="space-y-4">
@@ -66,11 +116,9 @@ export function PettyCashClient({
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Caja Chica</h1>
           <p className="text-sm tor-on-gradient-soft mt-1">
-            {reportData
-              ? `${reportData.items.length} ítem${reportData.items.length !== 1 ? 's' : ''} encontrado${reportData.items.length !== 1 ? 's' : ''}`
-              : filtered.length !== initialFunds.length
-                ? `${filtered.length} de ${initialFunds.length} fondos`
-                : `${initialFunds.length} fondo${initialFunds.length !== 1 ? 's' : ''} registrado${initialFunds.length !== 1 ? 's' : ''}`}
+            {filtered.length !== state.funds.length
+              ? `${filtered.length} de ${state.funds.length} fondos`
+              : `${state.funds.length} fondo${state.funds.length !== 1 ? 's' : ''} registrado${state.funds.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -78,7 +126,7 @@ export function PettyCashClient({
             <>
               <button
                 onClick={() => handleExport('excel')}
-                disabled={!!generating || !reportData?.items.length}
+                disabled={!!generating}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-40 transition-all shadow-sm hover:shadow-md active:scale-[.97]"
                 style={{ background: 'var(--cta-success)' }}
               >
@@ -87,7 +135,7 @@ export function PettyCashClient({
               </button>
               <button
                 onClick={() => handleExport('pdf')}
-                disabled={!!generating || !reportData?.items.length}
+                disabled={!!generating}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-item disabled:opacity-40 transition-all shadow-sm hover:shadow-md active:scale-[.97]"
                 style={{ background: 'var(--cta-danger)' }}
               >
@@ -107,42 +155,16 @@ export function PettyCashClient({
         </div>
       </div>
 
-      {/* ── Panel unificado de filtros ─────────────────────────────────────────── */}
-      <FundFilters
-        isManager={isManager}
-        initialCategories={initialCategories}
-        employees={state.employees}
-        statusFilter={state.statusFilter}
-        dateFrom={state.dateFrom}
-        dateTo={state.dateTo}
-        selectedEmpIds_list={state.selectedEmpIds_list}
-        periodPreset_list={state.periodPreset_list}
-        empDropdownOpen={state.empDropdownOpen}
-        catDropdownOpen={state.catDropdownOpen}
-        activeFilters={state.activeFilters}
-        reportDateFrom={state.reportDateFrom}
-        reportDateTo={state.reportDateTo}
-        selectedCatIds={state.selectedCatIds}
-        itemStatusFilter={state.itemStatusFilter}
-        loadingSearch={state.loadingSearch}
-        generating={state.generating}
-        reportData={state.reportData}
-        reportError={state.reportError}
-        setStatusFilter={state.setStatusFilter}
-        setDateFrom={state.setDateFrom}
-        setDateTo={state.setDateTo}
-        setSelectedEmpIds_list={state.setSelectedEmpIds_list}
-        setPeriodPreset_list={state.setPeriodPreset_list}
-        setEmpDropdownOpen={state.setEmpDropdownOpen}
-        setCatDropdownOpen={state.setCatDropdownOpen}
-        setReportDateFrom={state.setReportDateFrom}
-        setReportDateTo={state.setReportDateTo}
-        setItemStatusFilter={state.setItemStatusFilter}
-        toggleCat={state.toggleCat}
-        clearListFilters={state.clearListFilters}
-        clearSearchFilters={state.clearSearchFilters}
-        fetchReportItems={state.fetchReportItems}
-        handleExport={state.handleExport}
+      {/* ── Filtro: la barra de chips (diseño A) ─────────────────────────────── */}
+      <BarraFiltros
+        filtro={filtro}
+        onCambio={setFiltro}
+        dimensiones={dimensiones}
+        contar={f => aplicarFiltro(state.funds, f, hoy).visibles.length}
+        sustantivo={['fondo', 'fondos']}
+        resumen={hayFiltro(filtro)
+          ? textoResumen({ visibles: filtered.length, total: state.funds.length, totalClp: resultado.totalClp }, filtro, categorias)
+          : null}
       />
 
       {/* ── Traspasos sin vincular ─────────────────────────────────────────────── */}
@@ -208,11 +230,12 @@ export function PettyCashClient({
         filtered={filtered}
         isManager={isManager}
         deletingId={state.deletingId}
-        selectedEmpIds_list={state.selectedEmpIds_list}
+        compacta={filtro.empleados.length > 0}
         initialFundsLength={initialFunds.length}
         openTransferModal={openTransferModal}
         handleDeleteFund={state.handleDeleteFund}
-        clearListFilters={clearListFilters}
+        limpiarFiltro={() => setFiltro(FILTRO_VACIO)}
+        coincidencia={coincidencia}
       />
 
       {/* ── Carga histórica ────────────────────────────────────────────────────── */}

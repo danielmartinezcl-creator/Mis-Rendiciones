@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Wallet, Plus, Filter, Trash2, SendHorizontal } from 'lucide-react'
+import { Wallet, Plus, Filter, Trash2, SendHorizontal, Tag } from 'lucide-react'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { FUND_STEPS } from '@/lib/constants'
@@ -14,11 +14,14 @@ export interface FundListProps {
   filtered:            FundListItem[]
   isManager:           boolean
   deletingId:          string | null
-  selectedEmpIds_list: string[]
+  /** Vista compacta: con el chip «Empleado» puesto, la lista se escanea por persona */
+  compacta:            boolean
   initialFundsLength:  number
   openTransferModal:   (source: TransferSource) => void
   handleDeleteFund:    (id: string, name: string) => Promise<void>
-  clearListFilters:    () => void
+  limpiarFiltro:       () => void
+  /** Con tipo de gasto elegido: «3 gastos de Combustible · $ 42.600» */
+  coincidencia:        (fundId: string) => string | null
 }
 
 export function FundList({
@@ -26,11 +29,12 @@ export function FundList({
   filtered,
   isManager,
   deletingId,
-  selectedEmpIds_list,
+  compacta,
   initialFundsLength,
   openTransferModal,
   handleDeleteFund,
-  clearListFilters,
+  limpiarFiltro,
+  coincidencia,
 }: FundListProps) {
   if (filtered.length === 0) {
     if (funds.length === 0) {
@@ -54,7 +58,7 @@ export function FundList({
         <Filter size={32} className="mx-auto mb-3 opacity-25" />
         <p className="card-label font-medium">Sin resultados con los filtros actuales</p>
         <button
-          onClick={clearListFilters}
+          onClick={limpiarFiltro}
           className="mt-2 text-brand-600 card-label hover:underline"
         >
           Limpiar filtros
@@ -63,7 +67,7 @@ export function FundList({
     )
   }
 
-  if (selectedEmpIds_list.length > 0) {
+  if (compacta) {
     /* C-01: Vista compacta cuando hay filtro de empleado activo */
     return (
       <div className="space-y-1">
@@ -130,6 +134,12 @@ export function FundList({
                   EFF: <span className="font-medium text-ink-700">{f.manager_name}</span>
                 </p>
                 <p className="card-meta text-ink-400 mt-0.5">{formatPeriod(f.period_start, f.period_end)}</p>
+                {coincidencia(f.id) && (
+                  <p className="card-meta font-semibold text-brand-600 mt-1 flex items-center gap-1.5">
+                    <Tag size={14} className="shrink-0" aria-hidden="true" />
+                    {coincidencia(f.id)}
+                  </p>
+                )}
                 {f.status !== 'rejected' && (
                   <div className="mt-2 max-w-[220px]">
                     <CompactStepper steps={FUND_STEPS} currentStatus={pasoVisibleDelFondo(f.status)} />

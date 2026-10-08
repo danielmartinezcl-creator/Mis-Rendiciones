@@ -23,8 +23,11 @@ import {
 } from '@/actions/fund-transfers'
 import type { FundListItem } from '@/actions/petty-cash'
 import type { FundTransferRow, EmployeeTarget, OrgReportSimple } from '@/actions/fund-transfers'
-import type { PeriodPreset } from '@/lib/report-helpers'
 import { useDialogos } from '@/components/ui/Dialogos'
+import {
+  aplicarFiltro, historicaEntraEnExportacion, rangoDeFecha, type Filtro,
+} from '@/lib/filtro-documentos'
+import { escribirFiltro } from '@/lib/filtro-url'
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
@@ -47,7 +50,6 @@ export type TransferSource = {
   payerEmpId:    string
 }
 
-export type ReportResult = Awaited<ReturnType<typeof getPettyCashItemsForReport>>
 export type EditingLinkedTransfer = { id: string; amount: number; date: string; description: string | null }
 
 export type { OrgReportSimple }
@@ -72,6 +74,9 @@ export interface UsePettyCashStateProps {
   initialHistoricalImports: HistoricalImport[]
   orgEmployees:             { id: string; full_name: string }[]
   initialPendingTransfers:  FundTransferRow[]
+  /** Ya depurado contra las opciones que existen */
+  filtroInicial:            Filtro
+  hoy:                      string
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -81,6 +86,8 @@ export function usePettyCashState({
   initialHistoricalImports,
   orgEmployees,
   initialPendingTransfers,
+  filtroInicial,
+  hoy,
 }: UsePettyCashStateProps) {
   const { confirmar, avisar } = useDialogos()
 
@@ -142,24 +149,15 @@ export function usePettyCashState({
   const [editLinkedSaving,      setEditLinkedSaving]      = useState(false)
   const [editLinkedError,       setEditLinkedError]       = useState<string | null>(null)
 
-  // ── Filtros de lista (cliente) ────────────────────────────────────────────
-  const [statusFilter,        setStatusFilter]        = useState('all')
-  const [dateFrom,            setDateFrom]            = useState('')
-  const [dateTo,              setDateTo]              = useState('')
-  const [selectedEmpIds_list, setSelectedEmpIds_list] = useState<string[]>([])
-  const [periodPreset_list,   setPeriodPreset_list]   = useState<PeriodPreset>({ type: 'custom' })
-  const [empDropdownOpen,     setEmpDropdownOpen]     = useState(false)
-  const [catDropdownOpen,     setCatDropdownOpen]     = useState(false)
+  // ── Filtro (chips) ────────────────────────────────────────────────────────
+  const [filtro, setFiltroEstado] = useState<Filtro>(filtroInicial)
+  function setFiltro(f: Filtro) {
+    setFiltroEstado(f)
+    // Se integra con el router de Next 16 sin volver a pedir la página
+    window.history.replaceState(null, '', `${window.location.pathname}${escribirFiltro(f)}`)
+  }
 
-  // ── Panel de informe ──────────────────────────────────────────────────────
-  const [reportDateFrom,   setReportDateFrom]   = useState('')
-  const [reportDateTo,     setReportDateTo]     = useState('')
-  const [selectedCatIds,   setSelectedCatIds]   = useState<string[]>([])
-  const [itemStatusFilter, setItemStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
-  const [generating,       setGenerating]       = useState(false)
-  const [loadingSearch,    setLoadingSearch]    = useState(false)
-  const [reportData,       setReportData]       = useState<ReportResult | null>(null)
-  const [reportError,      setReportError]      = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   // ── Valores computados ────────────────────────────────────────────────────
 
@@ -175,18 +173,9 @@ export function usePettyCashState({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
   }, [funds, historicalImports])
 
-  // Filtrado cliente de la lista de fondos
-  const filtered = useMemo(() => {
-    return funds.filter(f => {
-      if (statusFilter !== 'all' && f.status !== statusFilter) return false
-      if (dateFrom && f.period_end   < dateFrom) return false
-      if (dateTo   && f.period_start > dateTo)   return false
-      if (selectedEmpIds_list.length && !selectedEmpIds_list.includes(f.employee_id)) return false
-      return true
-    })
-  }, [funds, statusFilter, dateFrom, dateTo, selectedEmpIds_list])
-
-  const activeFilters = statusFilter !== 'all' || dateFrom !== '' || dateTo !== '' || selectedEmpIds_list.length > 0
+  // Filtrado en el navegador: las reglas son las de src/lib/filtro-documentos.ts
+  const resultado = useMemo(() => aplicarFiltro(funds, filtro, hoy), [funds, filtro, hoy])
+  const filtered = useMemo(() => resultado.visibles.map(v => v.doc), [resultado])
 
   // ── Handlers de ítems históricos ──────────────────────────────────────────
 
@@ -612,66 +601,38 @@ export function usePettyCashState({
     }
   }
 
-  // ── Handlers de filtros ───────────────────────────────────────────────────
-
-  function toggleCat(id: string) {
-    setSelectedCatIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
-
-  function clearListFilters() {
-    setStatusFilter('all')
-    setDateFrom('')
-    setDateTo('')
-    setSelectedEmpIds_list([])
-    setPeriodPreset_list({ type: 'custom' })
-  }
-
-  function clearSearchFilters() {
-    setReportDateFrom('')
-    setReportDateTo('')
-    setSelectedCatIds([])
-    setItemStatusFilter('all')
-    setReportData(null)
-    setReportError(null)
-  }
 
   // ── Handlers de reporte ───────────────────────────────────────────────────
 
-  async function fetchReportItems() {
-    setLoadingSearch(true)
-    setReportError(null)
-    setReportData(null)
-    try {
-      const result = await getPettyCashItemsForReport({
-        dateFrom:    reportDateFrom || undefined,
-        dateTo:      reportDateTo   || undefined,
-        itemStatus:  itemStatusFilter,
-        employeeIds: selectedEmpIds_list.length ? selectedEmpIds_list : undefined,
-        categoryIds: selectedCatIds.length ? selectedCatIds : undefined,
-      })
-      setReportData(result)
-    } catch (err) {
-      setReportError(err instanceof Error ? err.message : 'Error al obtener los datos')
-    } finally {
-      setLoadingSearch(false)
-    }
-  }
-
+  // Exporta lo filtrado, sin el paso de «Buscar». La parte histórica la
+  // resuelve el servidor: por eso el conteo va en el aviso del final.
   async function handleExport(format: 'excel' | 'pdf') {
-    if (!reportData?.items.length) return
     setGenerating(true)
-    setReportError(null)
     try {
-      const title = `Caja Chica${reportDateFrom ? ` ${reportDateFrom}` : ''}${reportDateTo ? ` al ${reportDateTo}` : ''}`
+      const rango = rangoDeFecha(filtro, hoy)
+      const r = await getPettyCashItemsForReport({
+        fundIds:          filtered.map(f => f.id),
+        dateFrom:         rango.desde ?? undefined,
+        dateTo:           rango.hasta ?? undefined,
+        categoryIds:      filtro.categorias,
+        employeeIds:      filtro.empleados,
+        incluirHistorica: historicaEntraEnExportacion(filtro),
+      })
+      if (!r.items.length) {
+        avisar('No hay gastos que exportar con este filtro')
+        return
+      }
+      const titulo = `Caja Chica${rango.desde ? ` ${rango.desde}` : ''}${rango.hasta ? ` al ${rango.hasta}` : ''}`
       if (format === 'excel') {
         const { exportPettyCashToExcel } = await import('@/lib/export/excel')
-        exportPettyCashToExcel(reportData.items, 'caja-chica-informe')
+        exportPettyCashToExcel(r.items, 'caja-chica-informe')
       } else {
         const { exportPettyCashToPDF } = await import('@/lib/export/pdf')
-        exportPettyCashToPDF(reportData.items, title)
+        exportPettyCashToPDF(r.items, titulo)
       }
+      avisar(`Exportados ${r.items.length} gastos${r.deHistorica ? ` (${r.deHistorica} de la carga histórica)` : ''}`)
     } catch (err) {
-      setReportError(err instanceof Error ? err.message : 'Error al exportar')
+      avisar(err instanceof Error ? err.message : 'Error al exportar', 'error')
     } finally {
       setGenerating(false)
     }
@@ -695,24 +656,9 @@ export function usePettyCashState({
     // Employees (computed + raw)
     employees,
     orgEmployees,
-    // Filters state + setters
-    statusFilter,    setStatusFilter,
-    dateFrom,        setDateFrom,
-    dateTo,          setDateTo,
-    selectedEmpIds_list, setSelectedEmpIds_list,
-    periodPreset_list,   setPeriodPreset_list,
-    empDropdownOpen, setEmpDropdownOpen,
-    catDropdownOpen, setCatDropdownOpen,
-    activeFilters,
-    // Report search state + setters
-    reportDateFrom,   setReportDateFrom,
-    reportDateTo,     setReportDateTo,
-    selectedCatIds,   setSelectedCatIds,
-    itemStatusFilter, setItemStatusFilter,
+    // Filtro
+    filtro, setFiltro, resultado,
     generating,
-    loadingSearch,
-    reportData,
-    reportError,
     // Transfer modal state + setters
     transferSource, setTransferSource,
     trReceiverId,   setTrReceiverId,
@@ -773,11 +719,7 @@ export function usePettyCashState({
     openEditTransferModal,
     handleSaveEditTransfer,
     handleDeleteTransfer,
-    toggleCat,
     toggle_ids,
-    clearListFilters,
-    clearSearchFilters,
-    fetchReportItems,
     handleExport,
   }
 }
