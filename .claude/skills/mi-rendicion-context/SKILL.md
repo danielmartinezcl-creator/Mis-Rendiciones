@@ -199,6 +199,8 @@ src/
 │   │   │   ├── analisis/                 ← Pivot gastos por centro de costo
 │   │   │   ├── carga-historica/          ← Importador histórico Excel
 │   │   │   ├── proyectos/                ← Catálogo de proyectos: corregir número, nombre, jefe, activo (039)
+│   │   │   ├── centros-costo/            ← Catálogo de centros de costo: crear (padre + 3 letras), nombre,
+│   │   │   │                                si recibe asientos, activo, borrar si nada lo usa (2026-10-08)
 │   │   │   ├── auditoria/                ← Registro append-only (incluye reversas Defontana)
 │   │   │   └── trash/                    ← Papelera (soft delete; nada la purga sola)
 │   │   ├── petty-cash/ + new + [id]/     ← Módulo Caja Chica (flujo bancario)
@@ -211,7 +213,10 @@ src/
 ├── actions/                ← 16 server actions
 │   ├── admin.ts            ← KPIs, reportes, empleados, Defontana, CC masivo, fondos, getBankQueue
 │   ├── approvals.ts        ← aprobaciones L1/L2/backup, reembolso, análisis IA
-│   ├── cost-centers.ts     ← getCostCenters (sin requireAdmin — cualquier user)
+│   ├── cost-centers.ts     ← getCostCenters (sin requireAdmin — cualquier user) + el catálogo:
+│   │                         listarCentrosCosto / crearCentroCosto / corregirCentroCosto /
+│   │                         eliminarCentroCosto (admin). Antes era SOLO lectura: los 46
+│   │                         venían sembrados por la 012 y sumar uno exigía SQL a mano
 │   ├── employees.ts        ← importEmployees, setApprovers, setBackup + la planilla de alta:
 │   │                         datosParaPlanilla, cargarPlanillaAlta, otorgarPermisoAprobar
 │   ├── expenses.ts         ← CRUD rendiciones, addItem (con CC + supplier_rut + km)
@@ -254,9 +259,17 @@ src/
 │   ├── respaldos.ts           ← puedeBorrarRespaldo, puedeSubirRespaldo, destinoDelRespaldo (037)
 │   ├── archivos.ts            ← archivosQueCaen, retirarArchivos: los archivos que un borrado de verdad deja sin fila
 │   ├── papelera.ts            ← qué impide eliminar de verdad un documento (hoy: aparecer en un traspaso)
-│   ├── planilla-alta.ts       ← la carga de empleados desde Excel: normalizarRut/formatearRut (la base
-│   │                            los guarda CON puntos y 5 con la k minúscula), resolverPersona,
+│   ├── planilla-alta.ts       ← la carga de empleados desde Excel: resolverPersona (solo ACTIVAS),
 │   │                            resolverCentroCosto, parcheDeFila (vacío nunca borra), resolverPlanilla
+│   ├── rut.ts                 ← normalizarRut (para comparar) / formatearRut (para guardar: la base
+│   │                            los tiene CON puntos y 5 con la k minúscula). Módulo propio para que
+│   │                            planilla-alta y alta-repetida no se importen en círculo
+│   ├── alta-repetida.ts       ← por qué un alta rebota cuando la persona YA existe: la busca por
+│   │                            correo o RUT SIN mirar si está activa, y dice qué hacer según dónde
+│   │                            esté (papelera → restaurar, bloqueo → habilitar, baja → reactivar)
+│   ├── centros-costo.ts       ← el código ES el centro de negocios de Defontana y se lee de tres en
+│   │                            tres: profundidad / codigoDePadre / armarCodigo / erroresDeAlta /
+│   │                            ordenarEnArbol / sePuedeBorrar / toSheetCostCenter (los tres ceros)
 │   ├── segregacion.ts         ← las 3 alertas sobre el resultado: carga Y autoriza pagos, se aprueban
 │   │                            mutuamente (validarCadena no lo ve: mira una persona, no el conjunto),
 │   │                            demasiada gente a cargo. NO bloquean
@@ -339,7 +352,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **601 tests Vitest en 43 archivos** (2026-10-08; eran 537 en 37 antes del filtro del empleado), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **652 tests Vitest en 45 archivos** (2026-10-08; eran 601 en 43 antes de los centros de costo), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -385,8 +398,9 @@ Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
 **Antes de tocar estilos, leer `docs/Rediseño/tornasol-spec.md` — empezando por su fe de
 erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
 
-**Hay una línea base visual de 52 capturas** (26 escritorio + 26 móvil — recapturada
-entera el 2026-10-08 con el filtro del empleado: cambiaron **todas**, porque la barra de
+**Hay una línea base visual de 54 capturas** (27 escritorio + 27 móvil — sumó «Centros de
+costo» el 2026-10-08; antes eran 52, recapturadas enteras ese mismo día con el filtro del
+empleado: cambiaron **todas**, porque la barra de
 abajo y el riel ganaron «Mis rendiciones»). `aprobacion-detalle` sigue afuera por no
 haber ninguna aprobación pendiente que abrir: sin datos esa ruta queda en «skipped» y
 **no tiene base**, que el arnés trata como información, no como falla. Cuando vuelva a
@@ -469,10 +483,18 @@ que usan el envío y la previa («esto va a…»), así lo que se ve es lo que p
 - Admin: «Jefe de proyecto» en la ficha (da «aprueba»; quitar «aprueba» lo saca de la
   lista — `coherenciaJefeProyecto`), aprobadores por defecto en Configuración → Aprobación,
   monto en Límites, y `/admin/proyectos` para corregir el catálogo
+- **El rol `approver` casi no se usa, y conviene saberlo antes de leer código que lo mira.**
+  Quien aprueba se define por `can_approve` + estar en la cadena, así que en PENTA los 11
+  que aprueban son `employee`: el rol solo fija los permisos por defecto al crear a alguien
+  (`approver` → aprueba y no rinde) y qué sale en el menú. Decidir una pantalla por el rol
+  es un error — ver la fila «Decidir qué sale en el menú por el ROL» en errores conocidos
 
 **Configuración real (2026-10-07):** aprobadora por defecto **Claudia Lobos** (Gestión de
 Personas), con «aprueba»; lo de ella lo aprueba Francisco Hagar. 50 de los 57 no tienen
-jefe propio y van a ella con lo que no sea de obra. **Jefes de proyecto: ninguno todavía**,
+jefe propio y van a ella con lo que no sea de obra. **Jefes de proyecto: los 6 que cargó
+Daniel el 2026-10-08** — Seaton Edwin, Riquelme Juan Francisco, Mancini Leonardo, Cancino
+Pablo, Díaz Eduardo y Pizarro Erick. Ninguno tiene jefe propio, así que lo que rinden fuera
+de una obra va a Claudia; Daniel puede querer cambiarlo. Antes decía «ninguno todavía»,
 los configura Daniel. Hecho por SQL con su fila en `audit_log`.
 
 ### ✅ Filtro del empleado (2026-10-08)
@@ -512,6 +534,46 @@ dice si ya se desplegó (al cerrar el 2026-10-08 estaba en `main`, sin subir).
 - «Mis gastos»: total aprobado, pendiente de aprobación y promedio mensual, de
   rendiciones **y** caja chica, solo gastos. Sale «Categoría principal» (el gráfico ya lo
   dice) y sale la tarjeta «Total reembolsado» de `/reimbursements`
+
+### ✅ Centros de costo — el catálogo, administrable (2026-10-08)
+
+`/admin/centros-costo`. Hasta hoy **no había pantalla**: los 46 de PENTA venían sembrados
+por la migración 012 y agregar uno exigía SQL a mano, lo que Daniel descubrió subiendo la
+planilla con un centro nuevo. La RLS ya lo permitía desde la 016
+(`admin_manage_cost_centers`, for all): no hizo falta migración.
+
+**El código ES el centro de negocios de Defontana.** Viaja tal cual al comprobante con tres
+ceros al final (`toSheetCostCenter`), así que no es un nombre interno: tiene que coincidir
+letra por letra o la importación falla.
+
+**Y se lee de tres en tres letras**, un tramo por nivel. Los 46 lo cumplen sin excepción:
+
+```
+EMP              EMPRESA                  agrupa
+└ EMPGES         AREAS DE GESTION         agrupa
+  └ EMPGESING    INGENIERIA               agrupa
+    └ EMPGESINGELE  ELECTRICIDAD          imputable · 18 personas
+```
+
+- **El alta pide el padre y las tres letras nuevas, nunca el código completo**: así sale
+  bien armado y colgado de donde corresponde. Un código escrito entero a mano es la forma
+  de inventar una rama que Defontana no tiene. La pantalla muestra, antes de crear, el
+  código que va a quedar y cómo sale en el comprobante (`EMPGESINGMEC` → `EMPGESINGMEC000`)
+- **El código no se puede cambiar**: es la clave primaria, y la nombran `users.cost_center_id`
+  y `expense_items.cost_center_id` (las dos únicas llaves foráneas). Uno mal escrito se
+  arregla creando el correcto y borrando el otro
+- **Borrar de verdad solo si NADA lo nombra** (`sePuedeBorrar`: 0 personas, 0 gastos, 0
+  hijos) — es para arreglar un código recién escrito mal. Para retirar uno en uso está
+  `activo`, que lo saca de los desplegables sin tocar lo ya imputado. Lo cuenta el servidor,
+  no la pantalla: el botón se esconde, pero la acción se puede llamar igual
+- **`imputable` no se deduce del nivel**: dice si recibe asientos. Los que agrupan no reciben,
+  y una hoja puede estar a cualquier altura (`EMPPRU`, CENTRO PRUEBA, es imputable en el
+  nivel 2). Solo los imputables se pueden elegir en una ficha o en un gasto
+- **El árbol se arma con TODOS y recién después se filtra**: ordenando lo filtrado, el nivel
+  de cada fila y la marca «sin padre» saldrían de una lista incompleta y mentirían
+- `toSheetCostCenter` **se mudó** de `lib/export/defontana` a `lib/centros-costo` y se
+  re-exporta desde el export: la pantalla lo necesita y `defontana.ts` importa xlsx, que no
+  puede entrar al bundle del navegador
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -811,11 +873,12 @@ una columna `NOT NULL`.
    estáticos y necesitarían rutas de metadata dinámicas.
 
 2. **Rediseño Tornasol — el rediseño *conceptual*, pantalla por pantalla.**
-   El chasis y la regla de materiales están **completos y verificados en las 23
+   El chasis y la regla de materiales están **completos y verificados en las 26
    pantallas** (`npm run audit:materiales`), con deuda de sistema en cero. Lo que falta
    es repensar cada pantalla, que es otra cosa y es la parte que rinde.
 
-   **Pasaron 5 de 23** (no una sola, como decía este archivo hasta el 2026-09-21):
+   **Pasaron 5 de 26** (no una sola, como decía este archivo hasta el 2026-09-21; eran 23
+   pantallas hasta que entraron proyectos y centros de costo):
 
    | Pantalla | Resultado medido |
    |---|---|
@@ -825,7 +888,7 @@ una columna `NOT NULL`.
    | `/admin/employees` | la nómina dejó de ser 34 scrolls |
    | `/admin/reports` | trampa de `min-w-0` + paginado de a 25 |
 
-   Las **18 restantes** tienen el chasis correcto pero nunca se pensaron de nuevo.
+   Las **21 restantes** tienen el chasis correcto pero nunca se pensaron de nuevo.
    Las herramientas para hacerlo ya existen: medir por bloques (§5 de la spec), el
    detector de deuda y la línea base visual. Ver [[project-rediseno-tornasol]].
 
@@ -1218,3 +1281,6 @@ una columna `NOT NULL`.
 | Una acción masiva sin confirmación | «Invitar sin invitar (N)» enviaba N correos con un solo clic: `handleSendInvitations` solo pedía confirmación cuando alguno ya estaba invitado | Toda acción que llega a muchas personas pide confirmación con el número a la vista. Para invitar, desde `c3ecd2a`: dos o más personas exigen escribir INVITAR (`confirmacionInvitacion` en `src/lib/invitaciones.ts`) |
 | Sumar `expense_items` de un empleado sin mirar `item_type` | Las cargas históricas traen adelantos, devoluciones y traspasos como ítems: «Mis gastos» los sumaba como gastos hasta el 2026-10-08, y encima no contaba caja chica | `esGasto(item_type)` de `src/lib/filtro-documentos.ts` antes de sumar. En `petty_cash_items` no hace falta: ahí solo hay gastos |
 | Dejar en blanco el monto de N2 y creer que «nunca escala» | Hasta el 2026-10-07 el diseño decía «sin umbral = nunca», y nadie había cargado montos: quien tenía N2 en la ficha (Francisco Díaz) lo perdía en silencio al desplegar | **Un N2 sin monto firma siempre.** El monto de la ficha vale para los dos N2; el de la organización, solo para el suyo (`umbralAplicable`). Ante un cambio de regla de aprobación, consultar quién tiene hoy esa configuración ANTES de desplegar |
+| Decidir qué sale en el menú por el ROL cuando el poder lo da un permiso | Desde los permisos por asignación, quién aprueba lo decide la cadena: **en PENTA nadie tiene el rol `approver`**, los 11 que aprueban son `employee` con `can_approve`. `pestanasPrincipales` y el `isVisible` de MobileNav seguían cortando por rol, así que «Aprobaciones» no salía en la barra de abajo NI en «Más» —isVisible corta por rol en su PRIMERA línea— y en el teléfono no había forma de llegar a aprobar. El riel de escritorio sí tenía su escapatoria por permiso. Visto el 2026-10-08 | Si una pantalla la habilita un permiso, el menú se decide por **ese permiso**, nunca por el rol. Antes de confiar en una lista de roles, consultar qué roles tiene la gente de verdad, no los que el código supone |
+| Creer que eliminar a alguien libera su correo | No lo libera nunca: «Eliminar» manda la ficha a la papelera y «Eliminar definitivamente» la bloquea (027, porque su historial la referencia), y la cuenta de Auth sigue existiendo con su correo tomado — Auth es GLOBAL, no por organización. El alta rebotaba con «el correo ya lo usa otra cuenta», sin decir quién ni dónde estaba. Pasó con Julián Torres el 2026-10-08 | `cuentaQueChoca` de `src/lib/alta-repetida.ts` antes de tocar Auth: busca por correo y por RUT **sin mirar si está activa** —las inactivas son justo las que no se ven en la nómina— y el texto termina en la acción de ese estado. La pantalla ofrece el botón ahí mismo. Una cuenta de OTRA organización no se nombra: eso sería filtrar gente ajena |
+| Dar por hecho que un `overflow-x-auto` evita que la página scrollee | A veces no alcanza, y el arnés lo encuentra pero no explica por qué. En `/admin/centros-costo` una tabla de 6 columnas dentro de su scroller dejaba el cuerpo corriendo **334 px** a lo ancho (`scrollX` llegaba a 334 de verdad, no era un número raro): no lo arregló `overflow-x:hidden` en NINGUNO de los siete ancestros, uno por vez, ni `max-width`, ni un ancho fijo — solo `contain:paint`. En `/admin/analisis`, con la misma estructura, un scroller de 358 px contiene una tabla de 1021 sin problema. La diferencia no se encontró | No pelear con el scroller: **si el contenido no entra en 390 px, no va en una tabla**. Una lista de `flex flex-col` que se vuelve fila alineada en el corte grande no tiene el problema, y en el teléfono se lee mejor. Y el corte va en `lg:`, no en `sm:`: a `md:` aparece el riel lateral y se come 256 px, así que **a 768 hay menos ancho de contenido que a 640** — ahí desbordaba 30 px |

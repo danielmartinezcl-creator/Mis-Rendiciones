@@ -543,11 +543,12 @@ const SHEET_VOUCHER_NUMBER = 'A'
 /** El importador nombra la moneda "PESO", no "CLP". */
 const SHEET_CURRENCY = 'PESO'
 
-/** El centro de negocios va con tres ceros al final: EMPGESINGING → EMPGESINGING000.
- *  Vacío se deja vacío: "000" solo no es un centro válido. */
-export function toSheetCostCenter(costCenter: string): string {
-  return costCenter ? `${costCenter}000` : ''
-}
+/* El centro de negocios con sus tres ceros vive en `lib/centros-costo`: la
+   pantalla del catálogo lo muestra antes de crear un centro, y este archivo
+   importa xlsx, que no puede entrar al bundle del navegador. Se re-exporta
+   para que el resto del export y sus pruebas lo sigan encontrando acá. */
+export { toSheetCostCenter } from '@/lib/centros-costo'
+import { toSheetCostCenter } from '@/lib/centros-costo'
 
 /** El importador exige el RUT con puntos y guión: 76247147-7 → 76.247.147-7.
  *  Los RUT de proveedor vienen del OCR sin puntos y los de empleado a veces con

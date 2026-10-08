@@ -43,6 +43,7 @@ const ENTITY_TYPES = [
   'defontana_supplier',
   'defontana_export',
   'defontana_export_petty_cash',
+  'cost_center',
   'cost_center_assignment',
   'approver_assignment',
   'petty_cash_fund',

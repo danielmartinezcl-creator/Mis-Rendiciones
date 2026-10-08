@@ -12,6 +12,7 @@ export type AuditEntityType =
   | 'defontana_settings' | 'defontana_supplier'
   | 'defontana_export' | 'defontana_export_petty_cash'
   | 'cost_center_assignment' | 'approver_assignment'
+  | 'cost_center'
   | 'webhook'
 
 export interface AuditLogEntry {

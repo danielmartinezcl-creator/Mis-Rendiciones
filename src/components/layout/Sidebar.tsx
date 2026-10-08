@@ -30,6 +30,7 @@ import {
   Shield,
   Landmark,
   Receipt,
+  FolderTree,
 } from 'lucide-react'
 
 import { Marca, MarcaProducto } from './Marca'
@@ -60,6 +61,7 @@ const NAV_ITEMS = [
   { href: '/admin/reports',   label: 'Rendiciones',     Icon: ReceiptText,      roles: ['admin'] as const },
   { href: '/admin/employees', label: 'Empleados',       Icon: Users,            roles: ['admin'] as const },
   { href: '/admin/proyectos', label: 'Proyectos',       Icon: Building2,        roles: ['admin'] as const },
+  { href: '/admin/centros-costo', label: 'Centros de costo', Icon: FolderTree,   roles: ['admin'] as const },
   { href: '/admin/settings',      label: 'Configuración',   Icon: Settings2, roles: ['admin'] as const },
   { href: '/admin/auditoria',     label: 'Auditoría',       Icon: Shield,    roles: ['admin'] as const },
   { href: '/admin/trash',         label: 'Papelera',        Icon: Trash2,    roles: ['admin'] as const },

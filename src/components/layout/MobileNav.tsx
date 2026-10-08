@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ScanLine, CheckCircle2, BarChart3, Wallet,
   Lightbulb, Clock, MoreHorizontal, TrendingUp, BarChart2,
   WalletCards, PieChart, ReceiptText, Users, Building2, Settings2,
-  Trash2, Zap, X, User, Receipt,
+  Trash2, Zap, X, User, Receipt, FolderTree,
 } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import { pestanasPrincipales } from '@/lib/navegacion'
@@ -53,6 +53,7 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: '/admin/reports',         label: 'Rendiciones',      shortLabel: 'Rendición',Icon: ReceiptText,     roles: ['admin'],                     section: 'admin' },
   { href: '/admin/employees',       label: 'Empleados',        shortLabel: 'Empleados',Icon: Users,           roles: ['admin'],                     section: 'admin' },
   { href: '/admin/proyectos',       label: 'Proyectos',        shortLabel: 'Proyectos',Icon: Building2,       roles: ['admin'],                     section: 'admin' },
+  { href: '/admin/centros-costo',   label: 'Centros de costo', shortLabel: 'Centros', Icon: FolderTree,      roles: ['admin'],                     section: 'admin' },
   { href: '/admin/settings',        label: 'Configuración',    shortLabel: 'Config.',  Icon: Settings2,       roles: ['admin'],                     section: 'admin' },
   { href: '/admin/trash',           label: 'Papelera',         shortLabel: 'Papelera', Icon: Trash2,          roles: ['admin'],                     section: 'admin' },
   { href: '/admin/carga-historica', label: 'Carga Histórica',  shortLabel: 'Historial',Icon: Clock,           roles: ['admin'],                     section: 'admin' },

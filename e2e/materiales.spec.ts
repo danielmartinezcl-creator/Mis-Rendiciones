@@ -99,6 +99,12 @@ const PANELES: Panel[] = [
      nada. */
   { ruta: '/admin/employees',      panel: 'Planilla de alta', pasos: [{ boton: 'Cargar planilla' }] },
 
+  /* El alta de un centro de costo (2026-10-08). El botón es un setState a
+     secas: revela el formulario vacío, con el padre sin elegir y el código sin
+     escribir. No envía nada — crear exige el botón «Crear centro», que la
+     auditoría no toca. */
+  { ruta: '/admin/centros-costo',  panel: 'Nuevo centro de costo', pasos: [{ boton: 'Nuevo centro de costo' }] },
+
   /* Los permisos de cada empleado pasaron a un cajón plegado: sin esto, seis
      casillas por persona dejarían de auditarse. */
   { ruta: '/admin/employees',      panel: 'Permisos',       pasos: [{ boton: 'Permisos' }] },
