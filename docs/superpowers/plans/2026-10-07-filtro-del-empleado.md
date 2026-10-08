@@ -2692,3 +2692,18 @@ git commit -m "test(línea base): recaptura con el filtro del empleado; contexto
   - «Más» → «Mis gastos»: los tres indicadores.
 
 - [ ] **Step 5: Registrar el despliegue** en el «Registro de avance» de este plan y en el de `docs/superpowers/plans/2026-09-29-hoja-de-ruta-pendientes.md` (commit local; viaja con el próximo push).
+
+---
+
+## Registro de avance
+
+| Fecha | Tarea | Resultado | Commit |
+|---|---|---|---|
+| 2026-10-07 | 1 | Reglas puras del filtro con TDD: 27 pruebas | `d4df6f1` |
+| 2026-10-07 | 2 | El filtro en la dirección y los textos de los chips: 18 pruebas | `cdfe95a` |
+| 2026-10-07 | 3 | «Mis gastos» con los tres indicadores, caja chica incluida y solo gastos. **Arregló un error real**: sumaba adelantos y devoluciones de las cargas históricas | `c7149d5` |
+| 2026-10-07 | 4 | Rendiciones y fondos con el resumen de sus gastos; el empleado ve solo sus fondos | `57321ed` |
+| 2026-10-07 | 5 | La barra de chips y su hoja: 7 pruebas de componente. Corrección a la spec: el chip activo usa `var(--cta-brand)`, porque `--anod` no existe como variable | `8a6f6bf`, `50c13b8` |
+| 2026-10-07 | 6 | «Mis rendiciones» con filtro; sale «Total reembolsado»; «Ver todas» siempre | `55a6d48` |
+| 2026-10-07 | 7 | Caja chica con chips; `FundFilters` borrado (420 líneas); exportar lo filtrado sin «Buscar» | `ade9270` |
+| 2026-10-08 | 8 | «Rendiciones» en la barra del empleado. El rótulo de las cinco pestañas bajó a 12 px con `tracking-tight`: medido con la Hanken real, «Rendiciones» mide 61,6 px contra 72 de columna a 360 px (a 13 px medía 70,3 y rozaba el borde) | `d903fe8` |

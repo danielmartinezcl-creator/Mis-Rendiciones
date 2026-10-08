@@ -105,10 +105,19 @@ const PANELES: Panel[] = [
   { ruta: '/admin/employees',      panel: 'Diálogo de confirmación',
     pasos: [{ boton: 'Eliminar empleado', selector: 'button[title="Eliminar empleado definitivamente"]' }] },
 
-  /* Caja chica: los filtros y el archivo histórico pasaron a plegarse. Sin
-     esto, 785 px de panel de filtros y 76 cargas dejarían de auditarse. */
-  { ruta: '/petty-cash', panel: 'Filtros de lista', pasos: [{ boton: 'Filtros de lista' }] },
+  /* Caja chica: el archivo histórico se pliega. Sin esto, 76 cargas dejarían
+     de auditarse. */
   { ruta: '/petty-cash', panel: 'Carga histórica',  pasos: [{ boton: 'Carga histórica' }], condicional: true },
+
+  /* La hoja de opciones de un chip del filtro (2026-10-08): una superficie que
+     SOLO existe abierta, como el diálogo. Reemplazó al panel «Filtros de lista»
+     de caja chica, que se eliminó con `FundFilters`.
+     Dos entradas y no cinco: los cinco chips abren el MISMO componente
+     (`HojaOpciones`) y lo que cambia es su contenido, que tiene dos formas —
+     la lista de casillas y la de fecha, con sus radios y sus dos campos—.
+     `/reimbursements` monta ese mismo componente, así que no se repite ahí. */
+  { ruta: '/petty-cash', panel: 'Filtro · tipo de gasto', pasos: [{ boton: 'Tipo de gasto' }] },
+  { ruta: '/petty-cash', panel: 'Filtro · fecha',         pasos: [{ boton: 'Fecha' }] },
 
   /* Las etapas de la cola bancaria: los KPI son el control, así que solo una se
      pinta por vez y la otra sería punto ciego. Dos etapas, no tres: la del

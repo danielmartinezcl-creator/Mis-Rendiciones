@@ -761,7 +761,10 @@ Esta fase no se implementa desde acá: su primera sesión corre brainstorming (e
 - **Archivos:**
   - `src/app/(app)/quick/*`, con el borrado de `layout.tsx`.
   - Las acciones existentes `createExpenseReport` / `addExpenseItem` (`src/actions/expenses.ts:21`, `:56`), `listMyOpenFunds` / `addFundItem` (`src/actions/petty-cash.ts:579`, `:214`) y el `subirAdjunto` de los comprobantes.
-  - Los `roles` en `MobileNav.tsx` y `Sidebar.tsx`, y `getPrimaryHrefs`.
+  - Los `roles` en `MobileNav.tsx` y `Sidebar.tsx`, y `pestanasPrincipales` de
+    `src/lib/navegacion.ts` (era `getPrimaryHrefs` dentro de `MobileNav` hasta el
+    2026-10-08). **Las 4 pestañas del empleado ya están ocupadas** desde que entró
+    «Rendiciones»: sumar «Gasto rápido» obliga a sacar otra.
   - El atajo de `public/manifest.json`, `rol: 'employee'` en `e2e/rutas.ts` y la sección del manual.
 - **Reglas que no se negocian:**
   - Solo el dueño agrega gastos (033 §3b, `puedeCambiarGastos`).
@@ -847,3 +850,4 @@ Cuándo: al sumar un segundo cliente, o si Vercel o los `edge_logs` muestran con
 | | | **Pendiente del aprobador por proyecto** | Tarea 15: push con aprobación de Daniel, `READY` por la API de Vercel, prueba de humo **con un usuario que no sea admin**. Después: Daniel marca a los jefes de proyecto cuando los conozca | — |
 | 2026-10-07 | `Implementacion Pendientes` | **Aprobador por proyecto — DESPLEGADO** | Comprobado antes del push que no sale correo (`CORREO_PAUSADO=1`, los 5 caminos por el candado). `main` a `b7049d1`, `dpl_3r2UGWqovXFKy3fVjkrDSxuH6rDh` `READY` en 52 s con `www.mi-rendicion.com`, sin errores en ejecución. Pendiente: prueba de humo de Daniel con un usuario no admin, y marcar a los jefes de proyecto. Este registro va con el próximo push | `b7049d1` |
 | 2026-10-07 | Daniel | **Aprobador por proyecto — CERRADO** | Prueba de humo con un usuario no admin, correcta. Queda de su parte marcar a los jefes de proyecto cuando los conozca | — |
+| 2026-10-07/08 | `Implementacion Pendientes` | **Filtro del empleado — construido, falta desplegar** | Fuera de la hoja de ruta original: lo pidió Daniel. Brainstorming → 3 diseños como Artifact (eligió la **A**, barra de chips) → spec → plan de 10 tareas, 1–8 hechas con TDD en `main`. **601 pruebas** (eran 537). Un solo filtro —proyecto, tipo de gasto, fecha, estado, y empleado para quien administra fondos— en «Mis rendiciones» y «Caja chica»; `FundFilters` borrado (420 líneas); exportar = lo filtrado, sin «Buscar»; «Rendiciones» entra a la barra del empleado. **Arregló dos errores reales**: «Mis gastos» sumaba adelantos y devoluciones de las cargas históricas como gastos y no contaba caja chica; y el empleado no tenía cómo llegar a su lista de rendiciones | `d4df6f1`…`d903fe8` |

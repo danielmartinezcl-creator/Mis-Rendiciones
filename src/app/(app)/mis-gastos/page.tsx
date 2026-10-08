@@ -111,7 +111,9 @@ export default async function MisGastosPage() {
               {r.porCategoria.map(c => (
                 <tr key={c.id ?? '__sin__'} className="border-b border-ink-50 hover:bg-ink-50/40">
                   <td className="px-5 py-3 text-ink-700 font-medium">{c.nombre}</td>
-                  <td className="px-5 py-3 text-right font-mono-amount text-ink-700">{formatCLP(c.total)}</td>
+                  {/* `whitespace-nowrap`: en un teléfono la columna se angosta y
+                      «$ 101.523» se partía en dos líneas, con el signo arriba */}
+                  <td className="px-5 py-3 text-right font-mono-amount text-ink-700 whitespace-nowrap">{formatCLP(c.total)}</td>
                   <td className="px-5 py-3 text-right text-ink-400 text-xs">{((c.total / r.totalAprobado) * 100).toFixed(1)}%</td>
                 </tr>
               ))}
@@ -119,7 +121,7 @@ export default async function MisGastosPage() {
             <tfoot>
               <tr className="bg-ink-50/60">
                 <td className="px-5 py-3 font-semibold text-ink-700">Total</td>
-                <td className="px-5 py-3 text-right font-mono-amount font-bold text-accent-700">{formatCLP(r.totalAprobado)}</td>
+                <td className="px-5 py-3 text-right font-mono-amount font-bold text-accent-700 whitespace-nowrap">{formatCLP(r.totalAprobado)}</td>
                 <td className="px-5 py-3 text-right text-ink-400 text-xs">100%</td>
               </tr>
             </tfoot>
@@ -143,7 +145,7 @@ export default async function MisGastosPage() {
               {r.meses.filter(m => r.porMes[m] > 0).reverse().map(m => (
                 <tr key={m} className="border-b border-ink-50 hover:bg-ink-50/40">
                   <td className="px-5 py-3 text-ink-700">{etiquetaMes(m)} {m.slice(2, 4)}</td>
-                  <td className="px-5 py-3 text-right font-mono-amount text-ink-700">{formatCLP(r.porMes[m])}</td>
+                  <td className="px-5 py-3 text-right font-mono-amount text-ink-700 whitespace-nowrap">{formatCLP(r.porMes[m])}</td>
                 </tr>
               ))}
             </tbody>

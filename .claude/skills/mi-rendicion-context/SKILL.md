@@ -266,6 +266,13 @@ src/
 │   ├── cadena-proyecto.ts     ← resolverCadena / umbralAplicable / requiereN2: QUIÉN aprueba un
 │   │                            documento (039). La usan el envío y la previa: la misma función
 │   ├── invitaciones.ts        ← confirmacionInvitacion: varias personas exigen escribir INVITAR
+│   ├── filtro-documentos.ts   ← el filtro del empleado: qué documento entra y qué suma (aplicarFiltro),
+│   │                            rangos de fecha, estados = las 4 familias. Lo usan las listas, la
+│   │                            exportación de caja chica y «Mis gastos»
+│   ├── filtro-url.ts / filtro-etiquetas.ts ← el filtro en la dirección; los textos de los chips
+│   ├── opciones-filtro.ts     ← los nombres de proyectos y categorías que ven los chips
+│   ├── mis-gastos.ts          ← total aprobado, pendiente y promedio (rendiciones + caja chica, solo gastos)
+│   ├── navegacion.ts          ← las 4 pestañas de la barra de abajo según el perfil
 │   ├── supabase/           ← client.ts, server.ts, admin.ts (service role), types.ts
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
@@ -332,7 +339,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **537 tests Vitest en 37 archivos** (2026-10-07; eran 482 en 35 antes del aprobador por proyecto), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **601 tests Vitest en 43 archivos** (2026-10-08; eran 537 en 37 antes del filtro del empleado), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -379,7 +386,8 @@ Si el usuario compara cifras, revisa 40 filas o llena campos, va en hoja blanca.
 erratas**, que lista los ocho puntos donde la spec dice una cosa y se hizo otra.
 
 **Hay una línea base visual de 52 capturas** (26 escritorio + 26 móvil — recapturada
-el 2026-10-07, cuando entró `admin-proyectos`). `aprobacion-detalle` sigue afuera por no
+entera el 2026-10-08 con el filtro del empleado: cambiaron **todas**, porque la barra de
+abajo y el riel ganaron «Mis rendiciones»). `aprobacion-detalle` sigue afuera por no
 haber ninguna aprobación pendiente que abrir: sin datos esa ruta queda en «skipped» y
 **no tiene base**, que el arnés trata como información, no como falla. Cuando vuelva a
 haber una, hay que recapturarla — `e2e/`,
@@ -466,6 +474,43 @@ que usan el envío y la previa («esto va a…»), así lo que se ve es lo que p
 Personas), con «aprueba»; lo de ella lo aprueba Francisco Hagar. 50 de los 57 no tienen
 jefe propio y van a ella con lo que no sea de obra. **Jefes de proyecto: ninguno todavía**,
 los configura Daniel. Hecho por SQL con su fila en `audit_log`.
+
+### ✅ Filtro del empleado (2026-10-08)
+
+Spec `docs/superpowers/specs/2026-10-07-filtro-del-empleado-design.md`; diseños en
+https://claude.ai/artifact/LXLQ3CbUgYbaSPYk8jRMkZ (Daniel eligió la A, barra de chips).
+Plan `docs/superpowers/plans/2026-10-07-filtro-del-empleado.md`.
+
+- **Un solo filtro** —Proyecto · Tipo de gasto · Fecha · Estado, y Empleado para quien
+  administra fondos— en «Mis rendiciones» (`/reimbursements`) y en «Caja chica».
+  Reemplazó a `FundFilters` (filtros de lista + «Búsqueda de ítems», 420 líneas, borrado).
+  Componente `src/components/filtros/BarraFiltros.tsx`; las reglas, en
+  `src/lib/filtro-documentos.ts`
+- **La fecha es la del gasto**, no la del documento, y tipo de gasto + fecha los tiene que
+  cumplir el **mismo** gasto: combustible de agosto y comida de septiembre no entra en
+  «combustible de septiembre». Un documento sin gastos se juzga por su fecha de creación
+- **Un gasto rechazado no suma nunca**, ni en pantalla ni en la exportación
+- Estados = las 4 familias de siempre (`FAMILIA_REPORTE` / `FAMILIA_FONDO`). En
+  rendiciones el grupo de atención se llama **«Con rechazos»** (incluye las aprobadas en
+  parte); en fondos, «Rechazados»
+- El filtro va en la dirección (`?tipo=…&fecha=este-anio`) y se escribe con
+  `window.history.replaceState`, que se integra con el router sin volver a pedir la página.
+  `depurarFiltro` ignora un proyecto o una categoría que ya no existen
+- **El filtro corre en el navegador**, sobre lo que se cargó al entrar: cada chip responde
+  al instante. `getMisRendicionesFiltrables` y `listPettyCashFunds` traen el resumen de
+  gastos de cada documento (categoría, fecha, monto, si está rechazado)
+- En caja chica **el empleado ve solo los fondos donde es beneficiario**; los de su cadena
+  están en «Aprobaciones». La RLS no cambió: el filtro es de la pantalla
+- **Exportar caja chica = lo filtrado**, sin «Buscar». Incluye la carga histórica cuando
+  los chips no la excluyen (no tiene proyecto y cuenta como liquidada), sin rechazados ni
+  adelantos/devoluciones. El conteo va en el aviso del final, no en el botón: la parte
+  histórica la resuelve el servidor
+- «Rendiciones» está en la barra de abajo del empleado que rinde (`src/lib/navegacion.ts`);
+  «Mis gastos» pasó a «Más». El rótulo de las cinco pestañas bajó a 12 px con
+  `tracking-tight` para que «Rendiciones» entre a 360 px de ancho
+- «Mis gastos»: total aprobado, pendiente de aprobación y promedio mensual, de
+  rendiciones **y** caja chica, solo gastos. Sale «Categoría principal» (el gráfico ya lo
+  dice) y sale la tarjeta «Total reembolsado» de `/reimbursements`
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -816,9 +861,12 @@ una columna `NOT NULL`.
    - **un fondo de caja chica** previamente asignado al empleado (`funds_sent`).
 
    Cuando esté, se vuelve a abrir a empleados: `roles` en `MobileNav.tsx` y
-   `Sidebar.tsx`, borrar `(app)/quick/layout.tsx`, el tab en `getPrimaryHrefs`, el
-   shortcut del `manifest.json`, `rol` en `e2e/rutas.ts` y la sección en
-   `docs/manual/manual.html`.
+   `Sidebar.tsx`, borrar `(app)/quick/layout.tsx`, la pestaña en
+   `pestanasPrincipales` (`src/lib/navegacion.ts` — era `getPrimaryHrefs` dentro de
+   `MobileNav` hasta el 2026-10-08), el shortcut del `manifest.json`, `rol` en
+   `e2e/rutas.ts` y la sección en `docs/manual/manual.html`.
+   **Ojo con la barra**: desde que entró «Rendiciones» las 4 pestañas del empleado
+   están ocupadas, así que meter «Gasto rápido» obliga a sacar otra.
 
 6. ~~**Mensaje claro al eliminar un documento con traspaso.**~~ ✅ **HECHO el 2026-10-01**
    (Daniel eligió no dejar y explicar, en vez de borrar también el traspaso: toca a dos
@@ -1167,4 +1215,5 @@ una columna `NOT NULL`.
 | Mirar el `-diff.png` de `rendicion-detalle` y creer que el cambio es enorme | Esa captura entra por el primer enlace de `/admin/reports`, y esa lista cambia: la base puede tener una rendición y la corrida otra, así que el diff compara dos documentos distintos y sale casi todo rojo | Mirar el `-actual.png`, no el `-diff.png`, cuando la captura navega por un enlace en vez de ir a una URL fija |
 | Correr pruebas automatizadas con la sesión de admin contra el servidor local, y hacer clic por posición | El servidor local apunta a la **base real** y tenía la **clave real** de Resend (bajada de Vercel por el target «development»). Un `button:has(svg)` número 4 cayó en «Invitar sin invitar» y mandó 52 invitaciones a empleados reales el 2026-10-07 | Nunca clics a ciegas: elegir siempre por nombre o etiqueta (`getByRole('button', { name: … })`). Nunca automatizar pantallas de administración que disparan acciones hacia afuera (invitar, aprobar, cargar, autorizar). Desde `764e43f` fuera de producción no sale correo, pero la base sigue siendo la real |
 | Una acción masiva sin confirmación | «Invitar sin invitar (N)» enviaba N correos con un solo clic: `handleSendInvitations` solo pedía confirmación cuando alguno ya estaba invitado | Toda acción que llega a muchas personas pide confirmación con el número a la vista. Para invitar, desde `c3ecd2a`: dos o más personas exigen escribir INVITAR (`confirmacionInvitacion` en `src/lib/invitaciones.ts`) |
+| Sumar `expense_items` de un empleado sin mirar `item_type` | Las cargas históricas traen adelantos, devoluciones y traspasos como ítems: «Mis gastos» los sumaba como gastos hasta el 2026-10-08, y encima no contaba caja chica | `esGasto(item_type)` de `src/lib/filtro-documentos.ts` antes de sumar. En `petty_cash_items` no hace falta: ahí solo hay gastos |
 | Dejar en blanco el monto de N2 y creer que «nunca escala» | Hasta el 2026-10-07 el diseño decía «sin umbral = nunca», y nadie había cargado montos: quien tenía N2 en la ficha (Francisco Díaz) lo perdía en silencio al desplegar | **Un N2 sin monto firma siempre.** El monto de la ficha vale para los dos N2; el de la organización, solo para el suyo (`umbralAplicable`). Ante un cambio de regla de aprobación, consultar quién tiene hoy esa configuración ANTES de desplegar |

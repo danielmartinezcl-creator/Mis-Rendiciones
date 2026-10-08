@@ -36,9 +36,13 @@ export function BarraFiltros({ filtro, onCambio, dimensiones, contar, sustantivo
 
   return (
     <div className="hoja">
-      {/* En el teléfono la fila se desliza; desde `sm` cabe, y el menú del
-          chip necesita que nada lo recorte. */}
-      <div className="flex gap-2 px-4 py-3 overflow-x-auto sm:overflow-visible sm:flex-wrap">
+      {/* El envoltorio NO tiene scroll: el desvanecido se ancla a su borde
+          derecho. Puesto dentro del que sí scrollea, se anclaría al final del
+          contenido —después del último chip— y no se vería nunca. */}
+      <div className="relative">
+        {/* En el teléfono la fila se desliza; desde `sm` cabe, y el menú del
+            chip necesita que nada lo recorte. */}
+        <div className="flex gap-2 px-4 py-3 overflow-x-auto sm:overflow-visible sm:flex-wrap">
         {dimensiones.map(d => {
           const activo = chipActivo(d.clave, filtro)
           return (
@@ -79,6 +83,15 @@ export function BarraFiltros({ filtro, onCambio, dimensiones, contar, sustantivo
             </div>
           )
         })}
+        </div>
+        {/* «Hay más, deslizá». Va a la altura de los chips (top-3, h-10) y no de
+            lado a lado: cubriendo el alto completo taparía la esquina redondeada
+            de la hoja con un cuadrado blanco. Desde `sm` la fila envuelve y no
+            hay nada que anunciar. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 top-3 h-10 w-10 bg-gradient-to-l from-white to-transparent sm:hidden"
+        />
       </div>
 
       {/* Plegar o recargar nunca esconde que hay un filtro puesto */}
