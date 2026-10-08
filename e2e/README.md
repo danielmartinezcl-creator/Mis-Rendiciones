@@ -58,7 +58,7 @@ npm run baseline:reporte
 
 ## Qué se captura
 
-25 pantallas × 2 anchos = **50 capturas**.
+26 pantallas × 2 anchos = **52 capturas**.
 
 | Ancho | Proyecto | Detalle |
 |---|---|---|
@@ -152,7 +152,7 @@ exactamente la señal para la que existe esta línea base.
 
 **Un run verde no significa «nada cambió». Significa «no vi que cambiara algo».**
 
-Las 48 capturas son de páginas en reposo, recién cargadas. Lo que NO se captura:
+Las 52 capturas son de páginas en reposo, recién cargadas. Lo que NO se captura:
 
 - **Estados de error** — `{emailError && <p className="text-danger-600">…}` solo
   existe en el DOM cuando hay un error.
@@ -362,7 +362,7 @@ que nadie se entere.
 
 **Por qué existe.** Hasta el 2026-09-05 el arnés tenía una sola sesión y todas
 las capturas eran de admin. Pero de los 57 usuarios de PENTA, **53 son empleado
-simple** (sólo `can_submit`). Todo lo verificado —las 54 capturas píxel a píxel,
+simple** (sólo `can_submit`). Todo lo verificado —las capturas píxel a píxel,
 los 0 hallazgos de material— valía para una configuración de permisos que usa
 una sola persona.
 
@@ -434,6 +434,6 @@ el agente. El camino más corto:
 3. Avisar cuál es, para moverlo por SQL a la organización de prueba y sembrar
    ahí los datos fijos.
 
-Con eso, las 54 capturas dejan de depender de que nadie use la app — y el
+Con eso, las capturas dejan de depender de que nadie use la app — y el
 mismo movimiento resuelve la sesión de empleado descrita más arriba, porque
 esa cuenta puede ser la del empleado simple.
