@@ -29,6 +29,7 @@ import {
   Zap,
   Shield,
   Landmark,
+  Receipt,
 } from 'lucide-react'
 
 import { Marca, MarcaProducto } from './Marca'
@@ -43,6 +44,8 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { href: '/',                label: 'Estado',          Icon: LayoutDashboard, roles: ['admin','approver','employee'] as const },
   { href: '/expenses/new',    label: 'Nueva rendición', Icon: ScanLine,         roles: ['admin','employee'] as const },
+  /* Como «Cola Bancaria»: lo decide un permiso (rendir), no el rol */
+  { href: '/reimbursements',  label: 'Mis rendiciones', Icon: Receipt,          roles: [] as const },
   /* Solo admin mientras no sirva para rendiciones — ver (app)/quick/layout.tsx. */
   { href: '/quick',           label: 'Gasto rápido',    Icon: Zap,              roles: ['admin'] as const },
   { href: '/petty-cash',      label: 'Caja Chica',      Icon: Wallet,           roles: ['admin','approver','employee'] as const },
@@ -83,6 +86,7 @@ export function Sidebar({ user, marca }: SidebarProps) {
   const visible = NAV_ITEMS.filter(item =>
     (item.roles as readonly string[]).includes(user.role) ||
     (item.href === '/approvals' && user.can_approve) ||
+    (item.href === '/reimbursements' && user.can_submit) ||
     (item.href === '/banco' && (user.can_load_bank_transfer || user.can_authorize_bank_transfer))
   )
 

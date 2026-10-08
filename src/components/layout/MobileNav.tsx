@@ -8,9 +8,10 @@ import {
   LayoutDashboard, ScanLine, CheckCircle2, BarChart3, Wallet,
   Lightbulb, Clock, MoreHorizontal, TrendingUp, BarChart2,
   WalletCards, PieChart, ReceiptText, Users, Building2, Settings2,
-  Trash2, Zap, X, User,
+  Trash2, Zap, X, User, Receipt,
 } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
+import { pestanasPrincipales } from '@/lib/navegacion'
 
 interface MobileNavProps {
   user: UserProfile
@@ -33,6 +34,7 @@ interface NavItemDef {
 const ALL_ITEMS: NavItemDef[] = [
   { href: '/',                      label: 'Estado',          shortLabel: 'Estado',   Icon: LayoutDashboard, roles: ['admin','approver','employee'], section: 'primary' },
   { href: '/expenses/new',          label: 'Nueva rendición', shortLabel: 'Rendir',   Icon: ScanLine,        roles: ['admin','employee'],           section: 'primary', requiresSubmit: true },
+  { href: '/reimbursements',        label: 'Mis rendiciones', shortLabel: 'Rendiciones', Icon: Receipt,    roles: ['admin','approver','employee'], section: 'personal', requiresSubmit: true },
   /* Solo admin mientras no sirva para rendiciones — ver (app)/quick/layout.tsx. */
   { href: '/quick',                 label: 'Gasto rápido',    shortLabel: 'Rápido',   Icon: Zap,             roles: ['admin'],                     section: 'primary' },
   { href: '/petty-cash',            label: 'Caja Chica',      shortLabel: 'C. Chica', Icon: Wallet,          roles: ['admin','approver','employee'], section: 'primary' },
@@ -60,16 +62,7 @@ function isVisible(item: NavItemDef, user: UserProfile): boolean {
   return true
 }
 
-// 4 hrefs prioritarios según rol — el resto va al sheet "Más"
-function getPrimaryHrefs(user: UserProfile): string[] {
-  if (user.role === 'admin')    return ['/', '/admin/reports', '/petty-cash', '/approvals']
-  if (user.role === 'approver') return ['/', '/approvals', '/petty-cash', user.can_submit ? '/expenses/new' : '/mis-gastos']
-  // employee
-  const tabs: string[] = ['/']
-  if (user.can_submit) tabs.push('/expenses/new')
-  tabs.push('/petty-cash', '/mis-gastos')
-  return tabs.slice(0, 4)
-}
+// Las 4 pestañas según el perfil están en src/lib/navegacion.ts (con pruebas)
 
 export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname()
@@ -86,7 +79,7 @@ export function MobileNav({ user }: MobileNavProps) {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  const primaryHrefs  = getPrimaryHrefs(user)
+  const primaryHrefs  = pestanasPrincipales(user)
   const allVisible    = ALL_ITEMS.filter(i => isVisible(i, user))
   const primaryItems  = primaryHrefs
     .map(href => allVisible.find(i => i.href === href))
@@ -111,10 +104,16 @@ export function MobileNav({ user }: MobileNavProps) {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 tor-glass-bar"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* h-16 = 64px, la altura original: la barra no debe crecer. Lo que crece
-            es el contenido — ícono 28 (antes 21) y rótulo 13px (antes 10). Entran
-            justos: 28 + 4 de gap + 13 = 45px, con ~9px de aire arriba y abajo.
+            es el contenido — ícono 28 (antes 21) y rótulo 12px (antes 10). Entran
+            justos: 28 + 4 de gap + 12 = 44px, con ~10px de aire arriba y abajo.
             El padding inferior de <main> en layout.tsx (pb-20) está calculado
-            contra esta altura — si cambia una, cambiar la otra. */}
+            contra esta altura — si cambia una, cambiar la otra.
+
+            El rótulo bajó de 13px a 12px con `tracking-tight` cuando entró
+            «Rendiciones» (2026-10-07). Medido con la Hanken real: 61,6px contra
+            los 72 de columna en un teléfono de 360 — entra con 10px de aire; a
+            13px medía 70,3 y rozaba el borde. Baja en las CINCO: una etiqueta
+            más chica que sus vecinas se lee como un error, no como una decisión. */}
         <div className="flex h-16">
           {primaryItems.map(item => {
             const active = pathname === item.href
@@ -128,7 +127,7 @@ export function MobileNav({ user }: MobileNavProps) {
                 )}
               >
                 <item.Icon size={28} />
-                <span className="text-[13px] font-semibold leading-none">{item.shortLabel}</span>
+                <span className="text-[12px] tracking-tight font-semibold leading-none">{item.shortLabel}</span>
               </Link>
             )
           })}
@@ -142,7 +141,7 @@ export function MobileNav({ user }: MobileNavProps) {
             )}
           >
             <MoreHorizontal size={28} />
-            <span className="text-[13px] font-semibold leading-none">Más</span>
+            <span className="text-[12px] tracking-tight font-semibold leading-none">Más</span>
           </button>
         </div>
       </nav>
