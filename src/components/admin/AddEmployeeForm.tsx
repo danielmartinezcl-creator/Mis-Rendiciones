@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { importEmployees } from '@/actions/employees'
-import { getCostCenters } from '@/actions/admin'
+import { getCostCenters, restoreFromTrash, enableBlockedEmployee, updateEmployee } from '@/actions/admin'
 import type { CostCenter } from '@/lib/supabase/types'
+import type { EstadoCuenta } from '@/lib/alta-repetida'
+import { useDialogos } from '@/components/ui/Dialogos'
 
 const ROLE_OPTIONS = [
   { value: 'employee',  label: 'Empleado' },
@@ -11,7 +14,25 @@ const ROLE_OPTIONS = [
   { value: 'admin',     label: 'Administrador' },
 ]
 
+/* Lo que hay que hacer con una ficha que ya existe, según dónde esté. Cada
+   estado tiene su acción propia: la papelera se restaura, el bloqueo se
+   habilita, la desactivación se reactiva. */
+const RECUPERAR: Record<Exclude<EstadoCuenta, 'activa'>, {
+  /** El botón: el verbo real, nunca «Confirmar». */
+  verbo: string
+  /** El aviso de después. Va escrito, no derivado del verbo. */
+  hecho: string
+  hacer: (id: string) => Promise<unknown>
+}> = {
+  papelera:  { verbo: 'Restaurar', hecho: 'restaurado',  hacer: (id) => restoreFromTrash('user', id) },
+  bloqueada: { verbo: 'Habilitar', hecho: 'habilitado',  hacer: (id) => enableBlockedEmployee(id) },
+  inactiva:  { verbo: 'Reactivar', hecho: 'reactivado',  hacer: (id) => updateEmployee(id, { is_active: true }) },
+}
+
+type Existente = { id: string; nombre: string; estado: EstadoCuenta }
+
 export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
+  const { confirmar, avisar } = useDialogos()
   const [fullName,      setFullName]      = useState('')
   const [email,         setEmail]         = useState('')
   const [role,          setRole]          = useState<'employee' | 'approver' | 'admin'>('employee')
@@ -20,6 +41,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
   const [costCenters,   setCostCenters]   = useState<CostCenter[]>([])
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState<string | null>(null)
+  const [existente,     setExistente]     = useState<Existente | null>(null)
   const [success,       setSuccess]       = useState(false)
 
   useEffect(() => {
@@ -30,6 +52,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    setExistente(null)
     try {
       const results = await importEmployees([{
         full_name:      fullName.trim(),
@@ -48,9 +71,39 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         }, 1500)
       } else {
         setError(results[0]?.error ?? 'No se pudo crear el empleado')
+        setExistente(results[0]?.existente ?? null)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear empleado')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /* El alta no es el único camino de vuelta: a quien ya existe se lo recupera
+     desde acá, con su historial, en vez de mandar al admin a buscarlo a otra
+     pantalla sabiendo solo que «el correo ya está tomado». */
+  async function recuperar(quien: Existente) {
+    if (quien.estado === 'activa') return
+    const { verbo, hecho, hacer } = RECUPERAR[quien.estado]
+    const ok = await confirmar({
+      titulo:  `${verbo} a ${quien.nombre}`,
+      detalle: quien.estado === 'papelera'
+        ? 'Sale de la papelera con su historial y recupera el acceso.'
+        : 'Vuelve a la nómina con su historial y recupera el acceso.',
+      aceptar: verbo,
+    })
+    if (!ok) return
+    setSaving(true)
+    try {
+      await hacer(quien.id)
+      avisar(`${quien.nombre}, ${hecho}`)
+      setError(null); setExistente(null)
+      setFullName(''); setEmail(''); setRole('employee')
+      setDepartment(''); setCostCenterId('')
+      onDone()
+    } catch (err) {
+      avisar(err instanceof Error ? err.message : 'No se pudo recuperar la ficha', 'error')
     } finally {
       setSaving(false)
     }
@@ -131,7 +184,22 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
       </div>
 
       {error && (
-        <p className="text-xs text-danger-600 bg-danger-50 rounded-item p-2">{error}</p>
+        <div className="bg-danger-50 border border-danger-200 rounded-item p-3 space-y-2">
+          <p className="text-xs text-danger-700">{error}</p>
+          {/* La salida, no solo la negativa: si la ficha se puede volver a
+              poner en pie, se hace desde acá. */}
+          {existente && (
+            <button
+              type="button"
+              onClick={() => recuperar(existente)}
+              disabled={saving}
+              className="btn-primario inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+            >
+              <RotateCcw size={14} />
+              {existente.estado === 'activa' ? 'Ver ficha' : RECUPERAR[existente.estado].verbo} a {existente.nombre}
+            </button>
+          )}
+        </div>
       )}
 
       <div className="flex gap-2 pt-1">

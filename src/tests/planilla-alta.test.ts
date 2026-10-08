@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarRut, formatearRut, normalizarNombre } from '@/lib/planilla-alta'
+import { normalizarRut, formatearRut } from '@/lib/rut'
+import { normalizarNombre } from '@/lib/planilla-alta'
 
 describe('normalizarRut', () => {
   it('quita los puntos y deja el guión', () => {
@@ -50,14 +51,22 @@ describe('normalizarNombre', () => {
 
 import { resolverPersona, resolverAprobador, type Persona } from '@/lib/planilla-alta'
 
-export const p = (x: Partial<Persona> & { id: string }): Persona => ({
-  nombre: '', correo: '', rut: null, activo: true,
-  can_submit: true, can_approve: false, can_manage_petty_cash: false,
-  can_load_bank_transfer: false, can_authorize_bank_transfer: false,
-  bank_load_backup: false, bank_auth_backup: false,
-  approver_l1_id: null, approver_l2_id: null,
-  ...x,
-})
+/* `activo` sale del estado y no se escribe aparte: son el mismo hecho, y un
+   fixture que los contradiga prueba algo que la base no puede producir. Un
+   `activo: false` suelto se lee como «desactivado». */
+export const p = (x: Partial<Persona> & { id: string }): Persona => {
+  const estado = x.estado ?? (x.activo === false ? 'inactiva' : 'activa')
+  return {
+    nombre: '', correo: '', rut: null,
+    can_submit: true, can_approve: false, can_manage_petty_cash: false,
+    can_load_bank_transfer: false, can_authorize_bank_transfer: false,
+    bank_load_backup: false, bank_auth_backup: false,
+    approver_l1_id: null, approver_l2_id: null,
+    ...x,
+    estado,
+    activo: estado === 'activa',
+  }
+}
 
 const PERSONAS: Persona[] = [
   p({ id: 'u1', nombre: 'Salas Rodrigo',  correo: 'rodrigo.salas@penta.cl', rut: '11.111.111-1', can_approve: true }),
@@ -320,5 +329,58 @@ describe('sinPermisoAprobar', () => {
       fila({ rut: '22.222.222-2', n1: 'carla.mendez@penta.cl' }),
     ])
     expect(sinPermisoAprobar(rs).map(x => x.id)).toEqual(['u2'])
+  })
+})
+
+/* Una fila que crea a alguien que YA existe pero está fuera de la nómina —en la
+   papelera, bloqueado o desactivado— no se puede crear: su correo sigue tomado
+   en el sistema de acceso. Hasta el 2026-10-08 la fila llegaba al servidor, Auth
+   la rechazaba y el motivo era «no se pudo crear la cuenta». */
+describe('resolverPlanilla: la persona ya existe, fuera de la nómina', () => {
+  const FUERA: Persona[] = [
+    ...PERSONAS,
+    p({ id: 'u6', nombre: 'Torres Julián', correo: 'jtorres@penta.cl', rut: '19.639.969-0',
+        activo: false, estado: 'papelera' }),
+    p({ id: 'u7', nombre: 'Soto Bloqueado', correo: 'bloq@penta.cl', rut: '13.333.333-5',
+        activo: false, estado: 'bloqueada' }),
+  ]
+  const resolverFuera = (fs: FilaPlanilla[]) => resolverPlanilla(fs, FUERA, CENTROS)
+
+  it('el correo de alguien en la papelera no crea: dice quién es y que se restaura', () => {
+    const [r] = resolverFuera([fila({
+      rut: '99.999.990-5', nombre: 'Julián Torres', correo: 'jtorres@penta.cl',
+    })])
+    expect(r.errores.join(' ')).toContain('Torres Julián')
+    expect(r.errores.join(' ')).toContain('papelera')
+  })
+
+  it('el RUT de alguien en la papelera tampoco: es lo que identifica a la persona', () => {
+    const [r] = resolverFuera([fila({
+      rut: '19.639.969-0', nombre: 'Julián Torres', correo: 'otro.correo@penta.cl',
+    })])
+    expect(r.errores.join(' ')).toContain('Torres Julián')
+  })
+
+  it('bloqueado manda a habilitar, no a restaurar', () => {
+    const [r] = resolverFuera([fila({
+      rut: '99.999.990-5', nombre: 'Soto', correo: 'bloq@penta.cl',
+    })])
+    expect(r.errores.join(' ')).toMatch(/habilit/i)
+  })
+
+  it('una fila que de verdad es nueva sigue creando', () => {
+    const [r] = resolverFuera([fila({
+      rut: '99.999.990-5', nombre: 'Nueva Persona', correo: 'nueva@penta.cl',
+    })])
+    expect(r.errores).toEqual([])
+    expect(r.accion).toBe('crear')
+  })
+
+  /* Una fila que ACTUALIZA a alguien activo no pasa por acá: el choque solo
+     mira a quien quedó fuera de la nómina. */
+  it('actualizar a alguien activo no se ve afectado', () => {
+    const [r] = resolverFuera([fila({ rut: '11.111.111-1', banco: 'BCI' })])
+    expect(r.errores).toEqual([])
+    expect(r.accion).toBe('actualizar')
   })
 })

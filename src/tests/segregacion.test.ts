@@ -2,14 +2,20 @@ import { describe, it, expect } from 'vitest'
 import { alertasDeSegregacion } from '@/lib/segregacion'
 import type { Persona, FilaResuelta } from '@/lib/planilla-alta'
 
-const p = (x: Partial<Persona> & { id: string }): Persona => ({
-  nombre: x.id, correo: '', rut: null, activo: true,
-  can_submit: true, can_approve: false, can_manage_petty_cash: false,
-  can_load_bank_transfer: false, can_authorize_bank_transfer: false,
-  bank_load_backup: false, bank_auth_backup: false,
-  approver_l1_id: null, approver_l2_id: null,
-  ...x,
-})
+// `activo` se deriva del estado, igual que en la base: un fixture que los
+// contradiga prueba algo que no puede pasar.
+const p = (x: Partial<Persona> & { id: string }): Persona => {
+  const estado = x.estado ?? (x.activo === false ? 'inactiva' : 'activa')
+  return {
+    nombre: x.id, correo: '', rut: null,
+    can_submit: true, can_approve: false, can_manage_petty_cash: false,
+    can_load_bank_transfer: false, can_authorize_bank_transfer: false,
+    bank_load_backup: false, bank_auth_backup: false,
+    approver_l1_id: null, approver_l2_id: null,
+    ...x,
+    estado, activo: estado === 'activa',
+  }
+}
 
 const r = (x: Partial<FilaResuelta>): FilaResuelta => ({
   fila: 1, accion: 'actualizar', persona: null, n1: null, n2: null,

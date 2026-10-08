@@ -6,24 +6,11 @@
 // Spec: docs/superpowers/specs/2026-10-01-planilla-de-alta-design.md
 
 import { validateRut } from '@/lib/validators'
+// El RUT vive en su propio módulo: lo necesita también `alta-repetida`, y si
+// estuviera acá las dos se importarían en círculo.
+import { normalizarRut, formatearRut } from '@/lib/rut'
 import { validarCadena, type Persona as PersonaPermisos } from '@/lib/permisos'
-
-// Para COMPARAR. En la base los 55 RUT están con puntos y 5 con la k en
-// minúscula, así que sin normalizar los dos lados no se encuentra nada.
-export function normalizarRut(rut: string): string {
-  const limpio = rut.trim().toUpperCase().replace(/[^0-9K]/g, '')
-  if (limpio.length < 2) return ''
-  return `${limpio.slice(0, -1)}-${limpio.slice(-1)}`
-}
-
-// Para GUARDAR: con puntos, el formato que ya tienen los 55 y el que espera el
-// export a Defontana (toSheetRut).
-export function formatearRut(rut: string): string {
-  const n = normalizarRut(rut)
-  if (!n) return ''
-  const [cuerpo, dv] = n.split('-')
-  return `${cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${dv}`
-}
+import { cuentaQueChoca, motivoDeChoque, type EstadoCuenta } from '@/lib/alta-repetida'
 
 // `\p{Diacritic}` y no un rango de caracteres combinantes escrito a mano: un
 // rango literal se ve como basura en el editor y cualquier normalización del
@@ -45,6 +32,10 @@ export type Persona = PersonaPermisos & {
   rut: string | null
   approver_l1_id: string | null
   approver_l2_id: string | null
+  /** Dónde está la ficha. `activo` dice solo que no se puede usar; esto dice
+   *  por qué, que es lo único que permite explicar un alta rechazada y decir
+   *  qué hacer. Quien construye una Persona lo deriva de acá, no al revés. */
+  estado: EstadoCuenta
 }
 
 // Un valor que coincide con varias NO elige una: devuelve las candidatas para
@@ -204,6 +195,11 @@ export function resolverPlanilla(
   const conPermisos = personas.map(x =>
     permisosPorOtorgar.has(x.id) ? { ...x, can_approve: true } : x)
 
+  // Las que no se ven en la nómina y aun así bloquean un alta.
+  const fueraDeNomina = personas
+    .filter(x => x.estado !== 'activa')
+    .map(x => ({ id: x.id, nombre: x.nombre, correo: x.correo, rut: x.rut, estado: x.estado }))
+
   return filas.map((f, i) => {
     const errores: string[] = []
     const rutNorm = normalizarRut(f.rut)
@@ -239,6 +235,17 @@ export function resolverPlanilla(
       }
       if (crear && (!f.nombre.trim() || !correo)) {
         errores.push('Para crear a alguien hacen falta su nombre y su correo')
+      }
+
+      /* No se puede crear a quien ya existe fuera de la nómina: su correo
+         sigue tomado en el sistema de acceso, que es global, así que Auth
+         rechaza el alta y el motivo no dice de quién era. Acá se nombra a la
+         persona y se dice qué hacer con ella. `resolverPersona` no la
+         encuentra a propósito: solo mira a las activas, para no actualizar en
+         silencio la ficha de alguien que un admin dio de baja. */
+      if (crear) {
+        const choque = cuentaQueChoca({ correo, rut: f.rut }, fueraDeNomina)
+        if (choque) errores.push(motivoDeChoque(choque))
       }
     }
 

@@ -14,6 +14,10 @@ import {
   type FilaPlanilla, type Persona, type CentroCosto,
 } from '@/lib/planilla-alta'
 import type { AprobacionDeDocumento } from '@/lib/segregacion'
+import {
+  estadoDeCuenta, cuentaQueChoca, motivoDeChoque, seRecupera,
+  type CuentaExistente, type EstadoCuenta,
+} from '@/lib/alta-repetida'
 
 export type ImportEmployeeRow = {
   full_name:       string
@@ -29,6 +33,9 @@ export type ImportResult = {
   full_name: string
   success: boolean
   error?: string
+  /** La ficha que impide el alta, cuando se puede volver a poner en pie: la
+   *  pantalla ofrece recuperarla en vez de dejar al admin en un callejón. */
+  existente?: { id: string; nombre: string; estado: EstadoCuenta }
 }
 
 export type InviteResult = {
@@ -57,11 +64,35 @@ async function getAdminContext() {
   return { supabase, profile, adminClient: createAdminClient() }
 }
 
+/**
+ * Todas las cuentas de la organización, activas o no: las inactivas son
+ * justamente las que no se ven en la nómina y dejan un rechazo sin explicar.
+ * Una sola pasada por Auth para los correos, no una por fila.
+ */
+async function cuentasDeLaOrg(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+): Promise<CuentaExistente[]> {
+  const [{ data: filas }, { data: auth }] = await Promise.all([
+    admin.from('users').select('id, full_name, rut, is_active, deleted_at, blocked_at').eq('org_id', orgId),
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ])
+  const correos = new Map((auth?.users ?? []).map(u => [u.id, u.email ?? '']))
+  return (filas ?? []).map(u => ({
+    id:     u.id,
+    nombre: u.full_name ?? '',
+    correo: correos.get(u.id) ?? '',
+    rut:    u.rut,
+    estado: estadoDeCuenta(u),
+  }))
+}
+
 // ── Importar empleados (SIN enviar email) ────────────────────────────────────
 
 export async function importEmployees(rows: ImportEmployeeRow[]): Promise<ImportResult[]> {
   const { profile, adminClient } = await getAdminContext()
   const results: ImportResult[] = []
+  const cuentas = await cuentasDeLaOrg(adminClient, profile.org_id)
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -78,6 +109,21 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
        de insertar el perfil hay que borrarla: una cuenta sin perfil no puede
        entrar a la app pero deja su correo ocupado para siempre. Así quedó
        dmartinez@pentaingenieros.cl el 2026-07-20. */
+    /* Antes de tocar Auth: si el correo o el RUT ya son de alguien de la org,
+       el alta no va a entrar y el rechazo de Auth no dice de quién. Las
+       inactivas cuentan, y son las que importan: están fuera de la nómina. */
+    const choque = cuentaQueChoca({ correo: row.email, rut: row.rut }, cuentas)
+    if (choque) {
+      results.push({
+        email: row.email, full_name: row.full_name, success: false,
+        error: motivoDeChoque(choque),
+        existente: seRecupera(choque.cuenta.estado)
+          ? { id: choque.cuenta.id, nombre: choque.cuenta.nombre, estado: choque.cuenta.estado }
+          : undefined,
+      })
+      continue
+    }
+
     let authSinPerfil: string | null = null
     const deshacer = async (): Promise<string> => {
       if (!authSinPerfil) return ''
@@ -95,9 +141,14 @@ export async function importEmployees(rows: ImportEmployeeRow[]): Promise<Import
 
       if (createError) {
         const repetido = /already|registered|exists/i.test(createError.message)
+        /* Se llega acá solo si el correo NO es de esta organización (cuentaQueChoca
+           ya las cubre): es de otra empresa del sistema, o de una cuenta de acceso
+           sin ficha. No se nombra a nadie — sería filtrar gente de otra org. */
         results.push({
           email: row.email, full_name: row.full_name, success: false,
-          error: repetido ? `El correo ${row.email} ya lo usa otra cuenta` : createError.message,
+          error: repetido
+            ? `El correo ${row.email} ya está registrado en el sistema, fuera de esta organización. Usa otro.`
+            : createError.message,
         })
         continue
       }
@@ -304,22 +355,29 @@ export async function datosParaPlanilla(): Promise<{
   const correos = new Map((auth?.users ?? []).map(u => [u.id, u.email ?? '']))
 
   return {
-    personas: (usuarios.data ?? []).map(u => ({
-      id:     u.id,
-      nombre: u.full_name ?? '',
-      correo: correos.get(u.id) ?? '',
-      rut:    u.rut,
-      activo: u.is_active && !u.blocked_at && !u.deleted_at,
-      can_submit:                  u.can_submit,
-      can_approve:                 u.can_approve,
-      can_manage_petty_cash:       u.can_manage_petty_cash,
-      can_load_bank_transfer:      u.can_load_bank_transfer,
-      can_authorize_bank_transfer: u.can_authorize_bank_transfer,
-      bank_load_backup:            u.bank_load_backup,
-      bank_auth_backup:            u.bank_auth_backup,
-      approver_l1_id:              u.approver_l1_id,
-      approver_l2_id:              u.approver_l2_id,
-    })),
+    personas: (usuarios.data ?? []).map(u => {
+      /* `activo` sale del estado y no se calcula aparte: son el mismo hecho.
+         El estado además dice POR QUÉ no está activa, que es lo único que
+         permite explicar un alta rechazada y decir qué hacer con la ficha. */
+      const estado = estadoDeCuenta(u)
+      return {
+        id:     u.id,
+        nombre: u.full_name ?? '',
+        correo: correos.get(u.id) ?? '',
+        rut:    u.rut,
+        estado,
+        activo: estado === 'activa',
+        can_submit:                  u.can_submit,
+        can_approve:                 u.can_approve,
+        can_manage_petty_cash:       u.can_manage_petty_cash,
+        can_load_bank_transfer:      u.can_load_bank_transfer,
+        can_authorize_bank_transfer: u.can_authorize_bank_transfer,
+        bank_load_backup:            u.bank_load_backup,
+        bank_auth_backup:            u.bank_auth_backup,
+        approver_l1_id:              u.approver_l1_id,
+        approver_l2_id:              u.approver_l2_id,
+      }
+    }),
     centros: (centros.data ?? []).map(c => ({
       id: c.id, codigo: c.id, nombre: c.descripcion ?? '',
     })),
