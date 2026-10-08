@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { normalizarRut, formatearRut } from '@/lib/rut'
-import { normalizarNombre } from '@/lib/planilla-alta'
+import { normalizarNombre } from '@/lib/texto'
 
 describe('normalizarRut', () => {
   it('quita los puntos y deja el guión', () => {

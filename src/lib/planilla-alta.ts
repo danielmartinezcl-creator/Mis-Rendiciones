@@ -9,17 +9,9 @@ import { validateRut } from '@/lib/validators'
 // El RUT vive en su propio módulo: lo necesita también `alta-repetida`, y si
 // estuviera acá las dos se importarían en círculo.
 import { normalizarRut, formatearRut } from '@/lib/rut'
+import { normalizarNombre } from '@/lib/texto'
 import { validarCadena, type Persona as PersonaPermisos } from '@/lib/permisos'
 import { cuentaQueChoca, motivoDeChoque, type EstadoCuenta } from '@/lib/alta-repetida'
-
-// `\p{Diacritic}` y no un rango de caracteres combinantes escrito a mano: un
-// rango literal se ve como basura en el editor y cualquier normalización del
-// archivo lo rompe en silencio.
-export function normalizarNombre(nombre: string): string {
-  return nombre
-    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
-    .toLowerCase().trim().replace(/\s+/g, ' ')
-}
 
 // ── Personas ─────────────────────────────────────────────────────────────────
 

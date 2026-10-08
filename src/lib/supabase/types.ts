@@ -862,6 +862,46 @@ export interface Database {
         }
         Relationships: []
       }
+      /**
+       * 040 — las vistas guardadas del admin: combinaciones de filtros con
+       * nombre. Son de la ORGANIZACIÓN, no de cada persona: la lee cualquier
+       * miembro, la escribe solo su admin.
+       */
+      vistas_filtro: {
+        Row: {
+          id:         string
+          org_id:     string
+          pantalla:   string
+          nombre:     string
+          filtro:     Json
+          orden:      number
+          de_fabrica: boolean
+          creada_por: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?:         string
+          org_id:      string
+          pantalla:    string
+          nombre:      string
+          filtro:      Json
+          orden?:      number
+          de_fabrica?: boolean
+          creada_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          nombre?:     string
+          filtro?:     Json
+          orden?:      number
+          de_fabrica?: boolean
+        }
+        Relationships: [
+          { foreignKeyName: 'vistas_filtro_org_id_fkey'; columns: ['org_id']; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
+      }
       cost_centers: {
         Row: {
           id:          string

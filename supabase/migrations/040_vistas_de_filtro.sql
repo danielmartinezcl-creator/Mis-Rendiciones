@@ -8,7 +8,11 @@
 -- Spec: docs/superpowers/specs/2026-10-08-filtros-del-admin-design.md
 -- Plan: docs/superpowers/plans/2026-10-08-filtros-del-admin.md (Tarea 3)
 --
--- ⏳ TODAVÍA NO APLICADA. Ensayada con BEGIN/ROLLBACK contra la base real el
+-- ✅ APLICADA el 2026-10-08 (20261008220657), ANTES del despliegue: es aditiva
+-- y el código viejo no lee ni escribe esta tabla. En vivo: 24/24 en verde, la
+-- tabla quedó con 0 filas y sus 2 políticas.
+--
+-- Antes, ensayada con BEGIN/ROLLBACK contra la base real el
 -- 2026-10-08: **23 ok, 0 rotas, 1 no concluyente** (el cruce entre
 -- organizaciones, porque PENTA es la única que hay — y sale «no concluyente»
 -- a propósito, que una prueba que no se ejercitó no es una prueba que pasó).

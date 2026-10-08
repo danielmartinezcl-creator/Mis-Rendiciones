@@ -289,7 +289,7 @@ git commit -m "refactor(filtros): la barra se generaliza; el empleado se ve igua
 **Interfaces:**
 - Produces: `listarVistas(pantalla)`, `crearVista`, `renombrarVista`, `borrarVista`, `reordenarVistas`; y las puras `depurarVista`, `coincideConVista`, `erroresDeNombre`.
 
-- [ ] **Paso 1: La migración**
+- [x] **Paso 1: La migración**
 
 ```sql
 -- 040: vistas de filtro — las combinaciones guardadas del admin.
@@ -344,7 +344,7 @@ decide en la tarea de su pantalla (5 y 8). Y las otras seis apuntan a claves
 pantalla se construye: sembrarlas acá es fabricar jsonb roto. **Cada pantalla
 siembra las suyas en su tarea.**
 
-- [ ] **Paso 2: Ensayar contra la base real SIN dejar rastro**
+- [x] **Paso 2: Ensayar contra la base real SIN dejar rastro**
 
 Una sola llamada a `execute_sql`: `begin;` + la migración + `supabase/tests/040_vistas.sql` + `rollback;`. Las pruebas escriben en una tabla temporal y el resultado sale del último `select` (los NOTICE no se ven).
 
@@ -358,7 +358,7 @@ Lo que `040_vistas.sql` tiene que comprobar, como mínimo:
 
 Expected: todas en verde **con** la migración; las de RLS en rojo sin ella (si pasan sin la migración, la prueba no está probando nada).
 
-- [ ] **Paso 3: Las reglas puras y sus pruebas**
+- [x] **Paso 3: Las reglas puras y sus pruebas**
 
 ```ts
 // src/lib/filtros/vistas.ts
@@ -384,19 +384,19 @@ Pruebas que importan:
 - `coincideConVista` distingue «sin poner» de «puesto en vacío».
 - `erroresDeNombre` rechaza el repetido **sin distinguir mayúsculas ni acentos**.
 
-- [ ] **Paso 4: Las acciones del servidor**
+- [x] **Paso 4: Las acciones del servidor**
 
 En `src/actions/vistas-filtro.ts`, todas con `exigirAdmin()` salvo `listarVistas` (que la lee cualquiera con sesión). Cada escritura deja su fila en `audit_log` con `entityType: 'vista_filtro'`. `borrarVista` y `renombrarVista` filtran por `.eq('org_id', …)` además del id: el id viene del navegador.
 
-- [ ] **Paso 5: Tipos, lint y pruebas en verde**
+- [x] **Paso 5: Tipos, lint y pruebas en verde**
 
 `src/lib/supabase/types.ts` necesita la tabla con `Relationships: []` y sus `Insert`/`Update` explícitos (no `Omit<Row, …>`).
 
-- [ ] **Paso 6: Aplicar la migración**
+- [x] **Paso 6: Aplicar la migración**
 
 Es **aditiva**: una tabla nueva que el código viejo no lee. Va **antes** del despliegue, como la 039. Dejar en el encabezado de la migración el resultado del ensayo y el de la aplicación en vivo.
 
-- [ ] **Paso 7: Commit**
+- [x] **Paso 7: Commit**
 
 ```bash
 git add supabase/migrations/040_vistas_de_filtro.sql supabase/tests/040_vistas.sql src/lib/filtros/vistas.ts src/actions/vistas-filtro.ts src/lib/supabase/types.ts src/lib/audit.ts src/tests/filtros-vistas.test.ts
@@ -611,3 +611,4 @@ Filas nuevas en errores conocidos:
 |---|---|---|
 | 2026-10-08 | 1 · Las dimensiones genéricas | **Hecha.** `src/lib/filtros/dimensiones.ts` + 28 pruebas. **680 pruebas en 46 archivos** (eran 652 en 45), tsc limpio, lint 0/22. Dos correcciones al plan, hechas sobre la marcha: (a) la barra **conserva** el resumen por props — la línea del empleado dice cuánto queda y cuánta plata, no qué está puesto, y calcularla sola habría movido su línea base; (b) `Dimension` de tipo `multi` necesita `plural`, o el chip no puede decir «2 tipos de gasto» como dice hoy. De paso se sacó una duplicación: `ETIQUETA_PRESET` y el formato corto de fecha pasaron de `filtro-etiquetas` (el del empleado) al módulo genérico, que es de las seis pantallas. |
 | 2026-10-08 | 2 · La barra genérica | **Hecha.** `BarraFiltros`, `HojaOpciones` y el nuevo `HojaMasFiltros` dejaron de saber de rendiciones; los dos llamadores del empleado pasan por `aValores`/`aFiltro`. **703 pruebas en 47 archivos**, lint 0/22. **El portón se pasó**: en los diffs de Caja chica y Mis rendiciones la barra sale entera en gris —idéntica, y sin botón «Más filtros» de más—. Lo único rojo era el riel lateral, y NO era de esta tarea: la entrada «Centros de costo» del 2026-10-08 invalidó las 27 capturas de escritorio y solo se habían recapturado las 2 de la pantalla nueva. Recapturadas las 27 (las 27 del teléfono no cambiaron, porque el riel es de `md:` para arriba). En el camino: una corrida entera se cayó con `ERR_CONNECTION_REFUSED` por el servidor del arnés, no por el código; repetida, 56 pasaron y 0 rojas. |
+| 2026-10-08 | 3 · La tabla de vistas | **Hecha y APLICADA.** Migración 040 (`20261008220657`): ensayo con BEGIN/ROLLBACK 23 ok / 0 rotas / 1 no concluyente, sin dejar rastro; en vivo 24/24, tabla con 0 filas y sus 2 políticas. Más `src/lib/filtros/vistas.ts` (18 pruebas) y `src/actions/vistas-filtro.ts`. **721 pruebas en 48 archivos**, lint 0/22. Correcciones sobre el plan: (a) la migración **no siembra** —dos de las ocho vistas de fábrica son predicados, no valores de filtro, y las otras seis apuntan a claves que aún no existen—; (b) `authenticated` no puede escribir en la tabla temporal del resultado y el intento aborta la transacción: lo medido con otro rol se guarda en variables; (c) `updated_at > created_at` no prueba el disparador, porque dentro de una transacción `now()` es siempre la hora de inicio. De paso, `normalizarNombre` se mudó de `planilla-alta` a `src/lib/texto.ts`: las vistas la necesitan para que «Más de 5 días» y «Mas de 5 dias» no convivan. |
