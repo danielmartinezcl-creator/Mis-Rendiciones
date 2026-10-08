@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { getAdminReports, getReportDetailForAdmin, getDefontanaExportData, markDefontanaExported, revertDefontanaExport, getOrgCategories, reclassifyExpenseItem, changeHistoricalImportType, getReportAttachmentUrls, bulkUpdateExpenseItemsCostCenter, getCostCenters } from '@/actions/admin'
 import { markReimbursed, revertReimbursement } from '@/actions/approvals'
@@ -9,7 +9,7 @@ import { formatDate, formatCLP, formatDisplayTitle } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, ChevronDown, Undo2, BookCheck, FileSpreadsheet } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, Undo2, BookCheck, FileSpreadsheet } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS, ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
@@ -18,6 +18,13 @@ import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
 import { SEMANTIC } from '@/lib/design-tokens'
 import { useDialogos } from '@/components/ui/Dialogos'
+import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import { Vistas } from '@/components/filtros/Vistas'
+import { clavesPuestas, resumen, type Valores } from '@/lib/filtros/dimensiones'
+import { depurarVista, type Vista } from '@/lib/filtros/vistas'
+import { aplicarFiltroRendiciones, dimensionesDeRendiciones } from '@/lib/filtro-rendiciones-admin'
+import { fechaEnChile, rangoDeFecha } from '@/lib/filtro-documentos'
+import { listarVistas, crearVista, borrarVista } from '@/actions/vistas-filtro'
 
 type Report = Awaited<ReturnType<typeof getAdminReports>>[number]
 type Detail = Awaited<ReturnType<typeof getReportDetailForAdmin>>
@@ -55,21 +62,17 @@ export function AdminReportsClient({ initialReports }: Props) {
   // Reversa de contabilización — el diálogo pide el motivo
   const [revertTarget, setRevertTarget] = useState<{ ids: string[]; label: string; detail: string | null } | null>(null)
 
-  // Filtros
-  const [dateFrom,   setDateFrom]   = useState('')
-  const [dateTo,     setDateTo]     = useState('')
-  const [statusSel,  setStatusSel]  = useState<string[]>([])
-  const [empFilter,       setEmpFilter]       = useState<string[]>([])
-  const [empDropdownOpen, setEmpDropdownOpen] = useState(false)
-  const [empSearch,       setEmpSearch]       = useState('')
-  const [deptFilter, setDeptFilter] = useState('')
-  const empDropRef = useRef<HTMLDivElement>(null)
-  const [reimb,      setReimb]      = useState<'all' | 'pending' | 'reimbursed'>('all')
+  /* El filtro: un solo juego de valores para las siete dimensiones. El panel
+     de ~90 líneas que vivía acá se borró — ver la barra, más abajo. */
+  const [valores, setValores] = useState<Valores>({})
+  const [vistas,  setVistas]  = useState<Vista[]>([])
+  /* El día se lee UNA vez, igual que el reloj de los KPIs: leerlo en cada
+     render haría que el mismo estado diera dos resultados distintos. */
+  const [hoy] = useState(() => fechaEnChile())
   /* Pagina SOLO el dibujo. Los KPIs, las exportaciones y las acciones masivas
      siguen operando sobre `filtered` entero: lo que se esconde es el scroll,
      nunca el alcance de un botón. */
   const [tope,       setTope]       = useState(25)
-  const [defFilter,  setDefFilter]  = useState<'all' | 'notExported' | 'exported'>('all')
 
   // Reembolso inline
   const [reimbOpen,    setReimbOpen]    = useState<string | null>(null)
@@ -78,16 +81,6 @@ export function AdminReportsClient({ initialReports }: Props) {
   const [reimbSaving,  setReimbSaving]  = useState(false)
   const [revertingId,  setRevertingId]  = useState<string | null>(null)
 
-  // Cerrar dropdown empleado al hacer click fuera
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (empDropRef.current && !empDropRef.current.contains(e.target as Node)) {
-        setEmpDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   // Eliminar
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
@@ -203,25 +196,43 @@ export function AdminReportsClient({ initialReports }: Props) {
   const employees   = useMemo(() => [...new Map(reports.map(r => [r.submitter_id, { id: r.submitter_id, name: r.submitter_name }])).values()].sort((a, b) => a.name.localeCompare(b.name)), [reports])
   const departments = useMemo(() => [...new Set(reports.map(r => r.department).filter(Boolean) as string[])].sort(), [reports])
 
-  // Filtrado
-  const filtered = useMemo(() => reports.filter(r => {
-    const subDate = r.submitted_at?.split('T')[0] ?? ''
-    if (dateFrom && subDate && subDate < dateFrom) return false
-    if (dateTo   && subDate && subDate > dateTo)   return false
-    if (statusSel.length > 0 && !statusSel.includes(r.status)) return false
-    if (empFilter.length > 0 && !empFilter.includes(r.submitter_id)) return false
-    if (deptFilter && r.department   !== deptFilter)   return false
-    if (reimb === 'pending'    && r.status === 'reimbursed') return false
-    if (reimb === 'reimbursed' && r.status !== 'reimbursed') return false
-    if (defFilter === 'notExported' && r.defontana_exported_at) return false
-    if (defFilter === 'exported'    && !r.defontana_exported_at) return false
-    return true
-  }), [reports, dateFrom, dateTo, statusSel, empFilter, deptFilter, reimb, defFilter])
+  /* Las obras que aparecen en los documentos. Con el catálogo vacío el chip
+     de Proyecto no se dibuja: su única opción sería «Sin proyecto». */
+  const proyectos = useMemo(() => [...new Map(
+    reports.filter(r => r.proyecto_id)
+      .map(r => [r.proyecto_id!, { id: r.proyecto_id!, etiqueta: r.proyecto_numero ?? r.proyecto_id! }]),
+  ).values()].sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)), [reports])
 
-  const empOptions = useMemo(() => {
-    const list = employees.filter(e => !empSearch || e.name.toLowerCase().includes(empSearch.toLowerCase()))
-    return list
-  }, [employees, empSearch])
+  const dimensiones = useMemo(() => dimensionesDeRendiciones({
+    empleados: employees.map(e => ({ id: e.id, etiqueta: e.name })),
+    departamentos: departments,
+    proyectos,
+  }), [employees, departments, proyectos])
+
+  /* Lo que el filtro necesita de cada rendición, y nada más. El predicado
+     vive en src/lib/filtro-rendiciones-admin.ts, con sus pruebas. */
+  const filtrables = useMemo(() => reports.map(r => ({
+    id:            r.id,
+    status:        r.status,
+    submittedAt:   r.submitted_at,
+    empleadoId:    r.submitter_id,
+    departamento:  r.department,
+    proyectoId:    r.proyecto_id,
+    contabilizada: !!r.defontana_exported_at,
+    reembolsada:   r.status === 'reimbursed',
+  })), [reports])
+
+  /* Cuántas quedarían con ESOS valores: el número de cada pestaña de vista y
+     el del botón de cada hoja de opciones. */
+  const cuantas = useCallback(
+    (v: Valores) => aplicarFiltroRendiciones(filtrables, v, hoy).length,
+    [filtrables, hoy])
+
+  const filtered = useMemo(() => {
+    const pasan = new Set(aplicarFiltroRendiciones(filtrables, valores, hoy).map(f => f.id))
+    return reports.filter(r => pasan.has(r.id))
+  }, [reports, filtrables, valores, hoy])
+
 
   /* El reloj se lee UNA vez, al montar, no en cada render. Leerlo durante el
      render hace que el mismo estado de datos pueda dar dos resultados
@@ -229,6 +240,8 @@ export function AdminReportsClient({ initialReports }: Props) {
      además era un rojo latente que aparecería solo el día que una rendición
      cruzara los 5 días. */
   const [montadoEn] = useState(() => Date.now())
+
+  useEffect(() => { listarVistas('rendiciones').then(setVistas).catch(() => {}) }, [])
 
   // KPI: rendiciones en revisión con más de 5 días de espera
   const staleSubmitted = useMemo(() => {
@@ -294,13 +307,9 @@ export function AdminReportsClient({ initialReports }: Props) {
         })
       )
 
-      const activeFilters = {
-        dateFrom:   dateFrom || undefined,
-        dateTo:     dateTo   || undefined,
-        employee:   empFilter.length === 1 ? employees.find(e => e.id === empFilter[0])?.name : empFilter.length > 1 ? `${empFilter.length} empleados` : undefined,
-        department: deptFilter || undefined,
-        status:     statusSel.length > 0 ? statusSel : undefined,
-      }
+      /* El PDF dice con qué filtro se armó. Sale del mismo resumen que la
+         pantalla muestra bajo la barra, para que digan lo mismo. */
+      const activeFilters = { resumen: resumen(dimensiones, valores) ?? undefined }
 
       if (type === 'xlsx') {
         const { exportAdminReportsToExcel } = await import('@/lib/export/excel')
@@ -318,6 +327,10 @@ export function AdminReportsClient({ initialReports }: Props) {
    *  solo esas rendiciones — una fila puntual o el lote marcado con las casillas. */
   async function handleExportDefontana(ids?: string[]) {
     const scoped    = !!ids?.length
+    const f = valores.fecha
+    const rangoActual = f !== undefined && f.tipo === 'fecha'
+      ? rangoDeFecha({ fecha: f.preset, desde: f.desde, hasta: f.hasta }, hoy)
+      : { desde: null, hasta: null }
     const targetIds = scoped ? ids! : filtered.map(r => r.id)
 
     setExporting('defontana')
@@ -327,8 +340,8 @@ export function AdminReportsClient({ initialReports }: Props) {
       const { reports: defReports, settings, exportedReportIds } = await getDefontanaExportData({
         reportIds: targetIds,
         // Con selección explícita el rango de fechas no debe recortar lo elegido
-        dateFrom:  scoped ? undefined : (dateFrom || undefined),
-        dateTo:    scoped ? undefined : (dateTo   || undefined),
+        dateFrom:  scoped ? undefined : (rangoActual.desde ?? undefined),
+        dateTo:    scoped ? undefined : (rangoActual.hasta ?? undefined),
       })
       if (!defReports.length) {
         avisar(scoped && targetIds.length === 1
@@ -474,11 +487,16 @@ export function AdminReportsClient({ initialReports }: Props) {
     }
   }
 
-  function toggleStatus(v: string) {
-    setStatusSel(prev => prev.includes(v) ? prev.filter(s => s !== v) : [...prev, v])
-  }
 
-  const hasFilters = dateFrom || dateTo || statusSel.length > 0 || empFilter.length > 0 || deptFilter || reimb !== 'all' || defFilter !== 'all'
+  /* Una vista guardada puede nombrar a un empleado que se fue o una obra
+     borrada. Se depura UNA vez, contra las dimensiones de hoy, antes de
+     compararla, contarla o aplicarla: si se depurara solo al elegirla, la
+     pestaña nunca volvería a marcarse como activa. */
+  const vistasLimpias = useMemo(
+    () => vistas.map(v => ({ ...v, filtro: depurarVista(v.filtro, dimensiones) })),
+    [vistas, dimensiones])
+
+  const hasFilters = clavesPuestas(dimensiones, valores).length > 0
 
   return (
     <div className="space-y-4">
@@ -570,135 +588,38 @@ export function AdminReportsClient({ initialReports }: Props) {
         ]}
       />
 
-      {/* Filtros */}
-      <div className="hoja p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="card-meta font-semibold text-ink-600">Filtros</p>
-          {hasFilters && (
-            <button
-              onClick={() => { setDateFrom(''); setDateTo(''); setStatusSel([]); setEmpFilter([]); setDeptFilter(''); setReimb('all'); setDefFilter('all') }}
-              className="text-xs text-brand-600 hover:underline"
-            >
-              Limpiar todo
-            </button>
-          )}
-        </div>
+      {/* Las vistas guardadas: sobre el degradado, porque son navegación */}
+      <Vistas
+        vistas={vistasLimpias}
+        dimensiones={dimensiones}
+        valores={valores}
+        onElegir={setValores}
+        contar={cuantas}
+        onGuardar={async (nombre, v) => {
+          const { errores } = await crearVista('rendiciones', nombre, v)
+          if (errores?.length) return errores
+          setVistas(await listarVistas('rendiciones'))
+          return []
+        }}
+        onBorrar={async (id) => {
+          const { error } = await borrarVista(id)
+          if (error) return error
+          setVistas(await listarVistas('rendiciones'))
+          return null
+        }}
+        puedeEditar
+      />
 
-        {/* Fecha */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs text-ink-500 mb-1">Desde (fecha envío)</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="campo w-full" />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-500 mb-1">Hasta</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="campo w-full" />
-          </div>
-        </div>
-
-        {/* Estado */}
-        <div>
-          <p className="text-xs text-ink-500 mb-2">Estado</p>
-          <div className="flex flex-wrap gap-1.5">
-            {STATUS_OPTS.map(s => (
-              <button
-                key={s.value}
-                onClick={() => toggleStatus(s.value)}
-                className={[
-                  'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
-                  statusSel.includes(s.value) ? s.color + ' ring-2 ring-offset-1 ring-brand-600' : 'bg-ink-100 text-ink-600 hover:bg-ink-200',
-                ].join(' ')}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Empleado / Depto / Reembolso / Defontana */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          <div ref={empDropRef}>
-            <label className="block text-xs text-ink-500 mb-1">Empleado</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setEmpDropdownOpen(o => !o)}
-                className="campo w-full flex items-center justify-between hover:border-brand-400"
-              >
-                <span className={empFilter.length ? 'text-ink-800' : 'text-ink-400'}>
-                  {empFilter.length === 0 ? 'Todos' : `${empFilter.length} seleccionado${empFilter.length !== 1 ? 's' : ''}`}
-                </span>
-                <ChevronDown size={13} className={`text-ink-400 transition-transform ${empDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {empDropdownOpen && (
-                <div className="absolute z-50 top-full mt-1 w-full min-w-[220px] bg-white border border-ink-200 rounded-item shadow-lg">
-                  <div className="p-2 border-b border-ink-100">
-                    <input
-                      type="text"
-                      placeholder="Buscar empleado…"
-                      value={empSearch}
-                      onChange={e => setEmpSearch(e.target.value)}
-                      className="campo w-full px-2.5 py-1.5"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-52 overflow-y-auto p-1">
-                    {empOptions.map(e => (
-                      <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-ink-50 cursor-pointer rounded-item">
-                        <input
-                          type="checkbox"
-                          checked={empFilter.includes(e.id)}
-                          onChange={() => setEmpFilter(ids => ids.includes(e.id) ? ids.filter(x => x !== e.id) : [...ids, e.id])}
-                          className="accent-brand-600 w-3.5 h-3.5 shrink-0"
-                        />
-                        <span className="text-sm text-ink-700">{e.name}</span>
-                      </label>
-                    ))}
-                    {empOptions.length === 0 && (
-                      <p className="text-xs text-ink-400 text-center py-3">Sin resultados</p>
-                    )}
-                  </div>
-                  {empFilter.length > 0 && (
-                    <div className="border-t border-ink-100 px-3 py-2">
-                      <button type="button" onClick={() => setEmpFilter([])} className="text-xs text-ink-400 hover:text-ink-600">
-                        Limpiar selección
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-500 mb-1">Departamento</label>
-            <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="campo w-full">
-              <option value="">Todos</option>
-              {departments.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-500 mb-1">Reembolso</label>
-            <select value={reimb} onChange={e => setReimb(e.target.value as typeof reimb)}
-              className="campo w-full">
-              <option value="all">Todos</option>
-              <option value="pending">Pendiente de reembolso</option>
-              <option value="reimbursed">Reembolsadas</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-500 mb-1">Contabilización</label>
-            <select value={defFilter} onChange={e => setDefFilter(e.target.value as typeof defFilter)}
-              className="campo w-full">
-              <option value="all">Todas</option>
-              <option value="notExported">Sin contabilizar</option>
-              <option value="exported">Contabilizadas</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <BarraFiltros
+        dimensiones={dimensiones}
+        valores={valores}
+        onCambio={setValores}
+        contar={cuantas}
+        sustantivo={['rendición', 'rendiciones']}
+        resumen={hasFilters
+          ? `${filtered.length} de ${reports.length} · ${resumen(dimensiones, valores) ?? ''}`
+          : null}
+      />
 
       {/* Lista */}
       {filtered.length === 0 && (

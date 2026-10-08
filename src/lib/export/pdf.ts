@@ -124,11 +124,11 @@ export async function exportReportToPDF(report: ReportForPDF) {
 import type { AdminReportRow } from './excel'
 
 interface AdminPDFFilters {
-  dateFrom?:  string
-  dateTo?:    string
-  employee?:  string
-  department?: string
-  status?:    string[]
+  /** Con qué filtro se armó, escrito. Es la MISMA línea que la pantalla
+   *  muestra bajo la barra de chips: si el PDF dijera otra cosa, una de las
+   *  dos estaría mintiendo. Antes eran cinco campos sueltos, y cada
+   *  dimensión nueva del filtro había que acordarse de sumarla acá. */
+  resumen?: string
 }
 
 export function exportAdminReportsToPDF(reports: AdminReportRow[], filters: AdminPDFFilters = {}, filename = 'rendiciones-admin') {
@@ -139,19 +139,10 @@ export function exportAdminReportsToPDF(reports: AdminReportRow[], filters: Admi
   doc.setFont('helvetica', 'bold')
   doc.text('Reporte de Rendiciones', 14, 18)
 
-  // Filtros activos
-  const filterParts: string[] = []
-  if (filters.dateFrom || filters.dateTo) {
-    filterParts.push(`Período: ${filters.dateFrom ?? '—'} a ${filters.dateTo ?? '—'}`)
-  }
-  if (filters.employee)   filterParts.push(`Empleado: ${filters.employee}`)
-  if (filters.department) filterParts.push(`Depto: ${filters.department}`)
-  if (filters.status?.length) filterParts.push(`Estado: ${filters.status.map(s => STATUS_ES[s] ?? s).join(', ')}`)
-
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100)
-  if (filterParts.length > 0) doc.text(filterParts.join('   |   '), 14, 26)
+  if (filters.resumen) doc.text(`Filtro: ${filters.resumen}`, 14, 26)
   doc.text(`${reports.length} rendición${reports.length !== 1 ? 'es' : ''} · Exportado ${new Date().toLocaleDateString('es-CL')}`, 14, 32)
   doc.setTextColor(0)
 

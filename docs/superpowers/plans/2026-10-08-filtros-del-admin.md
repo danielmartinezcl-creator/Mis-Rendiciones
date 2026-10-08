@@ -456,7 +456,7 @@ git commit -am "feat(informes): la obra llega hasta las consultas del admin"
 - Consumes: Tareas 1–4 enteras.
 - Produces: `Vistas.tsx`, que usan después Informes, Auditoría y Empleados.
 
-- [ ] **Paso 1: Las pruebas del predicado**
+- [x] **Paso 1: Las pruebas del predicado**
 
 Siete dimensiones: Empleado, Estado, Fecha de envío, Proyecto, Departamento, Reembolso, Contabilización. Casos que no se pueden perder:
 
@@ -466,22 +466,22 @@ Siete dimensiones: Empleado, Estado, Fecha de envío, Proyecto, Departamento, Re
 - Una carga histórica entra como `SIN_PROYECTO`.
 - Dos filtros se cumplen a la vez, no por separado.
 
-- [ ] **Paso 2: Correrlas y verlas fallar**
+- [x] **Paso 2: Correrlas y verlas fallar**
 
-- [ ] **Paso 3: El predicado y la pantalla**
+- [x] **Paso 3: El predicado y la pantalla**
 
 - Se borra el panel de filtros (~90 líneas, desde `{/* Filtros */}` hasta el cierre del bloque de Empleado/Depto/Reembolso/Defontana) y los `useState` que solo él usaba (`dateFrom`, `dateTo`, `statusSel`, `empFilter`, `empDropdownOpen`, `empSearch`, `deptFilter`, `reimb`, `defFilter`, `empDropRef` y su `useEffect` de clic afuera).
 - **Lo que NO cambia:** `filtered` sigue siendo el alcance de los botones. El paginado (`tope`) sigue siendo solo del dibujo — los KPIs, la exportación a Defontana y las acciones masivas operan sobre todo lo filtrado, nunca sobre la página.
 - `Vistas.tsx`: las pestañas sobre el degradado, con la cuenta de cada una; abajo la barra. Al tocar un chip estando en una vista aparece la línea con **«Guardar como vista»** y **«Descartar»**. Guardar **encima** de la vista activa es una opción dentro de ese menú, nunca lo que pasa por omisión.
 - El filtro va en la dirección, con `window.history.replaceState`, como en el filtro del empleado.
 
-- [ ] **Paso 4: Verde en pruebas, tipos y lint**
+- [x] **Paso 4: Verde en pruebas, tipos y lint**
 
-- [ ] **Paso 5: Mirarlo en el navegador**
+- [x] **Paso 5: Mirarlo en el navegador**
 
 `preview_start`, `/admin/reports`. **Solo navegar y abrir chips.** Comprobar a 390, 768, 1024 y 1280 px que `document.documentElement.scrollWidth === clientWidth` y que `window.scrollX` se queda en 0 al empujar.
 
-- [ ] **Paso 6: Commit**
+- [x] **Paso 6: Commit**
 
 ---
 
@@ -620,3 +620,4 @@ Filas nuevas en errores conocidos:
 | 2026-10-08 | 2 · La barra genérica | **Hecha.** `BarraFiltros`, `HojaOpciones` y el nuevo `HojaMasFiltros` dejaron de saber de rendiciones; los dos llamadores del empleado pasan por `aValores`/`aFiltro`. **703 pruebas en 47 archivos**, lint 0/22. **El portón se pasó**: en los diffs de Caja chica y Mis rendiciones la barra sale entera en gris —idéntica, y sin botón «Más filtros» de más—. Lo único rojo era el riel lateral, y NO era de esta tarea: la entrada «Centros de costo» del 2026-10-08 invalidó las 27 capturas de escritorio y solo se habían recapturado las 2 de la pantalla nueva. Recapturadas las 27 (las 27 del teléfono no cambiaron, porque el riel es de `md:` para arriba). En el camino: una corrida entera se cayó con `ERR_CONNECTION_REFUSED` por el servidor del arnés, no por el código; repetida, 56 pasaron y 0 rojas. |
 | 2026-10-08 | 3 · La tabla de vistas | **Hecha y APLICADA.** Migración 040 (`20261008220657`): ensayo con BEGIN/ROLLBACK 23 ok / 0 rotas / 1 no concluyente, sin dejar rastro; en vivo 24/24, tabla con 0 filas y sus 2 políticas. Más `src/lib/filtros/vistas.ts` (18 pruebas) y `src/actions/vistas-filtro.ts`. **721 pruebas en 48 archivos**, lint 0/22. Correcciones sobre el plan: (a) la migración **no siembra** —dos de las ocho vistas de fábrica son predicados, no valores de filtro, y las otras seis apuntan a claves que aún no existen—; (b) `authenticated` no puede escribir en la tabla temporal del resultado y el intento aborta la transacción: lo medido con otro rol se guarda en variables; (c) `updated_at > created_at` no prueba el disparador, porque dentro de una transacción `now()` es siempre la hora de inicio. De paso, `normalizarNombre` se mudó de `planilla-alta` a `src/lib/texto.ts`: las vistas la necesitan para que «Más de 5 días» y «Mas de 5 dias» no convivan. |
 | 2026-10-08 | 4 · La obra hasta el admin | **Hecha.** `UnifiedReportItem` suma `proyecto_id` y `proyecto_numero`; los tres mapeos de `reports.ts` y `getAdminReports` los rellenan contra un catálogo que se resuelve **una vez por consulta**, no uno por fetcher. `obraDe` devuelve los dos campos juntos a propósito: separarlos es la forma de que un sitio se olvide del otro. **725 pruebas en 48 archivos**, lint 0/22. **Hallazgo:** el catálogo de obras está VACÍO (0 obras; 0 de 114 rendiciones y 0 de 6 fondos con obra), porque se arma con el uso y el aprobador por proyecto se desplegó recién ayer. De ahí la regla de esconder el chip mientras no haya ninguna. |
+| 2026-10-08 | 5 · Rendiciones | **Hecha.** Panel de 130 líneas borrado; barra de chips + «Más filtros» + vistas. El archivo pasó de 1.245 a 1.166 líneas. **745 pruebas en 49 archivos**, lint 0/22. Verificado a 360, 390, 768, 1024 y 1280 px: sin desborde y sin errores en consola. Línea base de `admin-rendiciones` recapturada (las dos). Decisiones del camino: (a) un **borrador sin enviar queda fuera de cualquier rango de fecha** —antes pasaba cualquiera, porque la condición se salteaba al no haber fecha—; (b) el PDF ya no recibe cinco campos sueltos de filtro sino **la misma línea de resumen que muestra la pantalla**, así no pueden decir cosas distintas y una dimensión nueva no hay que acordarse de sumarla; (c) las vistas se **depuran una sola vez** contra las dimensiones de hoy, antes de compararlas: depurar solo al elegirlas dejaría la pestaña sin volver a marcarse nunca. **No se sembró ninguna vista de fábrica** — ver la nota de abajo. |
