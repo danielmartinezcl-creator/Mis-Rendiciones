@@ -212,7 +212,7 @@ git commit -m "feat(filtros): las dimensiones genéricas, sin dominio adentro"
 
 **Por qué un adaptador y no una reescritura:** `filtro-documentos.ts` tiene reglas que costaron caro (la fecha es la del gasto; tipo de gasto y fecha los cumple el **mismo** gasto; un gasto rechazado no suma nunca; un documento sin gastos se juzga por su fecha de creación). Reescribirlas para encajar en `Valores` es la forma de perderlas.
 
-- [ ] **Paso 1: La prueba de ida y vuelta**
+- [x] **Paso 1: La prueba de ida y vuelta**
 
 ```ts
 // src/tests/filtros-adaptador.test.ts
@@ -236,9 +236,9 @@ describe('adaptador documentos ↔ valores', () => {
 })
 ```
 
-- [ ] **Paso 2: Correrla y ver que falla**
+- [x] **Paso 2: Correrla y ver que falla**
 
-- [ ] **Paso 3: Escribir el adaptador y generalizar la barra**
+- [x] **Paso 3: Escribir el adaptador y generalizar la barra**
 
 `BarraFiltros` queda con esta firma — los dos llamadores del empleado pasan a usarla:
 
@@ -259,9 +259,9 @@ interface Props {
 - **La línea de resumen SIGUE viniendo por props.** No la calcula la barra: la del empleado no nombra lo puesto, dice cuánto queda y cuánta plata («3 de 12 · $ 97.300 en Combustible», `textoResumen` de `filtro-etiquetas.ts`). Si la barra la reemplazara por `resumen()`, las dos pantallas del empleado cambiarían de texto y la línea base se movería — justo lo que esta tarea prohíbe. `resumen()` es para que el admin arme la suya.
 - `HojaMasFiltros` lista las no destacadas, cada una con su rótulo y su control, y cierra con **«Ver N rendiciones»** y **«Limpiar»**. Reusa `HojaOpciones` adentro para las de tipo `multi` y `unico`.
 
-- [ ] **Paso 4: Las pruebas y los tipos en verde**
+- [x] **Paso 4: Las pruebas y los tipos en verde**
 
-- [ ] **Paso 5: La línea base del empleado NO se puede mover**
+- [x] **Paso 5: La línea base del empleado NO se puede mover**
 
 ```bash
 npx playwright test -g "Caja chica"
@@ -270,7 +270,7 @@ npx playwright test -g "Mis rendiciones"
 
 Expected: **pasan sin recapturar**. Si alguna captura cambia, la generalización movió algo visible y hay que arreglarlo, no actualizar la captura.
 
-- [ ] **Paso 6: Commit**
+- [x] **Paso 6: Commit**
 
 ```bash
 git add src/lib/filtros src/components/filtros src/app/\(app\)/petty-cash src/app/\(app\)/reimbursements src/tests/filtros-adaptador.test.ts
@@ -599,3 +599,4 @@ Filas nuevas en errores conocidos:
 | Fecha | Tarea | Resultado |
 |---|---|---|
 | 2026-10-08 | 1 · Las dimensiones genéricas | **Hecha.** `src/lib/filtros/dimensiones.ts` + 28 pruebas. **680 pruebas en 46 archivos** (eran 652 en 45), tsc limpio, lint 0/22. Dos correcciones al plan, hechas sobre la marcha: (a) la barra **conserva** el resumen por props — la línea del empleado dice cuánto queda y cuánta plata, no qué está puesto, y calcularla sola habría movido su línea base; (b) `Dimension` de tipo `multi` necesita `plural`, o el chip no puede decir «2 tipos de gasto» como dice hoy. De paso se sacó una duplicación: `ETIQUETA_PRESET` y el formato corto de fecha pasaron de `filtro-etiquetas` (el del empleado) al módulo genérico, que es de las seis pantallas. |
+| 2026-10-08 | 2 · La barra genérica | **Hecha.** `BarraFiltros`, `HojaOpciones` y el nuevo `HojaMasFiltros` dejaron de saber de rendiciones; los dos llamadores del empleado pasan por `aValores`/`aFiltro`. **703 pruebas en 47 archivos**, lint 0/22. **El portón se pasó**: en los diffs de Caja chica y Mis rendiciones la barra sale entera en gris —idéntica, y sin botón «Más filtros» de más—. Lo único rojo era el riel lateral, y NO era de esta tarea: la entrada «Centros de costo» del 2026-10-08 invalidó las 27 capturas de escritorio y solo se habían recapturado las 2 de la pantalla nueva. Recapturadas las 27 (las 27 del teléfono no cambiaron, porque el riel es de `md:` para arriba). En el camino: una corrida entera se cayó con `ERR_CONNECTION_REFUSED` por el servidor del arnés, no por el código; repetida, 56 pasaron y 0 rojas. |

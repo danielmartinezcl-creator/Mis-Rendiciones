@@ -3,28 +3,35 @@
 // Las opciones de un chip. En el teléfono, una hoja que sube desde abajo;
 // desde `sm`, un menú anclado bajo el chip. Lo marcado es un borrador: solo
 // cambia el filtro al tocar «Ver N …»; cerrar lo descarta.
+//
+// No sabe qué se está filtrando: recibe una `Dimension` y un juego de
+// `Valores`. Lo que pasa el filtro lo decide cada pantalla.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import type { Filtro, PresetFecha } from '@/lib/filtro-documentos'
-import { nombreDeChip, quitarChip } from '@/lib/filtro-etiquetas'
-import { ETIQUETA_PRESET } from '@/lib/filtros/dimensiones'
-import type { Dimension } from './BarraFiltros'
+import type { PresetFecha } from '@/lib/filtro-documentos'
+import {
+  ETIQUETA_PRESET, valorVacio,
+  type Dimension, type Valores,
+} from '@/lib/filtros/dimensiones'
 
 const PRESETS: PresetFecha[] = ['este-mes', 'mes-pasado', 'ultimos-3', 'este-anio', 'elegir']
 
+/** Con pocas opciones un buscador estorba más de lo que ayuda. */
+const DESDE_CUANTAS_BUSCADOR = 6
+
 interface Props {
   dimension:  Dimension
-  filtro:     Filtro
-  contar:     (f: Filtro) => number
+  valores:    Valores
+  contar:     (v: Valores) => number
   sustantivo: [string, string]
-  onAplicar:  (f: Filtro) => void
+  onAplicar:  (v: Valores) => void
   onCerrar:   () => void
 }
 
-export function HojaOpciones({ dimension, filtro, contar, sustantivo, onAplicar, onCerrar }: Props) {
-  const { clave, opciones } = dimension
-  const [borrador, setBorrador] = useState<Filtro>(filtro)
+export function HojaOpciones({ dimension, valores, contar, sustantivo, onAplicar, onCerrar }: Props) {
+  const { clave } = dimension
+  const [borrador, setBorrador] = useState<Valores>(valores)
   const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => {
@@ -33,20 +40,27 @@ export function HojaOpciones({ dimension, filtro, contar, sustantivo, onAplicar,
     return () => window.removeEventListener('keydown', alTeclear)
   }, [onCerrar])
 
+  /* La lista sale de adentro del useMemo y no de una variable derivada: una
+     expresión condicional afuera arma un array nuevo en cada render y la
+     dependencia nunca es la misma. */
   const visibles = useMemo(() => {
+    const opciones = dimension.tipo === 'multi' || dimension.tipo === 'unico' ? dimension.opciones : []
     const q = busqueda.trim().toLowerCase()
     return q ? opciones.filter(o => o.etiqueta.toLowerCase().includes(q)) : opciones
-  }, [opciones, busqueda])
+  }, [dimension, busqueda])
 
-  // Con pocas opciones un buscador estorba más de lo que ayuda
-  const conBuscador = (clave === 'proyectos' || clave === 'empleados') && opciones.length > 6
+  const conBuscador =
+    (dimension.tipo === 'multi' || dimension.tipo === 'unico')
+    && !!dimension.buscador
+    && dimension.opciones.length > DESDE_CUANTAS_BUSCADOR
+
   const n = contar(borrador)
+  const valor = borrador[clave] ?? valorVacio(dimension)
 
   function alternar(id: string) {
-    if (clave === 'fecha') return
-    const actual: string[] = borrador[clave]
-    const nuevo = actual.includes(id) ? actual.filter(x => x !== id) : [...actual, id]
-    setBorrador({ ...borrador, [clave]: nuevo })
+    if (valor.tipo !== 'multi') return
+    const nuevo = valor.ids.includes(id) ? valor.ids.filter(x => x !== id) : [...valor.ids, id]
+    setBorrador({ ...borrador, [clave]: { tipo: 'multi', ids: nuevo } })
   }
 
   return (
@@ -56,12 +70,12 @@ export function HojaOpciones({ dimension, filtro, contar, sustantivo, onAplicar,
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={nombreDeChip(clave)}
+        aria-label={dimension.nombre}
         className="hoja fixed inset-x-0 bottom-0 z-[61] max-h-[80vh] overflow-y-auto rounded-b-none p-4 pb-6
                    sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-full sm:mt-2 sm:w-80 sm:max-h-96 sm:rounded-card sm:pb-4"
       >
         <div className="flex items-center justify-between gap-3 mb-2">
-          <h2 className="font-display font-bold text-lg text-ink-900">{nombreDeChip(clave)}</h2>
+          <h2 className="font-display font-bold text-lg text-ink-900">{dimension.nombre}</h2>
           <button
             type="button" onClick={onCerrar} aria-label="Cerrar"
             className="h-11 w-11 inline-flex items-center justify-center rounded-item bg-ink-100 text-ink-600"
@@ -75,48 +89,81 @@ export function HojaOpciones({ dimension, filtro, contar, sustantivo, onAplicar,
             <Search size={16} className="text-ink-400 shrink-0" />
             <input
               value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar por número o nombre" className="w-full bg-transparent outline-none"
+              placeholder={
+                (dimension.tipo === 'multi' || dimension.tipo === 'unico')
+                  ? dimension.marcadorBusqueda ?? 'Buscar…'
+                  : 'Buscar…'
+              }
+              className="w-full bg-transparent outline-none"
             />
           </label>
         )}
 
-        {clave === 'fecha' ? (
+        {valor.tipo === 'fecha' ? (
           <div className="divide-y divide-ink-100">
             {PRESETS.map(p => (
               <label key={p} className="flex items-center gap-3 min-h-12 card-label text-ink-800 cursor-pointer">
                 <input
-                  type="radio" name="fecha" checked={borrador.fecha === p}
-                  onChange={() => setBorrador({ ...borrador, fecha: p, ...(p === 'elegir' ? {} : { desde: null, hasta: null }) })}
+                  type="radio" name="fecha" checked={valor.preset === p}
+                  onChange={() => setBorrador({
+                    ...borrador,
+                    [clave]: p === 'elegir'
+                      ? { tipo: 'fecha', preset: p, desde: valor.desde, hasta: valor.hasta }
+                      : { tipo: 'fecha', preset: p, desde: null, hasta: null },
+                  })}
                   className="accent-brand-600 w-5 h-5 shrink-0"
                 />
                 {ETIQUETA_PRESET[p]}
               </label>
             ))}
-            {borrador.fecha === 'elegir' && (
+            {valor.preset === 'elegir' && (
               <div className="grid grid-cols-2 gap-3 pt-3">
                 <label className="card-meta text-ink-500">
                   Desde
                   <input
-                    type="date" value={borrador.desde ?? ''}
-                    onChange={e => setBorrador({ ...borrador, desde: e.target.value || null })}
+                    type="date" value={valor.desde ?? ''}
+                    onChange={e => setBorrador({
+                      ...borrador, [clave]: { ...valor, desde: e.target.value || null },
+                    })}
                     className="campo w-full mt-1"
                   />
                 </label>
                 <label className="card-meta text-ink-500">
                   Hasta
                   <input
-                    type="date" value={borrador.hasta ?? ''}
-                    onChange={e => setBorrador({ ...borrador, hasta: e.target.value || null })}
+                    type="date" value={valor.hasta ?? ''}
+                    onChange={e => setBorrador({
+                      ...borrador, [clave]: { ...valor, hasta: e.target.value || null },
+                    })}
                     className="campo w-full mt-1"
                   />
                 </label>
               </div>
             )}
           </div>
-        ) : (
+        ) : valor.tipo === 'unico' ? (
+          /* Una sola opción a la vez: no hay nada que combinar en «Reembolso» o
+             «Contabilización», y una casilla marcada invitaría a marcar dos. */
+          <div className="divide-y divide-ink-100">
+            {visibles.map(o => (
+              <label key={o.id} className="flex items-center gap-3 min-h-12 cursor-pointer">
+                <input
+                  type="radio" name={clave} checked={valor.id === o.id}
+                  onChange={() => setBorrador({ ...borrador, [clave]: { tipo: 'unico', id: o.id } })}
+                  className="accent-brand-600 w-5 h-5 shrink-0"
+                />
+                <span className={`card-label flex-1 min-w-0 ${valor.id === o.id ? 'font-semibold text-ink-900' : 'text-ink-700'}`}>
+                  {o.etiqueta}
+                </span>
+                {o.detalle && <span className="card-meta text-ink-400 shrink-0">{o.detalle}</span>}
+              </label>
+            ))}
+            {visibles.length === 0 && <p className="card-meta text-ink-400 py-3">Sin resultados</p>}
+          </div>
+        ) : valor.tipo === 'multi' ? (
           <div className="divide-y divide-ink-100">
             {visibles.map(o => {
-              const marcado = (borrador[clave] as string[]).includes(o.id)
+              const marcado = valor.ids.includes(o.id)
               return (
                 <label key={o.id} className="flex items-center gap-3 min-h-12 cursor-pointer">
                   <input
@@ -132,11 +179,12 @@ export function HojaOpciones({ dimension, filtro, contar, sustantivo, onAplicar,
             })}
             {visibles.length === 0 && <p className="card-meta text-ink-400 py-3">Sin resultados</p>}
           </div>
-        )}
+        ) : null}
 
         <div className="flex items-center gap-2 mt-4">
           <button
-            type="button" onClick={() => setBorrador(quitarChip(clave, borrador))}
+            type="button"
+            onClick={() => setBorrador({ ...borrador, [clave]: valorVacio(dimension) })}
             className="h-12 px-4 card-label font-bold text-brand-600"
           >
             Limpiar

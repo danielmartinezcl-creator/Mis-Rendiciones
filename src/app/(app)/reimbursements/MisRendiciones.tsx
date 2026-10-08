@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Filter, ReceiptText } from 'lucide-react'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
-import { BarraFiltros, type Dimension } from '@/components/filtros/BarraFiltros'
+import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import type { Dimension } from '@/lib/filtros/dimensiones'
+import { aFiltro, aValores, dimensionDocumento } from '@/lib/filtros/adaptador-documentos'
 import {
   aplicarFiltro, contarPorCategoria, hayFiltro,
   ETIQUETAS_ESTADO, FILTRO_VACIO, ORDEN_FAMILIAS, SIN_PROYECTO,
@@ -41,13 +43,13 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy }: Pro
   const conteo = useMemo(() => contarPorCategoria(documentos), [documentos])
 
   const dimensiones: Dimension[] = [
-    { clave: 'proyectos', opciones: [
+    dimensionDocumento('proyectos', [
       { id: SIN_PROYECTO, etiqueta: 'Sin proyecto' },
       ...opciones.proyectos.map(p => ({ id: p.id, etiqueta: etiquetaDeProyecto(p) })),
-    ] },
-    { clave: 'categorias', opciones: categorias.map(c => ({ ...c, detalle: gastos(conteo.get(c.id) ?? 0) })) },
-    { clave: 'fecha', opciones: [] },
-    { clave: 'estados', opciones: ORDEN_FAMILIAS.map(f => ({ id: f, etiqueta: ETIQUETAS_ESTADO.rendicion[f] })) },
+    ]),
+    dimensionDocumento('categorias', categorias.map(c => ({ ...c, detalle: gastos(conteo.get(c.id) ?? 0) }))),
+    dimensionDocumento('fecha', []),
+    dimensionDocumento('estados', ORDEN_FAMILIAS.map(f => ({ id: f, etiqueta: ETIQUETAS_ESTADO.rendicion[f] }))),
   ]
 
   if (documentos.length === 0) {
@@ -73,10 +75,10 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy }: Pro
       </div>
 
       <BarraFiltros
-        filtro={filtro}
-        onCambio={cambiar}
+        valores={aValores(filtro)}
+        onCambio={v => cambiar(aFiltro(v))}
         dimensiones={dimensiones}
-        contar={f => aplicarFiltro(documentos, f, hoy).visibles.length}
+        contar={v => aplicarFiltro(documentos, aFiltro(v), hoy).visibles.length}
         sustantivo={['rendición', 'rendiciones']}
         resumen={hayFiltro(filtro)
           ? textoResumen({ visibles: resultado.visibles.length, total: documentos.length, totalClp: resultado.totalClp }, filtro, categorias)

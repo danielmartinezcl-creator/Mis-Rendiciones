@@ -9,7 +9,9 @@ import type { HistoricalImport, FundListItem, FundTransferRow } from './usePetty
 import { FundList } from './FundList'
 import { FundModals } from './FundModals'
 import { HistoricalSection } from './HistoricalSection'
-import { BarraFiltros, type Dimension } from '@/components/filtros/BarraFiltros'
+import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import type { Dimension } from '@/lib/filtros/dimensiones'
+import { aFiltro, aValores, dimensionDocumento } from '@/lib/filtros/adaptador-documentos'
 import {
   aplicarFiltro, contarPorCategoria, hayFiltro, ETIQUETAS_ESTADO, FILTRO_VACIO, ORDEN_FAMILIAS, SIN_PROYECTO,
   type Filtro, type OpcionesFiltro,
@@ -90,18 +92,18 @@ export function PettyCashClient({
   const categorias = opciones.categorias.map(c => ({ id: c.id, etiqueta: c.name }))
   const conteo = contarPorCategoria(state.funds)
   const dimensiones: Dimension[] = [
-    { clave: 'proyectos', opciones: [
+    dimensionDocumento('proyectos', [
       { id: SIN_PROYECTO, etiqueta: 'Sin proyecto' },
       ...opciones.proyectos.map(p => ({ id: p.id, etiqueta: etiquetaDeProyecto(p) })),
-    ] },
-    { clave: 'categorias', opciones: categorias.map(c => {
+    ]),
+    dimensionDocumento('categorias', categorias.map(c => {
       const n = conteo.get(c.id) ?? 0
       return { ...c, detalle: n === 1 ? '1 gasto' : `${n} gastos` }
-    }) },
-    { clave: 'fecha', opciones: [] },
-    { clave: 'estados', opciones: ORDEN_FAMILIAS.map(f => ({ id: f, etiqueta: ETIQUETAS_ESTADO.fondo[f] })) },
+    })),
+    dimensionDocumento('fecha', []),
+    dimensionDocumento('estados', ORDEN_FAMILIAS.map(f => ({ id: f, etiqueta: ETIQUETAS_ESTADO.fondo[f] }))),
     // El empleado ve solo sus fondos: filtrar por empleado es de quien administra
-    ...(isManager ? [{ clave: 'empleados' as const, opciones: empleadosFondos }] : []),
+    ...(isManager ? [dimensionDocumento('empleados', empleadosFondos)] : []),
   ]
   const coincidencia = (fundId: string) => {
     if (!filtro.categorias.length) return null
@@ -157,10 +159,10 @@ export function PettyCashClient({
 
       {/* ── Filtro: la barra de chips (diseño A) ─────────────────────────────── */}
       <BarraFiltros
-        filtro={filtro}
-        onCambio={setFiltro}
+        valores={aValores(filtro)}
+        onCambio={v => setFiltro(aFiltro(v))}
         dimensiones={dimensiones}
-        contar={f => aplicarFiltro(state.funds, f, hoy).visibles.length}
+        contar={v => aplicarFiltro(state.funds, aFiltro(v), hoy).visibles.length}
         sustantivo={['fondo', 'fondos']}
         resumen={hayFiltro(filtro)
           ? textoResumen({ visibles: filtered.length, total: state.funds.length, totalClp: resultado.totalClp }, filtro, categorias)

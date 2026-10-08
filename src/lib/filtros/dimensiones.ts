@@ -29,15 +29,27 @@ export interface Opcion {
  * leerlos todos para saber qué está puesto, que es el problema que este
  * rediseño vino a resolver.
  */
+/**
+ * Un buscador dentro de la hoja de opciones. **Es por dimensión y no una regla
+ * de largo**: hoy lo ofrecen solo Proyecto y Empleado, y solo con más de seis
+ * opciones. Si bastara el largo, las categorías de PENTA lo estrenarían sin que
+ * nadie lo haya pedido y la pantalla del empleado cambiaría sola.
+ */
+interface ConBuscador {
+  buscador?: boolean
+  /** Por omisión, «Buscar…». */
+  marcadorBusqueda?: string
+}
+
 export type Dimension =
-  | {
+  | (ConBuscador & {
       clave: string; nombre: string; destacada: boolean
       tipo: 'multi'
       /** Cómo se nombra el conjunto: «2 empleados», «2 tipos de gasto». */
       plural: string
       opciones: Opcion[]
-    }
-  | { clave: string; nombre: string; destacada: boolean; tipo: 'unico'; opciones: Opcion[] }
+    })
+  | (ConBuscador & { clave: string; nombre: string; destacada: boolean; tipo: 'unico'; opciones: Opcion[] })
   | { clave: string; nombre: string; destacada: boolean; tipo: 'fecha' }
   | { clave: string; nombre: string; destacada: boolean; tipo: 'texto'; marcador: string }
 
