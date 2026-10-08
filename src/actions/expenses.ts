@@ -18,6 +18,8 @@ import { logAudit } from '@/lib/audit'
 import { validateRut } from '@/lib/validators'
 import { classifyAttachment, MAX_ATTACHMENT_BYTES } from '@/lib/attachment-types'
 import { archivosQueCaen, retirarArchivos, BUCKET_COMPROBANTES } from '@/lib/archivos'
+import { esGasto } from '@/lib/filtro-documentos'
+import { esperaDecision, type GastoMio } from '@/lib/mis-gastos'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -813,72 +815,78 @@ export async function deleteItemAttachment(attachmentId: string): Promise<void> 
   if (errorArchivo) console.error('[adjuntos] se borró la fila pero no el archivo', adjunto.storage_path, errorArchivo)
 }
 
-// ── Resumen mensual del empleado (R6) ────────────────────────────────────────
+// ── «Mis gastos»: lo aprobado y lo que espera decisión, de rendiciones y caja chica ──
 
-export type MonthlyCategoryRow = {
-  month:         string   // YYYY-MM
-  category_id:   string | null
-  category_name: string | null
-  total_clp:     number
-}
-
-export async function getMyMonthlySummary(): Promise<{
-  rows:   MonthlyCategoryRow[]
-  months: string[]
-}> {
+export async function getMisGastos(): Promise<GastoMio[]> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { rows: [], months: [] }
+  if (!user) return []
 
-  const dateFrom = new Date()
-  dateFrom.setMonth(dateFrom.getMonth() - 11)
-  dateFrom.setDate(1)
-  const dateFromStr = dateFrom.toISOString().split('T')[0]
-
-  const { data: items } = await supabase
-    .from('expense_items')
-    .select(`
-      amount_clp, date,
-      category_id,
-      expense_categories (name),
-      expense_reports!inner (submitter_id, deleted_at)
-    `)
-    .eq('status', 'approved')
-    .eq('expense_reports.submitter_id', user.id)
-    .is('expense_reports.deleted_at', null)
-    .gte('date', dateFromStr)
-
-  if (!items) return { rows: [], months: [] }
-
-  // Build last 12 months list
-  const months: string[] = []
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  // La forma de la fila se declara: el select anidado tipa como never
+  type FilaItem = {
+    report_id: string; amount_clp: number | null; date: string; status: string
+    item_type: string | null; category_id: string | null
+    expense_reports: { status: string } | null
   }
 
-  type RawItem = { amount_clp: number; date: string; category_id: string|null; expense_categories: { name: string }|null }
+  const [{ data: items }, { data: fondos }] = await Promise.all([
+    supabase
+      .from('expense_items')
+      .select('report_id, amount_clp, date, status, item_type, category_id, expense_reports!inner (submitter_id, status, deleted_at)')
+      .eq('expense_reports.submitter_id', user.id)
+      .is('expense_reports.deleted_at', null)
+      .is('deleted_at', null)
+      .in('status', ['approved', 'pending']),
+    supabase
+      .from('petty_cash_funds')
+      .select('id, status')
+      .eq('employee_id', user.id)
+      .is('deleted_at', null),
+  ])
 
-  // Aggregate by (month, category)
-  const agg = new Map<string, MonthlyCategoryRow>()
-  for (const raw of items) {
-    const item  = raw as unknown as RawItem
-    const month = item.date.slice(0, 7)
-    if (!months.includes(month)) continue
-    const key   = `${month}|${item.category_id ?? '__none__'}`
-    if (!agg.has(key)) {
-      agg.set(key, {
-        month,
-        category_id:   item.category_id,
-        category_name: item.expense_categories?.name ?? null,
-        total_clp:     0,
-      })
-    }
-    agg.get(key)!.total_clp += item.amount_clp
-  }
+  const estadoFondo = new Map((fondos ?? []).map(f => [f.id, f.status as string]))
+  const { data: itemsFondo } = estadoFondo.size
+    ? await supabase
+        .from('petty_cash_items')
+        .select('fund_id, amount_clp, date, status, category_id')
+        .in('fund_id', [...estadoFondo.keys()])
+        .in('status', ['approved', 'pending'])
+    : { data: [] as { fund_id: string; amount_clp: number; date: string; status: string; category_id: string | null }[] }
 
-  return { rows: Array.from(agg.values()), months }
+  const filas = (items ?? []) as unknown as FilaItem[]
+  const idsCategoria = [...new Set(
+    [...filas.map(i => i.category_id), ...(itemsFondo ?? []).map(i => i.category_id)]
+      .filter((id): id is string => !!id),
+  )]
+  const { data: categorias } = idsCategoria.length
+    ? await supabase.from('expense_categories').select('id, name').in('id', idsCategoria)
+    : { data: [] as { id: string; name: string }[] }
+  const nombre = new Map((categorias ?? []).map(c => [c.id, c.name]))
+  const nombreDe = (id: string | null) => (id ? nombre.get(id) ?? null : null)
+
+  const deRendiciones: GastoMio[] = filas
+    .filter(i => esGasto(i.item_type))
+    .map(i => ({
+      documentoId:       i.report_id,
+      fecha:             i.date,
+      montoClp:          Number(i.amount_clp ?? 0),
+      categoriaId:       i.category_id,
+      categoriaNombre:   nombreDe(i.category_id),
+      aprobado:          i.status === 'approved',
+      esperandoDecision: i.status === 'pending' && esperaDecision('rendicion', i.expense_reports?.status ?? ''),
+    }))
+
+  const deFondos: GastoMio[] = (itemsFondo ?? []).map(i => ({
+    documentoId:       i.fund_id,
+    fecha:             i.date,
+    montoClp:          Number(i.amount_clp ?? 0),
+    categoriaId:       i.category_id,
+    categoriaNombre:   nombreDe(i.category_id),
+    aprobado:          i.status === 'approved',
+    esperandoDecision: i.status === 'pending' && esperaDecision('fondo', estadoFondo.get(i.fund_id) ?? ''),
+  }))
+
+  return [...deRendiciones, ...deFondos]
 }
 
 // ── Timeline completo de una rendición (R-04) ────────────────────────────────
