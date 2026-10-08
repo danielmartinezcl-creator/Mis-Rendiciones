@@ -2679,11 +2679,11 @@ git commit -m "test(línea base): recaptura con el filtro del empleado; contexto
 
 > Daniel pasa la sesión a «pedir aprobación» y aprueba paso a paso. No hay migración.
 
-- [ ] **Step 1: Pedir el OK para subir**, contando qué cambia para la gente: la barra de abajo del empleado, «Mis rendiciones» con filtro, caja chica con chips (y el empleado ve solo sus fondos), «Mis gastos» con indicadores nuevos. Los correos siguen pausados: nada de esto manda correo.
+- [x] **Step 1: Pedir el OK para subir**, contando qué cambia para la gente: la barra de abajo del empleado, «Mis rendiciones» con filtro, caja chica con chips (y el empleado ve solo sus fondos), «Mis gastos» con indicadores nuevos. Los correos siguen pausados: nada de esto manda correo.
 
-- [ ] **Step 2: Subir**: `git push origin main`.
+- [x] **Step 2: Subir**: `git push origin main`.
 
-- [ ] **Step 3: Confirmar el despliegue por la API de Vercel**: `list_deployments` con el `sha` del commit (proyecto `prj_VNh86yZNTJMTRP58fXQxH8bdliA3`, equipo `danielmartinezcl-creators-projects`) y `get_deployment` hasta `READY` con el alias `www.mi-rendicion.com`. **Nunca sondear el dominio con `curl` en bucle**: dispara el escudo anti-bot de Vercel. Después, `get_runtime_errors` de los últimos 10 minutos.
+- [x] **Step 3: Confirmar el despliegue por la API de Vercel**: `list_deployments` con el `sha` del commit (proyecto `prj_VNh86yZNTJMTRP58fXQxH8bdliA3`, equipo `danielmartinezcl-creators-projects`) y `get_deployment` hasta `READY` con el alias `www.mi-rendicion.com`. **Nunca sondear el dominio con `curl` en bucle**: dispara el escudo anti-bot de Vercel. Después, `get_runtime_errors` de los últimos 10 minutos.
 
 - [ ] **Step 4: Prueba de humo de Daniel, con un usuario que NO sea admin:**
   - En el teléfono, la barra de abajo dice Estado · Rendir · Rendiciones · C. Chica · Más.
@@ -2708,3 +2708,4 @@ git commit -m "test(línea base): recaptura con el filtro del empleado; contexto
 | 2026-10-07 | 7 | Caja chica con chips; `FundFilters` borrado (420 líneas); exportar lo filtrado sin «Buscar» | `ade9270` |
 | 2026-10-08 | 8 | «Rendiciones» en la barra del empleado. El rótulo de las cinco pestañas bajó a 12 px con `tracking-tight`: medido con la Hanken real, «Rendiciones» mide 61,6 px contra 72 de columna a 360 px (a 13 px medía 70,3 y rozaba el borde) | `d903fe8` |
 | 2026-10-08 | 9 | Verificación completa: **601 pruebas**, tipos limpios, lint sin errores, build en verde, deuda de sistema **0 en 25 pantallas**, materiales en verde. La corrida de verificación destapó tres cosas que las pruebas no ven: faltaba el desvanecido de la fila de chips, los montos de «Mis gastos» se partían en dos líneas en el teléfono, y el arnés de materiales apuntaba al panel borrado (falló con su propio mensaje de punto ciego). Línea base recapturada entera —cambian las 52, porque la barra de abajo y el riel ganaron un ítem—: **54 ok, 2 skipped, 0 fallas** | `0a8d3d7`, `48131b1`, *(este commit)* |
+| 2026-10-08 | 10 — desplegado | `main` a `915e098` (17 commits). Despliegue `dpl_5eydS18rMbKewtZ6HEVCFLZE2nca` `READY` en 61 s con `www.mi-rendicion.com`, sin errores en ejecución. **Falta la prueba de humo de Daniel con un usuario no admin.** Esta fila va con el próximo push | `915e098` |
