@@ -62,7 +62,7 @@ avisa que hay más.
 | **Empleado** | Solo para quien administra fondos (§2) | varios |
 
 - **Sin nada elegido**, el chip muestra su nombre con una flecha.
-- **Con algo elegido**, el chip toma el relleno activo (`--anod`), muestra lo elegido
+- **Con algo elegido**, el chip toma el relleno activo (`--cta-brand`), muestra lo elegido
   («Combustible», «2 proyectos», «Este año») y una ✕ que lo quita.
 - **Al tocarlo** sube una hoja desde abajo en el teléfono (un menú anclado al chip en
   escritorio), con las opciones, «Limpiar» y un botón que dice cuántos documentos
@@ -255,8 +255,10 @@ no existe (un proyecto borrado) se ignora sin romper la pantalla.
 ### Materiales
 
 Chips y hojas viven **sobre hoja blanca**: no hace falta tocar el selector de legibilidad
-de `globals.css`. Chip activo con el relleno `--anod` corregido de la fe de erratas
-(`#199C90 → #12807C → #0B4448`). Piso tipográfico de 11 px; objetivos táctiles de 44 px.
+de `globals.css`. Chip activo con `var(--cta-brand)`, el degradado de acción de la app:
+`--anod` no existe como variable, y escribir sus hexadecimales en un componente rompería el
+sistema. Piso tipográfico de 11 px; objetivos táctiles de 44 px (chip de 40 px dentro de una
+fila con 12 px arriba y abajo).
 Íconos de Lucide.
 
 ---
