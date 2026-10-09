@@ -291,9 +291,12 @@ src/
 │   ├── filtro-rendiciones-admin.ts ← el predicado de /admin/reports (la fecha es la de ENVÍO)
 │   ├── filtro-items.ts        ← el predicado de /informes: doce dimensiones en el navegador
 │   ├── filtro-auditoria.ts    ← las dimensiones de la bitácora y su traducción a la consulta
-│   ├── filtro-empleados.ts    ← el predicado de la nómina, con «le faltan los datos bancarios»
+│   ├── filtro-empleados.ts    ← el predicado de la nómina, con «le faltan los datos bancarios».
+│   │                            Un BLOQUEADO no sale salvo que se lo pida (chip o buscador)
+│   ├── bancos.ts              ← la lista de bancos y tipos de cuenta, y el normalizador que
+│   │                            impide dos vocabularios en la misma columna. opcionesDeBanco
+│   │                            mete el valor guardado como opción: sin eso, guardar lo borra
 │   ├── texto.ts               ← normalizarNombre (comparar) y sinTildes (buscar)
-│   ├── rut.ts                 ← normalizarRut / formatearRut
 │   ├── opciones-filtro.ts     ← los nombres de proyectos y categorías que ven los chips
 │   ├── mis-gastos.ts          ← total aprobado, pendiente y promedio (rendiciones + caja chica, solo gastos)
 │   ├── navegacion.ts          ← las 4 pestañas de la barra de abajo según el perfil
@@ -364,7 +367,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **795 tests Vitest en 52 archivos** (2026-10-09; eran 652 en 45 antes de los filtros del admin), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **838 tests Vitest en 53 archivos** (2026-10-09; eran 652 en 45 antes de los filtros del admin), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -461,6 +464,15 @@ Decisiones que NO se cambian sin volver a hablarlas:
 - **Alguien que la planilla crea no puede ser aprobador en esa misma carga**: los
   aprobadores se resuelven contra el estado actual de la base, para que el orden de las
   filas no cambie el resultado. Hay que subir la planilla dos veces.
+- **Los encabezados de la plantilla y los que el lector acepta son lo mismo, y hay
+  una prueba que lo exige.** No lo eran: la plantilla que la app hace descargar
+  decía **«N° de Cuenta»** y el lector solo aceptaba «n de cuenta», porque `°` no
+  es un acento y `\p{Diacritic}` no lo sacaba. La columna se ignoraba EN SILENCIO.
+  Medido tras la carga real del 2026-10-08: de 61 personas, 58 con banco, 58 con
+  tipo de cuenta y **1 con número de cuenta**. Sin número no se le puede pagar a
+  nadie. `CABECERAS`, `EJEMPLO` y `mapHeader` se mudaron del `.tsx` a
+  `src/lib/planilla-alta.ts`: vivían en un componente sin pruebas, y por eso nadie
+  lo vio. **Hay que volver a subir la planilla** para que entren los números.
 - **Las alertas de segregación no bloquean** (`src/lib/segregacion.ts`). Si alguna
   impide cargar, está mal implementada.
 
@@ -647,6 +659,49 @@ sin volver a hablarlas:
   la spec listaba no son valores de filtro sino PREDICADOS. «Sin datos bancarios» ya
   tiene su dimensión de respuestas cocinadas; **«Más de 5 días» todavía no**, y la
   necesita: ningún preset de fecha dice eso y una fecha fija queda vencida mañana
+
+### ✅ Datos bancarios en la nómina (2026-10-09)
+
+Pedido de Daniel: «si voy a Empleados, no puedo ver los datos bancarios de nadie…
+si coloco editar datos, estaría bueno que se me expanda toda la información del
+empleado». Tenía razón por partida doble: la fila no los mostraba y
+**`updateEmployee` ni siquiera aceptaba `bank_name` ni `bank_account_type`** —
+solo el número—, así que el banco únicamente entraba por la planilla o por el
+perfil del propio empleado.
+
+- La fila los LEE: «BCI · Cuenta Corriente · 00012345», «sin datos bancarios», o
+  «falta el n.° de cuenta» en ámbar cuando hay banco y no cuenta
+- «Editar datos» abre los seis campos juntos. En el mismo cajón y no en uno
+  aparte: editar es una sola intención
+
+**La misma columna tenía dos vocabularios**, y es el hallazgo que importa. Medido
+sobre las 58 personas con banco cargado:
+
+| | La planilla escribió | La lista decía |
+|---|---|---|
+| tipo de cuenta | `Corriente` / `Vista` | `corriente` / `vista` — **cero coincidencias** |
+| banco | `Falabella`, `Itau`, `Mercadopago Emisora S.A.` | `Banco Falabella`, `Itaú`, `Mercado Pago` |
+
+**Un `<select>` cuyo `value` no figura entre sus opciones se dibuja en blanco, y
+el siguiente «Guardar» escribe ese blanco.** No es hipotético: la captura de
+`perfil` cambió al arreglarlo porque el «Tipo de cuenta» de Daniel aparecía vacío
+teniendo «Corriente» guardado — su propia pantalla le habría borrado el dato.
+
+`src/lib/bancos.ts` cierra las dos puntas, con 29 pruebas sobre los valores REALES
+de la base:
+
+- `normalizarBanco` / `normalizarTipoCuenta` en **toda escritura** (panel del
+  admin, perfil del empleado, planilla) y también **al leer**, para que el
+  desplegable no salga vacío
+- `opcionesDeBanco` mete el valor guardado como opción aunque no esté en la lista.
+  **Esa es la red de verdad**, más que el normalizador: mientras el valor actual
+  sea una opción, abrir el panel y guardar no puede borrar nada
+- Un banco que no reconoce **se conserva tal cual**. Un tipo de cuenta que no
+  reconoce sí se descarta: son tres y un cuarto valor no le sirve a nadie
+
+La lista estaba suelta dentro de `profile/page.tsx` y nadie más la veía: de ahí
+salió el vocabulario paralelo. **Los datos viejos NO se migraron**: se normalizan
+al leer y convergen a medida que se guarda cada ficha.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1358,5 +1413,9 @@ una columna `NOT NULL`.
 | Creer que eliminar a alguien libera su correo | No lo libera nunca: «Eliminar» manda la ficha a la papelera y «Eliminar definitivamente» la bloquea (027, porque su historial la referencia), y la cuenta de Auth sigue existiendo con su correo tomado — Auth es GLOBAL, no por organización. El alta rebotaba con «el correo ya lo usa otra cuenta», sin decir quién ni dónde estaba. Pasó con Julián Torres el 2026-10-08 | `cuentaQueChoca` de `src/lib/alta-repetida.ts` antes de tocar Auth: busca por correo y por RUT **sin mirar si está activa** —las inactivas son justo las que no se ven en la nómina— y el texto termina en la acción de ese estado. La pantalla ofrece el botón ahí mismo. Una cuenta de OTRA organización no se nombra: eso sería filtrar gente ajena |
 | Dar por hecho que un `overflow-x-auto` evita que la página scrollee | A veces no alcanza, y el arnés lo encuentra pero no explica por qué. En `/admin/centros-costo` una tabla de 6 columnas dentro de su scroller dejaba el cuerpo corriendo **334 px** a lo ancho (`scrollX` llegaba a 334 de verdad, no era un número raro): no lo arregló `overflow-x:hidden` en NINGUNO de los siete ancestros, uno por vez, ni `max-width`, ni un ancho fijo — solo `contain:paint`. En `/admin/analisis`, con la misma estructura, un scroller de 358 px contiene una tabla de 1021 sin problema. La diferencia no se encontró | No pelear con el scroller: **si el contenido no entra en 390 px, no va en una tabla**. Una lista de `flex flex-col` que se vuelve fila alineada en el corte grande no tiene el problema, y en el teléfono se lee mejor. Y el corte va en `lg:`, no en `sm:`: a `md:` aparece el riel lateral y se come 256 px, así que **a 768 hay menos ancho de contenido que a 640** — ahí desbordaba 30 px |
 | Resolver en el servidor un filtro que no reduce cuántas filas se traen | Diez de los once filtros de `/informes` vivían en la base y solo DESCARTABAN de lo traído: cada clic era un viaje que no ahorraba una sola fila, y por eso la pantalla necesitaba un botón «Generar informe» en vez de responder sola | Al servidor va únicamente lo que decide **cuántas** filas viajan —el período, el alcance—; el resto se filtra donde ya están los datos. Y antes de mover un filtro al navegador, **medir el peso de la respuesta** y proyectarlo al volumen real, no estimarlo: acá el estimado estaba tres veces corto |
+| Un `<select>` alimentado con un valor que no está entre sus opciones | Se dibuja **en blanco**, sin ningún error, y el siguiente «Guardar» escribe ese blanco: el dato se borra sin que nadie lo haya tocado. Pasó con `bank_account_type`, donde la planilla escribía «Corriente» y el formulario ofrecía 'corriente' — el perfil del propio Daniel mostraba el campo vacío teniendo el dato | Normalizar al leer **y** al escribir, y sobre todo incluir el valor actual entre las opciones (`opcionesDeBanco`). Antes de poner un `<select>` sobre una columna que ya tiene datos, **consultar qué valores hay realmente** |
+| Dejar la lista de opciones suelta dentro de la pantalla que la usa | `BANKS` y `ACCOUNT_TYPES` vivían en `profile/page.tsx` y nadie más las veía, así que la planilla inventó su propio vocabulario para la misma columna | Una lista que describe un dato del dominio va en `src/lib/`, con su normalizador al lado. Lo que la comparte deja de poder divergir |
+| Creer que «eliminar definitivamente» borra a un usuario | No lo borra: lo **bloquea** (migración 027) y le baja `deleted_at`, así que volvía a la nómina con un chip rojo. Daniel, 2026-10-09: «lo eliminé de la papelera y sigue apareciendo en empleados» | Se esconde en la pantalla, nunca en la consulta: `getOrgEmployees` lo sigue trayendo o un bloqueo por error sería irreversible. Dos puertas para encontrarlo —el chip Estado → «Bloqueados» y el buscador por nombre o RUT—, porque pedir a alguien por su nombre y no recibir nada es una pantalla que miente |
+| Un encabezado de plantilla que el lector de esa misma plantilla no reconoce | «N° de Cuenta»: el `°` no es un acento, así que `\p{Diacritic}` no lo saca y la columna se ignora EN SILENCIO. 58 de 61 personas quedaron con banco y sin número de cuenta | La prueba que lo impide es `CABECERAS.filter(h => mapHeader(h) === null)` igual a `[]`: lo que la app hace descargar tiene que poder leerlo la app. Y el normalizador saca también `° º . # :` y los paréntesis |
 | Guardar encima de una vista compartida como comportamiento por omisión | Las vistas son de la organización: si tocar un chip la modificara, alguien que solo estaba revisando cambiaría lo que ven todos los demás | Tocar un chip NUNCA modifica la vista. Aparece la línea «cambiaste el filtro sobre la vista X» con «Guardar como vista» y «Descartar»; guardar encima es una acción aparte |
 | Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |
