@@ -568,25 +568,25 @@ Activos sin banco o sin número de cuenta. Cierra el hueco que quedó a la vista
 
 **Files:** `e2e/materiales.spec.ts`, `e2e/rutas.ts`, `e2e/README.md`, `.claude/skills/mi-rendicion-context/SKILL.md`
 
-- [ ] **Paso 1: Los paneles nuevos a la auditoría de materiales**
+- [x] **Paso 1: Los paneles nuevos a la auditoría de materiales**
 
 Un panel por cada «Más filtros» (Rendiciones, Informes) y uno por «Nueva vista». **Los pasos solo abren**: ningún clic de este arnés guarda, borra ni exporta. Elegir siempre por nombre, nunca por posición.
 
-- [ ] **Paso 2: `npm run audit:materiales`**
+- [x] **Paso 2: `npm run audit:materiales`**
 
 Expected: **2 passed**. Leer el resumen del final, **nunca** el código de salida de un comando con tubería — es el de `tail`.
 
-- [ ] **Paso 3: Recapturar la línea base**
+- [x] **Paso 3: Recapturar la línea base**
 
 Cambian Rendiciones, Informes, Auditoría y Empleados (escritorio y móvil). **Las de Caja chica y Mis rendiciones NO pueden cambiar**: si cambian, la Tarea 2 movió algo y hay que arreglarlo antes de recapturar.
 
 Revisar cada `-actual.png` antes de reemplazar. Para las rutas que entran por un enlace, mirar el `-actual.png` y no el `-diff.png`.
 
-- [ ] **Paso 4: `npm run audit:deuda`**
+- [x] **Paso 4: `npm run audit:deuda`**
 
 Expected: deuda en **0**, 26 de 26 pantallas.
 
-- [ ] **Paso 5: SKILL.md**
+- [x] **Paso 5: SKILL.md**
 
 Sección nueva «Filtros del admin» con lo que no se deduce del código: las vistas son de la organización; solo el período viaja al servidor en Informes y por qué; el chip de fecha dice de qué fecha habla; Auditoría es la excepción que sigue filtrando en el servidor. Actualizar el conteo de pruebas, el de capturas y la lista de migraciones con la 040.
 
@@ -594,7 +594,7 @@ Filas nuevas en errores conocidos:
 - Filtrar en el servidor una dimensión que no reduce cuántas filas se traen (un viaje por clic que no ahorra nada).
 - Guardar encima de una vista compartida como comportamiento por omisión.
 
-- [ ] **Paso 6: Commit**
+- [x] **Paso 6: Commit**
 
 ---
 
@@ -624,3 +624,4 @@ Filas nuevas en errores conocidos:
 | 2026-10-08 | 6 · Informes al instante | **Hecha.** El panel de 378 líneas y el botón «Generar informe» se fueron; `informes/client.tsx` pasó de **682 a 324 líneas** y `reports.ts` de 433 a 392. El servidor recibe un período y nada más; las doce dimensiones corren en el navegador. **766 pruebas en 50 archivos**, lint 0/22, sin desborde a 360, 390, 768, 1024, 1280 y 1440 px. **MEDICIÓN DEL PESO: 387 KB para 478 ítems** (~0,81 KB por ítem). Hoy entra sobrado, pero la proyección a 6.000 ítems al año es **~4,9 MB**, no los ~1,5 MB que la spec estimó: el estimado estaba 3 veces corto y queda corregido acá. No dispara el alto del plan (el umbral era que la medición de HOY pasara 2 MB), pero antes de que PENTA lleve un año de uso hay que achicar el ítem —`employee_name`, `department`, `parent_title` y `category_name` se repiten en cada fila y podrían ir por diccionario— o dejar el alcance más corto. De paso se arregló un desborde de 5 px a 768 px en el KPI «Por fuente» que **estaba latente desde siempre**: no se veía porque los KPIs esperaban a que alguien apretara el botón. |
 | 2026-10-08 | 7 · Auditoría | **Hecha.** Buscador + Fecha · Qué · Acción, ninguna escondida. `auditoria/client.tsx` 395 → 332 líneas. **Sigue filtrando en el SERVIDOR**, y es la única: la bitácora crece sin techo y se pagina de a 50. `getAuditLog` pasa a recibir **listas** en entidad y acción (`.in` en vez de `.eq`), porque una vista como «Borrados» pide dos acciones a la vez. Las etiquetas dejaron de ser los nombres crudos de la base (`expense_report`, `config_changed`) y hay dos pruebas que fallan si se suma una entidad o una acción al dominio y nadie la nombra. Probado de punta a punta: 196 → 29 registros con «Eliminado». |
 | 2026-10-08 | 8 · Empleados | **Hecha.** Buscador + Estado · Departamento · Datos bancarios. El estado ofrece tres opciones y no cuatro: **«en la papelera» no entra**, porque `getOrgEmployees` filtra `deleted_at` y un filtro cuya respuesta siempre es cero enseña a desconfiar del filtro. «Datos bancarios» es una dimensión de respuestas ya cocinadas —el predicado mira dos columnas—, que es lo que faltaba para poder guardar esa vista. `sinTildes` se mudó a `src/lib/texto.ts` y dejó de usar un rango de caracteres combinantes escrito a mano. Probado: **61 de 62 personas sin datos bancarios**. |
+| 2026-10-09 | 9 · El arnés y el contexto | **Hecha.** Tres paneles nuevos a la auditoría de materiales: «Más filtros» en Rendiciones (desplegables) y en Informes (listas y fecha), y «Guardar como vista» como **condicional**, porque solo aparece después de tocar un chip y el arnés no lo alcanza de un clic — así queda listado en el informe con su motivo en vez de ser un punto ciego callado. Resultado: **0 hallazgos, 46 pantallas recorridas, 14.774 textos evaluados** (eran 44 y 5.105). Deuda de sistema en **0**, 26 de 26 pantallas. SKILL.md con la sección nueva, la 040 en el listado de migraciones, los ocho módulos nuevos en el árbol y tres filas en errores conocidos: filtrar en el servidor lo que no reduce filas, guardar encima de una vista compartida por omisión, y ofrecer una opción cuya respuesta siempre es cero. |

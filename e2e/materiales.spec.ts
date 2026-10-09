@@ -132,6 +132,21 @@ const PANELES: Panel[] = [
   { ruta: '/petty-cash', panel: 'Filtro · tipo de gasto', pasos: [{ boton: 'Tipo de gasto' }] },
   { ruta: '/petty-cash', panel: 'Filtro · fecha',         pasos: [{ boton: 'Fecha' }] },
 
+  /* La hoja de «Más filtros» (2026-10-08), el otro componente del filtro: la
+     que guarda las dimensiones que no entran en la barra. Dos entradas por la
+     misma razón que los chips: es el MISMO componente y lo que cambia es la
+     forma de su contenido. En Rendiciones son tres desplegables; en Informes
+     son ocho, con listas de casillas y el bloque de fecha con sus dos campos. */
+  { ruta: '/admin/reports', panel: 'Más filtros · desplegables', pasos: [{ boton: 'Más filtros' }] },
+  { ruta: '/informes',      panel: 'Más filtros · listas y fecha', pasos: [{ boton: 'Más filtros' }] },
+
+  /* El formulario de «Guardar como vista» solo aparece DESPUÉS de tocar un
+     chip, así que con la pantalla recién abierta no existe y el arnés no lo
+     alcanza de un clic. Va condicional a propósito: así queda listado en el
+     informe como «no auditado», con su motivo, en vez de ser un punto ciego
+     callado. Si algún día se llega a él en un paso, se saca el condicional. */
+  { ruta: '/admin/reports', panel: 'Guardar como vista', condicional: true, pasos: [{ boton: 'Guardar como vista' }] },
+
   /* Las etapas de la cola bancaria: los KPI son el control, así que solo una se
      pinta por vez y la otra sería punto ciego. Dos etapas, no tres: la del
      admin («iniciar proceso bancario») se eliminó en la Tarea 6. Los botones

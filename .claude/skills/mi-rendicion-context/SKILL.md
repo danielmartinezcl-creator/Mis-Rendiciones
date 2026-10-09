@@ -283,6 +283,17 @@ src/
 │   │                            rangos de fecha, estados = las 4 familias. Lo usan las listas, la
 │   │                            exportación de caja chica y «Mis gastos»
 │   ├── filtro-url.ts / filtro-etiquetas.ts ← el filtro en la dirección; los textos de los chips
+│   ├── filtros/dimensiones.ts ← la FORMA de un filtro, sin dominio adentro: Dimension (multi,
+│   │                            único, fecha, texto), Valores, etiquetaDe, ocultasPuestas
+│   ├── filtros/adaptador-documentos.ts ← Filtro (el del empleado) ↔ Valores. Existe para NO
+│   │                            reescribir filtro-documentos.ts
+│   ├── filtros/vistas.ts      ← depurarVista / coincideConVista / erroresDeNombre
+│   ├── filtro-rendiciones-admin.ts ← el predicado de /admin/reports (la fecha es la de ENVÍO)
+│   ├── filtro-items.ts        ← el predicado de /informes: doce dimensiones en el navegador
+│   ├── filtro-auditoria.ts    ← las dimensiones de la bitácora y su traducción a la consulta
+│   ├── filtro-empleados.ts    ← el predicado de la nómina, con «le faltan los datos bancarios»
+│   ├── texto.ts               ← normalizarNombre (comparar) y sinTildes (buscar)
+│   ├── rut.ts                 ← normalizarRut / formatearRut
 │   ├── opciones-filtro.ts     ← los nombres de proyectos y categorías que ven los chips
 │   ├── mis-gastos.ts          ← total aprobado, pendiente y promedio (rendiciones + caja chica, solo gastos)
 │   ├── navegacion.ts          ← las 4 pestañas de la barra de abajo según el perfil
@@ -330,7 +341,8 @@ supabase/
 │   ├── 036_tipo_recordatorio.sql                     ← ✅ APLICADA el 2026-09-28, antes del despliegue; tipo 'reminder' en notifications. Aditiva: el código viejo nunca escribe ese tipo. Ensayo con BEGIN/ROLLBACK: 4/4 (se guarda, el repetido no entra por dedup_key, los `reminder_*` viejos siguen rechazados, los tipos de siempre siguen entrando)
 │   ├── 037_respaldos_solo_desde_servidor.sql         ← ✅ APLICADA el 2026-09-28, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 037, 12 de 17 pruebas rotas, que eran los agujeros; con la 037, 17/17; en vivo, 17/17). Un rollback de Vercel a código anterior deja sin subir, abrir ni borrar respaldos: el código viejo lo hacía con la sesión. Ninguna sesión escribe en `approval_attachments` ni toca el bucket `approval-attachments`, ni para leer: el servidor sube, borra y firma con la llave de servicio tras `src/lib/respaldos.ts`. La tabla se lee solo con el documento a la vista (subselect que hereda la RLS de la rendición o del fondo). Pruebas: supabase/tests/037_respaldos.sql
 │   ├── 038_funciones_sin_acceso_publico.sql          ← ✅ APLICADA el 2026-10-01, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 038, 22 de sus 26 pruebas en `false`, que eran los agujeros; con la 038, 26/26, y las otras tres baterías intactas — 033: 41 ok + 1 no concluyente · 035: 12/12 · 037: 17/17; en vivo, 26/26). Las 12 funciones `SECURITY DEFINER` eran ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc`. Las 8 de disparador no las necesita nadie: **Postgres verifica `EXECUTE` al CREAR el disparador, no cada vez que dispara** (comprobado en vivo: una sesión `authenticated` sigue siendo rechazada por `proteger_estado_rendicion` con su mensaje, no con «permission denied for function»). Las 4 que usan las políticas las conserva `authenticated`, nunca `anon`. Lo que cierra el acceso es el `revoke ... from public`: `anon` y `authenticated` heredan de PUBLIC. `set_updated_at` queda además con `search_path = ''` (su cuerpo solo usa `now()`, de `pg_catalog`). Pruebas: supabase/tests/038_funciones.sql
-│   └── 039_aprobador_por_proyecto.sql                ← ✅ APLICADA el 2026-10-07, ANTES del despliegue (es aditiva y nullable: el código viejo no lee ninguna de sus columnas — al revés que la 033/035/037, que protegían y tenían que ir después). Ensayo con BEGIN/ROLLBACK: 23/23, más un segundo ensayo apuntando el relleno a los borradores (no había documentos en vuelo y el bloque no se ejercitaba): 9 filas, N1 copiado igual al de la ficha. En vivo: 23/23. Tabla `proyectos` (número único por organización), `users.es_jefe_proyecto` / `umbral_n2_clp`, `organizations.aprobador_defecto_id` / `aprobador_n2_defecto_id` / `umbral_n2_clp`, y la cadena congelada en `expense_reports` y `petty_cash_funds` (`cadena_*`, y `liq_cadena_*` para la liquidación). Pruebas: supabase/tests/039_proyectos.sql
+│   ├── 039_aprobador_por_proyecto.sql                ← ✅ APLICADA el 2026-10-07, ANTES del despliegue (es aditiva y nullable: el código viejo no lee ninguna de sus columnas — al revés que la 033/035/037, que protegían y tenían que ir después). Ensayo con BEGIN/ROLLBACK: 23/23, más un segundo ensayo apuntando el relleno a los borradores (no había documentos en vuelo y el bloque no se ejercitaba): 9 filas, N1 copiado igual al de la ficha. En vivo: 23/23. Tabla `proyectos` (número único por organización), `users.es_jefe_proyecto` / `umbral_n2_clp`, `organizations.aprobador_defecto_id` / `aprobador_n2_defecto_id` / `umbral_n2_clp`, y la cadena congelada en `expense_reports` y `petty_cash_funds` (`cadena_*`, y `liq_cadena_*` para la liquidación). Pruebas: supabase/tests/039_proyectos.sql
+│   └── 040_vistas_de_filtro.sql                     ← ✅ APLICADA el 2026-10-08 (20261008220657), ANTES del despliegue: es aditiva y el código viejo no lee esta tabla. Ensayo con BEGIN/ROLLBACK: 23 ok, 0 rotas, 1 no concluyente —el cruce entre organizaciones, porque PENTA es la única— y comprobado después que no dejó rastro; en vivo, 24/24. Las vistas guardadas del admin, **de la organización**: la lee cualquier miembro, la escribe solo su admin. NO siembra ninguna. Pruebas: supabase/tests/040_vistas.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -352,7 +364,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **652 tests Vitest en 45 archivos** (2026-10-08; eran 601 en 43 antes de los centros de costo), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **795 tests Vitest en 52 archivos** (2026-10-09; eran 652 en 45 antes de los filtros del admin), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -574,6 +586,67 @@ EMP              EMPRESA                  agrupa
 - `toSheetCostCenter` **se mudó** de `lib/export/defontana` a `lib/centros-costo` y se
   re-exporta desde el export: la pantalla lo necesita y `defontana.ts` importa xlsx, que no
   puede entrar al bundle del navegador
+
+### ✅ Filtros del admin (2026-10-09)
+
+Spec `docs/superpowers/specs/2026-10-08-filtros-del-admin-design.md`; diseños en
+https://claude.ai/artifact/BzqGbLQfrNKmo5wMcaruLC (Daniel eligió **B + C**). Plan
+`docs/superpowers/plans/2026-10-08-filtros-del-admin.md` — su «Registro de avance»
+dice qué tarea se hizo y qué se encontró en cada una.
+
+**La misma barra en las seis pantallas que filtran.** `BarraFiltros` dejó de saber
+de rendiciones: recibe `Dimension[]` + `Valores` (`src/lib/filtros/dimensiones.ts`).
+Lo que PASA el filtro vive en un módulo por pantalla, con pruebas. Si en
+`dimensiones.ts` aparece la palabra «rendición», «fondo» o «gasto», está mal puesto.
+
+- **«Más filtros» aparece solo si hay dimensiones no destacadas**, y lleva el número
+  de las puestas — sin ese número escondería un filtro de verdad. Con las cuatro o
+  cinco del empleado NO existe, y hay una prueba que lo exige: si se pone roja, sus
+  pantallas ganaron un botón que nadie pidió
+- **El filtro del empleado no se reescribió.** Un adaptador `Filtro ↔ Valores`
+  (`adaptador-documentos.ts`) deja `filtro-documentos.ts` intacto, con sus reglas
+  ganadas a pulso. La barra **conserva el resumen por props**: la línea del empleado
+  no nombra lo puesto, dice cuánto queda y cuánta plata
+- **El chip de fecha dice de QUÉ fecha habla**, nunca «Fecha» a secas: «Fecha de
+  envío» en Rendiciones (una rendición enviada el 2 de septiembre trae gastos de
+  agosto) y «Fecha del gasto» en Informes y en el empleado. Y un borrador sin enviar
+  queda FUERA de cualquier rango: antes pasaba cualquiera
+- **El chip de Proyecto se esconde con el catálogo vacío** (hoy lo está): su única
+  opción sería «Sin proyecto», que ocupa lugar y no filtra nada. Aparece solo cuando
+  alguien rinda a una obra
+
+**Informes responde al instante y el botón «Generar informe» ya no existe.** El
+servidor recibe un período y nada más; las doce dimensiones corren en el navegador
+(`filtro-items.ts`). De los once filtros que `getUnifiedReportItems` resolvía en la
+base, diez solo DESCARTABAN de lo traído: obligaban a un viaje por clic sin ahorrar
+una fila. **Medido el 2026-10-09: 387 KB para 478 ítems** (~0,81 KB por ítem), así
+que la proyección a 6.000 ítems al año es **~4,9 MB** — tres veces lo que la spec
+estimó. Antes de ese volumen hay que achicar el ítem (`employee_name`,
+`department`, `parent_title` y `category_name` se repiten en cada fila) o dejar el
+alcance por omisión más corto que un año.
+
+**Auditoría es la excepción y sigue filtrando en el servidor**: la bitácora crece
+sin techo y se pagina de a 50, así que traerla entera sería traer justo lo que nadie
+va a mirar. `getAuditLog` recibe **listas** en entidad y acción (`.in`, no `.eq`):
+una vista como «Borrados» pide dos acciones a la vez.
+
+**Vistas guardadas (migración 040).** Son de la ORGANIZACIÓN, no de cada persona
+(decisión de Daniel): la lee cualquier miembro, la escribe solo su admin. Van como
+pestañas **sobre el degradado** —son navegación, no datos—. Reglas que no se cambian
+sin volver a hablarlas:
+
+- **Guardar ENCIMA de una vista nunca es lo que pasa por omisión.** Tocar un chip no
+  la modifica: aparece «Guardar como vista» o «Descartar». Una vista de la empresa
+  no cambia porque alguien estaba revisando
+- **Se depuran una sola vez** contra las dimensiones de hoy, antes de compararlas,
+  contarlas o aplicarlas. Depurarlas solo al elegirlas dejaría la pestaña sin volver
+  a marcarse nunca
+- **Borrar alcanza también a las de fábrica**: la marca `de_fabrica` sirve para
+  distinguirlas en la auditoría, no para protegerlas
+- **No hay ninguna sembrada todavía.** La migración no siembra: dos de las ocho que
+  la spec listaba no son valores de filtro sino PREDICADOS. «Sin datos bancarios» ya
+  tiene su dimensión de respuestas cocinadas; **«Más de 5 días» todavía no**, y la
+  necesita: ningún preset de fecha dice eso y una fecha fija queda vencida mañana
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1284,3 +1357,6 @@ una columna `NOT NULL`.
 | Decidir qué sale en el menú por el ROL cuando el poder lo da un permiso | Desde los permisos por asignación, quién aprueba lo decide la cadena: **en PENTA nadie tiene el rol `approver`**, los 11 que aprueban son `employee` con `can_approve`. `pestanasPrincipales` y el `isVisible` de MobileNav seguían cortando por rol, así que «Aprobaciones» no salía en la barra de abajo NI en «Más» —isVisible corta por rol en su PRIMERA línea— y en el teléfono no había forma de llegar a aprobar. El riel de escritorio sí tenía su escapatoria por permiso. Visto el 2026-10-08 | Si una pantalla la habilita un permiso, el menú se decide por **ese permiso**, nunca por el rol. Antes de confiar en una lista de roles, consultar qué roles tiene la gente de verdad, no los que el código supone |
 | Creer que eliminar a alguien libera su correo | No lo libera nunca: «Eliminar» manda la ficha a la papelera y «Eliminar definitivamente» la bloquea (027, porque su historial la referencia), y la cuenta de Auth sigue existiendo con su correo tomado — Auth es GLOBAL, no por organización. El alta rebotaba con «el correo ya lo usa otra cuenta», sin decir quién ni dónde estaba. Pasó con Julián Torres el 2026-10-08 | `cuentaQueChoca` de `src/lib/alta-repetida.ts` antes de tocar Auth: busca por correo y por RUT **sin mirar si está activa** —las inactivas son justo las que no se ven en la nómina— y el texto termina en la acción de ese estado. La pantalla ofrece el botón ahí mismo. Una cuenta de OTRA organización no se nombra: eso sería filtrar gente ajena |
 | Dar por hecho que un `overflow-x-auto` evita que la página scrollee | A veces no alcanza, y el arnés lo encuentra pero no explica por qué. En `/admin/centros-costo` una tabla de 6 columnas dentro de su scroller dejaba el cuerpo corriendo **334 px** a lo ancho (`scrollX` llegaba a 334 de verdad, no era un número raro): no lo arregló `overflow-x:hidden` en NINGUNO de los siete ancestros, uno por vez, ni `max-width`, ni un ancho fijo — solo `contain:paint`. En `/admin/analisis`, con la misma estructura, un scroller de 358 px contiene una tabla de 1021 sin problema. La diferencia no se encontró | No pelear con el scroller: **si el contenido no entra en 390 px, no va en una tabla**. Una lista de `flex flex-col` que se vuelve fila alineada en el corte grande no tiene el problema, y en el teléfono se lee mejor. Y el corte va en `lg:`, no en `sm:`: a `md:` aparece el riel lateral y se come 256 px, así que **a 768 hay menos ancho de contenido que a 640** — ahí desbordaba 30 px |
+| Resolver en el servidor un filtro que no reduce cuántas filas se traen | Diez de los once filtros de `/informes` vivían en la base y solo DESCARTABAN de lo traído: cada clic era un viaje que no ahorraba una sola fila, y por eso la pantalla necesitaba un botón «Generar informe» en vez de responder sola | Al servidor va únicamente lo que decide **cuántas** filas viajan —el período, el alcance—; el resto se filtra donde ya están los datos. Y antes de mover un filtro al navegador, **medir el peso de la respuesta** y proyectarlo al volumen real, no estimarlo: acá el estimado estaba tres veces corto |
+| Guardar encima de una vista compartida como comportamiento por omisión | Las vistas son de la organización: si tocar un chip la modificara, alguien que solo estaba revisando cambiaría lo que ven todos los demás | Tocar un chip NUNCA modifica la vista. Aparece la línea «cambiaste el filtro sobre la vista X» con «Guardar como vista» y «Descartar»; guardar encima es una acción aparte |
+| Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |
