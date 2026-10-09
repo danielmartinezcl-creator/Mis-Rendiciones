@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getOrgEmployees, updateEmployee, updateEmployeeEmail, deleteEmployee, deactivateEmployee, deleteEmployees, enableBlockedEmployee, getCostCenters } from '@/actions/admin'
 import { sendInvitations, setEmployeePassword } from '@/actions/employees'
 import { confirmacionInvitacion } from '@/lib/invitaciones'
@@ -12,6 +12,13 @@ import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck,
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 import { useDialogos } from '@/components/ui/Dialogos'
+import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import { Vistas } from '@/components/filtros/Vistas'
+import { clavesPuestas, resumen, valoresVacios, type Valores } from '@/lib/filtros/dimensiones'
+import { depurarVista, type Vista } from '@/lib/filtros/vistas'
+import { aplicarFiltroEmpleados, dimensionesDeEmpleados } from '@/lib/filtro-empleados'
+import { estadoDeCuenta } from '@/lib/alta-repetida'
+import { listarVistas, crearVista, borrarVista } from '@/actions/vistas-filtro'
 
 type EmployeeWithEmail = UserProfile & { email: string }
 
@@ -55,7 +62,11 @@ export default function AdminEmployeesPage() {
 
   // Selección para invitación masiva
   const [selected,        setSelected]         = useState<Set<string>>(new Set())
-  const [busca,           setBusca]            = useState('')
+  /* Cuatro dimensiones en lugar de un campo de texto: con 57 personas,
+     «solo los activos» y «a quién le faltan los datos del banco» son
+     preguntas que un buscador no sabe contestar. */
+  const [valores, setValores] = useState<Valores>({})
+  const [vistas,  setVistas]  = useState<Vista[]>([])
   /* Igual que la cola bancaria: de a 25, con el total a la vista en el
      buscador. Paginar esconde el scroll, no la nómina. */
   const [tope,            setTope]             = useState(25)
@@ -273,21 +284,38 @@ export default function AdminEmployeesPage() {
   }
 
   /* Sin tildes y en minúsculas: "perez" tiene que encontrar a "Pérez". */
-  const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const departamentos = useMemo(
+    () => [...new Set(employees.map(e => e.department).filter(Boolean) as string[])].sort(),
+    [employees])
+
+  const dimensiones = useMemo(() => dimensionesDeEmpleados(departamentos), [departamentos])
+  const vistasLimpias = useMemo(
+    () => vistas.map(v => ({ ...v, filtro: depurarVista(v.filtro, dimensiones) })),
+    [vistas, dimensiones])
+
+  /* Lo que el filtro necesita de cada persona, y nada más. El predicado vive
+     en src/lib/filtro-empleados.ts, con sus pruebas. */
+  const filtrables = useMemo(() => employees.map(e => ({
+    id:           e.id,
+    nombre:       e.full_name,
+    correo:       e.email ?? '',
+    rut:          (e as UserProfile & { rut?: string | null }).rut ?? null,
+    departamento: e.department ?? null,
+    estado:       estadoDeCuenta(e),
+    banco:        (e as UserProfile & { bank_name?: string | null }).bank_name ?? null,
+    numeroCuenta: (e as UserProfile & { bank_account?: string | null }).bank_account ?? null,
+  })), [employees])
+
+  const cuantos = useCallback(
+    (v: Valores) => aplicarFiltroEmpleados(filtrables, v).length,
+    [filtrables])
 
   const filtrados = useMemo(() => {
-    const q = sinTildes(busca.trim())
-    if (!q) return employees
-    return employees.filter(e => {
-      const campos = [
-        e.full_name,
-        (e as UserProfile & { email?: string }).email ?? '',
-        (e as UserProfile & { rut?: string | null }).rut ?? '',
-        e.department ?? '',
-      ]
-      return campos.some(c => sinTildes(String(c)).includes(q))
-    })
-  }, [employees, busca])
+    const pasan = new Set(aplicarFiltroEmpleados(filtrables, valores).map(f => f.id))
+    return employees.filter(e => pasan.has(e.id))
+  }, [employees, filtrables, valores])
+
+  const hayFiltro = clavesPuestas(dimensiones, valores).length > 0
 
   /* Opera sobre lo FILTRADO, no sobre la nómina entera: abajo hay borrado
      masivo, y un "seleccionar todos" que alcanza gente que no está en
@@ -413,24 +441,37 @@ export default function AdminEmployeesPage() {
       )}
 
       {/* Barra de acciones */}
-      {/* Buscador: con 57 personas, dar con una es la tarea de la pantalla. */}
-      {employees.length > 8 && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
-            <input
-              type="search"
-              value={busca}
-              onChange={e => { setBusca(e.target.value); setTope(25) }}
-              placeholder="Buscar por nombre, correo, RUT o departamento…"
-              className="campo w-full pl-9"
-            />
-          </div>
-          {busca && (
-            <p className="card-meta">{filtrados.length} de {employees.length}</p>
-          )}
-        </div>
-      )}
+      <Vistas
+        vistas={vistasLimpias}
+        dimensiones={dimensiones}
+        valores={valores}
+        onElegir={v => { setValores(v); setTope(25) }}
+        contar={cuantos}
+        onGuardar={async (nombre, v) => {
+          const { errores } = await crearVista('empleados', nombre, v)
+          if (errores?.length) return errores
+          setVistas(await listarVistas('empleados'))
+          return []
+        }}
+        onBorrar={async (id) => {
+          const { error } = await borrarVista(id)
+          if (error) return error
+          setVistas(await listarVistas('empleados'))
+          return null
+        }}
+        puedeEditar
+      />
+
+      <BarraFiltros
+        dimensiones={dimensiones}
+        valores={valores}
+        onCambio={v => { setValores(v); setTope(25) }}
+        contar={cuantos}
+        sustantivo={['persona', 'personas']}
+        resumen={hayFiltro
+          ? `${filtrados.length} de ${employees.length} · ${resumen(dimensiones, valores) ?? ''}`
+          : null}
+      />
 
       {employees.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
@@ -445,7 +486,7 @@ export default function AdminEmployeesPage() {
             />
             {selected.size > 0
               ? `${selected.size} seleccionado${selected.size !== 1 ? 's' : ''}`
-              : busca ? `Seleccionar los ${filtrados.length} filtrados` : 'Seleccionar todos'}
+              : hayFiltro ? `Seleccionar los ${filtrados.length} filtrados` : 'Seleccionar todos'}
           </label>
 
           <span className="text-white/30">|</span>
@@ -499,12 +540,12 @@ export default function AdminEmployeesPage() {
 
       {/* Lista de empleados */}
       <div className="space-y-2">
-        {busca && filtrados.length === 0 && (
+        {hayFiltro && filtrados.length === 0 && (
           <div className="hoja p-8 text-center">
             <Search size={26} className="mx-auto mb-2 text-ink-300" />
-            <p className="card-label font-semibold text-ink-700">Nadie coincide con «{busca}»</p>
-            <button onClick={() => setBusca('')} className="text-brand-600 text-sm hover:underline mt-2">
-              Limpiar la búsqueda
+            <p className="card-label font-semibold text-ink-700">Nadie coincide con el filtro</p>
+            <button onClick={() => setValores(valoresVacios(dimensiones))} className="text-brand-600 text-sm hover:underline mt-2">
+              Limpiar el filtro
             </button>
           </div>
         )}

@@ -534,17 +534,17 @@ Con `read_network_requests`, anotar el tamaño de la respuesta del año en curso
 
 **Files:** Modify `src/app/(app)/admin/auditoria/client.tsx`
 
-- [ ] **Paso 1: La barra con buscador**
+- [x] **Paso 1: La barra con buscador**
 
 Buscador fijo a la izquierda (actor, entidad, notas) + chips **Fecha · Tipo de entidad · Acción**. Sin «Más filtros»: tres dimensiones no lo justifican.
 
-- [ ] **Paso 2: Sigue filtrando en el servidor**
+- [x] **Paso 2: Sigue filtrando en el servidor**
 
 **La bitácora crece sin techo y se pagina**: acá no se trae todo al navegador. El buscador conserva su debounce y los chips mandan al servidor como hoy. Es la única pantalla donde el filtro no es instantáneo, y el motivo va en un comentario.
 
-- [ ] **Paso 3: Vistas** «Borrados» y «Cambios de configuración».
+- [x] **Paso 3: Vistas** «Borrados» y «Cambios de configuración».
 
-- [ ] **Paso 4: Verde, navegador, commit**
+- [x] **Paso 4: Verde, navegador, commit**
 
 ---
 
@@ -552,15 +552,15 @@ Buscador fijo a la izquierda (actor, entidad, notas) + chips **Fecha · Tipo de 
 
 **Files:** Modify `src/app/(app)/admin/employees/page.tsx`
 
-- [ ] **Paso 1: La barra**
+- [x] **Paso 1: La barra**
 
 El buscador de hoy + los chips **Estado** (activo · inactivo · en la papelera · bloqueado) y **Departamento**. Son dos chips que la pantalla no tenía: agregado deliberado y chico, con su razón en un comentario (con 57 personas, «mostrame solo los activos» es lo que el buscador no sabe contestar).
 
-- [ ] **Paso 2: La vista «Sin datos bancarios»**
+- [x] **Paso 2: La vista «Sin datos bancarios»**
 
 Activos sin banco o sin número de cuenta. Cierra el hueco que quedó a la vista cargando la planilla: **56 de 57 sin datos bancarios** al 2026-10-08.
 
-- [ ] **Paso 3: Verde, navegador, commit**
+- [x] **Paso 3: Verde, navegador, commit**
 
 ---
 
@@ -622,3 +622,5 @@ Filas nuevas en errores conocidos:
 | 2026-10-08 | 4 · La obra hasta el admin | **Hecha.** `UnifiedReportItem` suma `proyecto_id` y `proyecto_numero`; los tres mapeos de `reports.ts` y `getAdminReports` los rellenan contra un catálogo que se resuelve **una vez por consulta**, no uno por fetcher. `obraDe` devuelve los dos campos juntos a propósito: separarlos es la forma de que un sitio se olvide del otro. **725 pruebas en 48 archivos**, lint 0/22. **Hallazgo:** el catálogo de obras está VACÍO (0 obras; 0 de 114 rendiciones y 0 de 6 fondos con obra), porque se arma con el uso y el aprobador por proyecto se desplegó recién ayer. De ahí la regla de esconder el chip mientras no haya ninguna. |
 | 2026-10-08 | 5 · Rendiciones | **Hecha.** Panel de 130 líneas borrado; barra de chips + «Más filtros» + vistas. El archivo pasó de 1.245 a 1.166 líneas. **745 pruebas en 49 archivos**, lint 0/22. Verificado a 360, 390, 768, 1024 y 1280 px: sin desborde y sin errores en consola. Línea base de `admin-rendiciones` recapturada (las dos). Decisiones del camino: (a) un **borrador sin enviar queda fuera de cualquier rango de fecha** —antes pasaba cualquiera, porque la condición se salteaba al no haber fecha—; (b) el PDF ya no recibe cinco campos sueltos de filtro sino **la misma línea de resumen que muestra la pantalla**, así no pueden decir cosas distintas y una dimensión nueva no hay que acordarse de sumarla; (c) las vistas se **depuran una sola vez** contra las dimensiones de hoy, antes de compararlas: depurar solo al elegirlas dejaría la pestaña sin volver a marcarse nunca. **No se sembró ninguna vista de fábrica** — ver la nota de abajo. |
 | 2026-10-08 | 6 · Informes al instante | **Hecha.** El panel de 378 líneas y el botón «Generar informe» se fueron; `informes/client.tsx` pasó de **682 a 324 líneas** y `reports.ts` de 433 a 392. El servidor recibe un período y nada más; las doce dimensiones corren en el navegador. **766 pruebas en 50 archivos**, lint 0/22, sin desborde a 360, 390, 768, 1024, 1280 y 1440 px. **MEDICIÓN DEL PESO: 387 KB para 478 ítems** (~0,81 KB por ítem). Hoy entra sobrado, pero la proyección a 6.000 ítems al año es **~4,9 MB**, no los ~1,5 MB que la spec estimó: el estimado estaba 3 veces corto y queda corregido acá. No dispara el alto del plan (el umbral era que la medición de HOY pasara 2 MB), pero antes de que PENTA lleve un año de uso hay que achicar el ítem —`employee_name`, `department`, `parent_title` y `category_name` se repiten en cada fila y podrían ir por diccionario— o dejar el alcance más corto. De paso se arregló un desborde de 5 px a 768 px en el KPI «Por fuente» que **estaba latente desde siempre**: no se veía porque los KPIs esperaban a que alguien apretara el botón. |
+| 2026-10-08 | 7 · Auditoría | **Hecha.** Buscador + Fecha · Qué · Acción, ninguna escondida. `auditoria/client.tsx` 395 → 332 líneas. **Sigue filtrando en el SERVIDOR**, y es la única: la bitácora crece sin techo y se pagina de a 50. `getAuditLog` pasa a recibir **listas** en entidad y acción (`.in` en vez de `.eq`), porque una vista como «Borrados» pide dos acciones a la vez. Las etiquetas dejaron de ser los nombres crudos de la base (`expense_report`, `config_changed`) y hay dos pruebas que fallan si se suma una entidad o una acción al dominio y nadie la nombra. Probado de punta a punta: 196 → 29 registros con «Eliminado». |
+| 2026-10-08 | 8 · Empleados | **Hecha.** Buscador + Estado · Departamento · Datos bancarios. El estado ofrece tres opciones y no cuatro: **«en la papelera» no entra**, porque `getOrgEmployees` filtra `deleted_at` y un filtro cuya respuesta siempre es cero enseña a desconfiar del filtro. «Datos bancarios» es una dimensión de respuestas ya cocinadas —el predicado mira dos columnas—, que es lo que faltaba para poder guardar esa vista. `sinTildes` se mudó a `src/lib/texto.ts` y dejó de usar un rango de caracteres combinantes escrito a mano. Probado: **61 de 62 personas sin datos bancarios**. |

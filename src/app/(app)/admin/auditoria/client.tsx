@@ -1,12 +1,18 @@
 'use client'
 
-import { Fragment, useState, useEffect, useTransition } from 'react'
+import { Fragment, useState, useMemo, useEffect, useTransition } from 'react'
 import { getAuditLog } from '@/actions/admin'
 import type { AuditLog } from '@/lib/supabase/types'
 import type { AuditLogFilters } from '@/actions/admin'
+import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import { Vistas } from '@/components/filtros/Vistas'
+import { clavesPuestas, resumen, type Valores } from '@/lib/filtros/dimensiones'
+import { depurarVista, type Vista } from '@/lib/filtros/vistas'
+import { consultaDeAuditoria, dimensionesDeAuditoria } from '@/lib/filtro-auditoria'
+import { fechaEnChile } from '@/lib/filtro-documentos'
+import { listarVistas, crearVista, borrarVista } from '@/actions/vistas-filtro'
 import * as XLSX from 'xlsx'
 import {
-  Search,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -32,40 +38,6 @@ const ACTION_COLORS: Record<string, string> = {
   rejected:            'bg-danger-100 text-danger-700',
 }
 
-const ENTITY_TYPES = [
-  'user',
-  'expense_report',
-  'expense_item',
-  'category',
-  'policy',
-  'travel_policy',
-  'defontana_settings',
-  'defontana_supplier',
-  'defontana_export',
-  'defontana_export_petty_cash',
-  'cost_center',
-  'cost_center_assignment',
-  'approver_assignment',
-  'petty_cash_fund',
-  'petty_cash_item',
-  'webhook',
-]
-
-const ACTIONS = [
-  'deleted',
-  'restored',
-  'permanently_deleted',
-  'created',
-  'updated',
-  'bulk_updated',
-  'config_changed',
-  'exported',
-  'reverted',
-  'submitted',
-  'approved',
-  'rejected',
-]
-
 interface Props {
   initial: AuditLog[]
   total:   number
@@ -76,25 +48,30 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
   const [total, setTotal] = useState(initialTotal)
   const [loading, startTransition] = useTransition()
 
-  const [search,     setSearch]     = useState('')
-  const [entityType, setEntityType] = useState('')
-  const [action,     setAction]     = useState('')
-  const [from,       setFrom]       = useState('')
-  const [to,         setTo]         = useState('')
-  const [offset,     setOffset]     = useState(0)
+  /* Un solo juego de valores para las cuatro dimensiones. Los cinco controles
+     sueltos que vivían acá se borraron: ver la barra, más abajo. */
+  const [valores, setValores] = useState<Valores>({})
+  const [vistas,  setVistas]  = useState<Vista[]>([])
+  const [offset,  setOffset]  = useState(0)
+  const [hoy] = useState(() => fechaEnChile())
+
+  const dimensiones = useMemo(() => dimensionesDeAuditoria(), [])
+  const vistasLimpias = useMemo(
+    () => vistas.map(v => ({ ...v, filtro: depurarVista(v.filtro, dimensiones) })),
+    [vistas, dimensiones])
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  function buildFilters(overrideOffset?: number): AuditLogFilters {
+  /* La bitácora SIGUE filtrándose en el servidor, y es la única pantalla que
+     lo hace: crece sin techo —una fila por cada cosa que pasa en la app— y se
+     pagina de a 50. Traerla entera para filtrarla en el navegador sería traer
+     justo lo que nadie va a mirar. */
+  function buildFilters(v: Valores, overrideOffset?: number): AuditLogFilters {
     const ofs = overrideOffset ?? offset
     return {
-      search:     search     || undefined,
-      entityType: entityType || undefined,
-      action:     action     || undefined,
-      from:       from       || undefined,
-      to:         to         || undefined,
-      limit:      PAGE_SIZE,
-      offset:     ofs || undefined,
+      ...consultaDeAuditoria(v, hoy),
+      limit:  PAGE_SIZE,
+      offset: ofs || undefined,
     }
   }
 
@@ -106,31 +83,30 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
     })
   }
 
-  // Debounce select/date filter changes (not search text — that uses the button)
+  /* Medio segundo de espera: cada chip y cada letra del buscador son un viaje
+     al servidor, y sin esto escribir «claudia» serían siete. */
   useEffect(() => {
     const timer = setTimeout(() => {
-      doFetch(buildFilters(0))
+      doFetch(buildFilters(valores, 0))
       setOffset(0)
     }, 500)
     return () => clearTimeout(timer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, action, from, to])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valores])
 
-  function handleSearch() {
-    setOffset(0)
-    doFetch(buildFilters(0))
-  }
+  useEffect(() => { listarVistas('auditoria').then(setVistas).catch(() => {}) }, [])
+
 
   function goNext() {
     const newOffset = offset + PAGE_SIZE
     setOffset(newOffset)
-    doFetch(buildFilters(newOffset))
+    doFetch(buildFilters(valores, newOffset))
   }
 
   function goPrev() {
     const newOffset = Math.max(0, offset - PAGE_SIZE)
     setOffset(newOffset)
-    doFetch(buildFilters(newOffset))
+    doFetch(buildFilters(valores, newOffset))
   }
 
   function toggleExpand(id: string) {
@@ -187,75 +163,37 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
         </button>
       </div>
 
-      {/* ── Filtros ── */}
-      <div className="hoja border border-ink-100 p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          {/* Búsqueda libre */}
-          <div className="sm:col-span-2 xl:col-span-2">
-            <input
-              type="text"
-              placeholder="Buscar actor, entidad, notas…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
-              className="campo w-full"
-            />
-          </div>
+      <Vistas
+        vistas={vistasLimpias}
+        dimensiones={dimensiones}
+        valores={valores}
+        onElegir={setValores}
+        contar={() => total}
+        onGuardar={async (nombre, v) => {
+          const { errores } = await crearVista('auditoria', nombre, v)
+          if (errores?.length) return errores
+          setVistas(await listarVistas('auditoria'))
+          return []
+        }}
+        onBorrar={async (id) => {
+          const { error } = await borrarVista(id)
+          if (error) return error
+          setVistas(await listarVistas('auditoria'))
+          return null
+        }}
+        puedeEditar
+      />
 
-          {/* Tipo de entidad */}
-          <select
-            value={entityType}
-            onChange={e => setEntityType(e.target.value)}
-            className="campo"
-          >
-            <option value="">Todas las entidades</option>
-            {ENTITY_TYPES.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-
-          {/* Acción */}
-          <select
-            value={action}
-            onChange={e => setAction(e.target.value)}
-            className="campo"
-          >
-            <option value="">Todas las acciones</option>
-            {ACTIONS.map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-
-          {/* Desde */}
-          <input
-            type="date"
-            value={from}
-            onChange={e => setFrom(e.target.value)}
-            title="Desde"
-            className="campo"
-          />
-
-          {/* Hasta */}
-          <input
-            type="date"
-            value={to}
-            onChange={e => setTo(e.target.value)}
-            title="Hasta"
-            className="campo"
-          />
-        </div>
-
-        <div className="flex justify-end mt-3">
-          <button
-            onClick={handleSearch}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-item text-sm font-semibold bg-accent-600 text-white hover:bg-accent-700 disabled:opacity-60 transition-colors"
-          >
-            <Search size={16} />
-            {loading ? 'Buscando…' : 'Buscar'}
-          </button>
-        </div>
-      </div>
+      <BarraFiltros
+        dimensiones={dimensiones}
+        valores={valores}
+        onCambio={setValores}
+        contar={() => total}
+        sustantivo={['registro', 'registros']}
+        resumen={clavesPuestas(dimensiones, valores).length > 0
+          ? `${total.toLocaleString('es-CL')} registros · ${resumen(dimensiones, valores) ?? ''}`
+          : null}
+      />
 
       {/* ── Tabla ── */}
       <div className="hoja border border-ink-100 overflow-hidden">

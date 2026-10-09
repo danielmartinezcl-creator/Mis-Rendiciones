@@ -2422,8 +2422,10 @@ export async function getExpenseCategoryBreakdown(): Promise<CategoryBreakdownIt
 
 export type AuditLogFilters = {
   actorId?:    string
-  entityType?: string
-  action?:     string
+  /* Listas y no valores sueltos: una vista guardada como «Borrados» pide
+     dos acciones a la vez (deleted y permanently_deleted). */
+  entityType?: string[]
+  action?:     string[]
   from?:       string  // YYYY-MM-DD
   to?:         string
   search?:     string  // busca en entity_label, notes, actor_name
@@ -2444,8 +2446,8 @@ export async function getAuditLog(filters: AuditLogFilters = {}) {
 
   if (filters.offset)     q = q.range(filters.offset, filters.offset + (filters.limit ?? 50) - 1)
   if (filters.actorId)    q = q.eq('actor_id', filters.actorId)
-  if (filters.entityType) q = q.eq('entity_type', filters.entityType)
-  if (filters.action)     q = q.eq('action', filters.action)
+  if (filters.entityType?.length) q = q.in('entity_type', filters.entityType)
+  if (filters.action?.length)     q = q.in('action', filters.action)
   if (filters.from)       q = q.gte('created_at', `${filters.from}T00:00:00Z`)
   if (filters.to)         q = q.lte('created_at', `${filters.to}T23:59:59Z`)
   if (filters.search) {
