@@ -98,6 +98,58 @@ describe('aplicarFiltroEmpleados', () => {
     })
     expect(ids(aplicarFiltroEmpleados(xs, v))).toEqual(['a'])
   })
+
+  /* Daniel, 2026-10-09: «lo eliminé de la papelera y sigue apareciendo en
+     empleados». Un usuario no se borra de verdad (migración 027), así que
+     «eliminar definitivamente» lo bloquea y le baja deleted_at, y volvía a
+     la lista con un chip rojo. */
+  describe('quien quedó bloqueado salió de la nómina', () => {
+    const xs = [
+      p({ id: 'activa' }),
+      p({ id: 'jul', nombre: 'Jul Prueba', correo: 'jul@pentaingenieros.cl',
+          rut: '11.111.111-1', estado: 'bloqueada' }),
+    ]
+
+    it('sin pedir nada no aparece', () => {
+      expect(ids(aplicarFiltroEmpleados(xs, vacios))).toEqual(['activa'])
+    })
+
+    /* Las dos puertas: el chip y el buscador. Sin ninguna de las dos,
+       «Habilitar» quedaría fuera de alcance y un bloqueo por error no se
+       desharía desde ninguna pantalla. */
+    it('el chip «Bloqueados» lo trae', () => {
+      expect(ids(aplicarFiltroEmpleados(xs, con({ estado: { tipo: 'unico', id: 'bloqueada' } }))))
+        .toEqual(['jul'])
+    })
+
+    it('buscarlo por su nombre lo trae', () => {
+      expect(ids(aplicarFiltroEmpleados(xs, con({ busca: { tipo: 'texto', texto: 'jul prueba' } }))))
+        .toEqual(['jul'])
+    })
+
+    it('y por su RUT, que es como lo encuentra la planilla', () => {
+      expect(ids(aplicarFiltroEmpleados(xs, con({ busca: { tipo: 'texto', texto: '11.111' } }))))
+        .toEqual(['jul'])
+    })
+
+    /* Un departamento es recorrer un grupo, no pedir a una persona: ahí el
+       bloqueado sigue afuera. */
+    it('filtrar por departamento no lo devuelve', () => {
+      const v = con({ departamento: { tipo: 'unico', id: 'Gestión de Personas' } })
+      expect(ids(aplicarFiltroEmpleados(xs, v))).toEqual(['activa'])
+    })
+
+    it('un espacio escrito en el buscador no es pedir a nadie', () => {
+      expect(ids(aplicarFiltroEmpleados(xs, con({ busca: { tipo: 'texto', texto: '   ' } }))))
+        .toEqual(['activa'])
+    })
+
+    /* Que no se vaya de mano: desactivar NO es salir de la nómina. */
+    it('un desactivado sí sale sin pedir nada', () => {
+      const ys = [p({ id: 'a' }), p({ id: 'b', estado: 'inactiva' })]
+      expect(ids(aplicarFiltroEmpleados(ys, vacios))).toEqual(['a', 'b'])
+    })
+  })
 })
 
 describe('dimensionesDeEmpleados', () => {

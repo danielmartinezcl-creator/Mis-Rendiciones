@@ -328,7 +328,18 @@ export default function AdminEmployeesPage() {
     }
   }
 
-  const notInvited = employees.filter(e => !e.invited_at)
+  /* La nómina es la gente que la pantalla muestra sin que se la pida. Un
+     bloqueado salió: no cuenta en el encabezado, y sobre todo NO entra en
+     «Invitar sin invitar», que es el botón que manda correos en lote.
+     Invitar a alguien baneado en auth no hace nada —access-email.ts lo
+     corta— pero inflaba su número, y ese número es lo único que el admin
+     mira antes de confirmar. */
+  const enNomina = useMemo(() => {
+    const pasan = new Set(aplicarFiltroEmpleados(filtrables, {}).map(f => f.id))
+    return employees.filter(e => pasan.has(e.id))
+  }, [employees, filtrables])
+
+  const notInvited = enNomina.filter(e => !e.invited_at)
 
   function toggleSelect(id: string) {
     setSelected(prev => {
@@ -353,7 +364,7 @@ export default function AdminEmployeesPage() {
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Empleados</h1>
           <p className="text-sm tor-on-gradient-soft mt-1">
-            {employees.length} persona{employees.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
+            {enNomina.length} persona{enNomina.length !== 1 ? 's' : ''} · {notInvited.length} sin invitar
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -469,7 +480,7 @@ export default function AdminEmployeesPage() {
         contar={cuantos}
         sustantivo={['persona', 'personas']}
         resumen={hayFiltro
-          ? `${filtrados.length} de ${employees.length} · ${resumen(dimensiones, valores) ?? ''}`
+          ? `${filtrados.length} de ${enNomina.length} · ${resumen(dimensiones, valores) ?? ''}`
           : null}
       />
 

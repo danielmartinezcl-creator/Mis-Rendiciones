@@ -87,7 +87,7 @@ export function motivoDeChoque({ cuenta, por }: Choque): string {
     case 'papelera':
       return `${dato} es de ${quien}, que está en la papelera. Restauralo desde Papelera → Empleados: vuelve con su historial y su acceso. Una cuenta nueva con el mismo correo no se puede crear.`
     case 'bloqueada':
-      return `${dato} es de ${quien}, que está bloqueado. Habilitalo desde Empleados en vez de crearlo de nuevo: su historial sigue ahí.`
+      return `${dato} es de ${quien}, que está bloqueado. Buscalo por su nombre en Empleados y habilitalo, en vez de crearlo de nuevo: su historial sigue ahí.`
     case 'inactiva':
       return `${quien} ya está en la nómina, desactivado — ${dato.toLowerCase()} es suyo. Reactivalo desde Empleados en vez de crearlo de nuevo.`
     case 'activa':
