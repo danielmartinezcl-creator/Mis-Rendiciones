@@ -706,9 +706,10 @@ salió el vocabulario paralelo.
 2026-10-09, después de que Daniel volviera a subir la planilla en producción): la
 carga reescribe cada ficha y pasa por el normalizador, así que de 61 personas las
 59 reales quedaron con banco, tipo Y número de cuenta —antes era **1**—, los bancos
-en su nombre canónico y el tipo en minúscula ( 52 ·  7). Las dos
-sin datos son las cuentas de prueba. **No escribir un UPDATE masivo para esto**: ya
-está hecho.
+en su nombre canónico y el tipo en minúscula (`corriente` 52 · `vista` 7). Las dos
+sin datos son «1 Daniel Prueba» y «Daniel Martinez Prueba», cuentas de prueba que
+Daniel confirmó que está bien que queden así. **No escribir un UPDATE masivo para
+esto**: ya está hecho.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
