@@ -700,8 +700,15 @@ de la base:
   reconoce sí se descarta: son tres y un cuarto valor no le sirve a nadie
 
 La lista estaba suelta dentro de `profile/page.tsx` y nadie más la veía: de ahí
-salió el vocabulario paralelo. **Los datos viejos NO se migraron**: se normalizan
-al leer y convergen a medida que se guarda cada ficha.
+salió el vocabulario paralelo.
+
+**Los datos viejos se normalizaron solos y NO hace falta migrarlos** (medido el
+2026-10-09, después de que Daniel volviera a subir la planilla en producción): la
+carga reescribe cada ficha y pasa por el normalizador, así que de 61 personas las
+59 reales quedaron con banco, tipo Y número de cuenta —antes era **1**—, los bancos
+en su nombre canónico y el tipo en minúscula ( 52 ·  7). Las dos
+sin datos son las cuentas de prueba. **No escribir un UPDATE masivo para esto**: ya
+está hecho.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
