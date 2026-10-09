@@ -600,13 +600,13 @@ Filas nuevas en errores conocidos:
 
 ## Tarea 10: Despliegue
 
-- [ ] **Paso 1: `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`** — verde, sin salida, 0 errores.
-- [ ] **Paso 2:** parar el servidor, `rm -rf .next`, `npm run build`.
-- [ ] **Paso 3: Pedirle el OK a Daniel.** No se sube nada sin eso.
-- [ ] **Paso 4:** `git push origin main`.
-- [ ] **Paso 5:** esperar el despliegue con `get_deployment` hasta `READY` — **nunca sondeando el dominio con `curl`**, que dispara el escudo de Vercel y responde 403 a todo.
-- [ ] **Paso 6:** `get_runtime_errors` de la última hora. Si hay algo, decirlo.
-- [ ] **Paso 7:** anotar el avance en este archivo («Registro de avance») y en el plan de la hoja de ruta.
+- [x] **Paso 1: `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`** — verde, sin salida, 0 errores.
+- [x] **Paso 2:** parar el servidor, `rm -rf .next`, `npm run build`.
+- [x] **Paso 3: Pedirle el OK a Daniel.** No se sube nada sin eso.
+- [x] **Paso 4:** `git push origin main`.
+- [x] **Paso 5:** esperar el despliegue con `get_deployment` hasta `READY` — **nunca sondeando el dominio con `curl`**, que dispara el escudo de Vercel y responde 403 a todo.
+- [x] **Paso 6:** `get_runtime_errors` de la última hora. Si hay algo, decirlo.
+- [x] **Paso 7:** anotar el avance en este archivo («Registro de avance») y en el plan de la hoja de ruta.
 
 ---
 
@@ -625,3 +625,4 @@ Filas nuevas en errores conocidos:
 | 2026-10-08 | 7 · Auditoría | **Hecha.** Buscador + Fecha · Qué · Acción, ninguna escondida. `auditoria/client.tsx` 395 → 332 líneas. **Sigue filtrando en el SERVIDOR**, y es la única: la bitácora crece sin techo y se pagina de a 50. `getAuditLog` pasa a recibir **listas** en entidad y acción (`.in` en vez de `.eq`), porque una vista como «Borrados» pide dos acciones a la vez. Las etiquetas dejaron de ser los nombres crudos de la base (`expense_report`, `config_changed`) y hay dos pruebas que fallan si se suma una entidad o una acción al dominio y nadie la nombra. Probado de punta a punta: 196 → 29 registros con «Eliminado». |
 | 2026-10-08 | 8 · Empleados | **Hecha.** Buscador + Estado · Departamento · Datos bancarios. El estado ofrece tres opciones y no cuatro: **«en la papelera» no entra**, porque `getOrgEmployees` filtra `deleted_at` y un filtro cuya respuesta siempre es cero enseña a desconfiar del filtro. «Datos bancarios» es una dimensión de respuestas ya cocinadas —el predicado mira dos columnas—, que es lo que faltaba para poder guardar esa vista. `sinTildes` se mudó a `src/lib/texto.ts` y dejó de usar un rango de caracteres combinantes escrito a mano. Probado: **61 de 62 personas sin datos bancarios**. |
 | 2026-10-09 | 9 · El arnés y el contexto | **Hecha.** Tres paneles nuevos a la auditoría de materiales: «Más filtros» en Rendiciones (desplegables) y en Informes (listas y fecha), y «Guardar como vista» como **condicional**, porque solo aparece después de tocar un chip y el arnés no lo alcanza de un clic — así queda listado en el informe con su motivo en vez de ser un punto ciego callado. Resultado: **0 hallazgos, 46 pantallas recorridas, 14.774 textos evaluados** (eran 44 y 5.105). Deuda de sistema en **0**, 26 de 26 pantallas. SKILL.md con la sección nueva, la 040 en el listado de migraciones, los ocho módulos nuevos en el árbol y tres filas en errores conocidos: filtrar en el servidor lo que no reduce filas, guardar encima de una vista compartida por omisión, y ofrecer una opción cuya respuesta siempre es cero. |
+| 2026-10-09 | 10 · Despliegue | **Hecha. EL PLAN ESTÁ COMPLETO.** 12 commits a `main` con el OK de Daniel; despliegue `dpl_CCCdKAf474eQ…` (commit `fb9e481`) en **READY** con los alias de producción, y **0 errores en vivo** en la hora siguiente. Antes de subir: build limpio, 795 pruebas, tsc sin salida, lint 0/22, deuda 0, auditoría de materiales 0 hallazgos y la línea base entera en verde. En la corrida completa aparecieron 6 rojas: 5 eran el servidor del arnés cayéndose al final (`ERR_CONNECTION_REFUSED`) y pasaron al repetirlas, y 1 era real —el contador de la papelera, porque Daniel restauró a Julián Torres—, recapturada. |
