@@ -11,55 +11,20 @@ import { Upload, Download, AlertTriangle, UserPlus, Loader2 } from 'lucide-react
 import { useDialogos } from '@/components/ui/Dialogos'
 import { datosParaPlanilla, cargarPlanillaAlta, otorgarPermisoAprobar } from '@/actions/employees'
 import {
-  resolverPlanilla, sinPermisoAprobar,
+  resolverPlanilla, sinPermisoAprobar, mapHeader, CABECERAS, EJEMPLO,
   type FilaPlanilla, type Persona, type CentroCosto,
 } from '@/lib/planilla-alta'
 import { alertasDeSegregacion, type AprobacionDeDocumento } from '@/lib/segregacion'
-
-const CABECERAS = [
-  'Apellido y nombre', 'RUT', 'Correo', 'Cargo', 'Centro de costo', 'Rol',
-  'Aprobador 1er Nivel (N1)', 'Aprobador 2do Nivel (N2)',
-  'Banco', 'Tipo de Cuenta', 'N° de Cuenta',
-]
-
-/* N1 y N2 van VACÍOS en el ejemplo, a propósito (2026-10-07). Con el aprobador
-   por proyecto, quien no tiene jefe propio va al aprobador por defecto de la
-   organización, así que llenar esa columna es declarar una EXCEPCIÓN. Un
-   ejemplo que las trae llenas invita a completarlas para los 57, y cada una
-   apaga el aprobador por defecto de esa persona sin que se note. */
-const EJEMPLO = [
-  'Contreras Pía', '11.111.111-1', 'pia.contreras@penta.cl',
-  'Jefa de Obra', 'Administración', 'employee',
-  '', '',
-  'Banco de Chile', 'Cuenta Corriente', '00012345678',
-]
 
 const VACIA: FilaPlanilla = {
   nombre: '', rut: '', correo: '', cargo: '', centroCosto: '', rol: '',
   n1: '', n2: '', banco: '', tipoCuenta: '', numeroCuenta: '',
 }
 
-// Tolerante con mayúsculas, tildes y espacios, como el de «Importar nómina».
-function mapHeader(h: string): keyof FilaPlanilla | null {
-  const s = h.toLowerCase().trim().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-  if (['apellido y nombre', 'nombre y apellido', 'nombre', 'nombre completo'].includes(s)) return 'nombre'
-  if (['rut', 'r.u.t.', 'rut empleado'].includes(s)) return 'rut'
-  if (['correo', 'email', 'e-mail', 'correo electronico'].includes(s)) return 'correo'
-  if (['cargo', 'puesto', 'departamento', 'area'].includes(s)) return 'cargo'
-  if (['centro de costo', 'centro costo', 'cc', 'centro'].includes(s)) return 'centroCosto'
-  if (['rol', 'role', 'perfil'].includes(s)) return 'rol'
-  if (['aprobador 1er nivel (n1)', 'aprobador 1er nivel', 'aprobador n1', 'n1'].includes(s)) return 'n1'
-  if (['aprobador 2do nivel (n2)', 'aprobador 2do nivel', 'aprobador n2', 'n2'].includes(s)) return 'n2'
-  if (['banco'].includes(s)) return 'banco'
-  if (['tipo de cuenta', 'tipo cuenta'].includes(s)) return 'tipoCuenta'
-  if (['n de cuenta', 'no de cuenta', 'numero de cuenta', 'cuenta'].includes(s)) return 'numeroCuenta'
-  return null
-}
-
 async function descargarPlantilla() {
   const XLSX = await import('xlsx')
   const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.aoa_to_sheet([CABECERAS, EJEMPLO])
+  const ws = XLSX.utils.aoa_to_sheet([[...CABECERAS], [...EJEMPLO]])
   XLSX.utils.book_append_sheet(wb, ws, 'Empleados')
   XLSX.writeFile(wb, 'planilla-de-alta.xlsx')
 }

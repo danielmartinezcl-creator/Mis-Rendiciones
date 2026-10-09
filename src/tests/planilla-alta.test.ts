@@ -207,7 +207,7 @@ describe('parcheDeFila: vacío nunca borra', () => {
 
 // ── Tarea 5: la planilla entera ──────────────────────────────────────────────
 
-import { resolverPlanilla, sinPermisoAprobar } from '@/lib/planilla-alta'
+import { resolverPlanilla, sinPermisoAprobar, mapHeader, CABECERAS, EJEMPLO } from '@/lib/planilla-alta'
 
 const fila = (x: Partial<FilaPlanilla>): FilaPlanilla => ({ ...VACIA, ...x })
 const resolver = (fs: FilaPlanilla[], permisos?: Set<string>) =>
@@ -382,5 +382,52 @@ describe('resolverPlanilla: la persona ya existe, fuera de la nómina', () => {
     const [r] = resolverFuera([fila({ rut: '11.111.111-1', banco: 'BCI' })])
     expect(r.errores).toEqual([])
     expect(r.accion).toBe('actualizar')
+  })
+})
+
+/* Los encabezados del Excel. Esta batería existe por un defecto real: la
+   plantilla que la app hacía descargar traía `N° de Cuenta` y el lector solo
+   aceptaba `n de cuenta`, así que la columna se ignoraba EN SILENCIO. En la
+   carga del 2026-10-08 entraron banco y tipo de cuenta de 58 personas y el
+   número de cuenta de ninguna. Vivía en un componente, sin pruebas. */
+describe('los encabezados de la planilla', () => {
+  /* La prueba que importa: la plantilla que la app genera tiene que poder
+     leerse con el lector de la app. Si alguien cambia un encabezado y se
+     olvida del otro lado, esto se pone rojo. */
+  it('TODO encabezado de la plantilla descargable lo reconoce el lector', () => {
+    const sinReconocer = CABECERAS.filter(h => mapHeader(h) === null)
+    expect(sinReconocer).toEqual([])
+  })
+
+  it('la plantilla tiene una columna por cada campo de la fila', () => {
+    const campos = CABECERAS.map(mapHeader)
+    expect(new Set(campos).size).toBe(CABECERAS.length)   // ninguna repetida
+    expect(campos).toEqual(Object.keys(VACIA))            // ni falta ninguna
+  })
+
+  it('el ejemplo trae un valor por columna', () => {
+    expect(EJEMPLO).toHaveLength(CABECERAS.length)
+  })
+
+  /* El `°` no es un acento: `\p{Diacritic}` no lo saca, y ahí estuvo el error. */
+  it('el símbolo de grado no rompe la coincidencia', () => {
+    expect(mapHeader('N° de Cuenta')).toBe('numeroCuenta')
+    expect(mapHeader('Nº de Cuenta')).toBe('numeroCuenta')
+    expect(mapHeader('N.º de cuenta')).toBe('numeroCuenta')
+  })
+
+  it('tolera mayúsculas, acentos y espacios de más', () => {
+    expect(mapHeader('  CORREO ELECTRÓNICO  ')).toBe('correo')
+    expect(mapHeader('Centro De Costo')).toBe('centroCosto')
+  })
+
+  it('los paréntesis de los aprobadores no estorban', () => {
+    expect(mapHeader('Aprobador 1er Nivel (N1)')).toBe('n1')
+    expect(mapHeader('Aprobador 2do Nivel (N2)')).toBe('n2')
+  })
+
+  it('una columna que no es de la planilla no se confunde con otra', () => {
+    expect(mapHeader('Observaciones')).toBeNull()
+    expect(mapHeader('')).toBeNull()
   })
 })

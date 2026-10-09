@@ -313,3 +313,65 @@ export function sinPermisoAprobar(resueltas: FilaResuelta[]): Persona[] {
   }
   return [...vistos.values()]
 }
+
+// ── Los encabezados del Excel ────────────────────────────────────────────────
+//
+// Viven acá y no en el componente —donde estaban— porque sin pruebas nadie vio
+// esto: la plantilla que la app hace descargar traía `N° de Cuenta`, y el
+// lector solo aceptaba `n de cuenta`. El `°` NO es un acento, así que
+// `\p{Diacritic}` no lo saca, y la columna se ignoraba **en silencio**: en la
+// carga real del 2026-10-08 entraron el banco y el tipo de cuenta de 58
+// personas y el número de cuenta de ninguna.
+
+export const CABECERAS = [
+  'Apellido y nombre', 'RUT', 'Correo', 'Cargo', 'Centro de costo', 'Rol',
+  'Aprobador 1er Nivel (N1)', 'Aprobador 2do Nivel (N2)',
+  'Banco', 'Tipo de Cuenta', 'N° de Cuenta',
+] as const
+
+/* N1 y N2 van VACÍOS en el ejemplo, a propósito (2026-10-07). Con el aprobador
+   por proyecto, quien no tiene jefe propio va al aprobador por defecto de la
+   organización, así que llenar esa columna es declarar una EXCEPCIÓN. Un
+   ejemplo que las trae llenas invita a completarlas para los 57, y cada una
+   apaga el aprobador por defecto de esa persona sin que se note. */
+export const EJEMPLO = [
+  'Contreras Pía', '11.111.111-1', 'pia.contreras@penta.cl',
+  'Jefa de Obra', 'Administración', 'employee',
+  '', '',
+  'Banco de Chile', 'Cuenta Corriente', '00012345678',
+] as const
+
+/**
+ * Deja un encabezado comparable: sin mayúsculas, sin acentos, sin espacios de
+ * más y **sin los símbolos que la gente mete en los títulos** — `°`, `º`, `.`,
+ * `#`, `:` y los paréntesis. Eso último es lo que faltaba: un `°` sobrevivía a
+ * la limpieza y rompía la coincidencia sin que nada lo dijera.
+ */
+export function normalizarEncabezado(h: string): string {
+  return h
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[°º#:.()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const COLUMNAS: [keyof FilaPlanilla, string[]][] = [
+  ['nombre',       ['apellido y nombre', 'nombre y apellido', 'nombre', 'nombre completo']],
+  ['rut',          ['rut', 'r u t', 'rut empleado']],
+  ['correo',       ['correo', 'email', 'e-mail', 'correo electronico']],
+  ['cargo',        ['cargo', 'puesto', 'departamento', 'area']],
+  ['centroCosto',  ['centro de costo', 'centro costo', 'cc', 'centro']],
+  ['rol',          ['rol', 'role', 'perfil']],
+  ['n1',           ['aprobador 1er nivel n1', 'aprobador 1er nivel', 'aprobador n1', 'n1']],
+  ['n2',           ['aprobador 2do nivel n2', 'aprobador 2do nivel', 'aprobador n2', 'n2']],
+  ['banco',        ['banco']],
+  ['tipoCuenta',   ['tipo de cuenta', 'tipo cuenta']],
+  ['numeroCuenta', ['n de cuenta', 'no de cuenta', 'numero de cuenta', 'nro de cuenta', 'cuenta']],
+]
+
+/** Qué columna de la planilla es ese encabezado. `null` si no es ninguna. */
+export function mapHeader(h: string): keyof FilaPlanilla | null {
+  const s = normalizarEncabezado(h)
+  return COLUMNAS.find(([, nombres]) => nombres.includes(s))?.[0] ?? null
+}
