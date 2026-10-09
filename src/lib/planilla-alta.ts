@@ -5,6 +5,7 @@
 //
 // Spec: docs/superpowers/specs/2026-10-01-planilla-de-alta-design.md
 
+import { normalizarBanco, normalizarTipoCuenta } from '@/lib/bancos'
 import { validateRut } from '@/lib/validators'
 // El RUT vive en su propio módulo: lo necesita también `alta-repetida`, y si
 // estuviera acá las dos se importarían en círculo.
@@ -145,8 +146,8 @@ export function parcheDeFila(
   // Un rol desconocido NO entra al parche: resolverPlanilla ya marca la fila en
   // error, y así no hay forma de escribir en la columna algo que no es un rol.
   if (rol && esRol(rol.toLowerCase())) parche.role = rol.toLowerCase() as Rol
-  if (banco)  parche.bank_name         = banco
-  if (tipo)   parche.bank_account_type = tipo
+  if (banco)  parche.bank_name         = normalizarBanco(banco) ?? banco
+  if (tipo)   parche.bank_account_type = normalizarTipoCuenta(tipo) ?? tipo
   if (numero) parche.bank_account      = numero
 
   return parche

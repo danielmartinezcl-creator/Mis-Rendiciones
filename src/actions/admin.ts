@@ -18,6 +18,7 @@ import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import { cargarPersonas } from '@/lib/contexto-permisos'
 import { puedeActuar, pasoSegunEstado, dependientesDe, type Documento } from '@/lib/permisos'
 import { erroresDeCadena, camposDeCadena, coherenciaJefeProyecto } from '@/lib/cadena-aprobacion'
+import { normalizarBanco, normalizarTipoCuenta } from '@/lib/bancos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 import { motivoBloqueoPorTraspasos, traspasosDe, traspasosPorDocumento } from '@/lib/papelera'
 
@@ -796,6 +797,8 @@ export async function updateEmployee(
     full_name?:                  string
     rut?:                        string | null
     department?:                 string | null
+    bank_name?:                  string | null
+    bank_account_type?:          string | null
     bank_account?:               string | null
     cost_center_id?:             string | null
   }
@@ -807,6 +810,13 @@ export async function updateEmployee(
   // Va antes del chequeo de dependientes, para que quitar «puede aprobar» siga
   // exigiendo reasignar las cadenas ajenas primero.
   updates = coherenciaJefeProyecto(updates)
+
+  /* El banco y el tipo de cuenta se guardan siempre en el vocabulario de la
+     lista, venga el dato de donde venga: la planilla escribía «Corriente» y
+     el perfil del empleado 'corriente', en la misma columna. Solo se tocan
+     las claves que vinieron — una ausente no puede convertirse en null. */
+  if ('bank_name' in updates) updates.bank_name = normalizarBanco(updates.bank_name)
+  if ('bank_account_type' in updates) updates.bank_account_type = normalizarTipoCuenta(updates.bank_account_type)
 
   // Capture before state
   const { data: before } = await supabase

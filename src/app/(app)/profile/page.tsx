@@ -1,5 +1,6 @@
 'use client'
 
+import { TIPOS_DE_CUENTA, opcionesDeBanco, normalizarBanco, normalizarTipoCuenta } from '@/lib/bancos'
 import { useEffect, useState } from 'react'
 import { getMyProfile, updateProfile, sendPasswordReset } from '@/actions/profile'
 import type { UserProfile } from '@/lib/supabase/types'
@@ -12,29 +13,9 @@ const ROLE_LABELS: Record<string, string> = {
   employee: 'Empleado',
 }
 
-const BANKS = [
-  'Banco Estado',
-  'Banco de Chile',
-  'Santander',
-  'BCI',
-  'Scotiabank',
-  'Itaú',
-  'BICE',
-  'Security',
-  'Banco Falabella',
-  'Banco Ripley',
-  'Global66',
-  'Mercado Pago',
-  'HSBC',
-  'Banco Internacional',
-  'Otro',
-]
-
-const ACCOUNT_TYPES = [
-  { value: 'corriente', label: 'Cuenta Corriente' },
-  { value: 'vista',     label: 'Cuenta Vista' },
-  { value: 'ahorro',    label: 'Cuenta de Ahorro' },
-]
+/* La lista vive en @/lib/bancos: la comparten esta pantalla y el panel del
+   admin. El normalizador que la acompaña es lo que impide que la planilla y
+   este formulario escriban dos vocabularios en la misma columna. */
 
 export default function ProfilePage() {
   const [profile,   setProfile]   = useState<ProfileWithEmail | null>(null)
@@ -61,8 +42,8 @@ export default function ProfilePage() {
         setFullName(data.full_name)
         setRut(data.rut ?? '')
         setDepartment(data.department ?? '')
-        setBankName(data.bank_name ?? '')
-        setBankAccountType(data.bank_account_type ?? '')
+        setBankName(normalizarBanco(data.bank_name) ?? '')
+        setBankAccountType(normalizarTipoCuenta(data.bank_account_type) ?? '')
         setBankAccount(data.bank_account ?? '')
       }
       setLoading(false)
@@ -198,7 +179,7 @@ export default function ProfilePage() {
               className="campo w-full py-2.5 text-[16px]"
             >
               <option value="">Selecciona un banco...</option>
-              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+              {opcionesDeBanco(bankName).map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
 
@@ -210,7 +191,7 @@ export default function ProfilePage() {
               className="campo w-full py-2.5 text-[16px]"
             >
               <option value="">Selecciona tipo de cuenta...</option>
-              {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {TIPOS_DE_CUENTA.map(t => <option key={t.valor} value={t.valor}>{t.etiqueta}</option>)}
             </select>
           </div>
 

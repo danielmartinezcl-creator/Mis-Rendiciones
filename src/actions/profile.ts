@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validateRut, validateStringLength } from '@/lib/validators'
 import { enviarRecuperacion } from '@/lib/access-email'
+import { normalizarBanco, normalizarTipoCuenta } from '@/lib/bancos'
 
 export async function getMyProfile() {
   const supabase = await createClient()
@@ -41,8 +42,8 @@ export async function updateProfile(updates: {
   if ('rut'               in updates)  clean.rut               = updates.rut?.trim()               || null
   if ('department'        in updates)  clean.department        = updates.department?.trim()         || null
   if ('bank_account'      in updates)  clean.bank_account      = updates.bank_account?.trim()      || null
-  if ('bank_name'         in updates)  clean.bank_name         = updates.bank_name?.trim()         || null
-  if ('bank_account_type' in updates)  clean.bank_account_type = updates.bank_account_type?.trim() || null
+  if ('bank_name'         in updates)  clean.bank_name         = normalizarBanco(updates.bank_name)
+  if ('bank_account_type' in updates)  clean.bank_account_type = normalizarTipoCuenta(updates.bank_account_type)
 
   const { error } = await supabase
     .from('users')

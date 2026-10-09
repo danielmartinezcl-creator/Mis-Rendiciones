@@ -8,7 +8,8 @@ import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { PlanillaAlta } from '@/components/admin/PlanillaAlta'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck, FileSpreadsheet } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck, FileSpreadsheet, Landmark } from 'lucide-react'
+import { TIPOS_DE_CUENTA, opcionesDeBanco, normalizarBanco, normalizarTipoCuenta, etiquetaTipoCuenta } from '@/lib/bancos'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
 import { useDialogos } from '@/components/ui/Dialogos'
@@ -52,6 +53,19 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
+/* Los seis campos que «Editar datos» abre de una vez. Daniel, 2026-10-09:
+   «si coloco editar datos, estaría bueno que se me expanda toda la
+   información del empleado». Los bancarios NO estaban, y encima
+   updateEmployee ni siquiera aceptaba el banco ni el tipo de cuenta. */
+type FormEdicion = {
+  full_name: string; rut: string; department: string; cost_center_id: string
+  bank_name: string; bank_account_type: string; bank_account: string
+}
+const FORM_VACIO: FormEdicion = {
+  full_name: '', rut: '', department: '', cost_center_id: '',
+  bank_name: '', bank_account_type: '', bank_account: '',
+}
+
 export default function AdminEmployeesPage() {
   const { confirmar, avisar } = useDialogos()
   const [employees,        setEmployees]        = useState<EmployeeWithEmail[]>([])
@@ -86,7 +100,7 @@ export default function AdminEmployeesPage() {
   const [deletingBulk,   setDeletingBulk]   = useState(false)
 
   const [expandedEdit, setExpandedEdit] = useState<string | null>(null)
-  const [editForm, setEditForm]         = useState<{ full_name: string; rut: string; department: string; cost_center_id: string }>({ full_name: '', rut: '', department: '', cost_center_id: '' })
+  const [editForm, setEditForm]         = useState<FormEdicion>(FORM_VACIO)
   const [editSaving, setEditSaving]     = useState(false)
   const [costCenters, setCostCenters]   = useState<CostCenter[]>([])
 
@@ -243,6 +257,13 @@ export default function AdminEmployeesPage() {
       rut:            (emp as UserProfile & { email: string; rut?: string | null }).rut ?? '',
       department:     emp.department ?? '',
       cost_center_id: emp.cost_center_id ?? '',
+      /* Normalizado al leer: lo guardado puede venir de la planilla
+         («Corriente», «Falabella») y un <select> con un value que no figura
+         entre sus opciones se dibuja vacío. Guardar ese vacío borraría el
+         dato sin que nadie lo hubiera tocado. */
+      bank_name:         normalizarBanco(emp.bank_name) ?? '',
+      bank_account_type: normalizarTipoCuenta(emp.bank_account_type) ?? '',
+      bank_account:      emp.bank_account ?? '',
     })
     setExpandedEdit(emp.id)
   }
@@ -255,6 +276,9 @@ export default function AdminEmployeesPage() {
         rut:            editForm.rut.trim() || null,
         department:     editForm.department.trim() || null,
         cost_center_id: editForm.cost_center_id || null,
+        bank_name:         editForm.bank_name.trim() || null,
+        bank_account_type: editForm.bank_account_type || null,
+        bank_account:      editForm.bank_account.trim() || null,
       })
       setExpandedEdit(null)
       await load()
@@ -718,6 +742,25 @@ export default function AdminEmployeesPage() {
                   )}
                 </div>
 
+                {/* Los datos bancarios se LEEN acá. Sin esto no había forma de
+                    saber a quién le faltan sin abrir el panel de cada uno, y son
+                    el dato que decide si a la persona se le puede pagar. */}
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <Landmark size={13} className="text-ink-400 shrink-0" />
+                  {emp.bank_name || emp.bank_account ? (
+                    <span className="text-ink-500 truncate">
+                      {[normalizarBanco(emp.bank_name),
+                        etiquetaTipoCuenta(emp.bank_account_type),
+                        emp.bank_account].filter(Boolean).join(' · ')}
+                      {!emp.bank_account && (
+                        <span className="text-warning-700 font-medium"> · falta el n.° de cuenta</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="italic text-ink-400">sin datos bancarios</span>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-ink-100">
                   {/* Plegado se LEE: los permisos activos como texto. Editarlos
                       es otra intención y vive en el cajón de abajo. Seis
@@ -943,6 +986,50 @@ export default function AdminEmployeesPage() {
                       </select>
                     </div>
                   </div>
+
+                  {/* Los datos para pagarle. Van en el mismo panel y no en uno
+                      aparte: «editar datos» es una sola intención, y separarlos
+                      obligaría a adivinar en cuál de los dos cajones está el
+                      banco. */}
+                  <p className="card-label font-semibold text-ink-600 mt-5 mb-3 pt-4 border-t border-ink-200">
+                    Datos bancarios
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Institución bancaria</label>
+                      <select
+                        value={editForm.bank_name}
+                        onChange={e => setEditForm(f => ({ ...f, bank_name: e.target.value }))}
+                        className="campo w-full"
+                      >
+                        <option value="">— Sin asignar —</option>
+                        {opcionesDeBanco(editForm.bank_name).map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Tipo de cuenta</label>
+                      <select
+                        value={editForm.bank_account_type}
+                        onChange={e => setEditForm(f => ({ ...f, bank_account_type: e.target.value }))}
+                        className="campo w-full"
+                      >
+                        <option value="">— Sin asignar —</option>
+                        {TIPOS_DE_CUENTA.map(x => <option key={x.valor} value={x.valor}>{x.etiqueta}</option>)}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Número de cuenta</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editForm.bank_account}
+                        onChange={e => setEditForm(f => ({ ...f, bank_account: e.target.value }))}
+                        className="campo w-full font-mono-amount"
+                        placeholder="Sin puntos ni guiones"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex gap-2 mt-4">
                     <button
                       onClick={() => handleSaveEdit(emp.id)}
