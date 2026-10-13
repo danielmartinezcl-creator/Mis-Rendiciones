@@ -41,6 +41,18 @@ export function InformesClient({ filterOptions }: Props) {
   const [error,    setError]    = useState<string | null>(null)
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
 
+  /* Se pagina el DIBUJO, no el alcance (§5 de la spec): los KPIs, el total
+     del pie y las dos exportaciones siguen operando sobre la lista filtrada
+     entera. Un botón que dice «exportar» y exporta solo lo visible es peor
+     que no paginar.
+
+     Medido el 2026-10-13: con 471 ítems la pantalla eran 37.479 px, o sea
+     44 pantallas de teléfono, y el 99% era esta lista. Es una regresión del
+     2026-10-09: al sacar el botón «Generar informe» para que los chips
+     respondieran al instante, la tabla pasó a dibujarse entera al entrar —
+     antes no se dibujaba nada hasta apretar. */
+  const [tope, setTope] = useState(25)
+
   const traer = useCallback(async (a: number | 'todo') => {
     setCargando(true)
     setError(null)
@@ -123,7 +135,7 @@ export function InformesClient({ filterOptions }: Props) {
         vistas={vistasLimpias}
         dimensiones={dimensiones}
         valores={valores}
-        onElegir={setValores}
+        onElegir={v => { setValores(v); setTope(25) }}
         contar={cuantos}
         onGuardar={async (nombre, v) => {
           const { errores } = await crearVista('informes', nombre, v)
@@ -143,7 +155,7 @@ export function InformesClient({ filterOptions }: Props) {
       <BarraFiltros
         dimensiones={dimensiones}
         valores={valores}
-        onCambio={setValores}
+        onCambio={v => { setValores(v); setTope(25) }}
         contar={cuantos}
         sustantivo={['ítem', 'ítems']}
         resumen={hasFiltro
@@ -161,7 +173,7 @@ export function InformesClient({ filterOptions }: Props) {
           <span className="sr-only">Qué período traer</span>
           <select
             value={String(alcance)}
-            onChange={e => setAlcance(e.target.value === 'todo' ? 'todo' : Number(e.target.value))}
+            onChange={e => { setAlcance(e.target.value === 'todo' ? 'todo' : Number(e.target.value)); setTope(25) }}
             disabled={cargando}
             className="campo-compacto bg-white/90"
           >
@@ -183,7 +195,12 @@ export function InformesClient({ filterOptions }: Props) {
         <div className="space-y-4">
           {/* KPI cards — el gasto es el número principal; adelantos, devoluciones
               y traspasos son movimientos de fondos y no se suman al gasto */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          {/* Una columna en el teléfono. A 390 px, dos tarjetas de ~141 px de
+              contenido no alcanzan para lo que llevan: «$ 11.461.454» partía
+              entre el signo y el número, y la fila de movimientos envolvía
+              dejando «Adelantos76 ·» en una línea y el monto en otra. Angosto
+              apila, no comprime — la misma regla que salió de /banco. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="hoja p-4">
               <p className="text-xs text-ink-500 font-medium">Gastos aprobados</p>
               <p className="text-2xl font-mono-amount font-bold text-success-600 mt-1">{formatCLP(kpis.byMovement.expense.approvedCLP)}</p>
@@ -263,62 +280,118 @@ export function InformesClient({ filterOptions }: Props) {
               No hay ítems que coincidan con los filtros seleccionados.
             </div>
           ) : (
-            <div className="hoja overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-ink-100 text-[13px] text-ink-500 font-semibold">
-                      <th className="text-left px-4 py-3">Fuente</th>
-                      <th className="text-left px-4 py-3">Empleado</th>
-                      <th className="text-left px-4 py-3">Depto</th>
-                      <th className="text-left px-4 py-3">Fondo/Rendición</th>
-                      <th className="text-left px-4 py-3">Categoría</th>
-                      <th className="text-left px-4 py-3">Descripción</th>
-                      <th className="text-left px-4 py-3">Proveedor</th>
-                      <th className="text-left px-4 py-3">Fecha</th>
-                      <th className="text-right px-4 py-3">Monto CLP</th>
-                      <th className="text-left px-4 py-3">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items!.map((item, idx) => (
-                      <tr key={item.item_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/40'}>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${SOURCE_COLORS[item.source].bg} ${SOURCE_COLORS[item.source].text}`}>
-                            {SOURCE_LABELS[item.source]}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-ink-800 font-medium">{item.employee_name}</td>
-                        <td className="px-4 py-2.5 text-ink-500">{item.department ?? '—'}</td>
-                        <td className="px-4 py-2.5 text-ink-700 max-w-[160px] truncate" title={item.parent_title}>{item.parent_title}</td>
-                        <td className="px-4 py-2.5">
-                          {item.category_name ? (
-                            <span className="text-xs text-ink-600" style={item.category_color ? { borderLeft: `3px solid ${item.category_color}`, paddingLeft: 6 } : undefined}>
-                              {item.category_name}
-                            </span>
-                          ) : <span className="text-ink-300">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-ink-700 max-w-[180px] truncate" title={item.description}>{item.description}</td>
-                        <td className="px-4 py-2.5 text-ink-500">{item.merchant ?? '—'}</td>
-                        <td className="px-4 py-2.5 text-ink-500 whitespace-nowrap">{formatDate(item.date)}</td>
-                        <td className="px-4 py-2.5 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-2 py-0.5 rounded-item text-xs font-medium ${
-                            item.item_status === 'approved' ? 'bg-success-100 text-success-700' :
-                            item.item_status === 'rejected' ? 'bg-danger-100 text-danger-700' :
-                            'bg-warning-100 text-warning-700'
-                          }`}>
-                            {item.item_status === 'approved' ? 'Aprobado' : item.item_status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="space-y-2">
+              {/* EN EL TELÉFONO NO VA UNA TABLA. Diez columnas no entran en
+                  390 px: la tabla quedaba con scroll horizontal y el monto —lo
+                  único que casi siempre se viene a buscar— caía fuera de la
+                  pantalla. Misma conclusión que /admin/centros-costo y
+                  /admin/analisis: si no entra en 390 px, no va en una tabla. */}
+              <div className="hoja divide-y divide-ink-100 lg:hidden">
+                {items!.slice(0, tope).map(item => (
+                  <div key={item.item_id} className="px-4 py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="font-semibold text-ink-800 text-sm truncate">{item.employee_name}</span>
+                      <span className="font-mono-amount text-ink-900 shrink-0">{formatCLP(item.amount_clp)}</span>
+                    </div>
+                    {item.description && (
+                      <p className="text-xs text-ink-600 mt-0.5 truncate" title={item.description}>{item.description}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[11px] text-ink-500">
+                      <span className={`px-1.5 py-0.5 rounded font-medium ${SOURCE_COLORS[item.source].bg} ${SOURCE_COLORS[item.source].text}`}>
+                        {SOURCE_LABELS[item.source]}
+                      </span>
+                      {item.category_name && <span>{item.category_name}</span>}
+                      <span>{formatDate(item.date)}</span>
+                      <span className={`px-1.5 py-0.5 rounded font-medium ${
+                        item.item_status === 'approved' ? 'bg-success-100 text-success-700' :
+                        item.item_status === 'rejected' ? 'bg-danger-100 text-danger-700' :
+                        'bg-warning-100 text-warning-700'
+                      }`}>
+                        {item.item_status === 'approved' ? 'Aprobado' : item.item_status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="border-t border-ink-100 px-4 py-3 flex justify-between text-xs text-ink-500">
+
+              {/* De lg para arriba sí: ahí las diez columnas entran y comparar
+                  filas alineadas es justamente para lo que se abre un informe. */}
+              <div className="hoja overflow-hidden hidden lg:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-ink-100 text-[13px] text-ink-500 font-semibold">
+                        <th className="text-left px-4 py-3">Fuente</th>
+                        <th className="text-left px-4 py-3">Empleado</th>
+                        <th className="text-left px-4 py-3">Depto</th>
+                        <th className="text-left px-4 py-3">Fondo/Rendición</th>
+                        <th className="text-left px-4 py-3">Categoría</th>
+                        <th className="text-left px-4 py-3">Descripción</th>
+                        <th className="text-left px-4 py-3">Proveedor</th>
+                        <th className="text-left px-4 py-3">Fecha</th>
+                        <th className="text-right px-4 py-3">Monto CLP</th>
+                        <th className="text-left px-4 py-3">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items!.slice(0, tope).map((item, idx) => (
+                        <tr key={item.item_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-ink-50/40'}>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${SOURCE_COLORS[item.source].bg} ${SOURCE_COLORS[item.source].text}`}>
+                              {SOURCE_LABELS[item.source]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-ink-800 font-medium">{item.employee_name}</td>
+                          <td className="px-4 py-2.5 text-ink-500">{item.department ?? '—'}</td>
+                          <td className="px-4 py-2.5 text-ink-700 max-w-[160px] truncate" title={item.parent_title}>{item.parent_title}</td>
+                          <td className="px-4 py-2.5">
+                            {item.category_name ? (
+                              <span className="text-xs text-ink-600" style={item.category_color ? { borderLeft: `3px solid ${item.category_color}`, paddingLeft: 6 } : undefined}>
+                                {item.category_name}
+                              </span>
+                            ) : <span className="text-ink-300">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-ink-700 max-w-[180px] truncate" title={item.description}>{item.description}</td>
+                          <td className="px-4 py-2.5 text-ink-500">{item.merchant ?? '—'}</td>
+                          <td className="px-4 py-2.5 text-ink-500 whitespace-nowrap">{formatDate(item.date)}</td>
+                          <td className="px-4 py-2.5 text-right font-mono-amount text-ink-800">{formatCLP(item.amount_clp)}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 rounded-item text-xs font-medium ${
+                              item.item_status === 'approved' ? 'bg-success-100 text-success-700' :
+                              item.item_status === 'rejected' ? 'bg-danger-100 text-danger-700' :
+                              'bg-warning-100 text-warning-700'
+                            }`}>
+                              {item.item_status === 'approved' ? 'Aprobado' : item.item_status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* El pie cuenta la lista filtrada ENTERA, no lo dibujado:
+                    esconder el scroll nunca puede esconder la magnitud. */}
+                <div className="border-t border-ink-100 px-4 py-3 flex justify-between text-xs text-ink-500">
+                  <span>{items!.length.toLocaleString('es-CL')} ítem{items!.length !== 1 ? 's' : ''}</span>
+                  <span className="font-mono-amount font-semibold text-ink-800">Total: {formatCLP(kpis.totalCLP)}</span>
+                </div>
+              </div>
+
+              {items!.length > tope && (
+                <button
+                  onClick={() => setTope(x => x + 25)}
+                  className="hoja border border-ink-200 w-full px-4 py-3 text-sm font-semibold text-brand-700 hover:bg-ink-50 transition-colors"
+                >
+                  Mostrar {Math.min(25, items!.length - tope)} más
+                  <span className="font-normal text-ink-500"> · quedan {(items!.length - tope).toLocaleString('es-CL')}</span>
+                </button>
+              )}
+
+              {/* El total también abajo del todo, para quien llegó scrolleando
+                  en el teléfono y no ve el pie de la tabla, que está oculto. */}
+              <div className="lg:hidden flex justify-between px-1 pt-1 text-xs text-ink-500">
                 <span>{items!.length.toLocaleString('es-CL')} ítem{items!.length !== 1 ? 's' : ''}</span>
-                <span className="font-mono-amount font-semibold text-ink-800">Total: {formatCLP(kpis.totalCLP)}</span>
+                <span className="font-mono-amount font-semibold tor-on-gradient">Total: {formatCLP(kpis.totalCLP)}</span>
               </div>
             </div>
           )}
