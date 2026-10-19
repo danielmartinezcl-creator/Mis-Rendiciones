@@ -36,7 +36,11 @@ const SESION = path.join(raiz, 'e2e', '.auth', comoEmpleado ? 'empleado.json' : 
 const iAncho = args.indexOf('--ancho')
 const ancho = iAncho >= 0 ? Number(args[iAncho + 1]) : 390
 const alto = ancho >= 768 ? 900 : 844
-const filtro = args.filter((a, i) => !a.startsWith('--') && i !== iAncho + 1).join(' ')
+/* Sin `--ancho`, iAncho es -1 y iAncho+1 es 0: sin este guard, el filtro se
+   comía su propio primer argumento y medía siempre las 23 rutas. */
+const filtro = args
+  .filter((a, i) => !a.startsWith('--') && !(iAncho >= 0 && i === iAncho + 1))
+  .join(' ')
 
 /* El 404 no es una pantalla a rediseñar. */
 const alcance = comoEmpleado ? ['employee'] : ['employee','approver','admin']
