@@ -304,6 +304,12 @@ src/
 │   └── export/             ← excel.ts, pdf.ts, defontana.ts (asientos + serialización),
 │                             defontana-settings.ts (config por movimiento)
 ├── proxy.ts                ← protección de rutas (Next.js 16); las que pasan sin sesión, en `lib/rutas-publicas.ts`
+scripts/
+├── medir-pantallas.mjs     ← pantallas de scroll por ruta y qué BLOQUE se come el alto
+│                             (§5 de la spec). `--empleado` y `--ancho`; sin `--empleado`
+│                             las pantallas del rendidor salen vacías y miden aire
+├── deuda-sistema.mjs       ← `npm run audit:deuda`
+└── generate-icons.mjs      ← los íconos de la PWA y el favicon
 └── tests/
 supabase/
 ├── migrations/
@@ -367,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **838 tests Vitest en 53 archivos** (2026-10-09; eran 652 en 45 antes de los filtros del admin), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **848 tests Vitest en 53 archivos** (2026-10-13; eran 652 en 45 antes de los filtros del admin), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -1010,23 +1016,50 @@ una columna `NOT NULL`.
 
 2. **Rediseño Tornasol — el rediseño *conceptual*, pantalla por pantalla.**
    El chasis y la regla de materiales están **completos y verificados en las 26
-   pantallas** (`npm run audit:materiales`), con deuda de sistema en cero. Lo que falta
-   es repensar cada pantalla, que es otra cosa y es la parte que rinde.
+   pantallas** (`npm run audit:materiales`), con deuda de sistema en cero. Lo que
+   falta es repensar cada pantalla, que es otra cosa.
 
-   **Pasaron 5 de 26** (no una sola, como decía este archivo hasta el 2026-09-21; eran 23
-   pantallas hasta que entraron proyectos y centros de costo):
+   **MEDIDO el 2026-10-13 con `scripts/medir-pantallas.mjs`, y el diagnóstico de
+   «faltan 21 pantallas» era falso.** De las 23 medibles, 17 estaban bajo 2,5
+   pantallas de scroll. El problema lo cargaban cinco, y de esas tres ya se
+   arreglaron:
 
-   | Pantalla | Resultado medido |
-   |---|---|
-   | `/petty-cash/[id]` | el piloto — tarjeta héroe + recorrido |
-   | `/banco` | 14,9× → **2,2×** pantallas de scroll |
-   | `/petty-cash` | 5,2× → **1,5×** |
-   | `/admin/employees` | la nómina dejó de ser 34 scrolls |
-   | `/admin/reports` | trampa de `min-w-0` + paginado de a 25 |
+   | Pantalla | Antes | Ahora | Qué pasaba |
+   |---|---:|---:|---|
+   | `/informes` | 44,4 | **4,2** | 471 ítems dibujados enteros — regresión del 2026-10-09 |
+   | `/admin/centros-costo` | 7,1 | **2,3** | 49 centros planos; es un árbol y ahora se pliega |
+   | `/admin/auditoria` | 5,7 | **3,7** | tabla de 6 columnas en 390 px, páginas de 50 |
+   | `/admin/employees` | 10,4 | — | **pendiente, y necesita una decisión de Daniel** |
+   | `/admin/reports` | 8,3 | — | ídem |
 
-   Las **21 restantes** tienen el chasis correcto pero nunca se pensaron de nuevo.
-   Las herramientas para hacerlo ya existen: medir por bloques (§5 de la spec), el
-   detector de deuda y la línea base visual. Ver [[project-rediseno-tornasol]].
+   **Las dos que quedan son ADMIN y el problema es solo el teléfono.** En
+   escritorio miden 5,7 y 4,5 pantallas: 204 y 163 px por tarjeta, y 163 es
+   exactamente el presupuesto que la spec le da a una tarjeta. A 390 px la de
+   empleados salta a 320 px porque todo envuelve. **Para bajarla hay que esconder
+   algo**, y los candidatos chocan entre sí: la línea de datos bancarios la pidió
+   Daniel el 2026-10-09 («no puedo ver los datos bancarios de nadie… simplemente
+   visualizar»), y el desplegable de rol se usa poco pero no está en «Editar
+   datos». Por eso no se tocaron: es una decisión suya, no una mejora obvia.
+
+   **Lo que sí sirve como método, y ya está escrito:** medir por bloques antes de
+   tocar. Las tres arregladas tenían el mismo defecto —una tabla o una lista
+   dibujada entera— y ninguna necesitaba repensar la pantalla, solo paginar el
+   dibujo o plegar. Ver [[project-rediseno-tornasol]].
+
+   **Pendiente aparte: 53 líneas con emoji o símbolos tipográficos en la
+   interfaz**, en 20 archivos (`💸 👤 🏢 🌐 📎 🟣 📋 ✏️ 📊 🚗 ⏳ ✉`, y los más
+   extendidos `✓ ✕ ✗ ⚠ ✦ ⛓ ⚙`). La regla del proyecto es «Lucide React, nunca
+   emoji en UI» y **`npm run audit:deuda` no los detecta**. Cambiarlos toca
+   casi todas las pantallas y obliga a recapturar la línea base entera, así que
+   conviene hacerlo de una vez y no de a poco.
+
+   **Para medir lo que ve un EMPLEADO falta configurar su cuenta en el arnés**:
+   `E2E_EMPLEADO_EMAIL` / `E2E_EMPLEADO_PASSWORD` en `e2e/.env.e2e`, que las pone
+   Daniel. Sin eso los proyectos `ingreso-empleado`, `movil-empleado` y
+   `materiales-empleado` ni se arman, y las siete pantallas del rendidor se miden
+   con la sesión de admin —que no tiene rendiciones propias ni está en ninguna
+   cadena— así que dan 1,0 pantallas: no es que sean cortas, es que no se midió
+   nada.
 
 3. **Landing comercial en la raíz — pedida por Daniel el 2026-09-21.**
    Una página pública que **venda el sistema**: qué hace, sus características, sus
@@ -1422,6 +1455,9 @@ una columna `NOT NULL`.
 | Dar por hecho que un `overflow-x-auto` evita que la página scrollee | A veces no alcanza, y el arnés lo encuentra pero no explica por qué. En `/admin/centros-costo` una tabla de 6 columnas dentro de su scroller dejaba el cuerpo corriendo **334 px** a lo ancho (`scrollX` llegaba a 334 de verdad, no era un número raro): no lo arregló `overflow-x:hidden` en NINGUNO de los siete ancestros, uno por vez, ni `max-width`, ni un ancho fijo — solo `contain:paint`. En `/admin/analisis`, con la misma estructura, un scroller de 358 px contiene una tabla de 1021 sin problema. La diferencia no se encontró | No pelear con el scroller: **si el contenido no entra en 390 px, no va en una tabla**. Una lista de `flex flex-col` que se vuelve fila alineada en el corte grande no tiene el problema, y en el teléfono se lee mejor. Y el corte va en `lg:`, no en `sm:`: a `md:` aparece el riel lateral y se come 256 px, así que **a 768 hay menos ancho de contenido que a 640** — ahí desbordaba 30 px |
 | Resolver en el servidor un filtro que no reduce cuántas filas se traen | Diez de los once filtros de `/informes` vivían en la base y solo DESCARTABAN de lo traído: cada clic era un viaje que no ahorraba una sola fila, y por eso la pantalla necesitaba un botón «Generar informe» en vez de responder sola | Al servidor va únicamente lo que decide **cuántas** filas viajan —el período, el alcance—; el resto se filtra donde ya están los datos. Y antes de mover un filtro al navegador, **medir el peso de la respuesta** y proyectarlo al volumen real, no estimarlo: acá el estimado estaba tres veces corto |
 | Un `<select>` alimentado con un valor que no está entre sus opciones | Se dibuja **en blanco**, sin ningún error, y el siguiente «Guardar» escribe ese blanco: el dato se borra sin que nadie lo haya tocado. Pasó con `bank_account_type`, donde la planilla escribía «Corriente» y el formulario ofrecía 'corriente' — el perfil del propio Daniel mostraba el campo vacío teniendo el dato | Normalizar al leer **y** al escribir, y sobre todo incluir el valor actual entre las opciones (`opcionesDeBanco`). Antes de poner un `<select>` sobre una columna que ya tiene datos, **consultar qué valores hay realmente** |
+| Dar por larga una pantalla sin medirla por bloques | El backlog decía «faltan 21 pantallas por repensar» y lo medido el 2026-10-13 fueron **cinco**: 17 de 23 estaban bajo 2,5 pantallas de scroll. Y las cinco tenían el MISMO defecto —una tabla o una lista dibujada entera—, no «falta repensar la pantalla» | `node scripts/medir-pantallas.mjs` antes de abrir ningún archivo. El desglose por bloque dice si el problema es la lista, los filtros o el encabezado, y casi siempre es la lista |
+| Sacar el botón que retrasaba una lista sin paginarla | `/informes` tenía «Generar informe» y no dibujaba nada hasta que alguien apretaba. Al volverla instantánea (2026-10-09) pasó a dibujar los 471 ítems al entrar: 37.479 px, 44 pantallas de teléfono. El botón estaba escondiendo el problema, no causándolo | Al quitar una barrera, medir lo que queda del otro lado. Y paginar el DIBUJO: KPIs, totales y exportaciones siguen sobre la lista filtrada entera |
+| Medir una pantalla del rendidor con la sesión de admin | Sale **1,0 pantallas** clavado y parece corta. No tiene rendiciones propias, no está en ninguna cadena y `/banco` lo redirige al dashboard: no se midió la pantalla, se midió el vacío. Es el mismo error que la captura `banco.png` de la línea base | `--empleado`, que necesita `E2E_EMPLEADO_EMAIL` / `E2E_EMPLEADO_PASSWORD` en `e2e/.env.e2e`. Un `1.0` exacto en cualquier medición es sospechoso: es el alto del viewport |
 | Dejar la lista de opciones suelta dentro de la pantalla que la usa | `BANKS` y `ACCOUNT_TYPES` vivían en `profile/page.tsx` y nadie más las veía, así que la planilla inventó su propio vocabulario para la misma columna | Una lista que describe un dato del dominio va en `src/lib/`, con su normalizador al lado. Lo que la comparte deja de poder divergir |
 | Creer que «eliminar definitivamente» borra a un usuario | No lo borra: lo **bloquea** (migración 027) y le baja `deleted_at`, así que volvía a la nómina con un chip rojo. Daniel, 2026-10-09: «lo eliminé de la papelera y sigue apareciendo en empleados» | Se esconde en la pantalla, nunca en la consulta: `getOrgEmployees` lo sigue trayendo o un bloqueo por error sería irreversible. Dos puertas para encontrarlo —el chip Estado → «Bloqueados» y el buscador por nombre o RUT—, porque pedir a alguien por su nombre y no recibir nada es una pantalla que miente |
 | Un encabezado de plantilla que el lector de esa misma plantilla no reconoce | «N° de Cuenta»: el `°` no es un acento, así que `\p{Diacritic}` no lo saca y la columna se ignora EN SILENCIO. 58 de 61 personas quedaron con banco y sin número de cuenta | La prueba que lo impide es `CABECERAS.filter(h => mapHeader(h) === null)` igual a `[]`: lo que la app hace descargar tiene que poder leerlo la app. Y el normalizador saca también `° º . # :` y los paréntesis |
