@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList, FileSpreadsheet } from 'lucide-react'
+import { Upload, Plus, Trash2, CheckCircle2, AlertTriangle, History, X, ArrowDownToLine, ArrowUpFromLine, Receipt, ClipboardList, FileSpreadsheet, Check, Sparkles, ListPlus } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
+import { MovimientosHistoricos } from '@/components/admin/MovimientosHistoricos'
 import { getHistoricalRendicionImports } from '@/actions/admin'
 import {
   categorizeItems,
@@ -99,7 +100,7 @@ function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: num
   if (absDiff < 1) {
     return (
       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-success-50 text-success-700 border border-success-200">
-        ✓ Cuadrado
+        <Check size={11} className="inline" aria-hidden /> Cuadrado
       </span>
     )
   }
@@ -142,6 +143,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
   // Historial + panel Defontana por tipo
   const [imports,    setImports]    = useState<HistoricalImport[]>(historicalImports)
   const [defPanelId, setDefPanelId] = useState<string | null>(null)
+  const [movPanelId, setMovPanelId] = useState<string | null>(null)
 
   /** Relee el historial tras confirmar o revertir en el panel Defontana. */
   async function refreshImport() {
@@ -395,7 +397,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                         <div className="flex items-center gap-1.5 mt-0.5">
                           {r.defontana_exported_at && (
                             <span className="text-xs text-accent-600">
-                              ✓ Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
+                              <Check size={11} className="inline" aria-hidden /> Defontana {formatDate(r.defontana_exported_at.split('T')[0])}
                             </span>
                           )}
                           <button
@@ -404,6 +406,13 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                             className={`p-0.5 rounded-item transition-colors ${defPanelId === r.id ? 'text-accent-700 bg-accent-100' : 'text-accent-500 hover:text-accent-700 hover:bg-accent-50'}`}
                           >
                             <FileSpreadsheet size={12} />
+                          </button>
+                          <button
+                            onClick={() => setMovPanelId(prev => prev === r.id ? null : r.id)}
+                            title="Movimientos: agregar el adelanto, el reembolso o la devolución que faltó, corregir o eliminar"
+                            className={`p-0.5 rounded-item transition-colors ${movPanelId === r.id ? 'text-brand-700 bg-brand-100' : 'text-brand-500 hover:text-brand-700 hover:bg-brand-50'}`}
+                          >
+                            <ListPlus size={12} />
                           </button>
                         </div>
                       </td>
@@ -439,6 +448,18 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                         </td>
                       </tr>
                     )}
+                    {movPanelId === r.id && (
+                      <tr>
+                        <td colSpan={5} className="p-0">
+                          <MovimientosHistoricos
+                            reportId={r.id}
+                            categorias={categories}
+                            onClose={() => setMovPanelId(null)}
+                            onChanged={refreshImport}
+                          />
+                        </td>
+                      </tr>
+                    )}
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -464,12 +485,12 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
           </div>
           {isCategorizing && (
             <p className="text-xs text-brand-600 mt-3 text-center animate-pulse">
-              ✦ Claude está sugiriendo categorías…
+              <Sparkles size={12} className="inline" aria-hidden /> Claude está sugiriendo categorías…
             </p>
           )}
           {parsed && (
             <div className="mt-3 text-xs text-ink-500 flex gap-4 flex-wrap">
-              <span>✓ Detectado: <strong>{parsed.importType === 'caja_chica' ? 'Caja Chica' : 'Rendición'} N°{parsed.fundNumber}</strong></span>
+              <span><Check size={12} className="inline" aria-hidden /> Detectado: <strong>{parsed.importType === 'caja_chica' ? 'Caja Chica' : 'Rendición'} N°{parsed.fundNumber}</strong></span>
               <span>· {parsed.items.length} ítems</span>
               <span>· <CurrencyAmount amount={parsed.totalAmount} currency="CLP" size="sm" /></span>
             </div>
@@ -653,7 +674,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                 <span>Diferencia</span>
                 <span className="font-mono-amount">
                   {Math.abs(balanceDiff) < 1
-                    ? '✓ Cuadra'
+                    ? 'Cuadra'
                     : balanceDiff > 0
                       ? `${fmtCLP(balanceDiff)} pendiente de rendir/devolver`
                       : `${fmtCLP(Math.abs(balanceDiff))} a favor del empleado`
@@ -753,7 +774,10 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           className={`campo-compacto w-28 font-medium ${ITEM_TYPE_STYLES[row.itemType]}`}
         >
           <option value="expense">Gasto</option>
-          <option value="advance">Adelanto</option>
+          {/* «Adelanto» y «reembolso al empleado» son el MISMO asiento: sale plata del
+              banco y se debita Fondos por Rendir. Lo único que cambia es el orden en el
+              tiempo. La palabra tiene que estar acá o nadie encuentra dónde cargarlo. */}
+          <option value="advance">Adelanto / Reembolso</option>
           <option value="return">Devolución</option>
         </select>
       </td>
@@ -783,7 +807,7 @@ function GridRowEditor({ row, categories, costCenters, employees, advanceDefault
           value={row.description}
           onChange={e => onChange({ description: e.target.value })}
           placeholder={
-            row.itemType === 'advance' ? 'ej: Adelanto Caja Chica' :
+            row.itemType === 'advance' ? 'ej: Adelanto Caja Chica / Reembolso al empleado' :
             row.itemType === 'return'  ? 'ej: Devolución saldo' :
             'Descripción'
           }

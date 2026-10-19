@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Link2, Mail, Pencil, Check, X, Send, Trash2, AlertTriangle } from 'lucide-react'
+import { Link2, Mail, Pencil, Check, X, Send, Trash2, AlertTriangle, Building2, User, Globe } from 'lucide-react'
 import { ICON_CATALOG, getIconByKey } from '@/components/ui/IconoCategoria'
 import {
   getOrgCategories, addCategory, toggleCategoryActive,
@@ -550,7 +550,7 @@ function EmployeesTab() {
                     {emp.department && <p className="text-xs text-ink-400 mt-0.5">{emp.department}</p>}
                     {emp.cost_center_id && (
                       <p className="text-xs text-accent-600 mt-0.5 font-medium">
-                        ⚙ {emp.cost_center_id} — {costCenters.find(c => c.id === emp.cost_center_id)?.descripcion ?? ''}
+                        <Building2 size={11} className="inline" aria-hidden /> {emp.cost_center_id} — {costCenters.find(c => c.id === emp.cost_center_id)?.descripcion ?? ''}
                       </p>
                     )}
                   </div>
@@ -747,7 +747,7 @@ function ChainsTab() {
         )}
         {saved && (
           <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">
-            ✓ Guardado
+            <Check size={12} className="inline" aria-hidden /> Guardado
           </div>
         )}
 
@@ -1025,7 +1025,7 @@ function DefontanaTab() {
           </div>
 
           {cfgError && <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-item p-3">{cfgError}</div>}
-          {cfgSaved && <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">✓ Configuración guardada</div>}
+          {cfgSaved && <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3"><Check size={13} className="inline" aria-hidden /> Configuración guardada</div>}
 
           <button type="submit" disabled={cfgSaving}
             className="btn-primario inline-flex items-center gap-2 px-5 py-2.5 text-sm">
@@ -1287,7 +1287,7 @@ function LimitsTab() {
         )}
         {saved && (
           <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-item p-3">
-            ✓ Límites guardados correctamente
+            <Check size={13} className="inline" aria-hidden /> Límites guardados correctamente
           </div>
         )}
 
@@ -1591,15 +1591,16 @@ function PoliciesTab() {
           {policies.map(p => {
             const catName = categories.find(c => c.id === p.category_id)?.name
             const empName = employees.find(e => e.id === p.target_user_id)?.full_name
-            const scope   = p.target_user_id ? `👤 ${empName ?? p.target_user_id}`
-                          : p.department     ? `🏢 ${p.department}` : '🌐 Toda la org'
+            const scope   = p.target_user_id ? { Icono: User,      texto: empName ?? p.target_user_id }
+                          : p.department     ? { Icono: Building2, texto: p.department }
+                          :                    { Icono: Globe,     texto: 'Toda la org' }
             return (
               <div key={p.id} className={`hoja border border-ink-100 p-4 flex gap-3 items-start ${!p.is_active ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-ink-900">{p.name}</span>
                     {catName && <span className="text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded-full">{catName}</span>}
-                    <span className="text-xs text-ink-400">{scope}</span>
+                    <span className="text-xs text-ink-400 inline-flex items-center gap-1"><scope.Icono size={11} aria-hidden />{scope.texto}</span>
                   </div>
                   <div className="flex gap-3 flex-wrap mt-1.5">
                     {p.item_limit     && <span className="text-xs text-ink-500">Ítem: ${p.item_limit.toLocaleString('es-CL')} {enforcementBadge(p.item_enforcement)}</span>}

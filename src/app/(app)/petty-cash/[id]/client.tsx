@@ -32,7 +32,7 @@ import {
   calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation,
   construirRecorrido,
 } from '@/lib/petty-cash-helpers'
-import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck, Check, X } from 'lucide-react'
 import Link from 'next/link'
 
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
@@ -421,11 +421,11 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                                 <button
                                   onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'approved' }))}
                                   className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'approved' ? 'bg-success-600 text-white border-success-600' : 'border-success-300 text-success-700 hover:bg-success-50'}`}
-                                >✓ Aprobar</button>
+                                ><Check size={12} className="inline" aria-hidden /> Aprobar</button>
                                 <button
                                   onClick={() => setDecidingItems(d => ({ ...d, [item.id]: 'rejected' }))}
                                   className={`text-xs px-2 py-1 rounded-item font-bold border transition-colors ${decidingItems[item.id] === 'rejected' ? 'bg-danger-600 text-white border-danger-600' : 'border-danger-300 text-danger-700 hover:bg-danger-50'}`}
-                                >✗ Rechazar</button>
+                                ><X size={12} className="inline" aria-hidden /> Rechazar</button>
                               </div>
                               {decidingItems[item.id] === 'rejected' && (
                                 <input

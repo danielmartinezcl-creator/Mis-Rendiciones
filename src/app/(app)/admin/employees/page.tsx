@@ -8,7 +8,7 @@ import { EmployeeImport } from '@/components/admin/EmployeeImport'
 import { PlanillaAlta } from '@/components/admin/PlanillaAlta'
 import { AddEmployeeForm } from '@/components/admin/AddEmployeeForm'
 import { ApproverConfig } from '@/components/admin/ApproverConfig'
-import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck, FileSpreadsheet, Landmark } from 'lucide-react'
+import { Mail, Pencil, Check, X, Users, Send, Loader2, Trash2, UserX, UserCheck, KeyRound, Eye, EyeOff, Search, ShieldCheck, FileSpreadsheet, Landmark, Hourglass, AlertTriangle, GitBranch } from 'lucide-react'
 import { TIPOS_DE_CUENTA, opcionesDeBanco, normalizarBanco, normalizarTipoCuenta, etiquetaTipoCuenta } from '@/lib/bancos'
 import type { UserProfile } from '@/lib/supabase/types'
 import type { CostCenter } from '@/lib/supabase/types'
@@ -654,11 +654,11 @@ export default function AdminEmployeesPage() {
                       {/* Badge estado invitación */}
                       {emp.invited_at ? (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent-50 text-accent-700">
-                          ✉ invitado {formatDate(emp.invited_at)}
+                          <Mail size={9} className="inline" aria-hidden /> invitado {formatDate(emp.invited_at)}
                         </span>
                       ) : (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-warning-50 text-warning-700">
-                          ⏳ sin invitar
+                          <Hourglass size={9} className="inline" aria-hidden /> sin invitar
                         </span>
                       )}
                     </div>
@@ -863,7 +863,9 @@ export default function AdminEmployeesPage() {
                     ].join(' ')}
                   >
                     <span>{isOpen ? '▲' : '▼'}</span>
-                    <span>{isOpen ? 'Cerrar' : hasApprover ? `⛓ ${summary}` : '⚠ Sin aprobador'}</span>
+                    <span className="inline-flex items-center gap-1">{isOpen ? 'Cerrar' : hasApprover
+                      ? <><GitBranch size={11} aria-hidden />{summary}</>
+                      : <><AlertTriangle size={11} aria-hidden />Sin aprobador</>}</span>
                   </button>
                 </div>
               </div>

@@ -32,7 +32,7 @@ describe('PhotoUpload', () => {
     fireEvent.change(archivo, { target: { files: [correo] } })
     await waitFor(() => expect(onOcrResult).toHaveBeenCalledWith(null, correo))
     expect(runOcr).not.toHaveBeenCalled()
-    expect(screen.getByText('Correo adjuntado ✓')).toBeTruthy()
+    expect(screen.getByText('Correo adjuntado')).toBeTruthy()
   })
 
   it('rechaza un tipo de archivo que no es comprobante', () => {

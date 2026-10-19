@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Camera, FileUp } from 'lucide-react'
+import { Camera, FileUp, Check } from 'lucide-react'
 import { runOcr } from '@/actions/ocr'
 import type { OcrResult } from '@/lib/ocr-helpers'
 import { ACCEPT_ATTACHMENTS, MAX_ATTACHMENT_BYTES, classifyAttachment } from '@/lib/attachment-types'
@@ -109,8 +109,8 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
     idle:       'Foto o archivo del comprobante',
     reading:    'Leyendo archivo...',
     processing: 'Extrayendo datos con IA...',
-    done:       'Comprobante procesado ✓',
-    attached:   'Correo adjuntado ✓',
+    done:       'Comprobante procesado',
+    attached:   'Correo adjuntado',
     error:      'Archivo adjuntado — llenar manualmente',
   }
 
@@ -150,7 +150,10 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
         {isLoading && (
           <div className="w-7 h-7 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
         )}
-        <span className="card-label font-semibold text-brand-600">{labels[status]}</span>
+        <span className="card-label font-semibold text-brand-600 inline-flex items-center gap-1">
+          {(status === 'done' || status === 'attached') && <Check size={13} aria-hidden />}
+          {labels[status]}
+        </span>
         {metas[status] && <span className="card-meta text-ink-400">{metas[status]}</span>}
       </div>
 

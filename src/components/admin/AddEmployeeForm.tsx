@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Check } from 'lucide-react'
 import { importEmployees } from '@/actions/employees'
 import { getCostCenters, restoreFromTrash, enableBlockedEmployee, updateEmployee } from '@/actions/admin'
 import type { CostCenter } from '@/lib/supabase/types'
@@ -112,7 +112,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
   if (success) {
     return (
       <div className="bg-success-50 border border-success-200 rounded-card p-4 text-center">
-        <p className="text-success-700 font-semibold text-sm">✓ Empleado agregado</p>
+        <p className="text-success-700 font-semibold text-sm"><Check size={14} className="inline" aria-hidden /> Empleado agregado</p>
         <p className="text-success-600 text-xs mt-1">Podés enviarle la invitación desde la lista de empleados.</p>
       </div>
     )

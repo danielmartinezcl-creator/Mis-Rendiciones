@@ -4,6 +4,7 @@ import { TIPOS_DE_CUENTA, opcionesDeBanco, normalizarBanco, normalizarTipoCuenta
 import { useEffect, useState } from 'react'
 import { getMyProfile, updateProfile, sendPasswordReset } from '@/actions/profile'
 import type { UserProfile } from '@/lib/supabase/types'
+import { Check } from 'lucide-react'
 
 type ProfileWithEmail = UserProfile & { email: string }
 
@@ -212,7 +213,7 @@ export default function ProfilePage() {
         )}
         {saved && (
           <div className="bg-success-50 border border-success-200 text-success-700 card-meta rounded-item p-3">
-            ✓ Cambios guardados correctamente
+            <Check size={14} className="inline" aria-hidden /> Cambios guardados correctamente
           </div>
         )}
 
@@ -229,7 +230,7 @@ export default function ProfilePage() {
       <div className="hoja p-5">
         <h2 className="section-title text-ink-700 mb-3">Contraseña</h2>
         {resetSent ? (
-          <p className="card-label text-success-600">✓ Email de restablecimiento enviado. Revisa tu bandeja.</p>
+          <p className="card-label text-success-600"><Check size={13} className="inline" aria-hidden /> Email de restablecimiento enviado. Revisa tu bandeja.</p>
         ) : (
           <button
             onClick={handlePasswordReset}

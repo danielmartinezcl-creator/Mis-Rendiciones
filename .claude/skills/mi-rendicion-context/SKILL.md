@@ -1029,29 +1029,43 @@ una columna `NOT NULL`.
    | `/informes` | 44,4 | **4,2** | 471 ítems dibujados enteros — regresión del 2026-10-09 |
    | `/admin/centros-costo` | 7,1 | **2,3** | 49 centros planos; es un árbol y ahora se pliega |
    | `/admin/auditoria` | 5,7 | **3,7** | tabla de 6 columnas en 390 px, páginas de 50 |
-   | `/admin/employees` | 10,4 | — | **pendiente, y necesita una decisión de Daniel** |
-   | `/admin/reports` | 8,3 | — | ídem |
+   | `/admin/employees` | 10,4 | **9,3** | la tarjeta envolvía en cinco líneas |
+   | `/admin/reports` | 8,3 | 8,3 | en escritorio ya está en presupuesto (163 px/tarjeta) |
 
-   **Las dos que quedan son ADMIN y el problema es solo el teléfono.** En
-   escritorio miden 5,7 y 4,5 pantallas: 204 y 163 px por tarjeta, y 163 es
-   exactamente el presupuesto que la spec le da a una tarjeta. A 390 px la de
-   empleados salta a 320 px porque todo envuelve. **Para bajarla hay que esconder
-   algo**, y los candidatos chocan entre sí: la línea de datos bancarios la pidió
-   Daniel el 2026-10-09 («no puedo ver los datos bancarios de nadie… simplemente
-   visualizar»), y el desplegable de rol se usa poco pero no está en «Editar
-   datos». Por eso no se tocaron: es una decisión suya, no una mejora obvia.
+   **Las dos de admin tenían su problema solo en el teléfono.** En escritorio
+   miden 5,7 y 4,5 pantallas: 204 y 163 px por tarjeta, y 163 es exactamente el
+   presupuesto que la spec le da a una tarjeta. **Daniel decidió el 2026-10-13
+   no esconder nada** —el banco, el correo y la cadena se siguen leyendo en la
+   fila— así que se tomaron las dos mejoras que no esconden:
+
+   - **El rol se edita en «Editar datos»**, no en un desplegable por fila. Eran
+     61 controles vivos en una lista que se recorre con el pulgar. **Ahorro
+     medido: 10 px por tarjeta, no los ~45 que se estimaron** — compartía línea
+     con «Invitar», así que sacarlo casi nunca eliminaba una línea entera.
+   - **El avatar no se dibuja abajo de `sm`** (27 px por tarjeta). Es la inicial
+     del nombre, que está al lado; él y el checkbox dejaban la columna del
+     nombre en 250 px de 326, y ahí «RUT · cargo · centro de costo» caía en
+     TRES líneas.
+
+   Quedan ~300 px por tarjeta. Bajarlos exige esconder, que es lo que Daniel
+   descartó. `/admin/reports` no se tocó por el mismo motivo.
 
    **Lo que sí sirve como método, y ya está escrito:** medir por bloques antes de
    tocar. Las tres arregladas tenían el mismo defecto —una tabla o una lista
    dibujada entera— y ninguna necesitaba repensar la pantalla, solo paginar el
    dibujo o plegar. Ver [[project-rediseno-tornasol]].
 
-   **Pendiente aparte: 53 líneas con emoji o símbolos tipográficos en la
-   interfaz**, en 20 archivos (`💸 👤 🏢 🌐 📎 🟣 📋 ✏️ 📊 🚗 ⏳ ✉`, y los más
-   extendidos `✓ ✕ ✗ ⚠ ✦ ⛓ ⚙`). La regla del proyecto es «Lucide React, nunca
-   emoji en UI» y **`npm run audit:deuda` no los detecta**. Cambiarlos toca
-   casi todas las pantallas y obliga a recapturar la línea base entera, así que
-   conviene hacerlo de una vez y no de a poco.
+   **✅ Los emoji de la interfaz: resueltos el 2026-10-13.** Eran 53 líneas en
+   20 archivos (`💸 👤 🏢 🌐 📎 🟣 📋 ✏️ 📊 🚗 ⏳ ✉` y los más extendidos
+   `✓ ✕ ✗ ⚠ ✦ ⛓ ⚙`), y nada las detectaba. Ahora son íconos Lucide y
+   `npm run audit:deuda` tiene la regla, con sus casos en la autocomprobación.
+
+   **Tres quedan a propósito** y no son deuda: los nombres de hoja de Excel
+   «Sin CC ⚠» y «Sin mapear ⚠», que viajan al archivo que abre un contador —
+   ahí el carácter se dibuja igual en todas partes, que es justo lo que no pasa
+   en una interfaz—, y el título de una prueba que describe el ✕ de un chip.
+   El de `/admin/analisis` vive DENTRO del archivo de su ruta, así que no
+   quedaba afuera solo: lo saca `sinExcel` en el detector.
 
    **Para medir lo que ve un EMPLEADO falta configurar su cuenta en el arnés**:
    `E2E_EMPLEADO_EMAIL` / `E2E_EMPLEADO_PASSWORD` en `e2e/.env.e2e`, que las pone

@@ -5,7 +5,7 @@ import { importEmployees } from '@/actions/employees'
 import { getCostCenters } from '@/actions/admin'
 import type { ImportEmployeeRow, ImportResult } from '@/actions/employees'
 import type { CostCenter } from '@/lib/supabase/types'
-import { Download, AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, Check, X, FileSpreadsheet } from 'lucide-react'
 
 type PreviewRow = ImportEmployeeRow & { _key: number }
 
@@ -286,7 +286,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
               </p>
               <ul className="mt-2 space-y-0.5">
                 {ok.map((r, i) => (
-                  <li key={i} className="text-xs text-success-700">✓ {r.full_name} ({r.email})</li>
+                  <li key={i} className="text-xs text-success-700"><Check size={11} className="inline" aria-hidden /> {r.full_name} ({r.email})</li>
                 ))}
               </ul>
             </div>
@@ -423,7 +423,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                         className="text-danger-400 hover:text-danger-600 px-1 text-xs"
                         title="Eliminar fila"
                       >
-                        ✕
+                        <X size={13} aria-hidden />
                       </button>
                     </td>
                   </tr>
@@ -441,7 +441,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           {isImporting ? (
             <><Loader2 size={16} className="animate-spin" /> Importando {preview.length} empleado{preview.length !== 1 ? 's' : ''}…</>
           ) : (
-            <>✓ Confirmar e importar {preview.length} empleado{preview.length !== 1 ? 's' : ''}</>
+            <><Check size={13} aria-hidden /> Confirmar e importar {preview.length} empleado{preview.length !== 1 ? 's' : ''}</>
           )}
         </button>
         <p className="text-center text-xs text-ink-400">
@@ -496,7 +496,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           </div>
         ) : (
           <>
-            <p className="text-2xl mb-2">📊</p>
+            <FileSpreadsheet size={28} className="mx-auto mb-2 text-ink-400" aria-hidden />
             <p className="text-sm font-medium text-ink-700">Subí tu nómina en Excel</p>
             <p className="text-xs text-ink-400 mt-1">Arrastrá un .xlsx o hacé clic para seleccionar</p>
           </>

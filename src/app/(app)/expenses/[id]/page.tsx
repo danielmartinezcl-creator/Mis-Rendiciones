@@ -30,7 +30,7 @@ import {
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
 import { exportEmployeeReportPdf } from '@/lib/export/pdf'
-import { Download } from 'lucide-react'
+import { Download, Check, AlertTriangle } from 'lucide-react'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
@@ -444,12 +444,12 @@ export default function ExpenseDetailPage() {
             <span className="section-title text-ink-700">Resumen de aprobación</span>
             {isCuadrada && (
               <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-success-100 text-success-700 rounded-full">
-                ✓ Cuadrada
+                <Check size={14} aria-hidden /> Cuadrada
               </span>
             )}
             {isParcial && (
               <span className="inline-flex items-center gap-1 text-[14px] font-semibold px-3 py-1 bg-warning-100 text-warning-700 rounded-full">
-                ⚠ Parcial
+                <AlertTriangle size={14} aria-hidden /> Parcial
               </span>
             )}
             {hasPending && (

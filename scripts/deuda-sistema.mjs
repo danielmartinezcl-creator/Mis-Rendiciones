@@ -55,6 +55,17 @@ const DEUDA = [
   ['boton 1° a mano', /bg-brand-600[^"']*(rounded-item|font-bold)/g],
   ['radio literal', /rounded-\[\d+px\]/g],
   ['hex suelto',    /#[0-9a-fA-F]{6}\b/g],
+  /* Emoji o símbolo tipográfico donde va un ícono. La regla del proyecto es
+     «Lucide React, nunca emoji en UI» y el 2026-10-13 había 53 líneas que no
+     la cumplían, en 20 archivos, sin que nada las detectara: un emoji se
+     dibuja distinto en cada sistema y en Android varios salen en color dentro
+     de un texto gris.
+
+     Los nombres de hoja de Excel («Sin CC ⚠») NO son deuda: viajan al archivo
+     que se abre en Excel, no a la pantalla. NO quedan afuera solos —el de
+     /admin/analisis vive dentro del archivo de su ruta— así que los saca
+     `sinExcel`, más abajo. */
+  ['emoji en UI',   /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{23E9}-\u{23FA}\u{FE0F}\u{2705}\u{274C}\u{26A0}\u{23F3}\u{2709}]/gu],
 ]
 
 /** CRÉDITO — uso del sistema. Las clases de escala cuentan acá, no en deuda. */
@@ -84,6 +95,7 @@ const CREDITO = [
 function autocomprobar() {
   const campo = DEUDA.find(([n]) => n === 'campo a mano')[1]
   const boton = DEUDA.find(([n]) => n === 'boton 2° a mano')[1]
+  const emoji = DEUDA.find(([n]) => n === 'emoji en UI')[1]
   const casos = [
     [campo, 'border border-ink-200 rounded-item px-3 py-2 focus:ring-2 focus:ring-brand-500', true],
     [campo, 'focus:border-brand-600 border border-ink-200 rounded-item',                      true],
@@ -91,6 +103,16 @@ function autocomprobar() {
     [campo, 'w-11 h-8 rounded-item border border-ink-200 cursor-pointer p-0.5',               false],
     [boton, 'px-4 py-2 border border-ink-200 rounded-item text-ink-600 hover:bg-ink-50',      true],
     [boton, 'max-h-28 overflow-y-auto border border-ink-200 rounded-item p-2',                false],
+    /* La regla de emoji: tiene que ver el emoji de color Y el símbolo
+       tipográfico, y no confundirse con las flechas que el proyecto SÍ usa
+       en texto («Martínez → Hagar» en la cadena de aprobación). */
+    [emoji, '<p className="text-2xl mb-2">📊</p>',                                           true],
+    [emoji, "{isMileage ? '🚗 Kilometraje' : '🚗 ¿Es km?'}",                                 true],
+    [emoji, '<span>✓ Cuadrado</span>',                                                      true],
+    [emoji, '⚠ Sin aprobador',                                                              true],
+    [emoji, '<Check size={12} aria-hidden /> Cuadrado',                                     false],
+    [emoji, 'Martínez → Hagar',                                                             false],
+    [emoji, 'className="flex items-center gap-1"',                                          false],
   ]
   const fallas = casos.filter(([re, texto, esperado]) => {
     re.lastIndex = 0
@@ -107,6 +129,22 @@ function autocomprobar() {
 }
 
 autocomprobar()
+
+/**
+ * Saca las líneas que arman un archivo de Excel.
+ *
+ * No es una excepción para tapar un número molesto: lo que viaja a un .xlsx
+ * no es la pantalla. El nombre de hoja «Sin CC ⚠» de /admin/analisis lo abre
+ * un contador en Excel, donde ese carácter se dibuja igual en todas partes,
+ * y la regla de emoji existe porque en la interfaz NO se dibuja igual.
+ *
+ * Vale para cualquier regla, no solo para esa: un hexadecimal dentro de un
+ * estilo de Excel tampoco sería deuda del design system.
+ */
+const sinExcel = txt => txt
+  .split(/\r?\n/)
+  .filter(l => !/XLSX\.utils\.(book_append_sheet|aoa_to_sheet|json_to_sheet)/.test(l))
+  .join('\n')
 
 function contar(txt, defs) {
   const out = {}
@@ -138,7 +176,7 @@ function rutas(dir, base = '') {
 
 const filas = rutas(RAIZ)
   .map(({ ruta, archivos }) => {
-    const txt = archivos.map(a => fs.readFileSync(a, 'utf8')).join('\n')
+    const txt = archivos.map(a => fs.readFileSync(a, 'utf8')).map(sinExcel).join('\n')
     const d = contar(txt, DEUDA)
     const c = contar(txt, CREDITO)
     return { ruta, deuda: d.total, credito: c.total, detalle: d.out }

@@ -7,6 +7,7 @@ import { DOC_TYPES } from '@/lib/constants'
 import { IconoCategoria } from '@/components/ui/IconoCategoria'
 import type { ExpenseItem, ExpenseCategory, Attachment } from '@/lib/supabase/types'
 import type { ItemStatus } from '@/lib/constants'
+import { Paperclip, Sparkles } from 'lucide-react'
 
 interface ExpenseItemCardProps {
   item: ExpenseItem & {
@@ -54,10 +55,10 @@ export function ExpenseItemCard({ item, canDelete, onDelete }: ExpenseItemCardPr
           {docLabel && <span>{docLabel}</span>}
           {item.doc_number && <span>N° {item.doc_number}</span>}
           {item.attachments.length > 0 && (
-            <span>📎 {item.attachments.length} adjunto{item.attachments.length !== 1 ? 's' : ''}</span>
+            <span className="inline-flex items-center gap-1"><Paperclip size={11} aria-hidden />{item.attachments.length} adjunto{item.attachments.length !== 1 ? 's' : ''}</span>
           )}
           {item.ocr_confidence && (
-            <span className="text-brand-400">✦ OCR {Math.round(item.ocr_confidence * 100)}%</span>
+            <span className="text-brand-400 inline-flex items-center gap-1"><Sparkles size={11} aria-hidden />OCR {Math.round(item.ocr_confidence * 100)}%</span>
           )}
         </div>
 

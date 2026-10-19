@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Check, X, Car } from 'lucide-react'
 import { PhotoUpload } from './PhotoUpload'
 import { getHistoricalRate } from '@/actions/exchange-rate'
 import { checkItemDuplicate, checkDuplicateExpenseItem } from '@/actions/expenses'
@@ -340,7 +340,7 @@ export function ExpenseItemForm({
               : 'text-brand-600 border-brand-200 hover:bg-brand-50'
           }`}
         >
-          {isMileage ? '🚗 Kilometraje' : '🚗 ¿Es km?'}
+          <Car size={12} aria-hidden /> {isMileage ? 'Kilometraje' : '¿Es km?'}
         </button>
       </div>
 
@@ -611,8 +611,8 @@ export function ExpenseItemForm({
             {form.supplier_rut && (() => {
               const result = validateAndFormatRut(form.supplier_rut)
               return result.valid
-                ? <p className="card-meta text-accent-600 mt-1">✓ RUT válido: {result.formatted}</p>
-                : <p className="card-meta text-danger-600 mt-1">✗ {result.error}</p>
+                ? <p className="card-meta text-accent-600 mt-1"><Check size={11} className="inline" aria-hidden /> RUT válido: {result.formatted}</p>
+                : <p className="card-meta text-danger-600 mt-1"><X size={11} className="inline" aria-hidden /> {result.error}</p>
             })()}
           </div>
         )}
@@ -698,7 +698,7 @@ export function ExpenseItemForm({
             ? 'bg-warning-50 border-warning-200 text-warning-700'
             : 'bg-success-50 border-success-200 text-success-700'
         }`}>
-          <span>{travelResult.exceeds ? '⚠' : '✓'}</span>
+          {travelResult.exceeds ? <AlertTriangle size={12} aria-hidden /> : <Check size={12} aria-hidden />}
           <span>
             {travelResult.exceeds
               ? `Excede política de viáticos "${travelResult.policy.name}" — máximo ${travelResult.limitAmount?.toLocaleString('es-CL')} ${travelResult.limitCurrency}`

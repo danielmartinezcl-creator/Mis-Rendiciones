@@ -2,24 +2,9 @@
 
 import React, { useState, useMemo } from 'react'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
-import {
-  History,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Receipt,
-  BookCheck,
-  ArrowRightLeft,
-  ChevronDown,
-  ChevronRight,
-  SendHorizontal,
-  FileSpreadsheet,
-  Trash2,
-  Pencil,
-  Check,
-  X,
-  Undo2,
-} from 'lucide-react'
+import { History, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, ArrowRightLeft, ChevronDown, ChevronRight, SendHorizontal, FileSpreadsheet, Trash2, Pencil, Check, X, Undo2, Hourglass, AlertTriangle } from 'lucide-react'
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
+import { FormularioMovimiento } from '@/components/admin/FormularioMovimiento'
 import { updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/actions/admin'
 import { deleteExpenseItem } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
@@ -319,6 +304,18 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
       {saveError && (
         <p className="text-xs text-danger-600 bg-danger-50 px-2 py-1 rounded-item">{saveError}</p>
       )}
+
+      {/* El adelanto, el reembolso o la devolución que la planilla fuente no traía.
+          Antes solo se podía cargando un documento aparte o rehaciendo la carga.
+          `categorias` va vacío porque /petty-cash no carga el catálogo: el formulario
+          ofrece entonces solo los movimientos de fondos, que no se imputan a una cuenta.
+          El reload es el patrón de esta pantalla (ver `createFundTransfer`): el estado
+          de los fondos ya renderizados es del cliente y `revalidatePath` no lo toca. */}
+      <FormularioMovimiento
+        reportId={reportId}
+        categorias={[]}
+        onAgregado={() => window.location.reload()}
+      />
     </div>
   )
 }
@@ -546,10 +543,10 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                     </span>
                   )}
                   {isBalanced && (
-                    <span className="font-bold text-success-600">✓ Cuadra</span>
+                    <span className="font-bold text-success-600 inline-flex items-center gap-1"><Check size={12} aria-hidden />Cuadra</span>
                   )}
                   {isPending && (
-                    <span className="font-bold text-warning-500">⏳ Pendiente de rendir</span>
+                    <span className="font-bold text-warning-500 inline-flex items-center gap-1"><Hourglass size={12} aria-hidden />Pendiente de rendir</span>
                   )}
                   {isOweEmp && (
                     <span className="font-bold text-info-600">↑ Reembolsar al empleado {formatCLP(Math.abs(groupDiff))}</span>
@@ -792,7 +789,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
 
                           {defExportWarnings && (
                             <div className="bg-warning-50 border border-warning-200 rounded-item px-3 py-2 text-xs text-warning-700">
-                              ⚠ Sin cuenta Defontana: {defExportWarnings.categories.join(', ')}
+                              <AlertTriangle size={12} className="inline" aria-hidden /> Sin cuenta Defontana: {defExportWarnings.categories.join(', ')}
                               {defExportWarnings.unmappedCLP > 0 && ` — ${formatCLP(defExportWarnings.unmappedCLP)} no incluidos en el asiento`}
                             </div>
                           )}
@@ -816,7 +813,7 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
                               {/* Paso 2: confirmar después de cargar en Defontana */}
                               <div className="border-t border-accent-100 pt-3 space-y-2">
                                 <p className="text-xs font-semibold text-accent-800">
-                                  ✓ Confirmar contabilización
+                                  <Check size={13} className="inline" aria-hidden /> Confirmar contabilización
                                 </p>
                                 <p className="text-xs text-ink-500">
                                   Hacé clic aquí solo después de haber importado el Excel en Defontana exitosamente.

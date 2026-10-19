@@ -1,6 +1,6 @@
 'use client'
 
-import { SendHorizontal, X, Pencil, Link2, ArrowRightLeft } from 'lucide-react'
+import { SendHorizontal, X, Pencil, Link2, ArrowRightLeft, Wallet, ClipboardList } from 'lucide-react'
 import { fmtCLP } from './usePettyCashState'
 import type { TransferSource, FundTransferRow, EmployeeTarget, EditingLinkedTransfer, OrgReportSimple } from './usePettyCashState'
 
@@ -146,7 +146,9 @@ export function FundModals({
                           : 'text-ink-500 hover:text-ink-700',
                       ].join(' ')}
                     >
-                      {mode === 'fund' ? '🟣 Caja Chica' : '📋 Rendición'}
+                      {mode === 'fund'
+                    ? <><Wallet size={12} className="inline" aria-hidden /> Caja Chica</>
+                    : <><ClipboardList size={12} className="inline" aria-hidden /> Rendición</>}
                     </button>
                   ))}
                 </div>
@@ -489,7 +491,9 @@ export function FundModals({
                   <option value="">— Seleccionar destino —</option>
                   {linkTargets.map(t => (
                     <option key={t.id} value={t.id}>
-                      {t.type === 'fund' ? '🟣 Fondo: ' : '📋 '}{t.label}
+                      {t.type === 'fund'
+                        ? <><Wallet size={12} className="inline" aria-hidden /> Fondo: </>
+                        : <ClipboardList size={12} className="inline" aria-hidden />}{t.label}
                     </option>
                   ))}
                 </select>

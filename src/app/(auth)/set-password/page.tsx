@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { KeyRound, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { KeyRound, Eye, EyeOff, CheckCircle2, AlertTriangle, Check } from 'lucide-react'
 
 export default function SetPasswordPage() {
   return (
@@ -201,7 +201,7 @@ function SetPasswordForm() {
             </div>
             <p className="text-xs text-ink-400">
               {password.length < 8  ? 'Muy corta' :
-               password.length < 12 ? 'Aceptable' : 'Contraseña fuerte ✓'}
+               password.length < 12 ? 'Aceptable' : <><Check size={12} className="inline" aria-hidden /> Contraseña fuerte</>}
             </p>
           </div>
         )}

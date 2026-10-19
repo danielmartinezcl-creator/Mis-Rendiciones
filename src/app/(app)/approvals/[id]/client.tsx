@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, CheckCheck } from 'lucide-react'
+import { Sparkles, CheckCheck, Check, X, AlertTriangle, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getReportForApproval, submitApprovalDecision, bulkApproveItems } from '@/actions/approvals'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
@@ -403,7 +403,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                     ? 'bg-warning-50 border-warning-200 text-warning-700'
                     : 'bg-success-50 border-success-200 text-success-700'
                 }`}>
-                  <span>{travelCheck.exceeds ? '⚠' : '✓'}</span>
+                  {travelCheck.exceeds ? <AlertTriangle size={12} aria-hidden /> : <Check size={12} aria-hidden />}
                   <span>
                     {travelCheck.exceeds
                       ? `Excede política "${travelCheck.policy.name}" — máx. ${travelCheck.policy.max_amount.toLocaleString('es-CL')} ${travelCheck.policy.currency}`
@@ -440,7 +440,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       </a>
                     ) : (
                       <span key={att.id} className="card-meta text-ink-400 flex items-center gap-1">
-                        📎 {att.file_type === 'pdf' ? 'PDF' : att.file_type === 'email' ? 'Correo' : 'Adjunto'}
+                        <Paperclip size={12} className="inline" aria-hidden /> {att.file_type === 'pdf' ? 'PDF' : att.file_type === 'email' ? 'Correo' : 'Adjunto'}
                       </span>
                     )
                   ))}
@@ -461,7 +461,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                           : 'bg-success-50 text-success-700 hover:bg-success-100',
                       ].join(' ')}
                     >
-                      ✓ Aprobar
+                      <Check size={14} aria-hidden /> Aprobar
                     </button>
                     <button
                       type="button"
@@ -473,7 +473,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                           : 'bg-danger-50 text-danger-600 hover:bg-danger-100',
                       ].join(' ')}
                     >
-                      ✕ Rechazar
+                      <X size={14} aria-hidden /> Rechazar
                     </button>
                   </div>
 

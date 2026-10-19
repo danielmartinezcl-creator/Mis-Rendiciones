@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { markReimbursed } from '@/actions/approvals'
 import { useRouter } from 'next/navigation'
+import { Banknote } from 'lucide-react'
 
 export function ReimbursedButton({ reportId }: { reportId: string }) {
   const [open,      setOpen]      = useState(false)
@@ -31,7 +32,7 @@ export function ReimbursedButton({ reportId }: { reportId: string }) {
         onClick={() => setOpen(true)}
         className="text-xs font-semibold text-info-600 hover:text-info-700 transition-colors"
       >
-        💸 Marcar como reembolsada
+        <Banknote size={13} aria-hidden /> Marcar como reembolsada
       </button>
     )
   }

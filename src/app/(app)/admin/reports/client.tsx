@@ -9,7 +9,7 @@ import { formatDate, formatCLP, formatDisplayTitle } from '@/lib/utils'
 import { AdminKpiHero } from '@/components/ui/AdminKpiHero'
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
-import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, Undo2, BookCheck, FileSpreadsheet } from 'lucide-react'
+import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, Undo2, BookCheck, FileSpreadsheet, Check } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS, ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
@@ -707,7 +707,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                       </span>
                       {r.defontana_exported_at && (
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 border border-accent-200">
-                          ✓ Contabilizado {formatDate(r.defontana_exported_at.split('T')[0])}
+                          <Check size={11} className="inline" aria-hidden /> Contabilizado {formatDate(r.defontana_exported_at.split('T')[0])}
                           {r.defontana_export_ref && ` · ${r.defontana_export_ref}`}
                         </span>
                       )}
@@ -722,7 +722,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                         const absDiff = Math.abs(diff)
                         if (absDiff < 1) return (
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-success-50 text-success-700 border border-success-200">
-                            ✓ Cuadrado
+                            <Check size={11} className="inline" aria-hidden /> Cuadrado
                           </span>
                         )
                         if (diff > 0) return (
@@ -892,7 +892,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     {reimbAmount && (() => {
                       const paid = parseFloat(reimbAmount)
                       const diff = paid - r.approved_amount
-                      if (Math.abs(diff) < 1) return <p className="text-xs text-success-600 font-medium">✓ Cuadra exacto con el monto aprobado</p>
+                      if (Math.abs(diff) < 1) return <p className="text-xs text-success-600 font-medium"><Check size={11} className="inline" aria-hidden /> Cuadra exacto con el monto aprobado</p>
                       if (diff > 0) return <p className="text-xs text-warning-600">↑ Estás pagando {formatCLP(diff)} de más sobre los {formatCLP(r.approved_amount)} aprobados</p>
                       return <p className="text-xs text-danger-600">↓ Estás pagando {formatCLP(Math.abs(diff))} de menos sobre los {formatCLP(r.approved_amount)} aprobados</p>
                     })()}
