@@ -59,10 +59,11 @@ function formatDate(iso: string) {
    updateEmployee ni siquiera aceptaba el banco ni el tipo de cuenta. */
 type FormEdicion = {
   full_name: string; rut: string; department: string; cost_center_id: string
+  role: UserProfile['role']
   bank_name: string; bank_account_type: string; bank_account: string
 }
 const FORM_VACIO: FormEdicion = {
-  full_name: '', rut: '', department: '', cost_center_id: '',
+  full_name: '', rut: '', department: '', cost_center_id: '', role: 'employee',
   bank_name: '', bank_account_type: '', bank_account: '',
 }
 
@@ -257,6 +258,7 @@ export default function AdminEmployeesPage() {
       rut:            (emp as UserProfile & { email: string; rut?: string | null }).rut ?? '',
       department:     emp.department ?? '',
       cost_center_id: emp.cost_center_id ?? '',
+      role:           emp.role,
       /* Normalizado al leer: lo guardado puede venir de la planilla
          («Corriente», «Falabella») y un <select> con un value que no figura
          entre sus opciones se dibuja vacío. Guardar ese vacío borraría el
@@ -276,6 +278,7 @@ export default function AdminEmployeesPage() {
         rut:            editForm.rut.trim() || null,
         department:     editForm.department.trim() || null,
         cost_center_id: editForm.cost_center_id || null,
+        role:           editForm.role,
         bank_name:         editForm.bank_name.trim() || null,
         bank_account_type: editForm.bank_account_type || null,
         bank_account:      editForm.bank_account.trim() || null,
@@ -629,7 +632,12 @@ export default function AdminEmployeesPage() {
                     title="Seleccionar empleado"
                   />
 
-                  <div className="w-9 h-9 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">
+                  {/* El avatar es la inicial del nombre, que está ahí al lado: no
+                      identifica a nadie que el nombre no identifique ya. En 390 px
+                      él y el checkbox dejaban la columna del nombre en 250 px, y ahí
+                      «RUT · cargo · centro de costo» caía en TRES líneas. Desde sm
+                      hay ancho de sobra y vuelve. */}
+                  <div className="w-9 h-9 bg-brand-100 rounded-full hidden sm:flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">
                     {emp.full_name[0].toUpperCase()}
                   </div>
 
@@ -682,16 +690,11 @@ export default function AdminEmployeesPage() {
                       {emp.invited_at ? 'Reenviar' : 'Invitar'}
                     </button>
 
-                    <select
-                      value={emp.role}
-                      disabled={saving === emp.id}
-                      onChange={e => handleUpdate(emp.id, { role: e.target.value as UserProfile['role'] })}
-                      className="campo text-xs px-2 py-1.5"
-                    >
-                      <option value="employee">Empleado</option>
-                      <option value="approver">Aprobador</option>
-                      <option value="admin">Administrador</option>
-                    </select>
+                    {/* El rol se EDITA en «Editar datos», con el resto de la
+                        ficha. Acá se LEE, en la insignia de al lado del nombre.
+                        Un desplegable por fila eran 61 controles en la pantalla
+                        y ~45 px de alto en cada tarjeta, para algo que se toca
+                        una vez por persona y nunca más. */}
                   </div>
                 </div>
 
@@ -971,6 +974,26 @@ export default function AdminEmployeesPage() {
                         className="campo w-full"
                         placeholder="Ej: Ingeniería, Gerencia..."
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Rol</label>
+                      <select
+                        value={editForm.role}
+                        onChange={e => setEditForm(f => ({ ...f, role: e.target.value as UserProfile['role'] }))}
+                        className="campo w-full"
+                      >
+                        <option value="employee">Empleado</option>
+                        <option value="approver">Aprobador</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                      {/* El rol NO es lo que habilita aprobar ni operar el banco:
+                          eso lo deciden los permisos y la cadena. Acá solo fija
+                          los permisos por omisión al crear a alguien y qué sale
+                          en el menú. En PENTA los 13 que aprueban son 
+                          «Empleado». */}
+                      <p className="card-meta text-ink-400 mt-1">
+                        Quién aprueba lo decide la cadena, no el rol
+                      </p>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-ink-600 mb-1">Centro de costo</label>
