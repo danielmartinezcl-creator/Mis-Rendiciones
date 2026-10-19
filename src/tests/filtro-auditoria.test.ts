@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { consultaDeAuditoria, dimensionesDeAuditoria, ACCIONES, ENTIDADES } from '@/lib/filtro-auditoria'
+import { consultaDeAuditoria, dimensionesDeAuditoria, ACCIONES, ENTIDADES, nombreDeAccion, nombreDeEntidad } from '@/lib/filtro-auditoria'
 import { valoresVacios, type Valores } from '@/lib/filtros/dimensiones'
 import type { AuditAction, AuditEntityType } from '@/lib/audit'
 
@@ -97,5 +97,28 @@ describe('dimensionesDeAuditoria', () => {
       'webhook',
     ]
     expect(delDominio.filter(e => !ENTIDADES.some(o => o.id === e))).toEqual([])
+  })
+})
+
+describe('los nombres que ve la gente', () => {
+  it('traduce las acciones y las entidades', () => {
+    expect(nombreDeAccion('created')).toBe('Creado')
+    expect(nombreDeAccion('permanently_deleted')).toBe('Eliminado definitivamente')
+    expect(nombreDeEntidad('expense_report')).toBe('Rendición')
+    expect(nombreDeEntidad('cost_center')).toBe('Centro de costo')
+  })
+
+  /* Una acción nueva en la base tiene que VERSE, aunque sea con su nombre
+     técnico. Devolver vacío la haría desaparecer de la bitácora. */
+  it('lo que no conoce lo deja pasar tal cual', () => {
+    expect(nombreDeAccion('algo_nuevo')).toBe('algo_nuevo')
+    expect(nombreDeEntidad('tabla_nueva')).toBe('tabla_nueva')
+  })
+
+  /* Los chips del filtro y la tabla salen de la MISMA lista: si alguien suma
+     una acción a ACCIONES, las dos se enteran. */
+  it('toda acción que el filtro ofrece tiene nombre', () => {
+    for (const a of ACCIONES) expect(nombreDeAccion(a.id)).toBe(a.etiqueta)
+    for (const e of ENTIDADES) expect(nombreDeEntidad(e.id)).toBe(e.etiqueta)
   })
 })

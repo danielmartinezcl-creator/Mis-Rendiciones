@@ -155,3 +155,70 @@ export function sePuedeBorrar(usos: { personas: number; gastos: number; hijos: n
 export function toSheetCostCenter(costCenter: string): string {
   return costCenter ? `${costCenter}000` : ''
 }
+
+/** Una fila del árbol sabiendo, además, qué cuelga de ella. */
+export type FilaPlegable<T extends CentroExistente = CentroExistente> = FilaArbol<T> & {
+  /** Cuántos centros cuelgan de este, a cualquier profundidad. 0 si es hoja. */
+  dentro: number
+  /** Tiene hijos y están escondidos. */
+  plegado: boolean
+}
+
+/**
+ * Qué nodos vienen abiertos. Con `hasta = 2` se ven los cuatro centros que
+ * arman la estructura (EMP y sus tres ramas) más las nueve áreas, y las 36
+ * hojas quedan a un clic.
+ *
+ * El criterio: **la estructura siempre a la vista, las hojas plegadas.** Quien
+ * entra acá viene a corregir UN centro y sabe de qué rama es; recorrer 49
+ * filas de 130 px —siete pantallas de teléfono— para llegar no ayuda a nadie.
+ */
+export function abiertasPorOmision<T extends CentroExistente>(
+  arbol: FilaArbol<T>[],
+  hasta = 2,
+): Set<string> {
+  return new Set(arbol.filter(f => f.nivel <= hasta).map(f => f.id))
+}
+
+/**
+ * Las filas que se dibujan, dado qué nodos están abiertos.
+ *
+ * **Un texto en el buscador abre todo**: plegar nunca puede esconder que hay
+ * algo puesto, así que con una búsqueda activa esta función no se usa — se
+ * dibuja lo filtrado tal cual. Acá queda escrito porque es la regla que hace
+ * que el plegado se pueda confiar.
+ */
+export function visiblesEnArbol<T extends CentroExistente>(
+  arbol: FilaArbol<T>[],
+  abiertas: Set<string>,
+): FilaPlegable<T>[] {
+  /* Cuántos cuelgan de cada uno, a cualquier profundidad: el código de un
+     descendiente EMPIEZA con el del ancestro, que es toda la jerarquía que
+     hay acá. Se cuenta sobre el árbol COMPLETO, no sobre lo visible, o el
+     número diría cuántos se están viendo en vez de cuántos hay. */
+  const dentroDe = new Map<string, number>()
+  for (const f of arbol) {
+    for (const otro of arbol) {
+      if (otro.id !== f.id && otro.id.startsWith(f.id)) {
+        dentroDe.set(f.id, (dentroDe.get(f.id) ?? 0) + 1)
+      }
+    }
+  }
+
+  /* Una fila se ve si TODOS sus ancestros están abiertos. Un huérfano —su
+     padre no está en la lista— se ve siempre: esconderlo detrás de un nodo
+     que no existe lo volvería inalcanzable. */
+  return arbol
+    .filter(f => {
+      let padre = codigoDePadre(f.id)
+      while (padre !== null) {
+        if (arbol.some(x => x.id === padre) && !abiertas.has(padre)) return false
+        padre = codigoDePadre(padre)
+      }
+      return true
+    })
+    .map(f => {
+      const dentro = dentroDe.get(f.id) ?? 0
+      return { ...f, dentro, plegado: dentro > 0 && !abiertas.has(f.id) }
+    })
+}

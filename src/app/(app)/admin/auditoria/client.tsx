@@ -8,7 +8,7 @@ import { BarraFiltros } from '@/components/filtros/BarraFiltros'
 import { Vistas } from '@/components/filtros/Vistas'
 import { clavesPuestas, resumen, type Valores } from '@/lib/filtros/dimensiones'
 import { depurarVista, type Vista } from '@/lib/filtros/vistas'
-import { consultaDeAuditoria, dimensionesDeAuditoria } from '@/lib/filtro-auditoria'
+import { consultaDeAuditoria, dimensionesDeAuditoria, nombreDeAccion, nombreDeEntidad } from '@/lib/filtro-auditoria'
 import { fechaEnChile } from '@/lib/filtro-documentos'
 import { listarVistas, crearVista, borrarVista } from '@/actions/vistas-filtro'
 import * as XLSX from 'xlsx'
@@ -21,7 +21,12 @@ import {
   Shield,
 } from 'lucide-react'
 
-const PAGE_SIZE = 50
+/* Eran 50, y en el teléfono eso daba 4.381 px de tabla: cinco pantallas y
+   media de scroll para una bitácora en la que casi siempre se busca UNA
+   cosa. Con 25 y el filtro arriba, lo que se busca está a la vista o a un
+   chip de distancia. El total sigue dicho arriba: se achica la página, no
+   el alcance. */
+const PAGE_SIZE = 25
 
 const ACTION_COLORS: Record<string, string> = {
   deleted:             'bg-danger-100 text-danger-700',
@@ -202,7 +207,70 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
             No hay registros de auditoría para los filtros seleccionados.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* EN EL TELÉFONO NO VA UNA TABLA. Seis columnas no entran en 390 px:
+              quedaba con scroll horizontal y «qué pasó» —la acción y sobre qué—
+              caía fuera de la pantalla. Misma conclusión que /informes y
+              /admin/centros-costo. */}
+          <ul className="divide-y divide-ink-100 lg:hidden">
+            {items.map(item => {
+              const abierto  = expanded.has(item.id)
+              const hayDetalle = item.old_value !== null || item.new_value !== null
+              return (
+                <li key={item.id} className="px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${ACTION_COLORS[item.action] ?? 'bg-ink-100 text-ink-700'}`}>
+                      {nombreDeAccion(item.action)}
+                    </span>
+                    {/* Corta a propósito: la completa, con segundos y «a. m.»,
+                        son 140 px de los 358 y empujaba la insignia a dos líneas.
+                        Para hojear alcanza el día y la hora; la tabla de escritorio
+                        la sigue mostrando entera. */}
+                    <span className="card-meta text-ink-400 shrink-0 font-mono-amount whitespace-nowrap">
+                      {new Date(item.created_at).toLocaleString('es-CL', {
+                        day: '2-digit', month: '2-digit', year: '2-digit',
+                        hour: '2-digit', minute: '2-digit', hour12: false,
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-ink-800 mt-1">
+                    <span className="text-ink-500">{nombreDeEntidad(item.entity_type)}: </span>
+                    {item.entity_label ?? <span className="text-ink-300">—</span>}
+                  </p>
+                  <p className="card-meta text-ink-500 mt-0.5">
+                    {item.actor_name ?? <span className="italic">Sistema</span>}
+                  </p>
+                  {item.notes && <p className="card-meta text-ink-600 mt-1">{item.notes}</p>}
+                  {hayDetalle && (
+                    <button
+                      onClick={() => toggleExpand(item.id)}
+                      className="mt-1.5 flex items-center gap-1 text-accent-600 text-xs font-medium"
+                    >
+                      {abierto ? <><ChevronUp size={14} /> Ocultar el detalle</> : <><ChevronDown size={14} /> Ver el detalle</>}
+                    </button>
+                  )}
+                  {abierto && hayDetalle && (
+                    <div className="mt-2 grid grid-cols-1 gap-2">
+                      {item.old_value !== null && (
+                        <div>
+                          <p className="card-meta font-semibold text-ink-500 mb-1">Antes</p>
+                          <pre className="text-[11px] bg-ink-50 rounded-item p-2 overflow-x-auto">{JSON.stringify(item.old_value, null, 2)}</pre>
+                        </div>
+                      )}
+                      {item.new_value !== null && (
+                        <div>
+                          <p className="card-meta font-semibold text-ink-500 mb-1">Después</p>
+                          <pre className="text-[11px] bg-ink-50 rounded-item p-2 overflow-x-auto">{JSON.stringify(item.new_value, null, 2)}</pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+
+          <div className="overflow-x-auto hidden lg:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-ink-100 bg-ink-50">
@@ -233,11 +301,11 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClass}`}>
-                            {item.action}
+                            {nombreDeAccion(item.action)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-ink-600 whitespace-nowrap text-xs">
-                          {item.entity_type}
+                          {nombreDeEntidad(item.entity_type)}
                         </td>
                         <td className="px-4 py-3 text-ink-800 max-w-xs truncate">
                           {item.entity_label ?? <span className="text-ink-300">—</span>}
@@ -294,6 +362,7 @@ export function AuditoriaClient({ initial, total: initialTotal }: Props) {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {/* ── Paginación ──
             Va DENTRO de la hoja: el paginador es parte de la tabla, y apoyado

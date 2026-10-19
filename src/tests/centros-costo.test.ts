@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   LARGO_SEGMENTO, normalizarCodigo, profundidad, codigoDePadre, armarCodigo,
-  erroresDeAlta, ordenarEnArbol, sePuedeBorrar,
+  erroresDeAlta, ordenarEnArbol, sePuedeBorrar, abiertasPorOmision, visiblesEnArbol,
   type CentroExistente,
 } from '@/lib/centros-costo'
 
@@ -138,5 +138,72 @@ describe('sePuedeBorrar', () => {
   })
   it('con hijos no: dejaría al árbol sin su rama', () => {
     expect(sePuedeBorrar({ personas: 0, gastos: 0, hijos: 2 })).toBe(false)
+  })
+})
+
+/* El árbol real de PENTA, reducido: 1 raíz · 3 ramas · 9 áreas · 36 hojas.
+   Sin plegar son 49 filas de ~130 px en el teléfono: siete pantallas. */
+const ARBOL_PENTA = ordenarEnArbol([
+  { id: 'EMP',          descripcion: 'EMPRESA' },
+  { id: 'EMPGES',       descripcion: 'AREAS DE GESTION' },
+  { id: 'EMPGESING',    descripcion: 'INGENIERIA' },
+  { id: 'EMPGESINGELE', descripcion: 'ELECTRICIDAD' },
+  { id: 'EMPGESINGMEC', descripcion: 'MECANICA' },
+  { id: 'EMPGESFIN',    descripcion: 'FINANZAS' },
+  { id: 'EMPGESFINADM', descripcion: 'ADMINISTRACION' },
+  { id: 'EMPNEG',       descripcion: 'NEGOCIOS' },
+  { id: 'EMPPRU',       descripcion: 'CENTRO PRUEBA' },
+])
+const ids = (xs: { id: string }[]) => xs.map(x => x.id)
+
+describe('abiertasPorOmision', () => {
+  it('abre la estructura y deja las hojas plegadas', () => {
+    const abiertas = abiertasPorOmision(ARBOL_PENTA)
+    expect([...abiertas].sort()).toEqual(['EMP', 'EMPGES', 'EMPNEG', 'EMPPRU'])
+  })
+})
+
+describe('visiblesEnArbol', () => {
+  const abiertas = abiertasPorOmision(ARBOL_PENTA)
+
+  it('por omisión se ven la raíz, las ramas y las áreas — no las hojas', () => {
+    expect(ids(visiblesEnArbol(ARBOL_PENTA, abiertas)))
+      .toEqual(['EMP', 'EMPGES', 'EMPGESFIN', 'EMPGESING', 'EMPNEG', 'EMPPRU'])
+  })
+
+  /* «20 dentro» tiene que decir cuántos HAY, no cuántos se están viendo: si
+     contara lo visible, un nodo plegado diría 0 y plegar escondería que hay
+     algo adentro. */
+  it('el conteo es del subárbol completo, aunque esté plegado', () => {
+    const v = visiblesEnArbol(ARBOL_PENTA, abiertas)
+    expect(v.find(f => f.id === 'EMPGESING')).toMatchObject({ dentro: 2, plegado: true })
+    expect(v.find(f => f.id === 'EMPGES')).toMatchObject({ dentro: 5, plegado: false })
+    expect(v.find(f => f.id === 'EMPPRU')).toMatchObject({ dentro: 0, plegado: false })
+  })
+
+  it('abrir un área muestra sus hojas, y solo las suyas', () => {
+    const v = visiblesEnArbol(ARBOL_PENTA, new Set([...abiertas, 'EMPGESING']))
+    expect(ids(v)).toContain('EMPGESINGELE')
+    expect(ids(v)).toContain('EMPGESINGMEC')
+    expect(ids(v)).not.toContain('EMPGESFINADM')
+  })
+
+  it('cerrar una rama esconde todo lo que cuelga, a cualquier profundidad', () => {
+    const v = visiblesEnArbol(ARBOL_PENTA, new Set(['EMP']))
+    expect(ids(v)).toEqual(['EMP', 'EMPGES', 'EMPNEG', 'EMPPRU'])
+  })
+
+  it('sin nada abierto queda solo la raíz', () => {
+    expect(ids(visiblesEnArbol(ARBOL_PENTA, new Set()))).toEqual(['EMP'])
+  })
+
+  /* Un huérfano colgaría de un nodo que no existe: esconderlo lo volvería
+     inalcanzable justo cuando hay que arreglarlo. */
+  it('un centro sin padre se ve siempre', () => {
+    const arbol = ordenarEnArbol([
+      { id: 'EMP',          descripcion: 'EMPRESA' },
+      { id: 'XXXYYYZZZ',    descripcion: 'HUERFANO' },
+    ])
+    expect(ids(visiblesEnArbol(arbol, new Set()))).toEqual(['EMP', 'XXXYYYZZZ'])
   })
 })

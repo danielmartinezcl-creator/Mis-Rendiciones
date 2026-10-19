@@ -14,13 +14,14 @@
 // el código completo.
 
 import { useEffect, useMemo, useState } from 'react'
-import { FolderTree, Search, Plus, Trash2, X } from 'lucide-react'
+import { FolderTree, Search, Plus, Trash2, X, ChevronRight } from 'lucide-react'
 import {
   listarCentrosCosto, crearCentroCosto, corregirCentroCosto, eliminarCentroCosto,
   type FilaCentro,
 } from '@/actions/cost-centers'
 import {
   ordenarEnArbol, sePuedeBorrar, normalizarCodigo, armarCodigo, erroresDeAlta,
+  abiertasPorOmision, visiblesEnArbol,
   LARGO_SEGMENTO, toSheetCostCenter,
 } from '@/lib/centros-costo'
 import { useDialogos } from '@/components/ui/Dialogos'
@@ -30,6 +31,7 @@ export default function CentrosCostoPage() {
   const [filas,     setFilas]     = useState<FilaCentro[]>([])
   const [cargando,  setCargando]  = useState(true)
   const [busqueda,  setBusqueda]  = useState('')
+  const [abiertas,  setAbiertas]  = useState<Set<string> | null>(null)
   const [guardando, setGuardando] = useState<string | null>(null)
   const [alta,      setAlta]      = useState(false)
 
@@ -44,13 +46,36 @@ export default function CentrosCostoPage() {
      ordenara lo filtrado, el nivel de cada fila y la marca de «sin padre»
      saldrían de una lista incompleta y mentirían. */
   const arbol = useMemo(() => ordenarEnArbol(filas), [filas])
+  /* Sin plegar son 49 filas que en el teléfono apilan ~130 px cada una:
+     siete pantallas para llegar a un centro que el admin ya sabe cuál es.
+     Por omisión se ve la estructura —la raíz, las tres ramas y las nueve
+     áreas— y las 36 hojas quedan a un clic.
+
+     `null` quiere decir «todavía nadie tocó nada», y recién entonces manda
+     lo que viene por omisión. Calcularlo en un efecto exigía un
+     set-state-in-effect y, peor, pisaba lo que el admin hubiera abierto
+     cada vez que la lista se recarga al guardar. */
+  const porOmision = useMemo(() => abiertasPorOmision(arbol), [arbol])
+  const efectivas  = abiertas ?? porOmision
+
   const visibles = useMemo(() => {
     const q = normalizarCodigo(busqueda)
     const texto = busqueda.trim().toLowerCase()
-    if (!texto) return arbol
-    return arbol.filter(f =>
-      (q && f.id.includes(q)) || f.descripcion.toLowerCase().includes(texto))
-  }, [arbol, busqueda])
+    /* Con texto escrito el plegado NO se aplica: plegar no puede esconder
+       lo que alguien está buscando. Se dibuja lo que coincide, plano. */
+    if (texto) {
+      return arbol
+        .filter(f => (q && f.id.includes(q)) || f.descripcion.toLowerCase().includes(texto))
+        .map(f => ({ ...f, dentro: 0, plegado: false }))
+    }
+    return visiblesEnArbol(arbol, efectivas)
+  }, [arbol, busqueda, efectivas])
+
+  const alternar = (id: string) => setAbiertas(prev => {
+    const s = new Set(prev ?? porOmision)
+    if (s.has(id)) s.delete(id); else s.add(id)
+    return s
+  })
 
   async function guardar(id: string, cambios: Parameters<typeof corregirCentroCosto>[1]) {
     setGuardando(id)
@@ -165,11 +190,32 @@ export default function CentrosCostoPage() {
                       f.activo ? '' : 'opacity-60',
                     ].join(' ')}>
                   <span className="w-44 shrink-0 flex items-baseline gap-1.5">
-                    {/* La sangría ES el árbol: cada tramo de tres letras es un nivel */}
-                    <span className="font-semibold text-ink-900 font-mono-amount card-label"
-                          style={{ paddingLeft: `${(f.nivel - 1) * 10}px` }}>
-                      {f.id}
-                    </span>
+                    {/* La sangría ES el árbol: cada tramo de tres letras es un nivel.
+                        Si algo cuelga, el código ES el botón que lo abre: un
+                        triangulito aparte sería un blanco de 12 px en un teléfono. */}
+                    {f.dentro > 0 ? (
+                      <button
+                        onClick={() => alternar(f.id)}
+                        aria-expanded={!f.plegado}
+                        className="font-semibold text-ink-900 font-mono-amount card-label inline-flex items-baseline gap-1 hover:text-brand-700 transition-colors text-left"
+                        style={{ paddingLeft: `${(f.nivel - 1) * 10}px` }}
+                      >
+                        <ChevronRight
+                          size={11}
+                          className={`shrink-0 self-center transition-transform ${f.plegado ? '' : 'rotate-90'}`}
+                          aria-hidden
+                        />
+                        {f.id}
+                        {/* El número va SIEMPRE, abierto o cerrado: plegar no puede
+                            esconder que hay algo adentro. */}
+                        <span className="card-meta font-normal text-ink-400">{f.dentro}</span>
+                      </button>
+                    ) : (
+                      <span className="font-semibold text-ink-900 font-mono-amount card-label"
+                            style={{ paddingLeft: `${(f.nivel - 1) * 10 + 14}px` }}>
+                        {f.id}
+                      </span>
+                    )}
                     {f.sinPadre && (
                       <span className="card-meta text-warning-600"
                             title="El centro de arriba que nombra su código no existe">

@@ -105,3 +105,20 @@ export function consultaDeAuditoria(valores: Valores, hoy: string): ConsultaAudi
 
   return q
 }
+
+/**
+ * El nombre en castellano de una acción o una entidad, para la tabla.
+ *
+ * Los chips del filtro ya traducían —ofrecen «Creado», «Eliminado para
+ * siempre»— pero la tabla mostraba el valor crudo de la base: `created`,
+ * `permanently_deleted`, `expense_report`. Dos vocabularios para lo mismo en
+ * la misma pantalla, y el de abajo en inglés.
+ *
+ * Lo que no reconoce vuelve tal cual: una acción nueva en la base tiene que
+ * verse, aunque sea con su nombre técnico, y no desaparecer.
+ */
+const nombreEn = (lista: Opcion[], id: string) =>
+  lista.find(o => o.id === id)?.etiqueta ?? id
+
+export const nombreDeAccion  = (id: string) => nombreEn(ACCIONES, id)
+export const nombreDeEntidad = (id: string) => nombreEn(ENTIDADES, id)
