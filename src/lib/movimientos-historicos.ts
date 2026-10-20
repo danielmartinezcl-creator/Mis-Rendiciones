@@ -126,9 +126,18 @@ export function totalesDeCargaHistorica(
     is_transfer_payer?: boolean
   }[],
 ): { total: number; aprobado: number } {
+  /* Un traspaso pagado cuenta TAMBIÉN en el aprobado, mire lo que mire su
+     estado: a un traspaso no lo aprueba nadie. `createFundTransfer` ni
+     siquiera escribe `status`, así que queda en el `pending` por omisión de
+     la columna — los 8 que existen en producción están así, sin excepción
+     (medido el 2026-10-20). Filtrarlos por estado dejaría fuera del aprobado
+     plata que salió de la caja con total certeza. */
+  const cuentaAprobado = (i: { item_type?: string | null; status: string | null; is_transfer_payer?: boolean }) =>
+    i.status === 'approved' || (i.item_type === 'transfer' && i.is_transfer_payer === true)
+
   return {
     total:    totalDeGastos(items),
-    aprobado: totalDeGastos(items.filter(i => i.status === 'approved')),
+    aprobado: totalDeGastos(items.filter(cuentaAprobado)),
   }
 }
 

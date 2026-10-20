@@ -310,12 +310,20 @@ describe('un traspaso suma en la caja que paga, no en la que recibe', () => {
       .toBe(52_703)
   })
 
-  /* Un traspaso pagado que todavía no está aprobado suma al total pero no al
-     aprobado, igual que un gasto pendiente. */
-  it('el aprobado sigue mirando el estado', () => {
+  /* A un traspaso no lo aprueba nadie: createFundTransfer ni escribe status,
+     y los 8 de producción están en el pending por omisión. Filtrarlos por
+     estado dejaría fuera del aprobado plata que salió con total certeza. */
+  it('un traspaso pagado cuenta aunque su estado sea pending', () => {
     expect(totalesDeCargaHistorica([
       gasto(192_680),
       { item_type: 'transfer', amount_clp: 28_140, status: 'pending', is_transfer_payer: true },
-    ])).toEqual({ total: 220_820, aprobado: 192_680 })
+    ])).toEqual({ total: 220_820, aprobado: 220_820 })
+  })
+
+  it('un gasto pendiente sí queda fuera del aprobado', () => {
+    expect(totalesDeCargaHistorica([
+      gasto(192_680),
+      { item_type: 'expense', amount_clp: 5_000, status: 'pending' },
+    ])).toEqual({ total: 197_680, aprobado: 192_680 })
   })
 })
