@@ -767,12 +767,58 @@ etiqueta.** Las opciones del selector son cuatro y dos escriben `advance`
 | `updateHistoricalExpenseItem` | editaba el monto y **no recalculaba** la cabecera | «RENDICION CAJA CHICA N°18 FD» −$278.710 · «N°1 ESTEBAN VARAS» +$221.700 |
 | `deleteExpenseItem` | recalculaba con `calculateReportTotal`, que **suma todo** | «Caja Chica N°180» +$8.640, el mismo día |
 
-`approved_amount` se recalcula aparte de `total_amount`: **8 de las 145 cargas tienen ítems
-`pending`**, y sumarlos al aprobado inflaría el monto que el cuadre compara contra lo
-reembolsado. Va con la llave de servicio porque la 033 protege `approved_amount` (con la
-sesión, `proteger_estado_rendicion` rechaza el UPDATE; `auth.uid()` null lo deja pasar).
-**Los 3 totales y 6 aprobados ya desviados NO se corrigieron**: es un UPDATE sobre datos de
-producción y quedó como decisión de Daniel.
+`approved_amount` se recalcula aparte de `total_amount`: hay cargas con ítems `pending`, y
+sumarlos al aprobado inflaría el monto que el cuadre compara contra lo reembolsado. Va con
+la llave de servicio porque la 033 protege `approved_amount` (con la sesión,
+`proteger_estado_rendicion` rechaza el UPDATE; `auth.uid()` null lo deja pasar).
+
+**EL TRASPASO CUENTA, Y SOLO DEL LADO QUE PAGA** (Daniel, 2026-10-20). La primera versión
+de `totalDeGastos` lo excluía de los dos lados, y el próximo recálculo sobre una carga que
+hubiera pagado uno le bajaba el total ese monto, en silencio.
+
+Un traspaso deja un ítem en los documentos de **las dos** partes, con el mismo monto
+positivo: para quien lo paga es plata que salió de su caja, igual que un gasto; para quien
+lo recibe es financiamiento, igual que un adelanto. Sumarlo en los dos lados cuenta la
+misma plata dos veces; sumarlo del lado que recibe le da un «total gastado» a una caja que
+todavía no gastó nada.
+
+Los 8 traspasos de producción lo confirman sin excepción: en los 4 que PAGAN el total
+guardado ya los incluía (Caja Chica N°180: 330.864 + 8.640 = 339.504) y en los 4 que
+RECIBEN no (CAJA CHICA N°1 ESTEBAN VARAS recibe 21.592 de Katherine, que junto con el
+adelanto de 150.000 financia sus 171.592 de gastos; «Rendicion N°3 Leonel Caceres» recibe
+52.703 y gastó 52.703 — su total es 52.703, no 105.406).
+
+**La dirección NO es una columna**: se resuelve contra `fund_transfers.payer_report_id`,
+igual que `is_transfer_payer` en el export a Defontana, y entra como dato del ítem para
+que `totalDeGastos` siga sin tocar la base. **Sin ese dato un traspaso no suma**, que es el
+valor seguro: un callsite que se olvide de resolverlo deja el total como estaba en vez de
+inflarlo por los dos lados. Hay una prueba para eso.
+
+**Y a un traspaso no lo aprueba nadie**, así que el pagado cuenta también en el aprobado,
+mire lo que mire su `status`. `createFundTransfer` ni siquiera lo escribe: los 8 de
+producción están en el `pending` por omisión de la columna. Un gasto pendiente sí sigue
+fuera del aprobado — la distinción tiene su prueba al lado.
+
+**Corregido en producción el 2026-10-20, con autorización de Daniel y ensayo previo**
+(BEGIN/ROLLBACK; el ensayo se verificó releyendo las filas, que seguían intactas): las 3
+cargas a las que les faltaba el traspaso que pagan — N°175 192.680 → 220.820, N°177
+407.887 → 429.479, CAJA CHICA N°2 CAMILA NAVARRO 0 → 52.703 en los dos montos. Cada
+diferencia es exactamente su traspaso. Quedó su fila en `audit_log`. **De 147 cargas,
+cuadran 144.**
+
+**Las 3 que faltan esperan a Daniel** porque su valor guardado no sale de ningún ítem:
+
+| Carga | Hoy | Lo que dicen sus ítems |
+|---|---:|---:|
+| RENDICION CAJA CHICA N°18 FD | 12.470 | 291.180 |
+| RENDICION CAJA CHICA N°1 ESTEBAN VARAS | 393.292 | 171.592 |
+| Rendicion N°6 Claudia Lobos (aprobado) | 4.000 | 38.080 |
+
+La de Claudia **no es un error**: 4.000 es lo que queda pendiente de reembolsarle (rindió
+38.080 y se le pagaron 34.080). Pero `approved_amount` no significa eso, y `reimbursed_amount`
+está vacío: **cualquier recálculo sobre esa rendición pisa el 4.000 con 38.080 y se pierde**.
+Lo correcto sería aprobado 38.080 + reembolsado 34.080, que da los mismos 4.000 pendientes
+y sobrevive al recálculo.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1534,5 +1580,8 @@ una columna `NOT NULL`.
 | Un encabezado de plantilla que el lector de esa misma plantilla no reconoce | «N° de Cuenta»: el `°` no es un acento, así que `\p{Diacritic}` no lo saca y la columna se ignora EN SILENCIO. 58 de 61 personas quedaron con banco y sin número de cuenta | La prueba que lo impide es `CABECERAS.filter(h => mapHeader(h) === null)` igual a `[]`: lo que la app hace descargar tiene que poder leerlo la app. Y el normalizador saca también `° º . # :` y los paréntesis |
 | Guardar encima de una vista compartida como comportamiento por omisión | Las vistas son de la organización: si tocar un chip la modificara, alguien que solo estaba revisando cambiaría lo que ven todos los demás | Tocar un chip NUNCA modifica la vista. Aparece la línea «cambiaste el filtro sobre la vista X» con «Guardar como vista» y «Descartar»; guardar encima es una acción aparte |
 | Recalcular el total de una carga histórica con `calculateReportTotal` | Suma **todos** los `amount_clp` sin mirar `item_type`, pero una carga se crea con `total_amount` = solo gastos. Así, borrar un ítem absorbía los adelantos al total, y editar un monto no recalculaba nada: tres cargas desviadas en producción, una por $278.710 | `totalesDeCargaHistorica` de `src/lib/movimientos-historicos.ts`, que devuelve total **y** aprobado juntos para que un recálculo no arregle uno y deje el otro viejo. Va con la llave de servicio: la 033 protege `approved_amount` |
+| Excluir los traspasos de un total «porque no son gastos» | Un traspaso deja un ítem en los documentos de las DOS partes con el mismo monto positivo. Del lado que paga es plata que salió, igual que un gasto; del lado que recibe es financiamiento, igual que un adelanto. Excluirlo de los dos le bajaba el total a la caja que pagó; incluirlo en los dos contaría la misma plata dos veces | La dirección sale de `fund_transfers.payer_report_id`, como `is_transfer_payer` en el export a Defontana. Y **sin el dato, no suma**: un callsite que se olvide de resolverlo deja el total como estaba, que es el error barato |
+| Filtrar los traspasos por `status` para el monto aprobado | A un traspaso no lo aprueba nadie: `createFundTransfer` ni escribe `status`, así que los 8 de producción están en el `pending` por omisión de la columna. Filtrarlos dejaba fuera del aprobado plata que salió de la caja con total certeza | Un traspaso pagado cuenta en el aprobado mire lo que mire su estado. Un gasto pendiente sí queda afuera: la distinción tiene su prueba |
+| Correr un ensayo con `BEGIN` y olvidar el `ROLLBACK` | `execute_sql` del MCP **no deja la transacción aplicada**: sin un `commit;` explícito, los datos quedan intactos (comprobado el 2026-10-20 releyendo las tres filas después del ensayo, que seguían como antes). Pero eso se verifica, no se supone | Después de cualquier ensayo sobre producción, **volver a leer las filas** en una llamada aparte antes de seguir. Y para aplicar de verdad, `commit;` explícito más un `select` final que muestre el antes y el después |
 | Agregar un ítem a una carga contabilizada desde `/admin/reports` y esperar que el panel lo ofrezca | Esa pantalla marca la cabecera y no los ítems, y el panel por tipo trata ese estado como «todo exportado» (`legacyHeaderOnly` → `pending = []`): el ítem nuevo nace pendiente y queda **invisible**, sin error ni aviso. Eran 27 de 145 cargas el 2026-10-19 | Sembrar la marca de la cabecera en los ítems existentes **antes** de insertar, como ya hacía `revertHistoricalFundDefontana`. La condición está en `necesitaSiembra` |
 | Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |
