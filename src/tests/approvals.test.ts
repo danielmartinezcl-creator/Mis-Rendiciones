@@ -83,13 +83,36 @@ describe('computeApprovedAmount', () => {
     expect(computeApprovedAmount(items)).toBe(4000)
   })
 
-  it('subtracts approved return items (employee returns money)', () => {
+  /* La devolución SUMA: es plata que la persona ya entregó de vuelta, así que deja
+     de tenerla. Hasta el 2026-10-20 restaba, y el ciclo completo de abajo —un caso
+     saldado— devolvía −80.000. Medido entonces sobre las 155 rendiciones de
+     producción: 24 cambian de monto y 9 cruzan el cero pasando a estar por pagar.
+     Importa porque `estadoTrasDecisionReporte` manda al banco solo si el monto es
+     mayor que cero: hundido de más, la rendición queda en `approved` y nadie paga. */
+  it('el ciclo completo cierra en cero: recibe 100.000, gasta 60.000, devuelve 40.000', () => {
     const items = [
-      { status: 'approved', amount_clp: 50000, item_type: 'expense' },
-      { status: 'approved', amount_clp: 10000, item_type: 'return' },
+      { status: 'approved', amount_clp: 100000, item_type: 'advance' },
+      { status: 'approved', amount_clp:  60000, item_type: 'expense' },
+      { status: 'approved', amount_clp:  40000, item_type: 'return'  },
     ]
-    // expense 50000, return 10000 → net owed = 40000
-    expect(computeApprovedAmount(items)).toBe(40000)
+    expect(computeApprovedAmount(items)).toBe(0)
+  })
+
+  it('sin devolver, lo que sobra del adelanto queda como deuda de la persona', () => {
+    const items = [
+      { status: 'approved', amount_clp: 100000, item_type: 'advance' },
+      { status: 'approved', amount_clp:  60000, item_type: 'expense' },
+    ]
+    expect(computeApprovedAmount(items)).toBe(-40000)
+  })
+
+  it('una devolución parcial deja el resto como deuda de la persona', () => {
+    const items = [
+      { status: 'approved', amount_clp: 100000, item_type: 'advance' },
+      { status: 'approved', amount_clp:  60000, item_type: 'expense' },
+      { status: 'approved', amount_clp:  15000, item_type: 'return'  },
+    ]
+    expect(computeApprovedAmount(items)).toBe(-25000)
   })
 
   it('ignores transfer items (internal movement)', () => {

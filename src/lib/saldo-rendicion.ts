@@ -56,11 +56,11 @@
  * preferencia, se midió: de las 24 filas con devoluciones, restándola quedan 21 en
  * cero y sumándola, 0.
  *
- * ⚠️ **`computeApprovedAmount` la resta igual que un adelanto** (`approval-helpers.ts`),
- * o sea con el signo invertido respecto de esto. En un caso de adelanto 100.000,
- * gastos 60.000 y devolución 40.000 —saldado— esa función devuelve −80.000. No se
- * corrigió acá porque gobierna el monto a pagar del flujo vivo y merece su propia
- * revisión; hoy no se ejercita porque las 155 rendiciones son históricas.
+ * `computeApprovedAmount` (`approval-helpers.ts`) la restaba igual que un adelanto, o
+ * sea con el signo invertido respecto de esto. **Corregido el 2026-10-20**, medido por
+ * su propia vía: 24 rendiciones cambian de monto y 9 cruzan el cero pasando a estar
+ * por pagar. Las dos funciones coinciden en el signo y conviven a propósito: esta
+ * además mira `reimbursed_amount` y los traspasos, que allá no hacen falta.
  */
 
 export type EstadoSaldo = 'saldado' | 'por-reembolsar' | 'por-devolver'
@@ -146,6 +146,28 @@ export function saldoDeRendicion(
     dobleRegistro: recibidoItems !== 0 && recibidoCaratula !== 0,
   }
 }
+
+/**
+ * ## Caja chica tiene su propio cuadre, y está bien
+ *
+ * Esto NO se usa en `/petty-cash`, y la razón vale escribirla para que nadie vuelva a
+ * intentarlo (se intentó el 2026-10-20 y se revirtió).
+ *
+ * Esa pantalla ya muestra «Cuadra», «Pendiente de rendir» y «Reembolsar al empleado»,
+ * y los calcula **por FONDO**, no por documento: un fondo tiene su adelanto en un
+ * documento y sus gastos en otro, así que el documento suelto casi nunca cuadra. Medido
+ * sobre las 117 cargas históricas de caja chica: por documento cuadran **15 de 117**;
+ * agrupadas por fondo, **47 de 53**. Poner un distintivo por documento habría puesto
+ * 102 avisos de un problema que no existe.
+ *
+ * Su fórmula es `adelantos + recibidos − gastos − devoluciones − pagados`, que es
+ * exactamente `−pendiente` de acá, **con el mismo signo de devolución**. Son la misma
+ * regla escrita dos veces, lo que valida esta por una vía independiente.
+ *
+ * Una diferencia queda en pie, sin decidir: aquella **no mira `status`** y suma todos
+ * los ítems, y hay 7 cargas de caja chica con ítems sin aprobar. Unificarlas movería
+ * los números de esas 7 en producción, así que es decisión de Daniel, no de refactor.
+ */
 
 /** El texto del distintivo. Acá y no en el componente para que las dos pantallas que
  *  lo muestran —`/admin/reports` y `/admin/carga-historica`— no puedan divergir: el

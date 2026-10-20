@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **920 tests Vitest en 55 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **922 tests Vitest en 55 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -821,13 +821,14 @@ aprobado 38.080 + `reimbursed_amount` 34.080: los mismos 4.000 pendientes, pero 
 el recálculo y pisaba el 4.000 con 38.080.
 
 **Es el primer reembolso PARCIAL de la base**: las otras 6 cargas con `reimbursed_amount`
-están pagadas al 100 % y en estado `reimbursed`. La pantalla ya sabe mostrarlo —
-`/admin/reports` dibuja «↓ Pendiente por reembolsar $4.000» en rojo cuando lo reembolsado
-es menor que lo aprobado— **pero ese distintivo solo aparece con estado `reimbursed`**, y
-esta quedó en `approved`, que es lo cierto: aprobada y pagada en parte. Para que el aviso
-salga habría que marcarla `reimbursed`, y eso pide una `reimbursed_at` que nadie sabe: en
-las otras seis esa fecha es **cuándo se registró en la app**, no cuándo se pagó. Quedó sin
-inventar.
+están pagadas al 100 % y en estado `reimbursed`.
+
+> **Esta limitación ya NO existe** (resuelta ese mismo día — ver «Saldo pendiente en la
+> carátula»). Decía que el aviso solo salía con estado `reimbursed`, y que para verlo
+> habría que marcar la rendición como reembolsada inventando una `reimbursed_at` que
+> nadie sabe. El distintivo nuevo aparece con cualquier estado de `ESTADOS_APROBADOS`,
+> así que **N°6 muestra «Falta reembolsar $4.000» estando en `approved`**, que es lo
+> cierto: aprobada y pagada en parte. No hay que inventar ninguna fecha.
 
 ### ✅ Saldo pendiente en la carátula (2026-10-20)
 
@@ -881,6 +882,36 @@ sus montos reales:
   chicas históricas tienen saldo en 114** —mediana ~200.000— porque su movimiento de
   cierre nunca se cargó; se ven en `/petty-cash`, que **no lleva el distintivo todavía**.
   Ponerlo ahí es decisión de Daniel: mostraría 114 avisos a la vez
+
+**El signo de la devolución en `computeApprovedAmount`, corregido el 2026-10-20.** Esa
+función restaba los `return` igual que los adelantos. El comentario que lo justificaba
+decía que una devolución «reduce lo que la empresa debe reembolsar»: reduce lo que debe
+**la persona**, que en el signo de esa función es lo contrario. Con adelanto 100.000,
+gastos 60.000 y devolución 40.000 —un caso saldado— devolvía −80.000.
+
+No era cosmético: `estadoTrasDecisionReporte` manda a `pending_bank_load` **solo si el
+monto es mayor que cero**, así que un monto hundido de más deja la rendición en
+`approved` y nadie paga. Medido sobre las 155 rendiciones: 24 tienen devoluciones y las
+24 cambian de monto; **9 cruzan el cero y las 9 pasan a estar por pagar**, por $2.895.638.
+No se ejercitaba porque las 155 son cargas históricas —su monto lo calcula
+`totalesDeCargaHistorica`— pero las alcanza por `revertReimbursement`, que recalcula
+`approved_amount` con ella. **No se tocó ningún dato: el cambio es de comportamiento.**
+
+**Caja chica NO lleva este distintivo, y es a propósito** (se intentó el 2026-10-20 y se
+revirtió). `/petty-cash` ya muestra «Cuadra», «Pendiente de rendir» y «Reembolsar al
+empleado», y los calcula **por FONDO, no por documento**: un fondo tiene su adelanto en
+un documento y sus gastos en otro, así que el documento suelto casi nunca cuadra. Medido
+sobre las 117 cargas históricas de caja chica: **por documento cuadran 15 de 117;
+agrupadas por fondo, 47 de 53**. Un distintivo por documento habría puesto 102 avisos de
+un problema que no existe — y la cifra de «114 cajas con saldo» que una sesión informó
+antes de medir por fondo era ese mismo artefacto.
+
+Su fórmula (`adelantos + recibidos − gastos − devoluciones − pagados`) es exactamente
+`−pendiente` de `saldoDeRendicion`, **con el mismo signo de devolución**: son la misma
+regla escrita dos veces, lo que la valida por una vía independiente. Queda una diferencia
+sin decidir: la de caja chica **no mira `status`** y suma todos los ítems, y hay 7 cargas
+con ítems sin aprobar. Unificarlas movería los números de esas 7 en producción, así que
+es decisión de Daniel, no de refactor.
 
 **Fecha corregida en producción el 2026-10-20:** `CAJA CHICA N° 15 FD` (`90e379f8`) tenía
 `submitted_at` y `approved_at` en **24-12-2026**, un año adelante, con su adelanto de
@@ -1693,6 +1724,8 @@ una columna `NOT NULL`.
 | Filtrar los traspasos por `status` para el monto aprobado | A un traspaso no lo aprueba nadie: `createFundTransfer` ni escribe `status`, así que los 8 de producción están en el `pending` por omisión de la columna. Filtrarlos dejaba fuera del aprobado plata que salió de la caja con total certeza | Un traspaso pagado cuenta en el aprobado mire lo que mire su estado. Un gasto pendiente sí queda afuera: la distinción tiene su prueba |
 | Correr un ensayo con `BEGIN` y olvidar el `ROLLBACK` | `execute_sql` del MCP **no deja la transacción aplicada**: sin un `commit;` explícito, los datos quedan intactos (comprobado el 2026-10-20 releyendo las tres filas después del ensayo, que seguían como antes). Pero eso se verifica, no se supone | Después de cualquier ensayo sobre producción, **volver a leer las filas** en una llamada aparte antes de seguir. Y para aplicar de verdad, `commit;` explícito más un `select` final que muestre el antes y el después |
 | Agregar un ítem a una carga contabilizada desde `/admin/reports` y esperar que el panel lo ofrezca | Esa pantalla marca la cabecera y no los ítems, y el panel por tipo trata ese estado como «todo exportado» (`legacyHeaderOnly` → `pending = []`): el ítem nuevo nace pendiente y queda **invisible**, sin error ni aviso. Eran 27 de 145 cargas el 2026-10-19 | Sembrar la marca de la cabecera en los ítems existentes **antes** de insertar, como ya hacía `revertHistoricalFundDefontana`. La condición está en `necesitaSiembra` |
+| Medir el cuadre de una caja chica POR DOCUMENTO | Un fondo tiene su adelanto en un documento y sus gastos en otro: el documento suelto casi nunca cuadra. Medido el 2026-10-20 sobre las 117 cargas históricas: por documento cuadran **15 de 117**; agrupadas por fondo, **47 de 53**. Sobre esa medición equivocada se informó que «114 cajas tienen saldo» y se agregó un distintivo que habría puesto 102 avisos falsos | Agrupar por `fund_number` antes de juzgar el cuadre, como ya hace `/petty-cash`. Y antes de agregar un indicador, **mirar si la pantalla ya tiene el suyo**: esa lo tenía, mejor hecho |
+| Restar la devolución igual que el adelanto | Una devolución es plata que la persona YA entregó de vuelta: reduce lo que debe ELLA, no lo que debe la empresa. `computeApprovedAmount` la restaba hasta el 2026-10-20 y un ciclo saldado (adelanto 100.000, gastos 60.000, devolución 40.000) daba −80.000. Como `estadoTrasDecisionReporte` manda al banco solo si el monto es mayor que cero, la rendición quedaba en `approved` y nadie pagaba: 9 de 24 cruzan el cero, por $2.895.638 | La devolución **suma**. Las tres fórmulas de la app coinciden en esto (`saldoDeRendicion`, el cuadre por fondo de `/petty-cash` y ahora `computeApprovedAmount`); si una se toca, mirar las otras dos |
 | Sumar las dos vías por las que está anotado el mismo pago | El reembolso al empleado figura como ítem `advance`, como `reimbursed_amount` en la cabecera, o **las dos a la vez**, y nada dice cuál se usó. Sumarlas cuenta la plata dos veces: así el distintivo viejo informaba «Exceso de reembolso $30.080» en una rendición a la que faltaba pagarle $4.000 | `max(vía de los ítems, vía de la cabecera)`, nunca la suma — `saldoDeRendicion`. Medido en las 155 rendiciones: 59 quedan en cero con `max()` y 27 sumando. Es el mismo error que «sumar adelantos y gastos en un KPI de total» |
 | Leer `approved_amount` como si fuera el neto | Lo es en **1 de 155** filas. En las otras 149 es la suma de los gastos aprobados: `commitHistoricalImport` lo escribe así, y solo `revertReimbursement` lo recalcula con `computeApprovedAmount`. Una columna que cambia de significado según la historia de su fila no puede sostener una comparación | Calcular de los ítems. Antes de comparar contra una columna de cabecera, **consultar qué significa hoy en los datos reales**, no qué dice su nombre |
 | Mostrar un distintivo solo cuando alguien marcó el documento | El de cuadre exigía `status = 'reimbursed'`, así que las 115 rendiciones con saldo **sin** esa marca no mostraban nada: justo las que hay que revisar. Un indicador que depende de que alguien se haya acordado de marcar no informa de lo que falta | Mostrarlo en cuanto el documento está decidido (`ESTADOS_APROBADOS`) y calcularlo de los datos, no de la marca |
