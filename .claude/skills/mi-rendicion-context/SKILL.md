@@ -804,21 +804,30 @@ fuera del aprobado — la distinción tiene su prueba al lado.
 cargas a las que les faltaba el traspaso que pagan — N°175 192.680 → 220.820, N°177
 407.887 → 429.479, CAJA CHICA N°2 CAMILA NAVARRO 0 → 52.703 en los dos montos. Cada
 diferencia es exactamente su traspaso. Quedó su fila en `audit_log`. **De 147 cargas,
-cuadran 144.**
+cuadran 145.**
 
-**Las 3 que faltan esperan a Daniel** porque su valor guardado no sale de ningún ítem:
+**Las 2 que faltan esperan a Daniel** porque su valor guardado no sale de ningún ítem:
 
 | Carga | Hoy | Lo que dicen sus ítems |
 |---|---:|---:|
 | RENDICION CAJA CHICA N°18 FD | 12.470 | 291.180 |
 | RENDICION CAJA CHICA N°1 ESTEBAN VARAS | 393.292 | 171.592 |
-| Rendicion N°6 Claudia Lobos (aprobado) | 4.000 | 38.080 |
 
-La de Claudia **no es un error**: 4.000 es lo que queda pendiente de reembolsarle (rindió
-38.080 y se le pagaron 34.080). Pero `approved_amount` no significa eso, y `reimbursed_amount`
-está vacío: **cualquier recálculo sobre esa rendición pisa el 4.000 con 38.080 y se pierde**.
-Lo correcto sería aprobado 38.080 + reembolsado 34.080, que da los mismos 4.000 pendientes
-y sobrevive al recálculo.
+**«Rendicion N°6 Claudia Lobos» también se corrigió** (2026-10-20, autorizado por Daniel).
+No era un error de cálculo sino otro significado: `approved_amount` guardaba **4.000**, que
+es lo que quedaba PENDIENTE de reembolsarle — rindió 38.080 y se le pagaron 34.080. Pasó a
+aprobado 38.080 + `reimbursed_amount` 34.080: los mismos 4.000 pendientes, pero ahora
+**derivables y a salvo**. Con el valor viejo, cualquier edición en esa rendición disparaba
+el recálculo y pisaba el 4.000 con 38.080.
+
+**Es el primer reembolso PARCIAL de la base**: las otras 6 cargas con `reimbursed_amount`
+están pagadas al 100 % y en estado `reimbursed`. La pantalla ya sabe mostrarlo —
+`/admin/reports` dibuja «↓ Pendiente por reembolsar $4.000» en rojo cuando lo reembolsado
+es menor que lo aprobado— **pero ese distintivo solo aparece con estado `reimbursed`**, y
+esta quedó en `approved`, que es lo cierto: aprobada y pagada en parte. Para que el aviso
+salga habría que marcarla `reimbursed`, y eso pide una `reimbursed_at` que nadie sabe: en
+las otras seis esa fecha es **cuándo se registró en la app**, no cuándo se pagó. Quedó sin
+inventar.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
