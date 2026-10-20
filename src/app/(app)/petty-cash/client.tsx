@@ -13,7 +13,8 @@ import { BarraFiltros } from '@/components/filtros/BarraFiltros'
 import type { Dimension } from '@/lib/filtros/dimensiones'
 import { aFiltro, aValores, dimensionDocumento } from '@/lib/filtros/adaptador-documentos'
 import {
-  aplicarFiltro, contarPorCategoria, hayFiltro, ETIQUETAS_ESTADO, FILTRO_VACIO, ORDEN_FAMILIAS, SIN_PROYECTO,
+  aplicarFiltro, cargaHistoricaFiltrable, contarPorCategoria, hayFiltro,
+  ETIQUETAS_ESTADO, FILTRO_VACIO, ORDEN_FAMILIAS, SIN_PROYECTO,
   type Filtro, type OpcionesFiltro,
 } from '@/lib/filtro-documentos'
 import { depurarFiltro } from '@/lib/filtro-url'
@@ -41,12 +42,20 @@ export function PettyCashClient({
   filtroInicial,
   hoy,
 }: Props) {
-  // Empleados para el chip: los beneficiarios de los fondos que ve
+  /* Empleados para el chip: los de los fondos vivos Y los de la carga
+     histórica.
+
+     Salía solo de `initialFunds`, y como el admin no es beneficiario de ningún
+     fondo, el chip quedaba en «Sin resultados»: no se podía filtrar por
+     empleado en una pantalla con 116 cargas históricas de 20 personas. Lo que
+     se puede elegir tiene que salir de lo que la pantalla PUEDE mostrar, no de
+     una sola de sus dos listas. */
   const empleadosFondos = useMemo(() => {
     const m = new Map<string, string>()
     for (const f of initialFunds) m.set(f.employee_id, f.employee_name)
+    for (const h of initialHistoricalImports) m.set(h.submitter_id, h.submitter_name)
     return [...m].map(([id, etiqueta]) => ({ id, etiqueta })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
-  }, [initialFunds])
+  }, [initialFunds, initialHistoricalImports])
 
   const filtroDepurado = useMemo(() => depurarFiltro(filtroInicial, {
     proyectos:  opciones.proyectos.map(p => p.id),
@@ -105,6 +114,16 @@ export function PettyCashClient({
     // El empleado ve solo sus fondos: filtrar por empleado es de quien administra
     ...(isManager ? [dimensionDocumento('empleados', empleadosFondos)] : []),
   ]
+  /* La carga histórica pasa por el MISMO `aplicarFiltro` que los fondos vivos,
+     mapeada con `cargaHistoricaFiltrable`. Hasta el 2026-10-20 se dibujaba con
+     la lista cruda —ningún chip la tocaba— mientras la exportación sí la
+     filtraba: con el mismo filtro puesto, la pantalla y el Excel decían cosas
+     distintas. Reusar la función es lo que impide que vuelvan a separarse. */
+  const historicasVisibles = useMemo(
+    () => aplicarFiltro(historicalImports.map(cargaHistoricaFiltrable), filtro, hoy)
+      .visibles.map(v => v.doc),
+    [historicalImports, filtro, hoy])
+
   const coincidencia = (fundId: string) => {
     if (!filtro.categorias.length) return null
     const v = resultado.visibles.find(x => x.doc.id === fundId)
@@ -243,7 +262,8 @@ export function PettyCashClient({
       {/* ── Carga histórica ────────────────────────────────────────────────────── */}
       {historicalImports.length > 0 && (
         <HistoricalSection
-          imports={historicalImports}
+          imports={historicasVisibles}
+          totalSinFiltro={historicalImports.length}
           isManager={isManager}
           movingHistId={state.movingHistId}
           deletingHistId={state.deletingHistId}

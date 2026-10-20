@@ -15,6 +15,8 @@ import { useDialogos } from '@/components/ui/Dialogos'
 
 export interface HistoricalSectionProps {
   imports:                    HistoricalImport[]
+  /** Cuántas hay en total, para decir «N de M» cuando el filtro esconde algunas. */
+  totalSinFiltro:             number
   isManager:                  boolean
   movingHistId:               string | null
   deletingHistId:             string | null
@@ -322,7 +324,7 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
 
 // ── HistoricalSection ─────────────────────────────────────────────────────────
 
-export function HistoricalSection({ imports, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onRevertContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
+export function HistoricalSection({ imports, totalSinFiltro, isManager, movingHistId, deletingHistId, onMove, onDelete, onExportDefontana, onConfirmContabilizado, onRevertContabilizado, onItemSaved, onItemDeleted, onTitleUpdated, onTransfer, onEditLinkedTransfer, onDeleteLinkedTransfer }: HistoricalSectionProps) {
   const { avisar } = useDialogos()
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   /* La sección entera arranca plegada. Son 76 cargas importadas: 2.390 px de
@@ -462,7 +464,13 @@ export function HistoricalSection({ imports, isManager, movingHistId, deletingHi
           className="flex items-center gap-2 text-left"
         >
           <span className="section-title">Carga histórica</span>
-          <span className="text-xs tor-on-gradient-soft">({imports.length})</span>
+          {/* Con filtro puesto, «N de M»: plegar o filtrar no puede esconder
+              que hay algo más detrás. */}
+          <span className="text-xs tor-on-gradient-soft">
+            ({imports.length < totalSinFiltro
+              ? `${imports.length} de ${totalSinFiltro}`
+              : imports.length})
+          </span>
           {abierto ? <ChevronDown size={13} className="text-white/60" /> : <ChevronRight size={13} className="text-white/60" />}
         </button>
 

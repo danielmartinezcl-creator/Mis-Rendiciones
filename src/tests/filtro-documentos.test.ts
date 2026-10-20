@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   aplicarFiltro, rangoDeFecha, contarPorCategoria, hayFiltro, esGasto, fechaEnChile,
-  documentoDeRendicion, documentoDeFondo, historicaEntraEnExportacion,
+  documentoDeRendicion, documentoDeFondo, historicaEntraEnExportacion, cargaHistoricaFiltrable,
   FILTRO_VACIO, SIN_PROYECTO,
   type DocumentoFiltrable, type Filtro, type GastoFiltrable,
 } from '@/lib/filtro-documentos'
@@ -189,5 +189,70 @@ describe('desde las filas de la base', () => {
     expect(d.beneficiarioId).toBe('beto')
     expect(d.familia).toBe('en-curso')
     expect(d.gastos[0].rechazado).toBe(false)
+  })
+})
+
+/* Daniel, 2026-10-20: «si ingreso a cajas chicas y quiero filtrar por empleado,
+   no me filtra la carga histórica». No la filtraba ningún chip: la sección se
+   dibujaba con la lista cruda mientras la exportación SÍ filtraba, así que la
+   pantalla y el Excel se contradecían con el mismo filtro puesto. */
+describe('cargaHistoricaFiltrable', () => {
+  const carga = (over: Partial<Parameters<typeof cargaHistoricaFiltrable>[0]> = {}) =>
+    cargaHistoricaFiltrable({
+      id: 'h1', submitter_id: 'katherine', created_at: '2026-08-04T12:00:00Z',
+      items: [
+        { item_type: 'expense', category_id: 'combustible', date: '2026-08-02', amount_clp: 10_000 },
+        { item_type: 'advance', category_id: null,          date: '2026-08-01', amount_clp: 200_000 },
+      ],
+      ...over,
+    })
+  const ids = (r: { visibles: { doc: { id: string } }[] }) => r.visibles.map(v => v.doc.id)
+  const filtro = (o: Partial<Filtro> = {}): Filtro => ({ ...FILTRO_VACIO, ...o })
+  const HOY = '2026-10-20'
+
+  it('el empleado filtra — que es lo que faltaba', () => {
+    const docs = [carga(), carga({ id: 'h2', submitter_id: 'esteban' })]
+    expect(ids(aplicarFiltro(docs, filtro({ empleados: ['katherine'] }), HOY))).toEqual(['h1'])
+  })
+
+  /* El adelanto NO es un gasto: contarlo sumaría dos veces la misma plata, el
+     mismo criterio que el total de la carga. */
+  it('solo los gastos cuentan, no los adelantos', () => {
+    const r = aplicarFiltro([carga()], FILTRO_VACIO, HOY)
+    expect(r.visibles[0].gastos).toHaveLength(1)
+    expect(r.totalClp).toBe(10_000)
+  })
+
+  /* Las dos reglas que ya tenía la exportación en `historicaEntraEnExportacion`,
+     ahora por construcción: una carga no tiene proyecto y está liquidada. */
+  it('entra con «Sin proyecto» y sale con un proyecto concreto', () => {
+    expect(ids(aplicarFiltro([carga()], filtro({ proyectos: [SIN_PROYECTO] }), HOY))).toEqual(['h1'])
+    expect(ids(aplicarFiltro([carga()], filtro({ proyectos: ['obra-412'] }), HOY))).toEqual([])
+  })
+
+  it('entra con el estado «resuelto» y sale con cualquier otro', () => {
+    expect(ids(aplicarFiltro([carga()], filtro({ estados: ['resuelto'] }), HOY))).toEqual(['h1'])
+    expect(ids(aplicarFiltro([carga()], filtro({ estados: ['en-curso'] }), HOY))).toEqual([])
+  })
+
+  /* La fecha es la del GASTO, no la de la carga: se importó el 04-08 pero su
+     gasto es del 02-08. */
+  it('la fecha mira el gasto, no la carga', () => {
+    const f = filtro({ fecha: 'elegir', desde: '2026-08-01', hasta: '2026-08-03' })
+    expect(ids(aplicarFiltro([carga()], f, HOY))).toEqual(['h1'])
+    const fuera = filtro({ fecha: 'elegir', desde: '2026-09-01', hasta: '2026-09-30' })
+    expect(ids(aplicarFiltro([carga()], fuera, HOY))).toEqual([])
+  })
+
+  /* Categoría y fecha las tiene que cumplir el MISMO gasto, igual que en los
+     fondos vivos: combustible de agosto y comida de septiembre no es
+     «combustible de septiembre». */
+  it('categoría y fecha se cumplen en el mismo gasto', () => {
+    const dos = carga({ items: [
+      { item_type: 'expense', category_id: 'combustible', date: '2026-08-02', amount_clp: 10_000 },
+      { item_type: 'expense', category_id: 'comida',      date: '2026-09-15', amount_clp: 20_000 },
+    ] })
+    const f = filtro({ categorias: ['combustible'], fecha: 'elegir', desde: '2026-09-01', hasta: '2026-09-30' })
+    expect(ids(aplicarFiltro([dos], f, HOY))).toEqual([])
   })
 })

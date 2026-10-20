@@ -249,3 +249,50 @@ export interface RendicionFiltrable extends DocumentoFiltrable {
   reimbursed_at:     string | null
   payment_reference: string | null
 }
+
+/**
+ * Una carga histórica de caja chica, vista por el filtro.
+ *
+ * Hasta el 2026-10-20 la sección de carga histórica de `/petty-cash` se
+ * dibujaba con la lista CRUDA: ningún chip la tocaba. Y la exportación sí la
+ * filtraba, así que con el mismo filtro puesto la pantalla y el Excel decían
+ * cosas distintas — y el Excel era el que tenía razón.
+ *
+ * En vez de escribir una regla paralela, la carga se mapea a `DocumentoFiltrable`
+ * y pasa por `aplicarFiltro`, el mismo de los fondos vivos. Así «igual que el
+ * Excel» queda garantizado por construcción y no por dos listas de condiciones
+ * que hay que acordarse de mover juntas:
+ *
+ * - **sin proyecto** → solo entra si no hay chip de proyecto, o si está «Sin
+ *   proyecto». Es lo que decía `historicaEntraEnExportacion`;
+ * - **familia `resuelto`** → una carga histórica ya está liquidada. Ídem;
+ * - **beneficiario** = quien la rindió, que es lo que faltaba;
+ * - **gastos** = solo los ítems `expense`. Un adelanto es la plata que se
+ *   entrega y el gasto es en qué se usó: contar los dos sería contar dos veces
+ *   la misma plata, igual que en el total.
+ *
+ * Los ítems históricos se importan aprobados y la consulta no trae `status`,
+ * así que ninguno cuenta como rechazado.
+ */
+export function cargaHistoricaFiltrable<T extends {
+  id:           string
+  submitter_id: string
+  created_at:   string
+  items:        { item_type: string; category_id: string | null; date: string; amount_clp: number }[]
+}>(h: T): T & DocumentoFiltrable {
+  return {
+    ...h,
+    proyectoId:     null,
+    familia:        'resuelto' as FamiliaEstado,
+    beneficiarioId: h.submitter_id,
+    creadoEl:       h.created_at.slice(0, 10),
+    gastos: h.items
+      .filter(i => i.item_type === 'expense')
+      .map(i => ({
+        categoriaId: i.category_id,
+        fecha:       i.date.slice(0, 10),
+        montoClp:    Number(i.amount_clp ?? 0),
+        rechazado:   false,
+      })),
+  }
+}

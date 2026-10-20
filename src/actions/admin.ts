@@ -2383,7 +2383,11 @@ export async function getHistoricalCajaChicaImports() {
     .eq('is_historical_import', true)
     .eq('historical_type', 'caja_chica')
     .is('deleted_at', null)
-    .order('approved_at', { ascending: true })
+    /* Las más recientes PRIMERO (Daniel, 2026-10-20). Son 145 y se consultan
+       de atrás para adelante: lo último cargado es lo que se viene a mirar.
+       `nullsFirst: false` manda al fondo las que no tienen fecha de rendición,
+       en vez de encabezar la lista con ellas. */
+    .order('approved_at', { ascending: false, nullsFirst: false })
 
   if (!data?.length) return []
 
