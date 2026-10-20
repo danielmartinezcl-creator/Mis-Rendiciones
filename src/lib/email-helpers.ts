@@ -14,7 +14,12 @@
 export const REMITENTE_POR_OMISION = 'noreply@mi-rendicion.com'
 
 export type EstadoCorreo =
-  | { puedeEnviar: true;  desde: string }
+  | {
+      puedeEnviar: true
+      desde: string
+      /** Si tiene elementos, SOLO estas direcciones reciben. Vacío = todas. */
+      soloA: string[]
+    }
   | { puedeEnviar: false; motivo: string }
 
 /** Las claves de Resend son `re_` + token; en la práctica rondan los 36. */
@@ -34,10 +39,49 @@ export interface EntornoCorreo {
   VERCEL_ENV?:     string
   /** Pausa todo correo saliente. Vacío, '0', 'false' o 'no' = sin pausa */
   CORREO_PAUSADO?: string
+  /**
+   * Direcciones separadas por coma que SÍ reciben, aunque la pausa esté puesta.
+   *
+   * Es una excepción a la pausa, no un reemplazo: con la lista cargada, los
+   * correos salen **solo** a esas direcciones y nadie más recibe nada. Para una
+   * prueba en producción con un puñado de personas, que es exactamente lo que
+   * Daniel pidió el 2026-10-20 para la semana del piloto.
+   *
+   * **Falla cerrado por construcción**: borrar la lista no abre nada, porque
+   * `CORREO_PAUSADO` sigue puesto y vuelve la pausa total. Al revés que una
+   * lista de bloqueados, donde olvidarse de un nombre manda el correo.
+   */
+  CORREO_SOLO_A?: string
 }
 
 export function entornoCorreoActual(): EntornoCorreo {
-  return { VERCEL_ENV: process.env.VERCEL_ENV, CORREO_PAUSADO: process.env.CORREO_PAUSADO }
+  return {
+    VERCEL_ENV:     process.env.VERCEL_ENV,
+    CORREO_PAUSADO: process.env.CORREO_PAUSADO,
+    CORREO_SOLO_A:  process.env.CORREO_SOLO_A,
+  }
+}
+
+/** La lista de permitidos, normalizada. Vacía si la variable no está. */
+export function listaPermitidos(valor: string | undefined | null): string[] {
+  return (valor ?? '')
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(s => s.includes('@'))
+}
+
+/**
+ * ¿Esta dirección puede recibir?
+ *
+ * Con la lista vacía, sí: no hay piloto en curso y manda lo que decidió
+ * `revisarConfigCorreo`. Con la lista cargada, solo quien esté en ella.
+ *
+ * Se compara en minúsculas y sin espacios porque la lista la escribe una
+ * persona en el panel de Vercel y el correo viene de `auth.users`.
+ */
+export function puedeRecibir(email: string, soloA: string[]): boolean {
+  if (!soloA.length) return true
+  return soloA.includes(email.trim().toLowerCase())
 }
 
 const VALORES_SIN_PAUSA = new Set(['', '0', 'false', 'no'])
@@ -60,11 +104,16 @@ export function revisarConfigCorreo(
   // 2. Pausa global. Falla cerrado: un valor que no se reconoce como «sin
   //    pausa» pausa. Un error de tipeo al apagarla deja todo callado, que es el
   //    error barato; el caro es el que acaba de pasar.
+  const soloA = listaPermitidos(entorno.CORREO_SOLO_A)
   const pausa = (entorno.CORREO_PAUSADO ?? '').trim().toLowerCase()
-  if (!VALORES_SIN_PAUSA.has(pausa)) {
+  /* La lista de permitidos levanta la pausa, pero SOLO para quien esté en
+     ella: el filtro por destinatario corre después, en los dos embudos de
+     salida. Sin lista, la pausa corta todo como siempre. */
+  if (!VALORES_SIN_PAUSA.has(pausa) && !soloA.length) {
     return {
       puedeEnviar: false,
-      motivo: 'Los correos están pausados (CORREO_PAUSADO). Se reanudan quitando esa variable en Vercel.',
+      motivo: 'Los correos están pausados (CORREO_PAUSADO). Se reanudan quitando esa variable en Vercel, '
+            + 'o se abren para unas pocas direcciones con CORREO_SOLO_A.',
     }
   }
 
@@ -90,5 +139,5 @@ export function revisarConfigCorreo(
   }
 
   const desde = (remitente ?? '').trim() || REMITENTE_POR_OMISION
-  return { puedeEnviar: true, desde }
+  return { puedeEnviar: true, desde, soloA }
 }

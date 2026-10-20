@@ -1,6 +1,6 @@
 import type { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { revisarConfigCorreo } from '@/lib/email-helpers'
+import { revisarConfigCorreo, puedeRecibir } from '@/lib/email-helpers'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { buildAccessEmail, buildAccessLink, type MotivoAcceso } from '@/lib/access-link'
 
@@ -23,8 +23,19 @@ export async function enviarLinkDeAcceso(opts: {
   email:       string
   nombre:      string
   motivo:      MotivoAcceso
+  /** OBLIGATORIO a propósito: es el filtro del piloto (CORREO_SOLO_A), y un
+   *  callsite que se lo olvide mandaría correo a TODOS. Que lo exija el
+   *  compilador y no la disciplina. Vacío = sin filtro. */
+  soloA:       string[]
 }): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
   const { adminClient, resend, desde, appUrl, email, nombre, motivo } = opts
+
+  /* El filtro del piloto, ANTES de generar el link: generar uno invalida el
+     anterior, así que a alguien fuera de la lista ni siquiera hay que
+     tocarle el token. Es uno de los dos únicos embudos de salida. */
+  if (!puedeRecibir(email, opts.soloA)) {
+    return { ok: false, error: `${email} no está en CORREO_SOLO_A: no se le envió nada.` }
+  }
 
   /* `recovery` y no `invite`: los empleados ya tienen cuenta en auth (la crea
      importEmployees), y `invite` falla con usuarios existentes. */
@@ -90,6 +101,7 @@ export async function enviarRecuperacion(email: string): Promise<{ ok: boolean }
     email:  cuenta.email!,
     nombre: perfil.full_name ?? cuenta.email!,
     motivo: 'recuperacion',
+    soloA:  correo.soloA,
   })
   if (!envio.ok) {
     console.error('[recuperación] falló el envío:', envio.error)

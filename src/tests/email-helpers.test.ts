@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { revisarConfigCorreo } from '@/lib/email-helpers'
+import { revisarConfigCorreo, listaPermitidos, puedeRecibir } from '@/lib/email-helpers'
 
 /**
  * Estos tests existen por un defecto concreto: `sendInvitations` mandaba una
@@ -107,6 +107,72 @@ describe('revisarConfigCorreo — el candado', () => {
 
   it('el candado se mira antes que la clave: sin producción, ni siquiera se valida', () => {
     const r = revisarConfigCorreo(undefined, undefined, {})
+    expect(r.puedeEnviar).toBe(false)
+    if (!r.puedeEnviar) expect(r.motivo).toContain('producción')
+  })
+})
+
+/**
+ * La lista de permitidos del piloto (`CORREO_SOLO_A`).
+ *
+ * Daniel, 2026-10-20: quiere probar la app en producción con seis personas
+ * sin que le llegue un correo a los otros 55. La forma segura es una EXCEPCIÓN
+ * a la pausa, no un reemplazo: borrar la lista no abre nada, porque
+ * `CORREO_PAUSADO` sigue puesto y vuelve la pausa total.
+ */
+describe('CORREO_SOLO_A — la lista del piloto', () => {
+  const CLAVE = 're_' + 'a'.repeat(30)
+  const EN_PRODUCCION_Y_PAUSADO = { VERCEL_ENV: 'production', CORREO_PAUSADO: '1' }
+
+  it('sin lista, la pausa sigue cortando todo', () => {
+    const r = revisarConfigCorreo(CLAVE, 'de@empresa.cl', EN_PRODUCCION_Y_PAUSADO)
+    expect(r.puedeEnviar).toBe(false)
+  })
+
+  it('con lista, el correo puede salir y la lista viaja con el permiso', () => {
+    const r = revisarConfigCorreo(CLAVE, 'de@empresa.cl',
+      { ...EN_PRODUCCION_Y_PAUSADO, CORREO_SOLO_A: 'ana@penta.cl, BRUNO@penta.cl' })
+    expect(r.puedeEnviar).toBe(true)
+    if (r.puedeEnviar) expect(r.soloA).toEqual(['ana@penta.cl', 'bruno@penta.cl'])
+  })
+
+  /* Lo que de verdad protege: la lista levanta la pausa, pero solo para
+     quien está en ella. Quien no está no recibe, aunque el envío ya pasó
+     todos los chequeos de configuración. */
+  it('quien no está en la lista no recibe', () => {
+    const soloA = listaPermitidos('ana@penta.cl,bruno@penta.cl')
+    expect(puedeRecibir('ana@penta.cl', soloA)).toBe(true)
+    expect(puedeRecibir('carla@penta.cl', soloA)).toBe(false)
+  })
+
+  /* La lista la escribe una persona en el panel de Vercel y el correo sale de
+     auth.users: mayúsculas y espacios no pueden decidir quién recibe. */
+  it('no le importan mayúsculas ni espacios', () => {
+    const soloA = listaPermitidos('  Ana@Penta.CL , bruno@penta.cl ')
+    expect(puedeRecibir('ANA@penta.cl', soloA)).toBe(true)
+    expect(puedeRecibir(' bruno@penta.cl ', soloA)).toBe(true)
+  })
+
+  /* Sin lista NO filtra: es el caso de «se levantó la pausa de verdad», y ahí
+     el permiso lo da revisarConfigCorreo, no esta función. */
+  it('con la lista vacía no filtra a nadie', () => {
+    expect(puedeRecibir('cualquiera@penta.cl', [])).toBe(true)
+  })
+
+  /* Falla cerrado: basura en la variable no abre nada, porque nada de eso
+     parece una dirección y la lista queda vacía — y entonces manda la pausa. */
+  it('una lista sin direcciones válidas es una lista vacía, y la pausa vuelve', () => {
+    expect(listaPermitidos('si, claro, mandá')).toEqual([])
+    const r = revisarConfigCorreo(CLAVE, 'de@empresa.cl',
+      { ...EN_PRODUCCION_Y_PAUSADO, CORREO_SOLO_A: 'si, claro, mandá' })
+    expect(r.puedeEnviar).toBe(false)
+  })
+
+  /* La lista NO es una puerta trasera para saltarse el entorno: fuera de
+     producción sigue sin salir nada, que es el candado del incidente. */
+  it('fuera de producción la lista no sirve de nada', () => {
+    const r = revisarConfigCorreo(CLAVE, 'de@empresa.cl',
+      { VERCEL_ENV: 'development', CORREO_SOLO_A: 'ana@penta.cl' })
     expect(r.puedeEnviar).toBe(false)
     if (!r.puedeEnviar) expect(r.motivo).toContain('producción')
   })

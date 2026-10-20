@@ -1297,9 +1297,38 @@ una columna `NOT NULL`.
 >   1. **Fuera de producción no sale ningún correo**: `VERCEL_ENV` tiene que ser
 >      `production`. Ni local ni previews (que también apuntan a la base real).
 >   2. **`CORREO_PAUSADO`** corta todo en producción. **Está en `1` desde el
->      2026-10-07, por decisión de Daniel, hasta que la app esté operativa.** Para
->      reanudar: borrar la variable en Vercel y redesplegar. Falla cerrado: un valor que
->      no sea vacío/`0`/`false`/`no` pausa.
+>      2026-10-07, por decisión de Daniel.** Para reanudar del todo: borrar la
+>      variable en Vercel y redesplegar. Falla cerrado: un valor que no sea
+>      vacío/`0`/`false`/`no` pausa.
+>   3. **`CORREO_SOLO_A`** abre la pausa **para unas pocas direcciones** (2026-10-20).
+>      Direcciones separadas por coma: con la lista cargada el correo sale solo a
+>      ellas y **nadie más recibe nada**, ni avisos ni links de contraseña.
+>
+>      **Es una excepción a la pausa, no un reemplazo, y por eso falla cerrado:**
+>      borrar la lista no abre nada, porque `CORREO_PAUSADO` sigue puesto y vuelve
+>      la pausa total. Al revés que una lista de bloqueados, donde olvidarse de un
+>      nombre manda el correo. Y **no sirve fuera de producción**: el candado de
+>      `VERCEL_ENV` va antes y no lo levanta nada.
+>
+>      El filtro vive en los **dos únicos embudos de salida** —`enviarLinkDeAcceso`
+>      para todo link de contraseña y `trySendEmail` para todos los avisos— y no en
+>      cada sitio que manda un correo: un `destinatarios()` nuevo no puede olvidarse
+>      de aplicarlo. En `enviarLinkDeAcceso` el parámetro `soloA` es **obligatorio**
+>      a propósito: un callsite que se lo olvide no compila, en vez de mandarle a
+>      todos. Son 3 los que lo pasan (invitar desde el panel, la planilla y
+>      «olvidé mi contraseña»).
+>
+>      **El piloto de la semana del 2026-10-20**, que pidió Daniel para probar la app
+>      entre seis:
+>
+>      ```
+>      CORREO_SOLO_A=fdiaz@pentaingenieros.cl,fhagar@pentaingenieros.cl,jtorres@pentaingenieros.cl,kcorvalan@pentaingenieros.cl,rhagar@pentaingenieros.cl,danielmartinez.cl@gmail.com
+>      ```
+>
+>      Francisco Díaz · Francisco Hagar · Julián Torres · Katherine Corvalán ·
+>      Roberto Hagar · Daniel. **De los seis, Francisco Díaz es el único sin
+>      invitar y que nunca entró**, así que es el que ejercita el flujo completo
+>      desde cero. Al terminar el piloto se borra la variable y vuelve la pausa.
 >
 >   Los 51 links que seguían vivos se anularon a mano (ensayado con ROLLBACK): hay que
 >   limpiar **dos** lugares, `auth.users.recovery_token` **y** `auth.one_time_tokens`

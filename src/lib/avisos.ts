@@ -6,7 +6,7 @@
 // actor que quisiera — correos con nuestro remitente a quien la persona eligiera.
 // Solo lo importan acciones del servidor (src/actions/), después de escribir.
 
-import { revisarConfigCorreo } from '@/lib/email-helpers'
+import { revisarConfigCorreo, puedeRecibir } from '@/lib/email-helpers'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { destinatarios, type Paso, type Persona } from '@/lib/permisos'
@@ -22,10 +22,17 @@ async function trySendEmail(to: string[], subject: string, html: string) {
   if (!to.length) return
   const correo = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
   if (!correo.puedeEnviar) return
+
+  /* El filtro del piloto. Es uno de los dos únicos embudos de salida, y va
+     acá y no en cada aviso: un `destinatarios()` nuevo no puede olvidarse
+     de aplicarlo. Con la lista vacía no filtra nada. */
+  const permitidos = to.filter(e => puedeRecibir(e, correo.soloA))
+  if (!permitidos.length) return
+
   const resend = new Resend((process.env.RESEND_API_KEY ?? '').trim())
   // Nombre visible en el campo "De:" del correo
   const from = `Mi Rendición <${correo.desde}>`
-  await resend.emails.send({ from, to, subject, html }).catch(() => {
+  await resend.emails.send({ from, to: permitidos, subject, html }).catch(() => {
     // Email no crítico — fallo silencioso
   })
 }

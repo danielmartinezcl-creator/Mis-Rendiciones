@@ -897,6 +897,7 @@ export async function resendInvitation(userId: string): Promise<{ error?: string
     email:  authUser.user.email,
     nombre: perfil?.full_name ?? authUser.user.email,
     motivo: 'invitacion',
+    soloA:  correo.soloA,
   })
   if (!envio.ok) return { error: envio.error }
 

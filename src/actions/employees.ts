@@ -234,7 +234,7 @@ export async function sendInvitations(userIds: string[]): Promise<InviteResult[]
       /* El envío DECIDE el resultado. Antes iba con `.catch(() => {})` y las
          dos líneas de abajo corrían igual, pasara lo que pasara. */
       const envio = await enviarLinkDeAcceso({
-        adminClient, resend, appUrl, email,
+        adminClient, resend, appUrl, email, soloA: correo.soloA,
         desde:  correo.desde,
         nombre: full_name,
         motivo: 'invitacion',
