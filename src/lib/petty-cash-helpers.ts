@@ -190,3 +190,41 @@ export function construirRecorrido(
     return { key: step.key, label: step.label, estado, fecha }
   })
 }
+
+/**
+ * ¿Esta transferencia representa plata que YA se movió?
+ *
+ * La entrega al empleado (`disbursement`) se registra en `confirmBankLoad`, que
+ * es el paso de CARGA: el operador ya ingresó la transferencia en el banco, pero
+ * nadie la autorizó todavía y la plata no salió. La autorización es el paso
+ * siguiente, y es ahí donde el fondo pasa a `funds_sent`.
+ *
+ * Que la fila se cree en la carga es correcto —el dato lo conoce quien carga, y
+ * perderlo para volver a pedirlo sería peor—, pero **tratarla como un hecho
+ * consumado no lo es**, y hasta el 2026-10-20 se hacían las dos cosas:
+ *
+ * - la pantalla del fondo la rotulaba «Fondos enviados al empleado» cuando no se
+ *   habían enviado (Daniel lo reportó: «esto debe pasar una vez que se autoriza
+ *   en el banco, 1 paso después»);
+ * - el panel de Defontana la ofrecía para contabilizar, así que se podía emitir
+ *   un asiento Debe Fondos por Rendir / Haber Banco por una plata que seguía en
+ *   la cuenta de la empresa. Si la autorización se rechazaba o se demoraba, el
+ *   asiento quedaba mal y había que revertirlo.
+ *
+ * Las devoluciones y los reembolsos no pasan por esto: se registran cuando ya
+ * ocurrieron.
+ */
+export function transferenciaFirme(estadoFondo: string, tipo: string): boolean {
+  return !(tipo === 'disbursement' && estadoFondo === 'pending_bank_auth')
+}
+
+/** Cómo se lee una transferencia en la pantalla del fondo. */
+export function rotuloTransferencia(estadoFondo: string, tipo: string): string {
+  if (!transferenciaFirme(estadoFondo, tipo)) {
+    // Ni «enviados» ni nada: se dice en qué paso está, que es lo que falta.
+    return 'Carga registrada · esperando autorización del banco'
+  }
+  if (tipo === 'disbursement')       return 'Fondos enviados al empleado'
+  if (tipo === 'refund_to_employee') return 'Devolución al empleado'
+  return 'Reembolso del empleado'
+}

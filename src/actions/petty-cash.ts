@@ -16,6 +16,7 @@ import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
+import { transferenciaFirme } from '@/lib/petty-cash-helpers'
 import { documentoDeFondo } from '@/lib/filtro-documentos'
 
 async function getProfile() {
@@ -997,7 +998,8 @@ export async function getFundDefontanaBreakdown(fundId: string) {
 
   const [fundRes, itemsRes, transfersRes] = await Promise.all([
     supabase.from('petty_cash_funds')
-      .select('id, name, defontana_export_ref')
+      // `status`: la entrega al empleado no cuenta hasta que el banco la autoriza
+      .select('id, name, defontana_export_ref, status')
       .eq('id', fundId).eq('org_id', profile.org_id).single(),
     supabase.from('petty_cash_items')
       .select('id, amount_clp, status, defontana_exported_at')
@@ -1014,7 +1016,11 @@ export async function getFundDefontanaBreakdown(fundId: string) {
   type TransferRow = { id: string; type: string; amount: number; transferred_at: string; defontana_exported_at: string | null }
 
   const items     = ((itemsRes.data ?? []) as unknown as ItemRow[]).filter(i => i.status === 'approved')
-  const transfers = (transfersRes.data ?? []) as unknown as TransferRow[]
+  /* Solo lo que ya se movió. La entrega al empleado se registra al cargar en el
+     banco, y hasta que la autorizan el panel no debe ofrecerla: contabilizarla
+     emitiría el asiento de una plata que sigue en la cuenta de la empresa. */
+  const transfers = ((transfersRes.data ?? []) as unknown as TransferRow[])
+    .filter(t => transferenciaFirme(fund.status, t.type))
 
   function summarize(pending: { amount: number }[], exported: { amount: number }[]) {
     return {
@@ -1051,7 +1057,10 @@ export async function getFundDefontanaMovementData(fundId: string, movements: Fu
 
   const [fundRes, orgRes, suppliersRes] = await Promise.all([
     supabase.from('petty_cash_funds')
-      .select('id, name, period_start, employee_id')
+      // `status` lo pide `transferenciaFirme`: la entrega al empleado se
+      // registra al cargar en el banco, pero no se contabiliza hasta que la
+      // autorizan — o se emitiría el asiento de una plata que no salió.
+      .select('id, name, period_start, employee_id, status')
       .eq('id', fundId).eq('org_id', profile.org_id).single(),
     supabase.from('organizations').select(DEFONTANA_ORG_COLUMNS).eq('id', profile.org_id).single(),
     supabase.from('defontana_suppliers').select('merchant_name, defontana_account_code').eq('org_id', profile.org_id),
@@ -1120,6 +1129,8 @@ export async function getFundDefontanaMovementData(fundId: string, movements: Fu
     for (const t of (rawTransfers ?? []) as unknown as RawTransfer[]) {
       const movement = TRANSFER_MOVEMENT[t.type]
       if (!movement || !transferMovements.includes(movement)) continue
+      // Lo que todavía no se movió no se contabiliza.
+      if (!transferenciaFirme(fund.status, t.type)) continue
       transferIds.push(t.id)
       mapped.push({
         description:            TRANSFER_LABEL[t.type] ?? 'Movimiento de fondos',

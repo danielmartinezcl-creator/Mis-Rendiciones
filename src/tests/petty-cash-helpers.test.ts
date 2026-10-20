@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { tramoDelFondo, construirRecorrido, TRAMOS_FONDO, calculateFundBalance } from '@/lib/petty-cash-helpers'
+import {
+  tramoDelFondo, construirRecorrido, TRAMOS_FONDO, calculateFundBalance,
+  transferenciaFirme, rotuloTransferencia,
+} from '@/lib/petty-cash-helpers'
 import type { PettyCashItem, PettyCashTransfer } from '@/lib/supabase/types'
 import { FUND_STATUSES, FUND_STEPS } from '@/lib/constants'
 
@@ -218,5 +221,37 @@ describe('calculateFundBalance — quién le debe a quién', () => {
     const b = calculateFundBalance(300_000, [item(89_340)], [transfer('reimbursement_from_employee', 200_000)])
     expect(b.pending).toBe(10_660)
     expect(b.settlementType).toBe('reimbursement_from_employee')
+  })
+})
+
+describe('la entrega al empleado no cuenta hasta que el banco la autoriza', () => {
+  /* La fila se crea en `confirmBankLoad`, que es el paso de CARGA: la
+     transferencia está ingresada en el banco pero nadie la autorizó. Daniel,
+     2026-10-20: «esto debe pasar una vez que se autoriza en el banco». */
+
+  it('en pending_bank_auth la entrega todavía no ocurrió', () => {
+    expect(transferenciaFirme('pending_bank_auth', 'disbursement')).toBe(false)
+    expect(rotuloTransferencia('pending_bank_auth', 'disbursement'))
+      .toBe('Carga registrada · esperando autorización del banco')
+  })
+
+  it('con los fondos enviados sí ocurrió', () => {
+    expect(transferenciaFirme('funds_sent', 'disbursement')).toBe(true)
+    expect(rotuloTransferencia('funds_sent', 'disbursement')).toBe('Fondos enviados al empleado')
+  })
+
+  it('sigue firme en los estados posteriores, que es donde se liquida', () => {
+    for (const estado of ['submitted', 'pending_liquidation_approval', 'pending_liquidation_l2', 'settled']) {
+      expect(transferenciaFirme(estado, 'disbursement')).toBe(true)
+    }
+  })
+
+  it('las devoluciones y los reembolsos se registran cuando ya ocurrieron', () => {
+    // Nunca quedan en espera, ni siquiera en el estado que frena a la entrega.
+    for (const tipo of ['refund_to_employee', 'reimbursement_from_employee']) {
+      expect(transferenciaFirme('pending_bank_auth', tipo)).toBe(true)
+    }
+    expect(rotuloTransferencia('funds_sent', 'refund_to_employee')).toBe('Devolución al empleado')
+    expect(rotuloTransferencia('funds_sent', 'reimbursement_from_employee')).toBe('Reembolso del empleado')
   })
 })

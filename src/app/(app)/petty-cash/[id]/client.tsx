@@ -30,7 +30,7 @@ import { PreviaCadena } from '@/components/ui/PreviaCadena'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import {
   calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation,
-  construirRecorrido,
+  construirRecorrido, transferenciaFirme, rotuloTransferencia,
 } from '@/lib/petty-cash-helpers'
 import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck, Check, X } from 'lucide-react'
 import Link from 'next/link'
@@ -602,10 +602,12 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             {transfers.map(t => (
               <div key={t.id} className="px-4 py-3 flex justify-between items-center">
                 <div>
-                  <p className="text-sm font-medium text-ink-800">
-                    {t.type === 'disbursement' ? '→ Fondos enviados al empleado' :
-                     t.type === 'refund_to_employee' ? '→ Devolución al empleado' :
-                     '← Reembolso del empleado'}
+                  {/* El rótulo depende del estado del fondo: la entrega se
+                      registra al CARGAR en el banco, pero la plata recién sale
+                      cuando se autoriza. Ver `transferenciaFirme`. */}
+                  <p className={`text-sm font-medium ${transferenciaFirme(fund.status, t.type) ? 'text-ink-800' : 'text-warning-700'}`}>
+                    {t.type === 'reimbursement_from_employee' ? '← ' : '→ '}
+                    {rotuloTransferencia(fund.status, t.type)}
                   </p>
                   <p className="text-xs text-ink-400 mt-0.5">
                     {new Date(t.transferred_at + 'T00:00:00').toLocaleDateString('es-CL')}

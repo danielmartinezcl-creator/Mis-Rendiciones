@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **922 tests Vitest en 55 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **928 tests Vitest en 55 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -920,6 +920,56 @@ $200.000 fechado 24-12-2025 y el fondo liquidado el 03-03-2026. Era un dedazo de
 su fila en `audit_log`; el ítem y su asiento de Defontana no se tocaron (el asiento usa la
 fecha del ítem). **Hay cuatro documentos cuyo título contiene «15 FD»**, todos de Francisco
 Díaz: conviene identificarlos por id y no por título.
+
+### ✅ Caja chica en la bandeja, y el paso bancario correcto (2026-10-20)
+
+Tres cosas que pidió Daniel, las tres de caja chica.
+
+**1. Los fondos entran a `/approvals`.** La bandeja mostraba solo rendiciones, así que un
+fondo pendiente no tenía dónde aparecer: había que entrar a «Caja chica» y saber cuál
+mirar. `getPendingFundApprovals()` usa las MISMAS reglas que las rendiciones —`puedeActuar`
+sobre la cadena congelada— porque la bandeja no decide permisos, los muestra.
+
+- Un fondo da **dos vueltas** y son documentos distintos: el fondo (lo que se pide) y su
+  liquidación (lo que se gastó), cada uno con su cadena congelada (`cadena_*` /
+  `liq_cadena_*`). `tipoDeFondo` resuelve cuál leer, igual que `contextoFondo`
+- **Los pasos bancarios quedan fuera**: tienen su pantalla en `/banco`. Los estados salen
+  de `estadosQueEsperanDecision()`, **derivada del mismo mapa** que `pasoSegunEstado` en
+  vez de una lista a mano, con una prueba que exige que todos mapeen a `decidir_l1/l2`
+- Tres consultas, no una por fondo: `contextoFondo` sirve para actuar sobre uno, pero en
+  una lista haría N+1
+- La fila dice qué es (Rendición · Caja chica · Liquidación) y a dónde lleva: la rendición
+  a `/approvals/[id]`, el fondo a `/petty-cash/[id]`, que es donde están sus botones
+
+**2. La entrega al empleado no cuenta hasta que el banco la autoriza** (`transferenciaFirme`).
+`confirmBankLoad` —el paso de CARGA— inserta la transferencia `disbursement`, y hasta hoy
+eso tenía dos efectos equivocados, porque ahí la plata **todavía no salió**:
+
+- la pantalla la rotulaba «Fondos enviados al empleado» (ahora: «Carga registrada ·
+  esperando autorización del banco», en ámbar);
+- **el panel de Defontana la ofrecía para contabilizar**, así que se podía emitir un
+  asiento Debe Fondos por Rendir / Haber Banco por plata que seguía en la cuenta de la
+  empresa. Ese era el daño real
+
+Que la fila se cree en la carga **es correcto** y no se cambió: el dato lo conoce quien
+carga, y volver a pedirlo al autorizar sería peor. Lo que estaba mal era tratarla como un
+hecho consumado. La regla **no toca `authorizeBank`** ni la condición «sin carga registrada
+nadie autoriza», que mira el historial (`bank_load_confirmed`), no la transferencia.
+Ningún dato en riesgo: al aplicarlo no había ningún fondo en `pending_bank_auth`.
+
+**3. Foto y archivo al agregar un gasto de caja chica.** `AddFundItemForm` no tenía dónde
+adjuntar nada, así que un gasto se registraba sin comprobante — y la boleta está en la mano
+justo en ese momento. Ahora lleva el mismo `PhotoUpload` que una rendición: el OCR rellena
+monto, fecha, comercio y documento, y la foto se adjunta al gasto creado. Como en `/quick`,
+**se adjunta DESPUÉS de crear** (recién ahí hay id) y si la subida falla el gasto igual
+queda, con un aviso: perder el gasto por no poder subir la foto sería peor.
+`ItemAttachmentZone` ya permitía adjuntar a un gasto existente; lo que faltaba era al crear.
+
+> **El panel «Contabilidad Defontana» ya estaba restringido a admin** y lo sigue estando
+> (`currentUser.role === 'admin'` en `petty-cash/[id]`). Medido el 2026-10-20: de los 5 del
+> piloto más Daniel, **solo Daniel es admin**, así que ningún empleado lo ve. Lo que sí
+> cambió es que en `pending_bank_auth` ya no tiene nada que ofrecer, y muestra «Todavía no
+> hay movimientos para contabilizar».
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   puedeActuar, destinatarios, destinatariosInformativos, puedeEnviar,
   validarCadena, dependientesDe, suplenteVigente, pasoSegunEstado, tipoDeFondo, enEtapa, cadenaActiva,
-  estadosQueEsperan,
+  estadosQueEsperan, estadosQueEsperanDecision,
   type Persona, type Documento, type Cadena, type EntradaHistorial,
 } from '@/lib/permisos'
 
@@ -235,6 +235,29 @@ describe('pasoSegunEstado y tipoDeFondo', () => {
       .toEqual(['pending_approval', 'pending_approval_l2', 'pending_bank_auth', 'pending_bank_load'])
     expect(estadosQueEsperan('liquidacion').sort())
       .toEqual(['pending_liquidation_approval', 'pending_liquidation_l2', 'submitted'])
+  })
+
+  /* Lo que entra a la bandeja de aprobaciones. Los pasos bancarios quedan
+     fuera: tienen su propia pantalla en `/banco` y a quien aprueba no le
+     corresponden. Si un día aparecen acá, la bandeja empezaría a mostrarle
+     pagos a gente que solo tiene que aprobar. */
+  it('estadosQueEsperanDecision: sin los pasos bancarios', () => {
+    expect(estadosQueEsperanDecision('rendicion').sort())
+      .toEqual(['pending_l2', 'submitted'])
+    expect(estadosQueEsperanDecision('fondo').sort())
+      .toEqual(['pending_approval', 'pending_approval_l2'])
+    expect(estadosQueEsperanDecision('liquidacion').sort())
+      .toEqual(['pending_liquidation_approval', 'pending_liquidation_l2', 'submitted'])
+  })
+
+  it('cada estado de decisión mapea a decidir_l1 o decidir_l2', () => {
+    // La derivación y el mapa no pueden separarse: es lo que hace que agregar
+    // un estado nuevo no exija tocar la bandeja.
+    for (const tipo of ['rendicion', 'fondo', 'liquidacion'] as const) {
+      for (const estado of estadosQueEsperanDecision(tipo)) {
+        expect(pasoSegunEstado(tipo, estado)).toMatch(/^decidir_l[12]$/)
+      }
+    }
   })
 })
 

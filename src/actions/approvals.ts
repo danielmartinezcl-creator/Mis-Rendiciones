@@ -6,7 +6,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { computeReportStatus, computeApprovedAmount } from '@/lib/approval-helpers'
 import { contextoRendicion, exigirPaso, permisoEn, cargarPersonas, type ContextoRendicion } from '@/lib/contexto-permisos'
-import { puedeActuar, pasoSegunEstado, suplenteVigente, cadenaActiva, type Paso, type Documento } from '@/lib/permisos'
+import {
+  puedeActuar, pasoSegunEstado, suplenteVigente, cadenaActiva, tipoDeFondo,
+  estadosQueEsperanDecision, type Paso, type Documento,
+} from '@/lib/permisos'
 import { estadoTrasDecisionReporte, type ResultadoDecision } from '@/lib/flujo'
 import {
   notifySubmitterOfDecision,
@@ -95,6 +98,140 @@ export async function getPendingApprovals() {
       approval_level: r.status === 'pending_l2' ? 2 : 1,
     }]
   })
+}
+
+/**
+ * Los fondos de caja chica que esperan la decisión de quien pregunta.
+ *
+ * La bandeja mostraba solo rendiciones, así que un fondo pendiente no tenía
+ * dónde aparecer: había que entrar a «Caja chica» y saber cuál mirar. Esto lo
+ * cubre con las MISMAS reglas que las rendiciones —`puedeActuar` sobre la cadena
+ * congelada del documento— porque la bandeja no decide permisos, los muestra.
+ *
+ * Un fondo da DOS vueltas por acá, y son documentos distintos: primero el fondo
+ * (lo que se pide) y después su liquidación (lo que se gastó). Cada uno congeló
+ * su propia cadena, así que se lee la que corresponde a la etapa — `tipoDeFondo`
+ * lo resuelve y `contextoFondo` hace lo mismo cuando se actúa.
+ *
+ * Los pasos bancarios quedan fuera a propósito: tienen su pantalla en `/banco`.
+ *
+ * Todo en tres consultas, no una por fondo: `contextoFondo` sirve para actuar
+ * sobre uno, pero llamarlo en un bucle haría N+1 en una pantalla de lista.
+ */
+export async function getPendingFundApprovals() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const admin = createAdminClient()
+  const { data: yoRow } = await admin.from('users').select('org_id').eq('id', user.id).single()
+  if (!yoRow) return []
+
+  /* El cast es la trampa conocida del literal union de Supabase: la lista sale
+     del mapa de pasos, que es `string[]`, y `.in()` exige los literales de la
+     columna. Los valores son los mismos; lo que falta es que TS lo sepa. */
+  const esperan = [
+    ...estadosQueEsperanDecision('fondo'),
+    ...estadosQueEsperanDecision('liquidacion'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any[]
+
+  const [personas, { data }] = await Promise.all([
+    cargarPersonas(admin, yoRow.org_id),
+    admin
+      .from('petty_cash_funds')
+      .select(`
+        id, name, status, amount_requested, amount_approved, employee_id, created_at,
+        cadena_l1_id, cadena_l2_id, cadena_fijada_at,
+        liq_cadena_l1_id, liq_cadena_l2_id, liq_cadena_fijada_at,
+        employee:users!employee_id (
+          full_name, approver_l1_id, approver_l2_id,
+          approver_l1_backup_id, backup_active_from, backup_active_until
+        )
+      `)
+      .eq('org_id', yoRow.org_id)
+      .in('status', esperan)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true }),
+  ])
+
+  const fondos = (data ?? []) as unknown as FondoPendienteRow[]
+  if (!fondos.length) return []
+
+  const yo = personas.find(p => p.id === user.id)
+  if (!yo) return []
+
+  /* El historial de los fondos a la vista, en una sola consulta. `puedeActuar`
+     lo necesita para las reglas que miran quién ya actuó. */
+  const { data: log } = await admin
+    .from('petty_cash_approvals')
+    .select('fund_id, actor_id, action, level')
+    .in('fund_id', fondos.map(f => f.id))
+    .order('created_at', { ascending: true })
+
+  const historialPorFondo: Record<string, { actorId: string; accion: string; nivel: number | null }[]> = {}
+  for (const a of (log ?? []) as unknown as { fund_id: string; actor_id: string; action: string; level: number | null }[]) {
+    (historialPorFondo[a.fund_id] ??= []).push({ actorId: a.actor_id, accion: a.action, nivel: a.level })
+  }
+
+  const hoy = new Date().toISOString().slice(0, 10)
+
+  return fondos.flatMap(f => {
+    const emp  = f.employee
+    const tipo = tipoDeFondo(f.status)
+    const paso = pasoSegunEstado(tipo, f.status)
+    if (!emp || !paso) return []
+
+    // La cadena de la etapa en curso: la del fondo o la de su liquidación.
+    const congelada = tipo === 'liquidacion'
+      ? { l1: f.liq_cadena_l1_id, l2: f.liq_cadena_l2_id, fijadaAt: f.liq_cadena_fijada_at }
+      : { l1: f.cadena_l1_id,     l2: f.cadena_l2_id,     fijadaAt: f.cadena_fijada_at }
+
+    const doc: Documento = {
+      tipo,
+      beneficiarioId: f.employee_id,
+      cadena: cadenaActiva({
+        // Sin cadena congelada manda la ficha: son los documentos anteriores a
+        // la 039, el mismo respaldo que hace `cargarCadena`.
+        l1: congelada.fijadaAt ? congelada.l1 : emp.approver_l1_id,
+        l2: congelada.fijadaAt ? congelada.l2 : emp.approver_l2_id,
+        suplenteL1Vigente: suplenteVigente(
+          emp.approver_l1_backup_id, emp.backup_active_from, emp.backup_active_until, hoy,
+        ),
+      }, personas),
+      historial: historialPorFondo[f.id] ?? [],
+    }
+
+    if (!puedeActuar(yo, paso, doc, personas).ok) return []
+    return [{
+      id:             f.id,
+      name:           f.name,
+      status:         f.status,
+      /* Lo que hay que mirar: en el fondo, lo que se pide; en la liquidación,
+         lo aprobado, que es el techo de lo que se pudo gastar. */
+      amount:         tipo === 'liquidacion' ? (f.amount_approved ?? f.amount_requested) : f.amount_requested,
+      created_at:     f.created_at,
+      employee_name:  emp.full_name,
+      etapa:          tipo,
+      approval_level: paso === 'decidir_l2' ? 2 : 1,
+    }]
+  })
+}
+
+type FondoPendienteRow = {
+  id: string; name: string; status: string
+  amount_requested: number; amount_approved: number | null
+  employee_id: string; created_at: string
+  cadena_l1_id: string | null;     cadena_l2_id: string | null;     cadena_fijada_at: string | null
+  liq_cadena_l1_id: string | null; liq_cadena_l2_id: string | null; liq_cadena_fijada_at: string | null
+  employee: {
+    full_name: string
+    approver_l1_id: string | null
+    approver_l2_id: string | null
+    approver_l1_backup_id: string | null
+    backup_active_from: string | null
+    backup_active_until: string | null
+  } | null
 }
 
 export async function getReportForApproval(reportId: string) {

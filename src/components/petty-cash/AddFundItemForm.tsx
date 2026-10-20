@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { addFundItem } from '@/actions/petty-cash'
-import { checkItemDuplicate } from '@/actions/expenses'
+import { checkItemDuplicate, addPettyCashItemAttachment } from '@/actions/expenses'
+import { PhotoUpload } from '@/components/expenses/PhotoUpload'
+import type { OcrResult } from '@/lib/ocr-helpers'
 import { DOC_TYPES } from '@/lib/constants'
 import { AlertTriangle, X } from 'lucide-react'
 
@@ -29,10 +31,28 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
   const [error, setError]         = useState<string | null>(null)
   const [dupWarning, setDupWarn]  = useState<DuplicateResult>(null)
   const [pending, startTrans]     = useTransition()
+  /** La boleta: entra al OCR y después se adjunta al gasto creado. */
+  const [foto, setFoto]           = useState<File | null>(null)
+  const [avisoAdjunto, setAviso]  = useState<string | null>(null)
 
   function set(k: keyof typeof EMPTY, v: string) {
     setForm(f => ({ ...f, [k]: v }))
     if (k === 'doc_number' || k === 'doc_type' || k === 'supplier_rut') setDupWarn(null)
+  }
+
+  /* Mismo trato que en una rendición: el OCR rellena lo que reconoce y lo demás
+     queda como está. El archivo se guarda aunque el OCR falle — es el respaldo
+     del gasto, no solo la entrada del reconocimiento. */
+  function handleOcrResult(result: OcrResult | null, file: File) {
+    setFoto(file)
+    setAviso(null)
+    if (!result) return
+    if (result.amount)       set('amount', String(result.amount))
+    if (result.date)         set('date', result.date)
+    if (result.merchant)     set('merchant', result.merchant)
+    if (result.doc_type)     set('doc_type', result.doc_type)
+    if (result.doc_number)   set('doc_number', result.doc_number)
+    if (result.supplier_rut) set('supplier_rut', result.supplier_rut)
   }
 
   const isFactura = form.doc_type === 'factura' || form.doc_type === 'factura_exenta'
@@ -60,7 +80,7 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
 
     startTrans(async () => {
       try {
-        await addFundItem(fundId, {
+        const itemId = await addFundItem(fundId, {
           description:  form.description,
           amount,
           currency:     form.currency,
@@ -74,7 +94,27 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
           supplier_rut: form.supplier_rut || null,
           notes:        form.notes || null,
         })
+
+        /* La foto se adjunta DESPUÉS de crear el gasto, porque recién ahí hay un
+           id al cual colgarla. Si la subida falla, el gasto igual quedó
+           registrado: se avisa dónde subirla y no se pierde lo cargado. Perder
+           el gasto por no poder subir la foto sería peor que quedarse sin ella
+           — el mismo criterio que el gasto rápido de `/quick`. */
+        if (foto) {
+          try {
+            await addPettyCashItemAttachment(itemId, foto)
+          } catch {
+            setAviso('El gasto se registró, pero la foto no se pudo adjuntar. Podés subirla desde el detalle del gasto.')
+            setForm(EMPTY)
+            setFoto(null)
+            setDupWarn(null)
+            onDone()
+            return
+          }
+        }
+
         setForm(EMPTY)
+        setFoto(null)
         setDupWarn(null)
         onDone()
       } catch (err) {
@@ -85,6 +125,18 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      {/* La boleta, primero: igual que en una rendición nueva, la foto rellena
+          los campos con el OCR y además queda como respaldo del gasto. Hasta el
+          2026-10-20 este formulario no tenía dónde adjuntar nada, así que un
+          gasto de caja chica se registraba sin comprobante. */}
+      <PhotoUpload onOcrResult={handleOcrResult} disabled={pending} />
+
+      {avisoAdjunto && (
+        <div className="bg-warning-50 border border-warning-200 rounded-item p-3 text-xs text-warning-800">
+          {avisoAdjunto}
+        </div>
+      )}
+
       {/* Descripción */}
       <div>
         <label className="block card-label font-semibold text-ink-600 mb-1">Descripción *</label>

@@ -100,6 +100,22 @@ export function estadosQueEsperan(tipo: TipoDocumento): string[] {
   return Object.keys(PASO_POR_ESTADO[tipo])
 }
 
+/**
+ * Los estados que esperan una DECISIÓN de aprobación, sin los pasos bancarios.
+ *
+ * Es lo que va en la bandeja de aprobaciones: cargar y autorizar un pago tienen
+ * su propia pantalla (`/banco`) y a quien aprueba no le corresponden.
+ *
+ * Se deriva del mismo mapa que usa `pasoSegunEstado`, en vez de repetir la lista
+ * a mano: un estado nuevo entra solo, y uno que cambie de paso deja de aparecer
+ * donde no corresponde.
+ */
+export function estadosQueEsperanDecision(tipo: TipoDocumento): string[] {
+  return Object.entries(PASO_POR_ESTADO[tipo])
+    .filter(([, paso]) => paso === 'decidir_l1' || paso === 'decidir_l2')
+    .map(([estado]) => estado)
+}
+
 const ESTADOS_DE_LIQUIDACION = new Set(['submitted', 'pending_liquidation_approval', 'pending_liquidation_l2', 'settled'])
 
 export function tipoDeFondo(estado: string): 'fondo' | 'liquidacion' {
