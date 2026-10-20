@@ -1285,12 +1285,22 @@ una columna `NOT NULL`.
 >   lo queman. `revisarConfigCorreo` corta antes del bucle si el correo no puede salir.
 >
 >   **⚠️ INCIDENTE 2026-10-07 — esto decía que «en local la recuperación no envía». Era
->   FALSO.** En Vercel, `RESEND_API_KEY` está marcada para *development, preview y
+>   FALSO.** En Vercel, `RESEND_API_KEY` estaba marcada para *development, preview y
 >   production*: «development» es lo que baja a `.env.local`, así que **la clave real de
 >   producción estaba en local**, y el servidor local apunta a la base real. Una prueba
 >   automatizada con la sesión de admin hizo clic por posición en «Invitar sin invitar» y
 >   salieron **52 invitaciones reales**, con la app a medio reconfigurar. El botón no pedía
 >   confirmación para un lote nuevo (solo para reenvíos).
+>
+>   **La raíz se cerró el 2026-10-20: `RESEND_API_KEY` quedó SOLO en production.** Se
+>   cambiaron los destinos sin tocar el valor, así que la clave no se descifró. Desde acá,
+>   `vercel env pull` ya no la baja. **No volver a marcarla fuera de production**: el
+>   candado de `VERCEL_ENV` contiene el daño, pero esto es lo que lo evita.
+>
+>   **Ojo: eso NO limpia las máquinas.** El `.env.local` que ya la tenía la sigue
+>   teniendo —verificado el 2026-10-20 en la de Daniel, 36 caracteres— y sacarla de
+>   Vercel no la borra de ningún disco. Hay que reemplazarla a mano por `placeholder`.
+>   Nada de la app la usa en local: el candado de entorno corta antes.
 >
 >   Desde `764e43f` hay **un candado en `revisarConfigCorreo`**, que es la única puerta —
 >   `trySendEmail` de `avisos.ts` también pasa por ella—:
