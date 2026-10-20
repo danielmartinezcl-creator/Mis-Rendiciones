@@ -13,6 +13,7 @@ import { contextoRendicion, resolverCadenaDeDocumento } from '@/lib/contexto-per
 import { resolverOCrearProyecto } from '@/actions/proyectos'
 import { puedeEnviar } from '@/lib/permisos'
 import { normalizeMerchant, type DuplicateMatch } from '@/lib/duplicate-detection'
+import { totalesDeCargaHistorica } from '@/lib/movimientos-historicos'
 import type { Json } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
 import { validateRut } from '@/lib/validators'
@@ -231,15 +232,33 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
 
   const { data: allItems } = await supabase
     .from('expense_items')
-    .select('amount_clp')
+    .select('amount_clp, item_type, status')
     .eq('report_id', reportId)
     .is('deleted_at', null)
 
-  const total = calculateReportTotal(allItems ?? [])
-  await supabase
-    .from('expense_reports')
-    .update({ total_amount: total })
-    .eq('id', reportId)
+  if (report.is_historical_import) {
+    // El total de una carga histórica es SOLO gastos, como al importarla: un adelanto
+    // es la plata que se entrega y el gasto es en qué se usó. `calculateReportTotal`
+    // suma todo, y por eso borrar un ítem de una carga con adelantos inflaba el total
+    // — medido el 2026-10-19 en «Caja Chica N°180», $8.640 de más.
+    //
+    // Va con la llave de servicio porque la 033 protege `approved_amount`: con la
+    // sesión, el trigger `proteger_estado_rendicion` rechaza el UPDATE.
+    const { total, aprobado } = totalesDeCargaHistorica(
+      (allItems ?? []) as { item_type: string | null; amount_clp: number; status: string | null }[],
+    )
+    const { error: montosError } = await createAdminClient()
+      .from('expense_reports')
+      .update({ total_amount: total, approved_amount: aprobado })
+      .eq('id', reportId)
+    if (montosError) throw new Error(montosError.message)
+  } else {
+    const total = calculateReportTotal(allItems ?? [])
+    await supabase
+      .from('expense_reports')
+      .update({ total_amount: total })
+      .eq('id', reportId)
+  }
 
   // Invalidar análisis IA cacheado — el reporte cambió
   await supabase

@@ -21,6 +21,10 @@ import { erroresDeCadena, camposDeCadena, coherenciaJefeProyecto } from '@/lib/c
 import { normalizarBanco, normalizarTipoCuenta } from '@/lib/bancos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 import { motivoBloqueoPorTraspasos, traspasosDe, traspasosPorDocumento } from '@/lib/papelera'
+import {
+  totalesDeCargaHistorica, necesitaSiembra, erroresDeMovimiento, filaDeMovimiento,
+  motivoNoSeBorra, type MovimientoNuevo,
+} from '@/lib/movimientos-historicos'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -548,8 +552,244 @@ export async function updateHistoricalExpenseItem(itemId: string, patch: {
   const { error } = await adminClient.from('expense_items').update(limpio).eq('id', itemId)
   if (error) throw new Error(error.message)
 
+  // Hasta el 2026-10-19 esta función editaba el monto y NO recalculaba la cabecera, así
+  // que el total quedaba con el valor de la importación. Medido en producción: dos
+  // cargas desviadas, una por $278.710 y otra por $221.700.
+  await recalcularCargaHistorica(adminClient, item.report_id)
+
   revalidatePath('/petty-cash')
   revalidatePath('/admin/carga-historica')
+  revalidatePath('/admin/reports')
+}
+
+/** Reescribe los montos de la cabecera de una carga histórica después de agregar,
+ *  editar o borrar un movimiento.
+ *
+ *  Usa `totalesDeCargaHistorica`, NO `calculateReportTotal`: el total de una carga es
+ *  solo gastos —un adelanto es la plata que se entrega, el gasto es en qué se usó, y
+ *  sumarlos cuenta dos veces la misma plata— igual que al importarla. */
+async function recalcularCargaHistorica(
+  adminClient: ReturnType<typeof createAdminClient>,
+  reportId:    string,
+) {
+  const { data: items } = await adminClient
+    .from('expense_items')
+    .select('item_type, amount_clp, status')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+
+  const { total, aprobado } = totalesDeCargaHistorica(
+    (items ?? []) as { item_type: string | null; amount_clp: number; status: string | null }[],
+  )
+
+  const { error } = await adminClient
+    .from('expense_reports')
+    .update({ total_amount: total, approved_amount: aprobado })
+    .eq('id', reportId)
+  if (error) throw new Error(error.message)
+
+  return { total, aprobado }
+}
+
+/** Los movimientos de una carga histórica, para la pantalla que los edita.
+ *
+ *  `getHistoricalRendicionImports` no los trae —su select es solo de cabeceras— así que
+ *  `/admin/carga-historica` no mostraba ni un ítem. Devuelve además si la carga está en
+ *  estado legacy, que es lo que decide si un movimiento se puede borrar. */
+export async function getMovimientosHistoricos(reportId: string) {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, is_historical_import, defontana_exported_at')
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!report) throw new Error('Carga histórica no encontrada')
+  if (!report.is_historical_import) throw new Error('Esta rendición no es una carga histórica')
+
+  const { data: rawItems } = await supabase
+    .from('expense_items')
+    .select('id, item_type, description, merchant, date, amount_clp, status, category_id, cost_center_id, defontana_exported_at, transfer_id')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+    .order('date', { ascending: true })
+
+  type Fila = {
+    id: string; item_type: string | null; description: string | null; merchant: string | null
+    date: string | null; amount_clp: number; status: string | null
+    category_id: string | null; cost_center_id: string | null
+    defontana_exported_at: string | null; transfer_id: string | null
+  }
+  const items = (rawItems ?? []) as unknown as Fila[]
+  const marcados = items.filter(i => i.defontana_exported_at != null).length
+
+  return {
+    items,
+    cargaLegacy: necesitaSiembra(!!report.defontana_exported_at, marcados),
+  }
+}
+
+/** Agrega un movimiento a una carga histórica YA importada: el adelanto, el reembolso
+ *  al empleado o la devolución que la planilla fuente no traía, y que antes solo se
+ *  podía registrar cargando un documento aparte o rehaciendo la carga completa.
+ *
+ *  El reembolso se guarda como `advance` — es el mismo asiento contable. Ver la
+ *  cabecera de `src/lib/movimientos-historicos.ts`. */
+export async function agregarMovimientoHistorico(reportId: string, mov: MovimientoNuevo) {
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
+
+  const errores = erroresDeMovimiento(mov)
+  if (errores.length) throw new Error(errores.join('. '))
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, is_historical_import, submitter_id, defontana_exported_at')
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!report) throw new Error('Carga histórica no encontrada')
+  if (!report.is_historical_import)
+    throw new Error('Solo se agregan movimientos a cargas históricas: en una rendición viva los gastos los cambia quien la rinde')
+
+  const { data: responsable } = await supabase
+    .from('users').select('full_name').eq('id', report.submitter_id).maybeSingle()
+
+  const adminClient = createAdminClient()
+
+  // Estado "legacy": la carga se contabilizó desde /admin/reports, que marca la cabecera
+  // y no los ítems, y el panel por tipo trata eso como «todo exportado». Sin bajar la
+  // marca a los ítems que ya están, el movimiento nuevo nacería pendiente pero el panel
+  // lo contaría como contabilizado y nunca ofrecería su comprobante. Mismo patrón que
+  // `revertHistoricalFundDefontana`. El 2026-10-19 había 27 cargas en este estado.
+  const { data: previos } = await adminClient
+    .from('expense_items')
+    .select('id, defontana_exported_at')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+
+  const existentes = (previos ?? []) as { id: string; defontana_exported_at: string | null }[]
+  const marcados   = existentes.filter(i => i.defontana_exported_at != null).length
+
+  if (necesitaSiembra(!!report.defontana_exported_at, marcados) && existentes.length) {
+    const { error: siembraError } = await adminClient
+      .from('expense_items')
+      .update({ defontana_exported_at: report.defontana_exported_at })
+      .in('id', existentes.map(i => i.id))
+    if (siembraError) throw new Error(siembraError.message)
+  }
+
+  const fila = filaDeMovimiento(mov, {
+    reportId,
+    orgId,
+    empleado: responsable?.full_name ?? '',
+  })
+
+  const { data: creado, error } = await adminClient
+    .from('expense_items')
+    .insert(fila)
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+
+  const montos = await recalcularCargaHistorica(adminClient, reportId)
+
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'created',
+    entityType:  'expense_item',
+    entityId:    creado.id,
+    entityLabel: `${fila.description} — ${report.title}`,
+    newValue:    { item_type: fila.item_type, amount_clp: fila.amount_clp, date: fila.date, clave: mov.clave },
+  })
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+  revalidatePath('/admin/reports')
+
+  return { itemId: creado.id, ...montos }
+}
+
+/** Elimina un movimiento de una carga histórica (soft delete) y reescribe los montos
+ *  de la cabecera.
+ *
+ *  Va con la llave de servicio, no con la sesión: la 033 protege `approved_amount`
+ *  («El estado y los montos aprobados solo los cambia la aplicación, paso a paso») y el
+ *  recálculo lo toca. `deleteExpenseItem` de `expenses.ts` sigue sirviendo al flujo vivo,
+ *  donde el total se calcula de otra manera. */
+export async function eliminarMovimientoHistorico(itemId: string, reportId: string) {
+  const { supabase, orgId, userId, actorName } = await requireAdmin()
+
+  const { data: report } = await supabase
+    .from('expense_reports')
+    .select('id, title, is_historical_import, defontana_exported_at')
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!report) throw new Error('Carga histórica no encontrada')
+  if (!report.is_historical_import)
+    throw new Error('Solo se eliminan movimientos de cargas históricas')
+
+  const { data: item } = await supabase
+    .from('expense_items')
+    .select('id, item_type, description, amount_clp, defontana_exported_at')
+    .eq('id', itemId)
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!item) throw new Error('Movimiento no encontrado')
+
+  const adminClient = createAdminClient()
+
+  const { data: todos } = await adminClient
+    .from('expense_items')
+    .select('defontana_exported_at')
+    .eq('report_id', reportId)
+    .is('deleted_at', null)
+
+  const marcados = ((todos ?? []) as { defontana_exported_at: string | null }[])
+    .filter(i => i.defontana_exported_at != null).length
+
+  const motivo = motivoNoSeBorra(
+    item as { item_type: string | null; defontana_exported_at: string | null },
+    necesitaSiembra(!!report.defontana_exported_at, marcados),
+  )
+  if (motivo) throw new Error(motivo)
+
+  // `.select('id')` y lanzar si vuelve vacío: un update que no alcanza ninguna fila
+  // devuelve éxito, y un borrado que no borró no puede informarse como hecho.
+  const { data: borrado, error } = await adminClient
+    .from('expense_items')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq('id', itemId)
+    .eq('report_id', reportId)
+    .select('id')
+  if (error) throw new Error(error.message)
+  if (!borrado?.length) throw new Error('No se pudo eliminar el movimiento')
+
+  const montos = await recalcularCargaHistorica(adminClient, reportId)
+
+  await logAudit({
+    orgId,
+    actorId:     userId,
+    actorName,
+    action:      'deleted',
+    entityType:  'expense_item',
+    entityId:    itemId,
+    entityLabel: `${item.description ?? 'movimiento'} — ${report.title}`,
+    oldValue:    { item_type: item.item_type, amount_clp: item.amount_clp },
+  })
+
+  revalidatePath('/petty-cash')
+  revalidatePath('/admin/carga-historica')
+  revalidatePath('/admin/reports')
+
+  return montos
 }
 
 /** Renombrar una importación histórica (solo admin) */

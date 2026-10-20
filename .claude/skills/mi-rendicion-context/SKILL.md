@@ -373,7 +373,12 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **848 tests Vitest en 53 archivos** (2026-10-13; eran 652 en 45 antes de los filtros del admin), todos pasando · build limpio · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **884 tests Vitest en 54 archivos** (2026-10-19; eran 848 en 53 antes de los movimientos
+  en cargas históricas), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
+  `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
+  entera puede informar 881. Corriéndolo solo pasa 2/2: es el filesystem de Windows con 54
+  archivos en paralelo, no el test. **No gastar tiempo depurándolo como si fuera del código**
 - **El generador de íconos de la PWA es `scripts/generate-icons.mjs`**, en ESM. Era `generate-icons.js` en la raíz con `require`, y eran los 3 errores del lint. Al moverlo hay que recordar que su `path.join(__dirname, 'public', 'icons')` apuntaba a la raíz porque vivía ahí: desde `scripts/` necesita subir un nivel, o escribe en `scripts/public/icons/` sin que nada falle
 - **El ícono (2026-10-06, Tarea 3.6):** el `ReceiptText` de Lucide en trazo blanco sobre `--cta-brand` — el mismo dibujo y el mismo degradado que `<Marca>` ya usa en el riel, la barra del teléfono y el acceso. Reemplazó al degradado índigo de «Penta Rend», que no usaba ningún color de Tornasol. El script genera los dos PNG **y** `src/app/favicon.ico`, sigue sin dependencias, y lo que hay que saber antes de tocarlo está en sus comentarios: rasteriza el trazo **por distancia a la curva** (un stroke de puntas redondas es exactamente eso, y el suavizado sale gratis), el favicon lleva **otro encuadre** que el ícono de la app porque a él no lo recorta ningún launcher, y **a 16 px el recibo va sin sus tres líneas** o se lee como una mancha
 - **`eslint.config.mjs` repite en `globalIgnores` lo que `.gitignore` ya excluye.** No es
@@ -716,6 +721,58 @@ en su nombre canónico y el tipo en minúscula (`corriente` 52 · `vista` 7). La
 sin datos son «1 Daniel Prueba» y «Daniel Martinez Prueba», cuentas de prueba que
 Daniel confirmó que está bien que queden así. **No escribir un UPDATE masivo para
 esto**: ya está hecho.
+
+### ✅ Movimientos en cargas históricas (2026-10-19)
+
+Pedido de Daniel: «cargué una rendición histórica y no veo cómo cargar el reembolso para
+que luego me genere el comprobante». Tenía razón por partida doble: no había dónde, y la
+palabra no estaba en ninguna pantalla.
+
+**El reembolso al empleado NO es un tipo de movimiento nuevo: es un `advance`.**
+Contablemente es el mismo asiento —Debe Fondos por Rendir / Haber Banco, línea de banco
+`CARGO`— porque en los dos casos sale plata del banco y se debita la cuenta de la persona.
+Lo único que cambia es el orden en el tiempo: en caja chica primero se entrega y después se
+gasta; en una rendición se gasta primero y se paga después. Un `item_type` propio exigiría
+migración (el CHECK admite cuatro valores), un tipo de comprobante nuevo en `organizations`
+y tocar `buildBankVoucher`, que solo conoce dos direcciones. **Decisión de Daniel: solo la
+etiqueta.** Las opciones del selector son cuatro y dos escriben `advance`
+(`MOVIMIENTOS` en `src/lib/movimientos-historicos.ts`).
+
+- **`commitHistoricalImport` era la única función que insertaba ítems**, y corre una sola
+  vez. Ahora `agregarMovimientoHistorico` suma el movimiento que faltó, y
+  `eliminarMovimientoHistorico` lo saca. `/admin/carga-historica` **no listaba ni un ítem**
+  (su select es de cabeceras): los muestra `MovimientosHistoricos`, tras el botón `ListPlus`
+  de cada fila, con `getMovimientosHistoricos`
+- **Estado «legacy»: 27 de las 145 cargas** (las de agosto, `DEF-2026-08-26`) tienen la
+  marca de Defontana en la cabecera y no en los ítems, y el panel por tipo trata eso como
+  «todo exportado» (`legacyHeaderOnly` → `pending = []`). Sin sembrar, un movimiento
+  agregado ahí nacería pendiente pero el panel lo contaría como contabilizado y **nunca
+  ofrecería su comprobante**. `agregarMovimientoHistorico` baja la marca a los ítems
+  existentes antes de insertar — mismo patrón que `revertHistoricalFundDefontana`
+- **Un movimiento contabilizado no se borra**: primero hay que revertir el comprobante
+  (`motivoNoSeBorra`, que mira la marca propia **y** el estado legacy). En caja chica el
+  borrado sigue siendo `deleteExpenseItem` y **conserva** su comportamiento de siempre: ahí
+  sí se puede borrar un ítem contabilizado, y Daniel lo usa
+- `FormularioMovimiento` se comparte con `/petty-cash`. Ahí `categorias` va vacío porque esa
+  pantalla no carga el catálogo, y entonces **no se ofrece «Gasto»**: sin categoría no hay
+  cómo imputarlo (`movimientosDisponibles`). La tabla de caja chica NO se fusionó: depende
+  del estado optimista de `usePettyCashState` y la otra pantalla recarga del servidor
+- Lo que viaja a Defontana no cambió: el movimiento nuevo entra por el panel por tipo como
+  cualquier adelanto o devolución
+
+**Dos bugs del total, encontrados midiendo y arreglados acá** (`totalesDeCargaHistorica`):
+
+| | Causa | Daño medido |
+|---|---|---|
+| `updateHistoricalExpenseItem` | editaba el monto y **no recalculaba** la cabecera | «RENDICION CAJA CHICA N°18 FD» −$278.710 · «N°1 ESTEBAN VARAS» +$221.700 |
+| `deleteExpenseItem` | recalculaba con `calculateReportTotal`, que **suma todo** | «Caja Chica N°180» +$8.640, el mismo día |
+
+`approved_amount` se recalcula aparte de `total_amount`: **8 de las 145 cargas tienen ítems
+`pending`**, y sumarlos al aprobado inflaría el monto que el cuadre compara contra lo
+reembolsado. Va con la llave de servicio porque la 033 protege `approved_amount` (con la
+sesión, `proteger_estado_rendicion` rechaza el UPDATE; `auth.uid()` null lo deja pasar).
+**Los 3 totales y 6 aprobados ya desviados NO se corrigieron**: es un UPDATE sobre datos de
+producción y quedó como decisión de Daniel.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1476,4 +1533,6 @@ una columna `NOT NULL`.
 | Creer que «eliminar definitivamente» borra a un usuario | No lo borra: lo **bloquea** (migración 027) y le baja `deleted_at`, así que volvía a la nómina con un chip rojo. Daniel, 2026-10-09: «lo eliminé de la papelera y sigue apareciendo en empleados» | Se esconde en la pantalla, nunca en la consulta: `getOrgEmployees` lo sigue trayendo o un bloqueo por error sería irreversible. Dos puertas para encontrarlo —el chip Estado → «Bloqueados» y el buscador por nombre o RUT—, porque pedir a alguien por su nombre y no recibir nada es una pantalla que miente |
 | Un encabezado de plantilla que el lector de esa misma plantilla no reconoce | «N° de Cuenta»: el `°` no es un acento, así que `\p{Diacritic}` no lo saca y la columna se ignora EN SILENCIO. 58 de 61 personas quedaron con banco y sin número de cuenta | La prueba que lo impide es `CABECERAS.filter(h => mapHeader(h) === null)` igual a `[]`: lo que la app hace descargar tiene que poder leerlo la app. Y el normalizador saca también `° º . # :` y los paréntesis |
 | Guardar encima de una vista compartida como comportamiento por omisión | Las vistas son de la organización: si tocar un chip la modificara, alguien que solo estaba revisando cambiaría lo que ven todos los demás | Tocar un chip NUNCA modifica la vista. Aparece la línea «cambiaste el filtro sobre la vista X» con «Guardar como vista» y «Descartar»; guardar encima es una acción aparte |
+| Recalcular el total de una carga histórica con `calculateReportTotal` | Suma **todos** los `amount_clp` sin mirar `item_type`, pero una carga se crea con `total_amount` = solo gastos. Así, borrar un ítem absorbía los adelantos al total, y editar un monto no recalculaba nada: tres cargas desviadas en producción, una por $278.710 | `totalesDeCargaHistorica` de `src/lib/movimientos-historicos.ts`, que devuelve total **y** aprobado juntos para que un recálculo no arregle uno y deje el otro viejo. Va con la llave de servicio: la 033 protege `approved_amount` |
+| Agregar un ítem a una carga contabilizada desde `/admin/reports` y esperar que el panel lo ofrezca | Esa pantalla marca la cabecera y no los ítems, y el panel por tipo trata ese estado como «todo exportado» (`legacyHeaderOnly` → `pending = []`): el ítem nuevo nace pendiente y queda **invisible**, sin error ni aviso. Eran 27 de 145 cargas el 2026-10-19 | Sembrar la marca de la cabecera en los ítems existentes **antes** de insertar, como ya hacía `revertHistoricalFundDefontana`. La condición está en `necesitaSiembra` |
 | Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |
