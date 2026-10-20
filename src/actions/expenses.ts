@@ -232,7 +232,7 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
 
   const { data: allItems } = await supabase
     .from('expense_items')
-    .select('amount_clp, item_type, status')
+    .select('amount_clp, item_type, status, transfer_id')
     .eq('report_id', reportId)
     .is('deleted_at', null)
 
@@ -244,10 +244,27 @@ export async function deleteExpenseItem(itemId: string, reportId: string) {
     //
     // Va con la llave de servicio porque la 033 protege `approved_amount`: con la
     // sesión, el trigger `proteger_estado_rendicion` rechaza el UPDATE.
-    const { total, aprobado } = totalesDeCargaHistorica(
-      (allItems ?? []) as { item_type: string | null; amount_clp: number; status: string | null }[],
-    )
-    const { error: montosError } = await createAdminClient()
+    const adminClient = createAdminClient()
+    /* La dirección del traspaso NO es una columna: se resuelve contra
+       `fund_transfers`, igual que `is_transfer_payer` en el export a
+       Defontana. Sin esto, `totalDeGastos` no lo suma —su valor seguro— y
+       el total de la caja que pagó bajaría por el monto del traspaso. */
+    const idsTraspaso = (allItems ?? [])
+      .map(i => i.transfer_id)
+      .filter((id): id is string => !!id)
+    const { data: traspasos } = idsTraspaso.length
+      ? await adminClient.from('fund_transfers').select('id, payer_report_id').in('id', idsTraspaso)
+      : { data: [] as { id: string; payer_report_id: string | null }[] }
+    const pagados = new Set((traspasos ?? [])
+      .filter(t => t.payer_report_id === reportId)
+      .map(t => t.id))
+    const conDireccion = (allItems ?? []).map(i => ({
+      ...i,
+      is_transfer_payer: !!i.transfer_id && pagados.has(i.transfer_id),
+    }))
+
+    const { total, aprobado } = totalesDeCargaHistorica(conDireccion)
+    const { error: montosError } = await adminClient
       .from('expense_reports')
       .update({ total_amount: total, approved_amount: aprobado })
       .eq('id', reportId)

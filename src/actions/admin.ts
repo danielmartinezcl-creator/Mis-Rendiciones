@@ -574,13 +574,29 @@ async function recalcularCargaHistorica(
 ) {
   const { data: items } = await adminClient
     .from('expense_items')
-    .select('item_type, amount_clp, status')
+    .select('item_type, amount_clp, status, transfer_id')
     .eq('report_id', reportId)
     .is('deleted_at', null)
 
-  const { total, aprobado } = totalesDeCargaHistorica(
-    (items ?? []) as { item_type: string | null; amount_clp: number; status: string | null }[],
-  )
+  /* La dirección del traspaso NO es una columna: se resuelve contra
+     `fund_transfers`, igual que `is_transfer_payer` en el export a
+     Defontana. Sin esto, `totalDeGastos` no lo suma —su valor seguro— y
+     el total de la caja que pagó bajaría por el monto del traspaso. */
+  const idsTraspaso = (items ?? [])
+    .map(i => i.transfer_id)
+    .filter((id): id is string => !!id)
+  const { data: traspasos } = idsTraspaso.length
+    ? await adminClient.from('fund_transfers').select('id, payer_report_id').in('id', idsTraspaso)
+    : { data: [] as { id: string; payer_report_id: string | null }[] }
+  const pagados = new Set((traspasos ?? [])
+    .filter(t => t.payer_report_id === reportId)
+    .map(t => t.id))
+  const conDireccion = (items ?? []).map(i => ({
+    ...i,
+    is_transfer_payer: !!i.transfer_id && pagados.has(i.transfer_id),
+  }))
+
+  const { total, aprobado } = totalesDeCargaHistorica(conDireccion)
 
   const { error } = await adminClient
     .from('expense_reports')

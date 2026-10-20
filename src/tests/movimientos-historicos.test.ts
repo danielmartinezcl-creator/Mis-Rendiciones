@@ -259,3 +259,63 @@ describe('filaDeMovimiento', () => {
     expect(fila.merchant).toBe('Lobos Moraga Claudia')
   })
 })
+
+/* Los 8 traspasos que existen en las cargas históricas de PENTA, medidos el
+   2026-10-20. La regla la fijó Daniel ese día: «el traspaso cuenta, incluilo
+   en el total» — y los datos muestran que cuenta del lado que PAGA. */
+describe('un traspaso suma en la caja que paga, no en la que recibe', () => {
+  const gasto = (amount_clp: number) => ({ item_type: 'expense', amount_clp, status: 'approved' })
+  const traspaso = (amount_clp: number, is_transfer_payer: boolean) =>
+    ({ item_type: 'transfer', amount_clp, status: 'approved', is_transfer_payer })
+
+  /* Caja Chica N°180 le traspasa 8.640 a Francisco: 330.864 de gastos más el
+     traspaso son los 339.504 que la cabecera ya tenía guardados. */
+  it('quien paga suma el traspaso a su total', () => {
+    expect(totalesDeCargaHistorica([gasto(330_864), traspaso(8_640, true)]))
+      .toEqual({ total: 339_504, aprobado: 339_504 })
+  })
+
+  /* CAJA CHICA N°1 ESTEBAN VARAS recibe 21.592 de Katherine. Junto con el
+     adelanto de 150.000 financia sus 171.592 de gastos: no se le suma. */
+  it('quien recibe NO lo suma: es financiamiento, como un adelanto', () => {
+    expect(totalesDeCargaHistorica([
+      { item_type: 'advance', amount_clp: 150_000, status: 'approved' },
+      traspaso(21_592, false),
+    ])).toEqual({ total: 0, aprobado: 0 })
+  })
+
+  /* El mismo traspaso deja un ítem en los documentos de las dos partes, con el
+     mismo monto positivo. Si contara en los dos, la plata se contaría dos veces. */
+  it('el mismo traspaso no suma en los dos lados', () => {
+    const pagador  = totalesDeCargaHistorica([gasto(100_000), traspaso(30_000, true)]).total
+    const receptor = totalesDeCargaHistorica([gasto(100_000), traspaso(30_000, false)]).total
+    expect(pagador).toBe(130_000)
+    expect(receptor).toBe(100_000)
+  })
+
+  /* Sin el dato de dirección, un traspaso NO suma: es el valor seguro. Un
+     callsite que se olvide de resolverlo deja el total como estaba, en vez de
+     inflarlo en silencio por los dos lados. */
+  it('sin saber la dirección, no suma', () => {
+    expect(totalesDeCargaHistorica([
+      gasto(100_000),
+      { item_type: 'transfer', amount_clp: 30_000, status: 'approved' },
+    ]).total).toBe(100_000)
+  })
+
+  /* Rendicion N°3 Leonel Caceres: recibe 52.703 y gastó 52.703. El total es
+     52.703, no 105.406 — que es justo lo que decía el cálculo sin dirección. */
+  it('recibir y gastar lo mismo no duplica el total', () => {
+    expect(totalesDeCargaHistorica([gasto(52_703), traspaso(52_703, false)]).total)
+      .toBe(52_703)
+  })
+
+  /* Un traspaso pagado que todavía no está aprobado suma al total pero no al
+     aprobado, igual que un gasto pendiente. */
+  it('el aprobado sigue mirando el estado', () => {
+    expect(totalesDeCargaHistorica([
+      gasto(192_680),
+      { item_type: 'transfer', amount_clp: 28_140, status: 'pending', is_transfer_payer: true },
+    ])).toEqual({ total: 220_820, aprobado: 192_680 })
+  })
+})

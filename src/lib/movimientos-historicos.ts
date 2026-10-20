@@ -73,28 +73,58 @@ export function movimientosDisponibles(hayCategorias: boolean) {
     : MOVIMIENTOS.filter(m => m.itemType !== 'expense')
 }
 
-/** El total de una carga histórica: solo los gastos. Un adelanto es la plata que se
- *  entrega y el gasto es en qué se usó — sumarlos cuenta dos veces la misma plata.
- *  Un ítem sin tipo cuenta como gasto, el mismo criterio que el export a Defontana
- *  (`!i.item_type || i.item_type === 'expense'`): los anteriores a la migración 009
- *  no lo tienen. */
-export function totalDeGastos(items: { item_type?: string | null; amount_clp: number }[]): number {
+/** Lo que SALIÓ de una carga histórica: los gastos y los traspasos que ella pagó.
+ *
+ *  Un adelanto es la plata que se entrega y el gasto es en qué se usó — sumarlos
+ *  cuenta dos veces la misma plata, así que el adelanto queda afuera. Un ítem sin
+ *  tipo cuenta como gasto, el mismo criterio que el export a Defontana: los
+ *  anteriores a la migración 009 no lo tienen.
+ *
+ *  **El traspaso cuenta, pero solo del lado que PAGA** (Daniel, 2026-10-20). Un
+ *  traspaso deja un ítem en los documentos de las dos partes, con el mismo monto
+ *  positivo: para quien lo paga es plata que salió de su caja, igual que un gasto;
+ *  para quien lo recibe es financiamiento, igual que un adelanto. Sumarlo en los dos
+ *  lados contaría la misma plata dos veces, y sumarlo del lado que recibe le daría
+ *  un «total gastado» a una caja que todavía no gastó nada.
+ *
+ *  Medido en producción el 2026-10-20, los 8 traspasos de las cargas históricas: en
+ *  los 4 que pagan el total guardado ya los incluye (Caja Chica N°180: 330.864 +
+ *  8.640 = 339.504) y en los 4 que reciben no (CAJA CHICA N°1 ESTEBAN VARAS: el
+ *  traspaso de 21.592 financia sus gastos junto con el adelanto de 150.000, no se
+ *  suma a ellos).
+ *
+ *  La dirección NO es una columna: se resuelve contra `fund_transfers.payer_report_id`,
+ *  igual que `is_transfer_payer` en el export a Defontana. Por eso entra como dato
+ *  del ítem y esta función no toca la base.
+ */
+export function totalDeGastos(
+  items: { item_type?: string | null; amount_clp: number; is_transfer_payer?: boolean }[],
+): number {
   return items
-    .filter(i => !i.item_type || i.item_type === 'expense')
+    .filter(i =>
+      !i.item_type
+      || i.item_type === 'expense'
+      || (i.item_type === 'transfer' && i.is_transfer_payer === true))
     .reduce((suma, i) => suma + i.amount_clp, 0)
 }
 
 /** Los dos montos de la cabecera de una carga histórica, en una sola función para que
  *  un recálculo no pueda arreglar uno y dejar el otro viejo.
  *
- *  `total_amount` son los gastos; `approved_amount`, solo los aprobados. No es teórico:
+ *  `total_amount` es lo que salió; `approved_amount`, solo lo aprobado. No es teórico:
  *  medido el 2026-10-19, 8 de las 145 cargas históricas tienen ítems en `pending`, y
  *  sumarlos al aprobado inflaría el monto que la pantalla compara contra lo reembolsado.
  *
  *  `status` es obligatorio en el tipo a propósito: así el compilador obliga a traerlo
  *  en el `select`, en vez de dejar que un callsite lo omita y el aprobado quede en cero. */
 export function totalesDeCargaHistorica(
-  items: { item_type?: string | null; amount_clp: number; status: string | null }[],
+  items: {
+    item_type?: string | null
+    amount_clp: number
+    status: string | null
+    /** Resuelto contra `fund_transfers`; solo importa en los ítems `transfer`. */
+    is_transfer_payer?: boolean
+  }[],
 ): { total: number; aprobado: number } {
   return {
     total:    totalDeGastos(items),
