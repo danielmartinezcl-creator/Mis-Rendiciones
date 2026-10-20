@@ -11,6 +11,8 @@ import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
 import { Search, Banknote, Trash2, ArrowRightLeft, FilePen, Undo2, BookCheck, FileSpreadsheet, Check } from 'lucide-react'
 import { CompactStepper } from '@/components/ui/CompactStepper'
+import { InsigniaSaldo } from '@/components/ui/InsigniaSaldo'
+import { etiquetaDeSaldo } from '@/lib/saldo-rendicion'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
 import { REPORT_STEPS, ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 import type { ReportStatus } from '@/lib/constants'
@@ -711,31 +713,15 @@ export function AdminReportsClient({ initialReports }: Props) {
                           {r.defontana_export_ref && ` · ${r.defontana_export_ref}`}
                         </span>
                       )}
-                      {/* Badge cuadre de reembolso */}
-                      {r.status === 'reimbursed' && (() => {
-                        if (r.reimbursed_amount == null) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 border border-ink-200" title="No se registró el monto pagado">
-                            — Sin registro
-                          </span>
-                        )
-                        const diff = r.reimbursed_amount - r.approved_amount
-                        const absDiff = Math.abs(diff)
-                        if (absDiff < 1) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-success-50 text-success-700 border border-success-200">
-                            <Check size={11} className="inline" aria-hidden /> Cuadrado
-                          </span>
-                        )
-                        if (diff > 0) return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning-50 text-warning-700 border border-warning-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
-                            ↑ Exceso de reembolso {formatCLP(absDiff)}
-                          </span>
-                        )
-                        return (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-danger-50 text-danger-700 border border-danger-200" title={`Aprobado neto: ${formatCLP(r.approved_amount)} · Reembolsado: ${formatCLP(r.reimbursed_amount)}`}>
-                            ↓ Pendiente por reembolsar {formatCLP(absDiff)}
-                          </span>
-                        )
-                      })()}
+                      {/* Qué falta pagar o devolver.
+                          Aparece en cuanto el documento está decidido, no solo si
+                          alguien lo marcó reembolsado: el distintivo viejo exigía
+                          `status === 'reimbursed'` y así las 115 rendiciones con
+                          saldo sin marcar —las que hay que revisar— no mostraban
+                          nada. Las reglas están en `lib/saldo-rendicion.ts`. */}
+                      {r.saldo && ESTADOS_APROBADOS.includes(r.status as ReportStatus) && (
+                        <InsigniaSaldo saldo={r.saldo} />
+                      )}
                     </div>
                     <p className="text-xs text-ink-500 mt-0.5">
                       <strong>{r.submitter_name}</strong>
@@ -944,20 +930,42 @@ export function AdminReportsClient({ initialReports }: Props) {
                           </p>
                           <p className="text-xs text-ink-400 mt-0.5">{detail.items.filter(i => i.status === 'approved').length} aprobados</p>
                         </div>
+                        {/* Estas dos tarjetas cierran con la de al lado:
+                            gastos aprobados − recibido = pendiente. Antes la
+                            primera decía «Por reembolsar» mostrando
+                            `approved_amount`, que en 149 de 155 filas es la suma
+                            de los gastos y no el neto: podía marcar $173.701 por
+                            pagar en una rendición ya saldada. Y la segunda leía
+                            solo `reimbursed_amount`, así que un pago anotado como
+                            movimiento del documento se veía como «—». */}
                         <div className="hoja border border-ink-100 p-3">
-                          <p className="text-xs text-ink-400">Por reembolsar</p>
-                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.approved_amount > 0 ? 'text-brand-700' : 'text-ink-400'}`}>
-                            {r.approved_amount > 0 ? formatCLP(r.approved_amount) : '—'}
+                          <p className="text-xs text-ink-400">
+                            {r.saldo ? etiquetaDeSaldo(r.saldo.estado) : 'Pendiente'}
                           </p>
-                          <p className="text-xs text-ink-400 mt-0.5">neto aprobado</p>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${
+                            !r.saldo || r.saldo.estado === 'saldado' ? 'text-ink-400'
+                            : r.saldo.estado === 'por-devolver' ? 'text-danger-700' : 'text-brand-700'
+                          }`}>
+                            {r.saldo && r.saldo.estado !== 'saldado'
+                              ? formatCLP(Math.abs(r.saldo.pendiente))
+                              : '—'}
+                          </p>
+                          <p className="text-xs text-ink-400 mt-0.5">
+                            {r.saldo?.estado === 'por-devolver' ? 'recibió de más' : 'gastos menos lo recibido'}
+                          </p>
                         </div>
                         <div className="hoja border border-ink-100 p-3">
-                          <p className="text-xs text-ink-400">Reembolsado</p>
-                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.reimbursed_amount != null ? 'text-success-700' : 'text-ink-400'}`}>
-                            {r.reimbursed_amount != null ? formatCLP(r.reimbursed_amount) : '—'}
+                          <p className="text-xs text-ink-400">Recibido</p>
+                          <p className={`text-sm font-bold font-mono-amount mt-0.5 ${r.saldo?.recibido ? 'text-success-700' : 'text-ink-400'}`}>
+                            {r.saldo?.recibido ? formatCLP(r.saldo.recibido) : '—'}
                           </p>
                           {r.reimbursed_at && (
-                            <p className="text-xs text-ink-400 mt-0.5">{formatDate(r.reimbursed_at.split('T')[0])}</p>
+                            <p className="text-xs text-ink-400 mt-0.5">
+                              Reembolsada {formatDate(r.reimbursed_at.split('T')[0])}
+                            </p>
+                          )}
+                          {!r.reimbursed_at && r.saldo && r.saldo.recibidoItems !== 0 && (
+                            <p className="text-xs text-ink-400 mt-0.5">en movimientos</p>
                           )}
                         </div>
                       </div>

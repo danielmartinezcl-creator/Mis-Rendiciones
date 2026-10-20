@@ -373,8 +373,8 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **884 tests Vitest en 54 archivos** (2026-10-19; eran 848 en 53 antes de los movimientos
-  en cargas históricas), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **920 tests Vitest en 55 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+  pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
   entera puede informar 881. Corriéndolo solo pasa 2/2: es el filesystem de Windows con 54
@@ -828,6 +828,67 @@ esta quedó en `approved`, que es lo cierto: aprobada y pagada en parte. Para qu
 salga habría que marcarla `reimbursed`, y eso pide una `reimbursed_at` que nadie sabe: en
 las otras seis esa fecha es **cuándo se registró en la app**, no cuándo se pagó. Quedó sin
 inventar.
+
+### ✅ Saldo pendiente en la carátula (2026-10-20)
+
+Pedido de Daniel: «me cuesta saber cuáles tienen algo pendiente por devolver o que le
+reembolse la empresa, mirando las carátulas de cada rendición». Reglas en
+`src/lib/saldo-rendicion.ts`, dibujo en `components/ui/InsigniaSaldo.tsx`, 16 pruebas.
+
+**Reemplaza al distintivo de CUADRE** (`reimbursed_amount` contra `approved_amount`,
+«Cuadrado» / «Exceso de reembolso» / «— Sin registro»), que estaba **copiado** en
+`/admin/reports` y `/admin/carga-historica` y no servía por tres motivos medidos:
+
+- **Solo aparecía con `status = 'reimbursed'`**, así que las 115 rendiciones con saldo
+  sin esa marca —las que hay que revisar— no mostraban nada
+- **`reimbursed_amount` casi nunca está cargado**: 23 de las 37 marcadas como
+  reembolsadas no tienen monto. Es opcional en `markAsReimbursed`, así que es la norma
+- **`approved_amount` no significa lo mismo en todas las filas**: en **149 de 155** es la
+  suma de los gastos aprobados y en **1** es el neto (la que alguien revirtió, porque
+  `revertReimbursement` lo recalcula con `computeApprovedAmount`)
+
+**El hallazgo que gobierna el módulo: la misma plata está registrada por dos vías.** El
+reembolso al empleado figura como ítem `advance` (las cargas históricas: era la única
+forma hasta `agregarMovimientoHistorico`), como `reimbursed_amount` en la cabecera, o
+**las dos a la vez**, y nada en el esquema dice cuál se usó. Por eso lo recibido es
+`max(vía de los ítems, vía de la cabecera)` y **nunca la suma**. Medido sobre las 155
+rendiciones: con `max()` quedan 59 en cero, sumando 27, y en las 13 donde ambas vías
+traen dato `max()` mejora en las 13. Los cuatro casos que lo prueban están fijados con
+sus montos reales:
+
+| Rendición | Gastos | Adelantos | `reimbursed_amount` | Pendiente |
+|---|---|---|---|---|
+| N°8 Claudia  | 173.701 | 0      | 173.701 | 0 — pagada **solo** por carátula |
+| N°2 A. Peña  |  17.240 | 0      | null    | +17.240 — aprobada sin pagar |
+| N°6 Claudia  |  38.080 | 34.080 |  34.080 | +4.000 — las dos vías, el mismo pago |
+| N°7 Claudia  |  85.571 | 87.571 |  85.571 | −2.000 — recibió de más |
+
+- **La devolución reduce lo que el empleado tiene en mano**, al revés del adelanto. No es
+  una preferencia: de las 24 filas con devoluciones, restándola quedan 21 en cero y
+  sumándola, 0. ⚠️ **`computeApprovedAmount` la resta igual que un adelanto** — con
+  adelanto 100.000, gastos 60.000 y devolución 40.000 (saldado) devuelve −80.000. **No se
+  corrigió**: gobierna el monto a pagar del flujo vivo y merece su propia revisión; hoy no
+  se ejercita porque las 155 rendiciones son históricas
+- El traspaso cuenta de un solo lado, con la regla de `totalDeGastos`: suma al que paga,
+  financia al que recibe
+- Aparece con el documento ya decidido (`ESTADOS_APROBADOS`), no solo al marcarlo pagado
+- En el detalle, «Por reembolsar» y «Reembolsado» pasaron a **«Pendiente» y «Recibido»**:
+  la primera leía `approved_amount` (marcaba $173.701 por pagar en una rendición saldada)
+  y la segunda solo `reimbursed_amount` (un pago anotado como movimiento se veía «—»).
+  Ahora las tres tarjetas cierran: gastos aprobados − recibido = pendiente
+- **`/admin/reports` no muestra cajas chicas** (filtra `historical_type != caja_chica`),
+  así que ahí se ven solo las 38 rendiciones: 34 saldadas y 4 con saldo. **Las 117 cajas
+  chicas históricas tienen saldo en 114** —mediana ~200.000— porque su movimiento de
+  cierre nunca se cargó; se ven en `/petty-cash`, que **no lleva el distintivo todavía**.
+  Ponerlo ahí es decisión de Daniel: mostraría 114 avisos a la vez
+
+**Fecha corregida en producción el 2026-10-20:** `CAJA CHICA N° 15 FD` (`90e379f8`) tenía
+`submitted_at` y `approved_at` en **24-12-2026**, un año adelante, con su adelanto de
+$200.000 fechado 24-12-2025 y el fondo liquidado el 03-03-2026. Era un dedazo del campo
+«fecha de rendición» al importar, y **la única rendición con fecha futura**. Corregida con
+su fila en `audit_log`; el ítem y su asiento de Defontana no se tocaron (el asiento usa la
+fecha del ítem). **Hay cuatro documentos cuyo título contiene «15 FD»**, todos de Francisco
+Díaz: conviene identificarlos por id y no por título.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1632,4 +1693,7 @@ una columna `NOT NULL`.
 | Filtrar los traspasos por `status` para el monto aprobado | A un traspaso no lo aprueba nadie: `createFundTransfer` ni escribe `status`, así que los 8 de producción están en el `pending` por omisión de la columna. Filtrarlos dejaba fuera del aprobado plata que salió de la caja con total certeza | Un traspaso pagado cuenta en el aprobado mire lo que mire su estado. Un gasto pendiente sí queda afuera: la distinción tiene su prueba |
 | Correr un ensayo con `BEGIN` y olvidar el `ROLLBACK` | `execute_sql` del MCP **no deja la transacción aplicada**: sin un `commit;` explícito, los datos quedan intactos (comprobado el 2026-10-20 releyendo las tres filas después del ensayo, que seguían como antes). Pero eso se verifica, no se supone | Después de cualquier ensayo sobre producción, **volver a leer las filas** en una llamada aparte antes de seguir. Y para aplicar de verdad, `commit;` explícito más un `select` final que muestre el antes y el después |
 | Agregar un ítem a una carga contabilizada desde `/admin/reports` y esperar que el panel lo ofrezca | Esa pantalla marca la cabecera y no los ítems, y el panel por tipo trata ese estado como «todo exportado» (`legacyHeaderOnly` → `pending = []`): el ítem nuevo nace pendiente y queda **invisible**, sin error ni aviso. Eran 27 de 145 cargas el 2026-10-19 | Sembrar la marca de la cabecera en los ítems existentes **antes** de insertar, como ya hacía `revertHistoricalFundDefontana`. La condición está en `necesitaSiembra` |
+| Sumar las dos vías por las que está anotado el mismo pago | El reembolso al empleado figura como ítem `advance`, como `reimbursed_amount` en la cabecera, o **las dos a la vez**, y nada dice cuál se usó. Sumarlas cuenta la plata dos veces: así el distintivo viejo informaba «Exceso de reembolso $30.080» en una rendición a la que faltaba pagarle $4.000 | `max(vía de los ítems, vía de la cabecera)`, nunca la suma — `saldoDeRendicion`. Medido en las 155 rendiciones: 59 quedan en cero con `max()` y 27 sumando. Es el mismo error que «sumar adelantos y gastos en un KPI de total» |
+| Leer `approved_amount` como si fuera el neto | Lo es en **1 de 155** filas. En las otras 149 es la suma de los gastos aprobados: `commitHistoricalImport` lo escribe así, y solo `revertReimbursement` lo recalcula con `computeApprovedAmount`. Una columna que cambia de significado según la historia de su fila no puede sostener una comparación | Calcular de los ítems. Antes de comparar contra una columna de cabecera, **consultar qué significa hoy en los datos reales**, no qué dice su nombre |
+| Mostrar un distintivo solo cuando alguien marcó el documento | El de cuadre exigía `status = 'reimbursed'`, así que las 115 rendiciones con saldo **sin** esa marca no mostraban nada: justo las que hay que revisar. Un indicador que depende de que alguien se haya acordado de marcar no informa de lo que falta | Mostrarlo en cuanto el documento está decidido (`ESTADOS_APROBADOS`) y calcularlo de los datos, no de la marca |
 | Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |

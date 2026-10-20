@@ -25,6 +25,7 @@ import {
   totalesDeCargaHistorica, necesitaSiembra, erroresDeMovimiento, filaDeMovimiento,
   motivoNoSeBorra, type MovimientoNuevo,
 } from '@/lib/movimientos-historicos'
+import { saldoDeRendicion, type ItemDeSaldo, type SaldoRendicion } from '@/lib/saldo-rendicion'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -134,6 +135,58 @@ async function loadTransferCounterparts(
   }))
 }
 
+/** El saldo pendiente de cada documento de la lista, en dos consultas para todos.
+ *
+ *  Las reglas están en `src/lib/saldo-rendicion.ts`; acá solo se juntan los datos que
+ *  necesita: los ítems y, para los traspasos, de qué lado está cada documento.
+ *
+ *  **Los ítems se piden por `org_id`, no por la lista de `report_id`.** Con 155
+ *  rendiciones esa lista son ~5,5 KB de UUID en la URL de PostgREST, que es un límite
+ *  que no avisa cuando se cruza: aparecería recién con unos cientos de documentos más.
+ *  El costo de traerlos todos está medido —681 ítems vivos el 2026-10-20, cinco
+ *  columnas chicas— y la proyección del proyecto es de ~6.000 al año. Si esta consulta
+ *  llega a pesar, lo que corresponde es agregar en la base (una vista o un RPC que
+ *  devuelva el saldo por documento), no volver a la lista de ids. */
+async function loadSaldos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId:    string,
+  reportes: { id: string; reimbursed_amount: number | null }[],
+): Promise<Record<string, SaldoRendicion>> {
+  if (!reportes.length) return {}
+
+  const { data } = await supabase
+    .from('expense_items')
+    .select('report_id, item_type, amount_clp, status, transfer_id')
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+
+  const filas = (data ?? []) as unknown as {
+    report_id: string; item_type: string | null; amount_clp: number
+    status: string | null; transfer_id: string | null
+  }[]
+
+  const contrapartes = await loadTransferCounterparts(supabase, filas.map(i => i.transfer_id))
+
+  const porReporte: Record<string, ItemDeSaldo[]> = {}
+  for (const i of filas) {
+    (porReporte[i.report_id] ??= []).push({
+      item_type:  i.item_type,
+      amount_clp: i.amount_clp,
+      status:     i.status,
+      /* La dirección del traspaso no es una columna: sale de `fund_transfers`,
+         igual que en el export a Defontana. */
+      is_transfer_payer: i.transfer_id
+        ? contrapartes[i.transfer_id]?.payerReportId === i.report_id
+        : undefined,
+    })
+  }
+
+  return Object.fromEntries(reportes.map(r => [
+    r.id,
+    saldoDeRendicion(porReporte[r.id] ?? [], r.reimbursed_amount),
+  ]))
+}
+
 // ─── Reportes admin (vista completa) ────────────────────────────────────────
 
 export async function getAdminReports() {
@@ -164,10 +217,13 @@ export async function getAdminReports() {
     .from('proyectos').select('id, numero').eq('org_id', orgId)
   const obras = mapaDeObras(proyectos ?? [])
 
+  const saldos = await loadSaldos(supabase, orgId, data)
+
   return data.map(r => ({
     ...r,
     submitter_name: userMap[r.submitter_id]?.full_name ?? 'Desconocido',
     department:     userMap[r.submitter_id]?.department ?? null,
+    saldo:          saldos[r.id],
     ...obraDe(r.proyecto_id, obras),
   }))
 }
@@ -2468,6 +2524,7 @@ export async function getHistoricalRendicionImports() {
     .in('id', submitterIds)
 
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
+  const saldos  = await loadSaldos(supabase, orgId, data)
 
   return data.map(r => ({
     id:                    r.id,
@@ -2481,6 +2538,7 @@ export async function getHistoricalRendicionImports() {
     created_at:            r.created_at,
     defontana_exported_at: r.defontana_exported_at,
     submitter_name:        userMap[r.submitter_id] ?? 'Desconocido',
+    saldo:                 saldos[r.id],
   }))
 }
 

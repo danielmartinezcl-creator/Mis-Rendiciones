@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { DefontanaTypePanel } from '@/components/admin/DefontanaTypePanel'
 import { MovimientosHistoricos } from '@/components/admin/MovimientosHistoricos'
+import { InsigniaSaldo } from '@/components/ui/InsigniaSaldo'
 import { getHistoricalRendicionImports } from '@/actions/admin'
 import {
   categorizeItems,
@@ -18,19 +19,10 @@ import type { ParsedHistoricalImport } from '@/lib/historical-import/parser'
 import type { CategorySuggestion } from '@/lib/historical-import/categorizer'
 import type { ExpenseCategory, UserProfile, CostCenter } from '@/lib/supabase/types'
 
-type HistoricalImport = {
-  id: string
-  title: string
-  status: string
-  total_amount: number
-  approved_amount: number
-  reimbursed_amount: number | null
-  reimbursed_at: string | null
-  fund_number: string | null
-  created_at: string
-  defontana_exported_at: string | null
-  submitter_name: string
-}
+/* Derivado del cargador, no escrito a mano: la copia local se quedó sin el `saldo`
+   cuando el cargador lo empezó a devolver, y una lista de once campos repetida es
+   justo donde eso pasa sin que nada falle. */
+type HistoricalImport = Awaited<ReturnType<typeof getHistoricalRendicionImports>>[number]
 
 const DEFAULT_COST_CENTER = 'EMPGESINGING'
 const DOC_TYPES = [
@@ -87,41 +79,6 @@ function formatCLP(n: number) {
 
 function formatDate(s: string) {
   return new Date(s).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
-function CuadreBadge({ approvedAmount, reimbursedAmount }: { approvedAmount: number; reimbursedAmount: number | null }) {
-  if (reimbursedAmount == null) return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 border border-ink-200" title="No se registró el monto pagado">
-      — Sin registro
-    </span>
-  )
-  const diff = reimbursedAmount - approvedAmount
-  const absDiff = Math.abs(diff)
-  if (absDiff < 1) {
-    return (
-      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-success-50 text-success-700 border border-success-200">
-        <Check size={11} className="inline" aria-hidden /> Cuadrado
-      </span>
-    )
-  }
-  if (diff > 0) {
-    return (
-      <span
-        className="text-xs font-medium px-2 py-0.5 rounded-full bg-warning-50 text-warning-700 border border-warning-200"
-        title={`Aprobado neto: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
-      >
-        ↑ Exceso de reembolso {formatCLP(absDiff)}
-      </span>
-    )
-  }
-  return (
-    <span
-      className="text-xs font-medium px-2 py-0.5 rounded-full bg-danger-50 text-danger-700 border border-danger-200"
-      title={`Aprobado neto: ${formatCLP(approvedAmount)} · Reembolsado: ${formatCLP(reimbursedAmount)}`}
-    >
-      ↓ Pendiente por reembolsar {formatCLP(absDiff)}
-    </span>
-  )
 }
 
 export function HistoricalImportClient({ categories, employees, costCenters, historicalImports }: Props) {
@@ -421,20 +378,19 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
                       <td className="py-2.5 pr-4 text-right font-mono-amount text-sm text-ink-800">
                         {formatCLP(r.approved_amount)}
                       </td>
+                      {/* El saldo se muestra siempre, no solo si la carga quedó
+                          marcada como reembolsada: una carga sin esa marca puede
+                          tener su pago anotado como movimiento, y al revés. La
+                          fecha del reembolso sigue acompañando cuando existe. */}
                       <td className="py-2.5">
-                        {r.status === 'reimbursed' ? (
-                          <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1">
+                          {r.status === 'reimbursed' && (
                             <span className="text-xs text-ink-500">
                               Reembolsado {r.reimbursed_at ? formatDate(r.reimbursed_at.split('T')[0]) : ''}
                             </span>
-                            <CuadreBadge
-                              approvedAmount={r.approved_amount}
-                              reimbursedAmount={r.reimbursed_amount}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-xs text-ink-400 italic">Sin reembolso</span>
-                        )}
+                          )}
+                          {r.saldo && <InsigniaSaldo saldo={r.saldo} />}
+                        </div>
                       </td>
                     </tr>
                     {defPanelId === r.id && (

@@ -109,14 +109,17 @@ describe('computeApprovedAmount', () => {
   })
 
   it('handles mixed item types correctly (Claudia Lobos case)', () => {
-    // Reported bug: expense 38080, advance 34080 → should show deficit 4000, not cuadrado
+    // Rendicion N°6 Claudia Lobos: expense 38080, advance 34080 → neto 4000.
     const items = [
       { status: 'approved', amount_clp: 38080, item_type: 'expense' },
       { status: 'approved', amount_clp: 34080, item_type: 'advance' },
     ]
-    const net = computeApprovedAmount(items)
-    expect(net).toBe(4000)
-    // If reimbursed_amount = 72160 (sum of both), badge should show deficit, not cuadrado
-    expect(72160 - net).toBe(68160) // excess of reimbursement
+    expect(computeApprovedAmount(items)).toBe(4000)
+    /* Lo que la pantalla MUESTRA ya no se decide acá: el saldo pendiente vive en
+       `lib/saldo-rendicion.ts`, que además mira `reimbursed_amount` (en esta
+       rendición el mismo pago está anotado por las dos vías) y los traspasos.
+       Esta prueba tenía una línea sobre el distintivo de cuadre, que ya no
+       existe. Ojo: esa función y esta difieren en el signo de `return` — está
+       explicado en la cabecera de `saldo-rendicion.ts`. */
   })
 })
