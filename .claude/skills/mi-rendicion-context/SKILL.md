@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **936 tests Vitest en 56 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **950 tests Vitest en 58 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1000,6 +1000,43 @@ abajo y **con el mismo permiso** (`can_submit`), para que no haya dos puertas co
 distintas. También en el estado vacío, donde además el texto dejó de mandar a la barra de
 abajo: con el botón al lado, sería mandar al más lejano de los dos.
 
+### ✅ Aviso de nombre repetido (2026-10-21)
+
+Daniel: «hay personas que solicitan fondos siempre por la misma razón, entonces
+seguramente se repetirán nombres». Al crear un fondo o una rendición, si la persona ya
+tiene uno **sin cerrar** con ese nombre, aparece una línea gris debajo del campo:
+«Ya tenés un fondo sin cerrar con este nombre, del 3 de octubre. *Podés seguir igual.*»
+
+**Avisa, nunca bloquea, y eso no es cosmético.** Los nombres repetidos son legítimos y ya
+son la norma: medido ese día, **16 nombres repetidos sobre 156 documentos**, y «CAJA CHICA
+N°18 FD» aparece tres veces. Una restricción de unicidad rompería las cargas históricas
+—que parten un mismo fondo en varios documentos— y los fondos mensuales que se llaman
+igual todos los meses. **Nada interno depende del nombre**: todo va por `id` y la carga
+histórica agrupa por `fund_number`. Lo que el aviso evita es que una PERSONA se equivoque
+de documento al verlo en una lista (al vincular un traspaso, en la bandeja de aprobaciones,
+entre dos archivos de Defontana que se llaman casi igual).
+
+- **Solo avisa por documentos EN CURSO** (`enCurso` en `src/lib/nombre-repetido.ts`).
+  Cerrado es `settled`/`rejected` en fondos y `reimbursed`/`rejected` en rendiciones. Si
+  avisara por los cerrados, el fondo mensual lo dispararía siempre — y un aviso que salta
+  siempre se aprende a ignorar
+- **Es por BENEFICIARIO, no por organización**: que otro tenga un «Caja chica octubre» no
+  es un duplicado mío. En caja chica el beneficiario puede no ser quien crea (un EFF pide
+  a nombre de otro), así que el componente le pasa `form.employee_id || yoId`
+- Compara con `normalizarNombre` (sin tildes, sin mayúsculas, espacios colapsados), el
+  mismo de la nómina y las vistas de filtro. **Verificado contra datos reales**: buscando
+  «Rendicion N°2 Daniel Martinez» la acción trajo 2 filas y acertó 1 contra el título
+  guardado en MAYÚSCULAS, descartada después por estar reembolsada
+- El filtro por nombre corre en TypeScript y no en SQL porque la comparación es
+  normalizada, y eso en Postgres exige `unaccent` o un índice de expresión; traer los
+  documentos de una persona es un puñado de filas
+
+> **No se puede ver en el navegador**, y conviene saberlo antes de intentarlo: al
+> 2026-10-21 **no queda ni un documento en curso en la base** —los fondos están todos en
+> la papelera y las dos rendiciones de prueba, reembolsadas—, así que la pantalla nunca
+> entra al camino del aviso. Por eso el render se prueba en `aviso-nombre-repetido.test.tsx`
+> con la acción simulada.
+
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
 - Cadena de aprobación L1/L2 por empleado: `approver_l1_id`, `approver_l2_id` en `users` — desde
@@ -1231,8 +1268,14 @@ una columna `NOT NULL`.
 - **Los gastos de un documento vivo los cambia solo su dueño** (Daniel, 2026-09-25): quien rinde la rendición, en borrador, o el empleado del fondo, con `funds_sent`. Ni el admin agrega, edita o borra gastos ajenos, y el gasto rápido le lista solo sus fondos (`listMyOpenFunds`). Sí reclasifica (categoría, centro de costo, Defontana) y corrige cargas históricas. Código: `puedeCambiarGastos()`; base: 033 §3b.
 - **Los comprobantes siguen a su gasto** (Daniel, 2026-09-25): se suben o se borran solo si se puede cambiar el gasto. `puedeCambiarAdjuntos()` no tiene regla propia: delega en `puedeCambiarGastos` / `puedeCambiarGastosFondo`, y las pantallas usan la misma función. Los escribe solo el servidor con la llave de servicio; la ruta y la organización salen de la fila del gasto, nunca del navegador (035). El aprobador de una liquidación ya no sube ni borra comprobantes del empleado: sus respaldos van en «Adjuntos de respaldo».
 - **Los respaldos de aprobación son evidencia** (Daniel, 2026-09-25): los ve y los sube quien ve el documento (lo decide la RLS de la rendición o del fondo, no una lista aparte). Los borra solo quien los subió, y solo mientras nadie haya dado un paso en el documento después de la subida; en rendiciones cuenta también el envío (`submitted_at`), que no queda en `expense_report_approvals`. El admin tampoco borra respaldos ajenos: un error grave se saca a mano desde Supabase. Código: `src/lib/respaldos.ts`; la ruta sale de la fila y el servidor escribe y firma con la llave de servicio (037).
-- **Suplencia por función**: `bank_load_backup` y `bank_auth_backup`. FH es titular
-  para autorizar y suplente para cargar.
+- **Suplencia por función**: `bank_load_backup` y `bank_auth_backup`.
+  **Quién tiene hoy los permisos bancarios (medido el 2026-10-21): SOLO las cuentas de
+  Daniel** —el admin carga y autoriza; «Daniel Martinez Prueba» carga—. El 2026-10-20,
+  entre 20:19 y 20:24, para probar el flujo de fondos se les quitaron a Roberto Hagar
+  (autorizaba) y a Katherine Corvalán (cargaba), y no se devolvieron: está en
+  `audit_log`. Hasta que se decida, **ningún empleado de PENTA puede ejecutar el paso
+  bancario**, y como quien cargó no autoriza, Daniel solo no completa un pago. Este
+  archivo decía «FH es titular para autorizar y suplente para cargar», que ya no era cierto
 - **Aprobador inactivo = sin aprobador** (`cadenaActiva`): bloquea el envío y avisa al
   admin. Por eso desactivar o borrar a alguien que está en cadenas ajenas pide reasignar
   primero. **Autorizar exige una carga registrada** en el historial: sin ella nadie
@@ -1557,9 +1600,19 @@ una columna `NOT NULL`.
 >   Daniel evaluó tres caminos —modo offline con cola, una bandeja de «gastos sueltos»
 >   sin documento, y completar `/quick`— y eligió **esperar al piloto**. El dato que
 >   cerró la discusión: con la app desplegada hacía meses, el uso real era de **5 gastos
->   de caja chica, 20 de rendición (de UNA sola) y 1 uso de OCR en toda su historia**.
+>   de caja chica, 20 de rendición y 1 uso de OCR en toda su historia**.
 >   Nadie había cargado todavía una boleta en obra, así que construir offline era
 >   construir para un problema que nadie midió.
+>
+>   **Y era peor de lo que esos números dicen** (medido el 2026-10-21). Los 20 gastos no
+>   son «de UNA sola» rendición, como decía acá: están repartidos en **11**, y **todos son
+>   de prueba**. Los 5 de caja chica son datos sembrados de «Daniel Martinez Prueba»; de
+>   los 20 de rendición, solo 3 los cargaron empleados reales —Roberto Hagar, Francisco
+>   Hagar y Katherine Corvalán, el 2026-09-24, en documentos titulados «Prueba», «prueba
+>   02» y «Nodo Penta»—, y el único OCR lo usó «1 Daniel Prueba». Hoy 16 de esas 17
+>   rendiciones y 8 de los 9 fondos vivos están en la papelera. **La consulta de abajo
+>   cuenta papelera y cuentas de prueba**: para uso real, sumar `deleted_at is null` y
+>   descartar las cuentas de Daniel.
 >
 >   **No volver a proponerlo sin estos números delante.** La consulta que los da:
 >
@@ -1854,6 +1907,7 @@ una columna `NOT NULL`.
 | Filtrar los traspasos por `status` para el monto aprobado | A un traspaso no lo aprueba nadie: `createFundTransfer` ni escribe `status`, así que los 8 de producción están en el `pending` por omisión de la columna. Filtrarlos dejaba fuera del aprobado plata que salió de la caja con total certeza | Un traspaso pagado cuenta en el aprobado mire lo que mire su estado. Un gasto pendiente sí queda afuera: la distinción tiene su prueba |
 | Correr un ensayo con `BEGIN` y olvidar el `ROLLBACK` | `execute_sql` del MCP **no deja la transacción aplicada**: sin un `commit;` explícito, los datos quedan intactos (comprobado el 2026-10-20 releyendo las tres filas después del ensayo, que seguían como antes). Pero eso se verifica, no se supone | Después de cualquier ensayo sobre producción, **volver a leer las filas** en una llamada aparte antes de seguir. Y para aplicar de verdad, `commit;` explícito más un `select` final que muestre el antes y el después |
 | Agregar un ítem a una carga contabilizada desde `/admin/reports` y esperar que el panel lo ofrezca | Esa pantalla marca la cabecera y no los ítems, y el panel por tipo trata ese estado como «todo exportado» (`legacyHeaderOnly` → `pending = []`): el ítem nuevo nace pendiente y queda **invisible**, sin error ni aviso. Eran 27 de 145 cargas el 2026-10-19 | Sembrar la marca de la cabecera en los ítems existentes **antes** de insertar, como ya hacía `revertHistoricalFundDefontana`. La condición está en `necesitaSiembra` |
+| Editar código con un script de `node -e` y no correr `tsc` después | Un `replace` que saca una línea temporal puede llevarse la de al lado. Pasó el 2026-10-21 al quitar un `console.log` de diagnóstico: se fue también el `return` de la función, **las 950 pruebas siguieron en verde** —ningún test importa `src/actions/`— y el fallo apareció recién en `npm run build`, como «Parsing ecmascript source code failed» a 200 líneas del cambio | Después de CUALQUIER edición por script, `npx tsc --noEmit` antes de seguir: toma segundos y lo habría cazado al instante. Y no dar por buena una verificación cuyo `echo` de éxito corre pase lo que pase (`comando && echo ok` sí encadena; `comando; echo ok` miente) |
 | Medir el cuadre de una caja chica POR DOCUMENTO | Un fondo tiene su adelanto en un documento y sus gastos en otro: el documento suelto casi nunca cuadra. Medido el 2026-10-20 sobre las 117 cargas históricas: por documento cuadran **15 de 117**; agrupadas por fondo, **47 de 53**. Sobre esa medición equivocada se informó que «114 cajas tienen saldo» y se agregó un distintivo que habría puesto 102 avisos falsos | Agrupar por `fund_number` antes de juzgar el cuadre, como ya hace `/petty-cash`. Y antes de agregar un indicador, **mirar si la pantalla ya tiene el suyo**: esa lo tenía, mejor hecho |
 | Restar la devolución igual que el adelanto | Una devolución es plata que la persona YA entregó de vuelta: reduce lo que debe ELLA, no lo que debe la empresa. `computeApprovedAmount` la restaba hasta el 2026-10-20 y un ciclo saldado (adelanto 100.000, gastos 60.000, devolución 40.000) daba −80.000. Como `estadoTrasDecisionReporte` manda al banco solo si el monto es mayor que cero, la rendición quedaba en `approved` y nadie pagaba: 9 de 24 cruzan el cero, por $2.895.638 | La devolución **suma**. Las tres fórmulas de la app coinciden en esto (`saldoDeRendicion`, el cuadre por fondo de `/petty-cash` y ahora `computeApprovedAmount`); si una se toca, mirar las otras dos |
 | Sumar las dos vías por las que está anotado el mismo pago | El reembolso al empleado figura como ítem `advance`, como `reimbursed_amount` en la cabecera, o **las dos a la vez**, y nada dice cuál se usó. Sumarlas cuenta la plata dos veces: así el distintivo viejo informaba «Exceso de reembolso $30.080» en una rendición a la que faltaba pagarle $4.000 | `max(vía de los ítems, vía de la cabecera)`, nunca la suma — `saldoDeRendicion`. Medido en las 155 rendiciones: 59 quedan en cero con `max()` y 27 sumando. Es el mismo error que «sumar adelantos y gastos en un KPI de total» |

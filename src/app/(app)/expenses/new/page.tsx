@@ -1,5 +1,6 @@
 'use client'
 
+import { AvisoNombreRepetido } from '@/components/ui/AvisoNombreRepetido'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -154,6 +155,9 @@ export default function NewExpensePage() {
           <p className="card-meta text-ink-400 mt-1">
             Escribilo como una frase normal — evitá las mayúsculas completas
           </p>
+          {/* Una rendición siempre es de quien la crea: sin `beneficiarioId`,
+              el aviso mira las propias. */}
+          <AvisoNombreRepetido clase="rendicion" nombre={title} />
         </div>
 
         <SelectorProyecto valor={proyecto} onChange={setProyecto} recordarComo={userId ? `tipo_rendicion_${userId}` : undefined} />

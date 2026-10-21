@@ -1,5 +1,6 @@
 'use client'
 
+import { AvisoNombreRepetido } from '@/components/ui/AvisoNombreRepetido'
 import { useState, useEffect, useTransition } from 'react'
 import { createPettyCashFund } from '@/actions/petty-cash'
 import { SelectorProyecto, VALOR_VACIO, proyectoCompleto, type ValorProyecto } from '@/components/expenses/SelectorProyecto'
@@ -96,12 +97,23 @@ export default function NewPettyCashFundPage() {
       <form onSubmit={handleSubmit} className="hoja p-5 border-t-4 border-t-brand-600 space-y-4">
         {/* Nombre del fondo */}
         <div>
-          <label className="block text-xs font-semibold text-ink-700 mb-1">Nombre del fondo *</label>
+          {/* `htmlFor`/`id`: sin el vínculo, un lector de pantalla anuncia el
+              campo sin nombre y tocar la etiqueta no le da el foco. */}
+          <label htmlFor="nombre-fondo" className="block text-xs font-semibold text-ink-700 mb-1">Nombre del fondo *</label>
           <input
+            id="nombre-fondo"
             value={form.name}
             onChange={e => set('name', e.target.value)}
             placeholder="Ej: Caja Chica Terreno Julio, Viáticos Visita Cliente..."
             className="campo w-full"
+          />
+          {/* El beneficiario puede no ser quien crea: un EFF pide un fondo a
+              nombre de otro, y el aviso tiene que mirar los fondos de ESA
+              persona, no los de quien está llenando el formulario. */}
+          <AvisoNombreRepetido
+            clase="fondo"
+            nombre={form.name}
+            beneficiarioId={form.employee_id || yoId}
           />
         </div>
 

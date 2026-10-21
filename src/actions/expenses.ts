@@ -22,6 +22,7 @@ import { archivosQueCaen, retirarArchivos, BUCKET_COMPROBANTES } from '@/lib/arc
 import { esGasto, documentoDeRendicion, type RendicionFiltrable } from '@/lib/filtro-documentos'
 import type { ReportStatus } from '@/lib/constants'
 import { esperaDecision, type GastoMio } from '@/lib/mis-gastos'
+import { enCurso, mismoNombre, type ClaseDocumento, type Coincidencia } from '@/lib/nombre-repetido'
 
 export async function createExpenseReport(formData: FormData) {
   const supabase = await createClient()
@@ -510,6 +511,61 @@ export async function checkItemDuplicate(params: {
   }
 
   return null
+}
+
+/**
+ * ¿La persona ya tiene un documento SIN CERRAR con este nombre?
+ *
+ * Avisa, no bloquea: repetir un nombre es legítimo y ya es la norma (16 nombres
+ * repetidos sobre 156 documentos el 2026-10-21). El razonamiento completo está
+ * en `src/lib/nombre-repetido.ts`.
+ *
+ * Es por BENEFICIARIO, no por organización: que otro tenga un fondo llamado
+ * «Caja chica octubre» no es un duplicado mío, y avisarlo sería contar algo
+ * ajeno. En caja chica el beneficiario puede no ser quien crea —un EFF pide un
+ * fondo a nombre de otro— así que lo recibe como parámetro.
+ *
+ * El filtro por nombre se hace acá y no en la consulta porque la comparación es
+ * normalizada (sin tildes ni mayúsculas ni espacios de más), y eso en SQL exige
+ * `unaccent` o un índice de expresión. Traer los documentos en curso de una
+ * persona es un puñado de filas.
+ */
+export async function buscarNombreRepetido(params: {
+  clase:         ClaseDocumento
+  nombre:        string
+  /** De quién es el documento. Si no viene, quien pregunta. */
+  beneficiarioId?: string
+  /** Para no avisarse a sí mismo al renombrar uno existente. */
+  excluirId?:    string
+}): Promise<Coincidencia[]> {
+  if (!params.nombre.trim()) return []
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const de = params.beneficiarioId ?? user.id
+
+  const { data } = params.clase === 'fondo'
+    ? await supabase
+        .from('petty_cash_funds')
+        .select('id, name, status, created_at')
+        .eq('employee_id', de)
+        .is('deleted_at', null)
+    : await supabase
+        .from('expense_reports')
+        .select('id, title, status, created_at')
+        .eq('submitter_id', de)
+        .is('deleted_at', null)
+
+  type Fila = { id: string; status: string; created_at: string; name?: string; title?: string }
+
+  return ((data ?? []) as unknown as Fila[])
+    .map(d => ({ id: d.id, nombre: d.name ?? d.title ?? '', desde: d.created_at, estado: d.status }))
+    .filter(d =>
+      d.id !== params.excluirId
+      && enCurso(params.clase, d.estado)
+      && mismoNombre(d.nombre, params.nombre))
 }
 
 // ── Detección de ítems duplicados por merchant + monto + fecha (±7 días) ────
