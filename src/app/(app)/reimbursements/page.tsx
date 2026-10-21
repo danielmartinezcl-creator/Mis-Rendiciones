@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getAuthProfile } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getMisRendicionesFiltrables } from '@/actions/expenses'
 import { cargarOpcionesFiltro } from '@/lib/opciones-filtro'
@@ -15,7 +15,9 @@ export default async function ReimbursementsPage({
   const user = await getAuthUser()
   if (!user) redirect('/login')
 
-  const [documentos, params] = await Promise.all([getMisRendicionesFiltrables(), searchParams])
+  const [documentos, params, perfil] = await Promise.all([
+    getMisRendicionesFiltrables(), searchParams, getAuthProfile(),
+  ])
   const opciones = await cargarOpcionesFiltro(await createClient(), documentos)
 
   return (
@@ -24,6 +26,9 @@ export default async function ReimbursementsPage({
       opciones={opciones}
       filtroInicial={leerFiltro(paramsDePagina(params))}
       hoy={fechaEnChile()}
+      /* El mismo permiso que habilita la pestaña «Rendir» de la barra de abajo:
+         quien no puede rendir no ve el atajo. */
+      puedeRendir={!!perfil?.can_submit}
     />
   )
 }

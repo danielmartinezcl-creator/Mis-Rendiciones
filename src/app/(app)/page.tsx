@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/Card'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { getMyReports } from '@/actions/expenses'
+import { getMyActiveFunds } from '@/actions/petty-cash'
+import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { ReceiptText, AlertCircle } from 'lucide-react'
 import type { ReportStatus } from '@/lib/constants'
 import { ESTADOS_POR_PAGAR } from '@/lib/constants'
@@ -13,7 +15,9 @@ export default async function DashboardPage() {
   const user = await getAuthUser()
   if (!user) redirect('/login')
 
-  const reports = await getMyReports()
+  /* Las dos cosas que la persona tiene en curso. El dashboard mostraba solo
+     rendiciones, así que un fondo de caja chica activo era invisible acá. */
+  const [reports, fondos] = await Promise.all([getMyReports(), getMyActiveFunds()])
 
   const pending  = reports.filter(r => r.status === 'draft')
     .reduce((s, r) => s + r.total_amount, 0)
@@ -73,6 +77,45 @@ export default async function DashboardPage() {
 
       {/* El CTA "Tomá la foto y listo" se quitó a pedido. La entrada para crear
           una rendición sigue disponible en la barra inferior ("Rendir"). */}
+
+      {/* Caja chica — aparece solo si la persona tiene un fondo en curso.
+          Va en su propio bloque y NO suma a los montos de arriba: un fondo es
+          plata que ya se recibió para gastar, no algo por cobrar. Mezclarlos
+          contaría dos veces la misma plata, que es el error que `byMovement`
+          ya evita en los informes. */}
+      {fondos.length > 0 && (
+        <div>
+          <h2 className="section-title text-ink-500 pl-1 mb-2">Caja chica</h2>
+          <div className="space-y-3">
+            {fondos.map(f => (
+              <Link
+                key={f.id}
+                href={`/petty-cash/${f.id}`}
+                className="hoja flex items-center justify-between gap-3 p-3.5 hover:shadow-[0_2px_8px_rgba(0,0,0,.12)] transition-shadow"
+              >
+                <div className="min-w-0">
+                  <p className="text-[16px] leading-snug font-semibold text-ink-800 truncate">{f.name}</p>
+                  <div className="mt-1">
+                    <InsigniaEstado tipo="fondo" estado={f.status} />
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  {/* Con los fondos en mano lo que importa es cuánto queda;
+                      antes de eso, cuánto se pidió. */}
+                  <p className="card-label text-ink-400">
+                    {f.status === 'funds_sent' ? 'Disponible' : 'Solicitado'}
+                  </p>
+                  <CurrencyAmount
+                    amount={f.status === 'funds_sent' ? f.disponible : (f.aprobado ?? f.solicitado)}
+                    currency="CLP"
+                    size="md"
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Rendiciones recientes */}
       {recent.length > 0 && (

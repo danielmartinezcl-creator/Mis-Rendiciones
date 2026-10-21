@@ -16,7 +16,7 @@ import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
-import { transferenciaFirme } from '@/lib/petty-cash-helpers'
+import { transferenciaFirme, calculateFundBalance } from '@/lib/petty-cash-helpers'
 import { documentoDeFondo } from '@/lib/filtro-documentos'
 
 async function getProfile() {
@@ -649,6 +649,73 @@ export type FundListItem = Awaited<ReturnType<typeof listPettyCashFunds>>[number
    sirve para eso: al admin le devuelve los de toda la organización, y a un
    EFF o aprobador, los de su gente, y nadie carga gastos en el fondo de otra
    persona (decisión de Daniel, 2026-09-25). */
+/**
+ * Los fondos propios que todavía están en curso, para la pantalla «Estado».
+ *
+ * El dashboard mostraba solo rendiciones (Daniel lo notó desde el celular el
+ * 2026-10-20), así que alguien con un fondo activo no veía ni su saldo ni en qué
+ * paso estaba sin entrar a «Caja chica».
+ *
+ * Es una acción propia y no `listPettyCashFunds` porque esa, para un admin o un
+ * gestor de caja chica, devuelve los fondos de toda la organización: en una
+ * vista personal eso es ruido, no información. Acá siempre es `employee_id = yo`.
+ *
+ * Los liquidados y los rechazados quedan fuera: lo cerrado se mira en «Caja
+ * chica», no en el estado de hoy.
+ */
+export async function getMyActiveFunds() {
+  const { supabase, userId } = await getProfile()
+
+  const { data: funds } = await supabase
+    .from('petty_cash_funds')
+    .select('id, name, status, amount_requested, amount_approved')
+    .eq('employee_id', userId)
+    .not('status', 'in', '("settled","rejected")')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (!funds?.length) return []
+
+  /* Los gastos y las transferencias de esos fondos, en dos consultas para
+     todos: el saldo lo calcula `calculateFundBalance`, el mismo que usa el
+     detalle, para que las dos pantallas no puedan decir cifras distintas. */
+  const ids = funds.map(f => f.id)
+  const [{ data: items }, { data: transfers }] = await Promise.all([
+    supabase.from('petty_cash_items').select('fund_id, amount_clp, status').in('fund_id', ids),
+    supabase.from('petty_cash_transfers').select('fund_id, type, amount').in('fund_id', ids),
+  ])
+
+  type ItemRow     = { fund_id: string; amount_clp: number; status: string }
+  type TransferRow = { fund_id: string; type: string; amount: number }
+
+  const porFondo = <T extends { fund_id: string }>(filas: T[] | null) => {
+    const mapa: Record<string, T[]> = {}
+    for (const f of filas ?? []) (mapa[f.fund_id] ??= []).push(f)
+    return mapa
+  }
+  const itemsPorFondo     = porFondo((items ?? []) as unknown as ItemRow[])
+  const transfersPorFondo = porFondo((transfers ?? []) as unknown as TransferRow[])
+
+  return funds.map(f => {
+    const saldo = calculateFundBalance(
+      f.amount_approved,
+      (itemsPorFondo[f.id] ?? []) as Parameters<typeof calculateFundBalance>[1],
+      /* Solo las transferencias que ya ocurrieron: la entrega se registra al
+         cargar en el banco y recién sale al autorizarse. */
+      (transfersPorFondo[f.id] ?? []).filter(t => transferenciaFirme(f.status, t.type)) as Parameters<typeof calculateFundBalance>[2],
+    )
+    return {
+      id:         f.id,
+      name:       f.name,
+      status:     f.status,
+      solicitado: f.amount_requested,
+      aprobado:   f.amount_approved,
+      gastado:    saldo.spent,
+      disponible: saldo.remaining,
+    }
+  })
+}
+
 export async function listMyOpenFunds() {
   const { supabase, userId } = await getProfile()
 

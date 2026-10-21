@@ -971,6 +971,33 @@ queda, con un aviso: perder el gasto por no poder subir la foto sería peor.
 > cambió es que en `pending_bank_auth` ya no tiene nada que ofrecer, y muestra «Todavía no
 > hay movimientos para contabilizar».
 
+### ✅ Caja chica en «Estado», y el atajo para rendir (2026-10-20)
+
+**El dashboard mostraba solo rendiciones.** Daniel lo notó desde el celular: alguien con
+un fondo activo no veía ni su saldo ni en qué paso estaba sin entrar a «Caja chica».
+`getMyActiveFunds()` trae los fondos **propios** en curso (sin `settled` ni `rejected`)
+con su saldo, calculado con `calculateFundBalance` —el mismo del detalle, para que las
+dos pantallas no puedan decir cifras distintas.
+
+- Es una acción propia y **no `listPettyCashFunds`**: esa, para un admin o un gestor de
+  caja chica, devuelve los de toda la organización, y en una vista personal eso es ruido.
+  Acá siempre es `employee_id = yo`, el mismo criterio que Daniel fijó para `/petty-cash`
+  el 2026-10-07 (lo que toca aprobar está en «Aprobaciones»)
+- **La sección NO suma a los montos de arriba.** «Por cobrar», «En revisión» y
+  «Borradores» siguen siendo solo de rendiciones: un fondo es plata que ya se recibió
+  para gastar, y meterlo ahí contaría dos veces la misma plata
+- Con los fondos en mano muestra **Disponible**; antes de eso, lo solicitado
+- **Ojo al verificarlo:** la sección aparece solo si uno es el BENEFICIARIO. El 2026-10-20
+  el único fondo vivo era de «1 Daniel Prueba» con Daniel como EFF, así que en el
+  dashboard de Daniel no se ve nada y parece que no funcionó. Comprobado por SQL que para
+  ese empleado muestra «prueba 2 · Fondos enviados · Disponible $200.000»
+
+**Atajo «Rendir» en «Mis rendiciones»** (pedido de Daniel: «como una especie de atajo al
+estar ahí»). Arriba a la derecha, al mismo `/expenses/new` que la pestaña de la barra de
+abajo y **con el mismo permiso** (`can_submit`), para que no haya dos puertas con reglas
+distintas. También en el estado vacío, donde además el texto dejó de mandar a la barra de
+abajo: con el botón al lado, sería mandar al más lejano de los dos.
+
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
 - Cadena de aprobación L1/L2 por empleado: `approver_l1_id`, `approver_l2_id` en `users` — desde

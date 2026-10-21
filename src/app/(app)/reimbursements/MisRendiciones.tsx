@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Filter, ReceiptText } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, Filter, ReceiptText, ScanLine } from 'lucide-react'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { BarraFiltros } from '@/components/filtros/BarraFiltros'
 import type { Dimension } from '@/lib/filtros/dimensiones'
@@ -20,11 +21,34 @@ interface Props {
   filtroInicial: Filtro
   /** La fecha de hoy en Chile, del servidor: así servidor y navegador calculan lo mismo */
   hoy:           string
+  /** `can_submit`: el mismo permiso que habilita la pestaña «Rendir» de abajo. */
+  puedeRendir:   boolean
 }
 
 const gastos = (n: number) => (n === 1 ? '1 gasto' : `${n} gastos`)
 
-export function MisRendiciones({ documentos, opciones, filtroInicial, hoy }: Props) {
+/**
+ * El atajo para empezar una rendición, arriba a la derecha (pedido de Daniel,
+ * 2026-10-20: «como una especie de atajo al estar ahí»).
+ *
+ * Va al mismo lugar que la pestaña «Rendir» de la barra de abajo y se muestra
+ * con el mismo permiso, para que no haya dos puertas con reglas distintas. En
+ * el teléfono la barra queda al alcance del pulgar pero obliga a salir de la
+ * lista; acá está donde la persona ya está mirando.
+ */
+function BotonRendir() {
+  return (
+    <Link
+      href="/expenses/new"
+      className="btn-primario inline-flex items-center gap-1.5 px-3.5 py-2 text-sm shrink-0"
+    >
+      <ScanLine size={16} aria-hidden />
+      Rendir
+    </Link>
+  )
+}
+
+export function MisRendiciones({ documentos, opciones, filtroInicial, hoy, puedeRendir }: Props) {
   const categorias = useMemo(() => opciones.categorias.map(c => ({ id: c.id, etiqueta: c.name })), [opciones])
 
   const [filtro, setFiltro] = useState(() => depurarFiltro(filtroInicial, {
@@ -55,11 +79,18 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy }: Pro
   if (documentos.length === 0) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <h1 className="text-2xl font-display font-bold tor-on-gradient">Mis rendiciones</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-display font-bold tor-on-gradient">Mis rendiciones</h1>
+          {puedeRendir && <BotonRendir />}
+        </div>
         <div className="hoja p-12 text-center">
           <ReceiptText size={40} className="mx-auto mb-3 text-ink-300" aria-hidden="true" />
           <p className="card-label font-medium text-ink-600">Sin rendiciones aún</p>
-          <p className="card-meta text-ink-400 mt-1">Toca «Rendir» en la barra de abajo para crear la primera</p>
+          {/* Con el botón arriba, mandar a la barra de abajo sería mandar al
+              lugar más lejano de los dos. */}
+          <p className="card-meta text-ink-400 mt-1">
+            {puedeRendir ? 'Tocá «Rendir» para crear la primera' : 'Acá vas a ver tus rendiciones'}
+          </p>
         </div>
       </div>
     )
@@ -67,11 +98,14 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy }: Pro
 
   return (
     <div className="max-w-2xl mx-auto space-y-3">
-      <div>
-        <h1 className="text-2xl font-display font-bold tor-on-gradient">Mis rendiciones</h1>
-        <p className="tor-on-gradient-soft text-sm mt-1">
-          {documentos.length === 1 ? '1 rendición' : `${documentos.length} rendiciones`}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-display font-bold tor-on-gradient">Mis rendiciones</h1>
+          <p className="tor-on-gradient-soft text-sm mt-1">
+            {documentos.length === 1 ? '1 rendición' : `${documentos.length} rendiciones`}
+          </p>
+        </div>
+        {puedeRendir && <BotonRendir />}
       </div>
 
       <BarraFiltros
