@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **928 tests Vitest en 55 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **936 tests Vitest en 56 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1505,6 +1505,22 @@ una columna `NOT NULL`.
 >      ```
 >      CORREO_SOLO_A=fdiaz@pentaingenieros.cl,fhagar@pentaingenieros.cl,jtorres@pentaingenieros.cl,kcorvalan@pentaingenieros.cl,rhagar@pentaingenieros.cl,danielmartinez.cl@gmail.com
 >      ```
+>
+>
+>      **Se puede MIRAR desde la app** (2026-10-20): Configuración → pestaña
+>      «Correo» muestra si sale correo, a qué direcciones llega hoy y desde qué
+>      remitente, con `getEstadoCorreo()`. Sale del MISMO `revisarConfigCorreo`
+>      que decide si un correo sale, así que no puede decir que todo está bien
+>      mientras el envío falla. **Es de solo lectura a propósito**, no por una
+>      limitación: abrir el correo a más gente exige entrar a Vercel, y esa
+>      fricción es la que faltó el 2026-10-07. La clave nunca se muestra, ni un
+>      fragmento — solo si sirve o por qué no.
+>
+>      Su camino real se prueba en `correo-tab.test.tsx` y no en el navegador:
+>      `CORREO_SOLO_A` vive en Vercel, así que **en local la pantalla siempre cae
+>      en «fuera de producción»** y la lista no se ejercita. Simularlo con
+>      `VERCEL_ENV=production` en local sería poner la base real al lado del
+>      candado abierto, que es justo lo que mandó las 52 invitaciones.
 >
 >      Francisco Díaz · Francisco Hagar · Julián Torres · Katherine Corvalán ·
 >      Roberto Hagar · Daniel. **De los seis, Francisco Díaz es el único sin

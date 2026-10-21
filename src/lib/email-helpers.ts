@@ -86,6 +86,20 @@ export function puedeRecibir(email: string, soloA: string[]): boolean {
 
 const VALORES_SIN_PAUSA = new Set(['', '0', 'false', 'no'])
 
+/**
+ * ¿`CORREO_PAUSADO` está puesto?
+ *
+ * Exportada para que la pantalla que muestra el estado del correo use ESTA
+ * regla y no una copia: la lista de valores que cuentan como «sin pausa» es
+ * justo donde una segunda definición se desincroniza sin que nada falle.
+ *
+ * Falla cerrado, igual que `revisarConfigCorreo`: lo que no se reconoce como
+ * «sin pausa», pausa.
+ */
+export function estaPausado(valor: string | undefined | null): boolean {
+  return !VALORES_SIN_PAUSA.has((valor ?? '').trim().toLowerCase())
+}
+
 export function revisarConfigCorreo(
   clave: string | undefined | null,
   remitente: string | undefined | null,

@@ -21,9 +21,10 @@ import type { PolicyInput, TravelPolicyInput } from '@/actions/policies'
 import type { TravelPolicy } from '@/lib/supabase/types'
 import { NEUTRAL, BRAND } from '@/lib/design-tokens'
 import { MarcaTab } from '@/components/admin/MarcaTab'
+import { CorreoTab } from '@/components/admin/CorreoTab'
 import { useDialogos } from '@/components/ui/Dialogos'
 
-type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks' | 'marca'
+type Tab = 'categories' | 'employees' | 'chains' | 'limits' | 'defontana' | 'policies' | 'viaticos' | 'webhooks' | 'marca' | 'correo'
 type EmployeeWithEmail = UserProfile & { email: string }
 
 function CategoryIcon({ icon, color }: { icon?: string | null; color?: string | null }) {
@@ -99,6 +100,7 @@ export default function AdminSettingsPage() {
           { id: 'viaticos',   label: 'Viáticos' },
           { id: 'webhooks',   label: 'Webhooks' },
           { id: 'marca',      label: 'Marca' },
+          { id: 'correo',     label: 'Correo' },
         ] as { id: Tab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -124,6 +126,7 @@ export default function AdminSettingsPage() {
       {activeTab === 'viaticos'   && <ViaticosTab />}
       {activeTab === 'webhooks'   && <WebhooksTab />}
       {activeTab === 'marca'      && <MarcaTab />}
+      {activeTab === 'correo'     && <CorreoTab />}
     </div>
   )
 }

@@ -8,7 +8,7 @@ import type { Json } from '@/lib/supabase/types'
 import type { AttachmentKind } from '@/lib/attachment-types'
 import { logAudit } from '@/lib/audit'
 import { mapaDeObras, obraDe } from '@/lib/report-helpers'
-import { revisarConfigCorreo } from '@/lib/email-helpers'
+import { revisarConfigCorreo, entornoCorreoActual, listaPermitidos, estaPausado } from '@/lib/email-helpers'
 import { enviarLinkDeAcceso } from '@/lib/access-email'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
 import { soloCampos } from '@/lib/expense-helpers'
@@ -959,6 +959,43 @@ export async function resendInvitation(userId: string): Promise<{ error?: string
 
   await adminClient.from('users').update({ invited_at: new Date().toISOString() }).eq('id', userId)
   return {}
+}
+
+/**
+ * El estado del correo saliente, para mirarlo desde la app. Solo admin.
+ *
+ * Daniel, 2026-10-20: «¿dónde puedo ver la lista de los que pueden recibir el
+ * correo?». No había dónde: `CORREO_SOLO_A` y `CORREO_PAUSADO` son variables de
+ * entorno de Vercel y ninguna pantalla las mostraba, así que para saber a quién
+ * le llega un correo había que entrar al panel de Vercel.
+ *
+ * **Es de solo lectura a propósito, y no es una limitación técnica.** Abrir el
+ * correo a más gente exige entrar a Vercel, y esa fricción es la que faltó el
+ * 2026-10-07, cuando un clic mandó 52 invitaciones reales. Si la lista se
+ * pudiera editar desde una pantalla, cualquiera con sesión de admin ampliaría a
+ * quién le llega un correo. Ver sí; cambiar, en Vercel.
+ *
+ * **La clave nunca sale de acá**: se informa si sirve o no, nunca su valor ni
+ * un fragmento. El motivo que da `revisarConfigCorreo` ya dice lo necesario
+ * para diagnosticarla (si falta, si quedó en «placeholder», si es corta).
+ */
+export async function getEstadoCorreo() {
+  await requireAdmin()
+
+  const correo  = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
+  const entorno = entornoCorreoActual()
+
+  return {
+    puedeEnviar: correo.puedeEnviar,
+    motivo:      correo.puedeEnviar ? null : correo.motivo,
+    desde:       correo.puedeEnviar ? correo.desde : null,
+    /* Con la lista cargada, SOLO estas direcciones reciben. Vacía significa
+       «todas», que es muy distinto: la pantalla no puede mostrarlas igual. */
+    soloA:       listaPermitidos(entorno.CORREO_SOLO_A),
+    pausado:     estaPausado(entorno.CORREO_PAUSADO),
+    /* `undefined` en local; en Vercel, «production» | «preview» | «development». */
+    entorno:     entorno.VERCEL_ENV ?? 'local',
+  }
 }
 
 /** Devuelve el acceso a un empleado bloqueado desde la papelera. Solo admin. */

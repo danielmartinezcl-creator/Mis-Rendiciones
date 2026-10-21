@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { revisarConfigCorreo, listaPermitidos, puedeRecibir } from '@/lib/email-helpers'
+import { revisarConfigCorreo, listaPermitidos, puedeRecibir, estaPausado } from '@/lib/email-helpers'
 
 /**
  * Estos tests existen por un defecto concreto: `sendInvitations` mandaba una
@@ -175,5 +175,31 @@ describe('CORREO_SOLO_A — la lista del piloto', () => {
       { VERCEL_ENV: 'development', CORREO_SOLO_A: 'ana@penta.cl' })
     expect(r.puedeEnviar).toBe(false)
     if (!r.puedeEnviar) expect(r.motivo).toContain('producción')
+  })
+})
+
+describe('estaPausado — la misma regla que ve la pantalla de Correo', () => {
+  /* Existe exportada para que la pestaña «Correo» de Configuración no tenga su
+     propia copia de la lista de valores que cuentan como «sin pausa»: una
+     segunda definición se desincroniza sin que nada falle, y la pantalla
+     diría «sin pausa» mientras el candado corta los envíos. */
+
+  it('los cuatro valores que NO pausan', () => {
+    for (const v of ['', '0', 'false', 'no']) expect(estaPausado(v)).toBe(false)
+  })
+
+  it('sin variable no hay pausa', () => {
+    expect(estaPausado(undefined)).toBe(false)
+    expect(estaPausado(null)).toBe(false)
+  })
+
+  it('falla cerrado: cualquier otro valor pausa', () => {
+    for (const v of ['1', 'true', 'si', 'sí', 'pausado', 'x']) expect(estaPausado(v)).toBe(true)
+  })
+
+  it('no se deja engañar por espacios ni mayúsculas', () => {
+    expect(estaPausado('  FALSE  ')).toBe(false)
+    expect(estaPausado('  No ')).toBe(false)
+    expect(estaPausado(' 1 ')).toBe(true)
   })
 })
