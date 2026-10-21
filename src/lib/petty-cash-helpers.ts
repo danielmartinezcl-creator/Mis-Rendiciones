@@ -228,3 +228,37 @@ export function rotuloTransferencia(estadoFondo: string, tipo: string): string {
   if (tipo === 'refund_to_employee') return 'Devolución al empleado'
   return 'Reembolso del empleado'
 }
+
+/**
+ * Por qué NO se puede eliminar un fondo, o null si se puede.
+ *
+ * Una sola función para la acción y para la pantalla: si el botón se dibujara
+ * con una regla y el servidor decidiera con otra, la app ofrecería algo que
+ * después niega — que es exactamente lo que le pasó a Francisco Díaz el
+ * 2026-10-21, pero al revés: veía el botón y la acción lo rechazaba.
+ *
+ * **Quien lo pidió puede eliminar su propio BORRADOR.** Es la misma puerta que
+ * las rendiciones tienen desde la migración 025 (`deleteExpenseReport`) y que
+ * en caja chica nunca se abrió: la acción exigía `role === 'admin'` y nada más.
+ *
+ * El beneficiario o el EFF, porque en caja chica no son siempre la misma
+ * persona: un EFF pide el fondo a nombre de otro, y mientras sea borrador
+ * cualquiera de los dos puede deshacerlo.
+ *
+ * **Enviado, ya no**: desde ahí hay gente esperándolo y un historial firmado
+ * detrás. Para deshacerlo está el rechazo. El admin sí puede, en cualquier
+ * estado: es quien limpia lo que quedó mal.
+ */
+export function motivoNoSeEliminaFondo(
+  fondo: { status: string; employee_id: string; manager_id: string | null },
+  yo:    { id: string; esAdmin: boolean },
+): string | null {
+  if (yo.esAdmin) return null
+  if (fondo.employee_id !== yo.id && fondo.manager_id !== yo.id) {
+    return 'Solo podés eliminar tus propios fondos'
+  }
+  if (fondo.status !== 'draft') {
+    return 'Solo se pueden eliminar fondos en borrador. Este ya fue enviado'
+  }
+  return null
+}

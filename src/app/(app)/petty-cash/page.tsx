@@ -30,6 +30,11 @@ export default async function PettyCashPage({
     <PettyCashClient
       initialFunds={initialFunds}
       isManager={isManager}
+      /* Quién mira: lo necesita `motivoNoSeEliminaFondo` para dibujar el botón
+         de eliminar con la MISMA regla que usa la acción. `isManager` no
+         alcanza — incluye a quien administra caja chica, y deja afuera a quien
+         solo pidió un fondo para sí. */
+      yo={{ id: profile?.id ?? '', esAdmin: profile?.role === 'admin' }}
       historicalImports={historicalImports}
       orgEmployees={orgEmployees}
       pendingTransfers={pendingTransfers}

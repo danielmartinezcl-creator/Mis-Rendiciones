@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **950 tests Vitest en 58 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **965 tests Vitest en 59 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1036,6 +1036,54 @@ entre dos archivos de Defontana que se llaman casi igual).
 > la papelera y las dos rendiciones de prueba, reembolsadas—, así que la pantalla nunca
 > entra al camino del aviso. Por eso el render se prueba en `aviso-nombre-repetido.test.tsx`
 > con la acción simulada.
+
+### ✅ Eliminar un fondo propio, y los errores en español (2026-10-21)
+
+Francisco Díaz no podía borrar un fondo de caja chica **que acababa de crear y seguía en
+borrador**, y encima el error salía en inglés. Dos problemas con la misma captura.
+
+**1. `deletePettyCashFund` exigía `role === 'admin'` y nada más.** En rendiciones el
+rendidor borra sus borradores desde la migración 025 (`deleteExpenseReport`); en caja
+chica esa puerta nunca se abrió, así que había que pedírselo al admin.
+
+La regla vive en `motivoNoSeEliminaFondo` (`petty-cash-helpers.ts`) y **la usan la acción
+y la pantalla**: si el botón se dibujara con una regla y el servidor decidiera con otra,
+la app ofrecería algo que después niega.
+
+- El **beneficiario o el EFF** que lo creó, mientras sea `draft`. Los dos, porque en caja
+  chica no son siempre la misma persona
+- **Enviado, ya no**: hay gente esperándolo y un historial firmado detrás; para deshacerlo
+  está el rechazo. El admin sí, en cualquier estado: es quien limpia lo que quedó mal
+- **El botón se separó de `isManager`.** Estaba junto al de traspaso bajo esa condición,
+  así que un empleado **sin** `can_manage_petty_cash` no veía cómo borrar un borrador
+  suyo. El traspaso sigue siendo de quien administra; eliminar, de quien puede eliminar
+  ESE fondo
+
+**2. El error en inglés NO era de esta pantalla: es de toda la app.**
+
+> «An error occurred in the Server Components render. The specific message is omitted in
+> production builds to avoid leaking sensitive details…»
+
+**Lo pone Next**: en producción reemplaza el mensaje de cualquier `throw` del servidor
+antes de que llegue al navegador. En desarrollo se ve el mensaje real, **así que el
+problema no aparece hasta que está desplegado** — y son **90 sitios en 35 archivos** los
+que muestran `err.message` al usuario.
+
+Por eso la red va en **`avisar()`**, el embudo por el que pasan todos los avisos, y no en
+cada `catch`: `mensajeLegible()` (`src/lib/errores.ts`) detecta las firmas del párrafo de
+Next y lo cambia por uno en español, con el `digest` entre paréntesis cuando viene — es lo
+único que permite cruzarlo con el registro de Vercel. Las firmas van en inglés y nuestros
+mensajes están todos en español, así que no hay falso positivo posible.
+
+**La red tapa el síntoma; lo que arregla un caso es devolver el error como dato.**
+`deletePettyCashFund` ahora devuelve `{ error }` en vez de lanzar: un valor de retorno no
+lo redacta nadie, y la persona lee «Solo se pueden eliminar fondos en borrador. Este ya
+fue enviado». Conviene hacer lo mismo en cualquier acción cuyo error el usuario tenga que
+entender. Un fallo de la base sí se sigue lanzando: no es algo que la persona resuelva.
+
+> **Los rechazados no los puede borrar su dueño**, y Francisco tenía 3 el 2026-10-21.
+> `rejected` no es `draft`, así que quedan en su lista hasta que un admin los saque.
+> Si molesta en el uso real, es una línea en `motivoNoSeEliminaFondo` — decisión de Daniel.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
@@ -1908,6 +1956,7 @@ una columna `NOT NULL`.
 | Correr un ensayo con `BEGIN` y olvidar el `ROLLBACK` | `execute_sql` del MCP **no deja la transacción aplicada**: sin un `commit;` explícito, los datos quedan intactos (comprobado el 2026-10-20 releyendo las tres filas después del ensayo, que seguían como antes). Pero eso se verifica, no se supone | Después de cualquier ensayo sobre producción, **volver a leer las filas** en una llamada aparte antes de seguir. Y para aplicar de verdad, `commit;` explícito más un `select` final que muestre el antes y el después |
 | Agregar un ítem a una carga contabilizada desde `/admin/reports` y esperar que el panel lo ofrezca | Esa pantalla marca la cabecera y no los ítems, y el panel por tipo trata ese estado como «todo exportado» (`legacyHeaderOnly` → `pending = []`): el ítem nuevo nace pendiente y queda **invisible**, sin error ni aviso. Eran 27 de 145 cargas el 2026-10-19 | Sembrar la marca de la cabecera en los ítems existentes **antes** de insertar, como ya hacía `revertHistoricalFundDefontana`. La condición está en `necesitaSiembra` |
 | Editar código con un script de `node -e` y no correr `tsc` después | Un `replace` que saca una línea temporal puede llevarse la de al lado. Pasó el 2026-10-21 al quitar un `console.log` de diagnóstico: se fue también el `return` de la función, **las 950 pruebas siguieron en verde** —ningún test importa `src/actions/`— y el fallo apareció recién en `npm run build`, como «Parsing ecmascript source code failed» a 200 líneas del cambio | Después de CUALQUIER edición por script, `npx tsc --noEmit` antes de seguir: toma segundos y lo habría cazado al instante. Y no dar por buena una verificación cuyo `echo` de éxito corre pase lo que pase (`comando && echo ok` sí encadena; `comando; echo ok` miente) |
+| Mostrarle a una persona el mensaje de un error lanzado en el servidor | En producción **Next reemplaza el mensaje de cualquier throw del servidor** por un párrafo suyo en inglés («omitted in production builds…»). En desarrollo se ve el mensaje real, así que **no se nota hasta que está desplegado**. Lo vio Francisco Díaz el 2026-10-21 al no poder borrar un borrador, y hay 90 sitios en 35 archivos que muestran err.message tal cual | La red está en `avisar()`, que es por donde pasan todos los avisos (`mensajeLegible` de `src/lib/errores.ts`). Pero eso tapa el síntoma: un error que la persona tiene que ENTENDER se devuelve como dato (`return { error: … }`), no se lanza — un valor de retorno no lo redacta nadie |
 | Medir el cuadre de una caja chica POR DOCUMENTO | Un fondo tiene su adelanto en un documento y sus gastos en otro: el documento suelto casi nunca cuadra. Medido el 2026-10-20 sobre las 117 cargas históricas: por documento cuadran **15 de 117**; agrupadas por fondo, **47 de 53**. Sobre esa medición equivocada se informó que «114 cajas tienen saldo» y se agregó un distintivo que habría puesto 102 avisos falsos | Agrupar por `fund_number` antes de juzgar el cuadre, como ya hace `/petty-cash`. Y antes de agregar un indicador, **mirar si la pantalla ya tiene el suyo**: esa lo tenía, mejor hecho |
 | Restar la devolución igual que el adelanto | Una devolución es plata que la persona YA entregó de vuelta: reduce lo que debe ELLA, no lo que debe la empresa. `computeApprovedAmount` la restaba hasta el 2026-10-20 y un ciclo saldado (adelanto 100.000, gastos 60.000, devolución 40.000) daba −80.000. Como `estadoTrasDecisionReporte` manda al banco solo si el monto es mayor que cero, la rendición quedaba en `approved` y nadie pagaba: 9 de 24 cruzan el cero, por $2.895.638 | La devolución **suma**. Las tres fórmulas de la app coinciden en esto (`saldoDeRendicion`, el cuadre por fondo de `/petty-cash` y ahora `computeApprovedAmount`); si una se toca, mirar las otras dos |
 | Sumar las dos vías por las que está anotado el mismo pago | El reembolso al empleado figura como ítem `advance`, como `reimbursed_amount` en la cabecera, o **las dos a la vez**, y nada dice cuál se usó. Sumarlas cuenta la plata dos veces: así el distintivo viejo informaba «Exceso de reembolso $30.080» en una rendición a la que faltaba pagarle $4.000 | `max(vía de los ítems, vía de la cabecera)`, nunca la suma — `saldoDeRendicion`. Medido en las 155 rendiciones: 59 quedan en cero con `max()` y 27 sumando. Es el mismo error que «sumar adelantos y gastos en un KPI de total» |

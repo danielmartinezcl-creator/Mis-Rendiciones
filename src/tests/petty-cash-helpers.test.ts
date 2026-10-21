@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   tramoDelFondo, construirRecorrido, TRAMOS_FONDO, calculateFundBalance,
-  transferenciaFirme, rotuloTransferencia,
+  transferenciaFirme, rotuloTransferencia, motivoNoSeEliminaFondo,
 } from '@/lib/petty-cash-helpers'
 import type { PettyCashItem, PettyCashTransfer } from '@/lib/supabase/types'
 import { FUND_STATUSES, FUND_STEPS } from '@/lib/constants'
@@ -253,5 +253,40 @@ describe('la entrega al empleado no cuenta hasta que el banco la autoriza', () =
     }
     expect(rotuloTransferencia('funds_sent', 'refund_to_employee')).toBe('Devolución al empleado')
     expect(rotuloTransferencia('funds_sent', 'reimbursement_from_employee')).toBe('Reembolso del empleado')
+  })
+})
+
+describe('quién puede eliminar un fondo', () => {
+  /* Francisco Díaz, 2026-10-21: no podía borrar un fondo que acababa de crear y
+     seguía en borrador, porque la acción exigía `role === 'admin'`. En
+     rendiciones esa puerta existe desde la migración 025. */
+  const FONDO = { status: 'draft', employee_id: 'fran', manager_id: 'fran' }
+  const FRAN  = { id: 'fran', esAdmin: false }
+
+  it('el dueño elimina su propio borrador', () => {
+    expect(motivoNoSeEliminaFondo(FONDO, FRAN)).toBeNull()
+  })
+
+  it('el EFF que lo creó para otro, también', () => {
+    // En caja chica el beneficiario y quien lo pide no son siempre el mismo.
+    const deOtro = { status: 'draft', employee_id: 'otro', manager_id: 'kathy' }
+    expect(motivoNoSeEliminaFondo(deOtro, { id: 'kathy', esAdmin: false })).toBeNull()
+  })
+
+  it('un fondo ajeno, no — y lo dice', () => {
+    const ajeno = { status: 'draft', employee_id: 'otro', manager_id: 'otro' }
+    expect(motivoNoSeEliminaFondo(ajeno, FRAN)).toBe('Solo podés eliminar tus propios fondos')
+  })
+
+  it('el suyo ya enviado, tampoco: hay gente esperándolo', () => {
+    for (const estado of ['pending_approval', 'funds_sent', 'pending_liquidation_approval', 'settled']) {
+      expect(motivoNoSeEliminaFondo({ ...FONDO, status: estado }, FRAN))
+        .toBe('Solo se pueden eliminar fondos en borrador. Este ya fue enviado')
+    }
+  })
+
+  it('el admin elimina cualquiera, en cualquier estado: es quien limpia', () => {
+    const admin = { id: 'dani', esAdmin: true }
+    expect(motivoNoSeEliminaFondo({ status: 'settled', employee_id: 'otro', manager_id: 'otro' }, admin)).toBeNull()
   })
 })

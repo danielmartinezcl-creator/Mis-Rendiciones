@@ -5,7 +5,7 @@ import { Wallet, Plus, Filter, Trash2, SendHorizontal, Tag } from 'lucide-react'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
 import { CompactStepper } from '@/components/ui/CompactStepper'
 import { FUND_STEPS } from '@/lib/constants'
-import { formatPeriod, pasoVisibleDelFondo } from '@/lib/petty-cash-helpers'
+import { formatPeriod, pasoVisibleDelFondo, motivoNoSeEliminaFondo } from '@/lib/petty-cash-helpers'
 import { fmtCLP } from './usePettyCashState'
 import type { FundListItem, TransferSource } from './usePettyCashState'
 
@@ -13,6 +13,8 @@ export interface FundListProps {
   funds:               FundListItem[]
   filtered:            FundListItem[]
   isManager:           boolean
+  /** Quién mira: decide si se dibuja el botón de eliminar. */
+  yo:                  { id: string; esAdmin: boolean }
   deletingId:          string | null
   /** Vista compacta: con el chip «Empleado» puesto, la lista se escanea por persona */
   compacta:            boolean
@@ -28,6 +30,7 @@ export function FundList({
   funds,
   filtered,
   isManager,
+  yo,
   deletingId,
   compacta,
   initialFundsLength,
@@ -36,6 +39,12 @@ export function FundList({
   limpiarFiltro,
   coincidencia,
 }: FundListProps) {
+  /* La MISMA función que usa la acción del servidor: si acá se dibujara el
+     botón con una regla y allá se decidiera con otra, la pantalla ofrecería
+     algo que después se niega. */
+  const puedeEliminar = (f: FundListItem) =>
+    motivoNoSeEliminaFondo(f, yo) === null
+
   if (filtered.length === 0) {
     if (funds.length === 0) {
       return (
@@ -88,23 +97,32 @@ export function FundList({
                 )}
               </div>
             </Link>
-            {isManager && (
+            {/* Los dos botones tienen reglas distintas: el traspaso es de quien
+                administra caja chica; eliminar, de quien puede eliminar ESE
+                fondo — su dueño mientras sea borrador, o el admin. Estaban
+                juntos bajo `isManager`, así que un empleado sin ese permiso no
+                veía cómo borrar un borrador suyo. */}
+            {(isManager || puedeEliminar(f)) && (
               <div className="flex items-stretch border-l border-ink-100">
-                <button
-                  onClick={() => openTransferModal({ fundId: f.id, defaultAmount: f.amount_approved ?? f.amount_requested, payerEmpId: f.employee_id })}
-                  title="Registrar traspaso"
-                  className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
-                >
-                  <SendHorizontal size={14} />
-                </button>
-                <button
-                  onClick={() => handleDeleteFund(f.id, f.name)}
-                  disabled={deletingId === f.id}
-                  title="Eliminar fondo"
-                  className="px-3 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-r-item"
-                >
-                  {deletingId === f.id ? <span className="text-xs">...</span> : <Trash2 size={15} />}
-                </button>
+                {isManager && (
+                  <button
+                    onClick={() => openTransferModal({ fundId: f.id, defaultAmount: f.amount_approved ?? f.amount_requested, payerEmpId: f.employee_id })}
+                    title="Registrar traspaso"
+                    className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
+                  >
+                    <SendHorizontal size={14} />
+                  </button>
+                )}
+                {puedeEliminar(f) && (
+                  <button
+                    onClick={() => handleDeleteFund(f.id, f.name)}
+                    disabled={deletingId === f.id}
+                    title="Eliminar fondo"
+                    className="px-3 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-r-item"
+                  >
+                    {deletingId === f.id ? <span className="text-xs">...</span> : <Trash2 size={15} />}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -154,30 +172,36 @@ export function FundList({
               </div>
             </div>
           </Link>
-          {isManager && (
+          {/* Igual que en la vista compacta: traspaso para quien administra,
+              eliminar para quien puede eliminar ESE fondo. */}
+          {(isManager || puedeEliminar(f)) && (
             <div className="flex items-stretch justify-end border-t border-ink-100 sm:border-t-0 sm:border-l">
-              <button
-                onClick={() => openTransferModal({
-                  fundId:        f.id,
-                  defaultAmount: f.amount_approved ?? f.amount_requested,
-                  payerEmpId:    f.employee_id,
-                })}
-                title="Registrar traspaso a otro empleado"
-                className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
-              >
-                <SendHorizontal size={14} />
-              </button>
-              <button
-                onClick={() => handleDeleteFund(f.id, f.name)}
-                disabled={deletingId === f.id}
-                title="Eliminar fondo"
-                className="px-3 py-2 sm:py-0 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-br-card sm:rounded-br-none sm:rounded-r-card"
-              >
-                {deletingId === f.id
-                  ? <span className="text-xs">...</span>
-                  : <Trash2 size={15} />
-                }
-              </button>
+              {isManager && (
+                <button
+                  onClick={() => openTransferModal({
+                    fundId:        f.id,
+                    defaultAmount: f.amount_approved ?? f.amount_requested,
+                    payerEmpId:    f.employee_id,
+                  })}
+                  title="Registrar traspaso a otro empleado"
+                  className="px-2.5 text-flare-400 hover:text-flare-600 hover:bg-flare-50 transition-colors"
+                >
+                  <SendHorizontal size={14} />
+                </button>
+              )}
+              {puedeEliminar(f) && (
+                <button
+                  onClick={() => handleDeleteFund(f.id, f.name)}
+                  disabled={deletingId === f.id}
+                  title="Eliminar fondo"
+                  className="px-3 py-2 sm:py-0 border-l border-ink-100 text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors disabled:opacity-40 rounded-br-card sm:rounded-br-none sm:rounded-r-card"
+                >
+                  {deletingId === f.id
+                    ? <span className="text-xs">...</span>
+                    : <Trash2 size={15} />
+                  }
+                </button>
+              )}
             </div>
           )}
         </div>

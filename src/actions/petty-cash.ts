@@ -16,7 +16,7 @@ import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
 import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
-import { transferenciaFirme, calculateFundBalance } from '@/lib/petty-cash-helpers'
+import { transferenciaFirme, calculateFundBalance, motivoNoSeEliminaFondo } from '@/lib/petty-cash-helpers'
 import { documentoDeFondo } from '@/lib/filtro-documentos'
 
 async function getProfile() {
@@ -553,13 +553,41 @@ export async function recordSettlement(fundId: string, data: {
 
 // ── Eliminar fondo (solo admin) ───────────────────────────────────────────────
 
-export async function deletePettyCashFund(fundId: string) {
+/**
+ * Elimina un fondo (borrado suave: va a la papelera).
+ *
+ * **Quien lo pidió puede eliminar su propio BORRADOR**, igual que una rendición
+ * (`deleteExpenseReport`). Hasta el 2026-10-21 esta acción exigía `role ===
+ * 'admin'` y nada más, así que Francisco Díaz no podía borrar un fondo que
+ * acababa de crear y todavía no había enviado: tenía que pedírselo al admin.
+ * En rendiciones esa puerta existe desde la migración 025; en caja chica nunca
+ * se abrió.
+ *
+ * El admin sigue pudiendo eliminar cualquiera, en cualquier estado: es quien
+ * limpia lo que quedó mal.
+ *
+ * **Un fondo enviado NO lo borra su dueño**, aunque sea suyo: desde que se envía
+ * hay gente esperándolo y un historial firmado detrás. Para eso está el rechazo.
+ *
+ * Devuelve el motivo en vez de lanzarlo cuando no se puede. No es un capricho:
+ * **en producción Next reemplaza el mensaje de un `throw` del servidor** por un
+ * párrafo genérico en inglés, y eso fue justo lo que Francisco vio en pantalla.
+ * Un valor de retorno no lo redacta nadie. Ver `src/lib/errores.ts`.
+ */
+export async function deletePettyCashFund(fundId: string): Promise<{ error?: string }> {
   const { supabase, userId, profile } = await getProfile()
-  if (profile.role !== 'admin') throw new Error('Solo administradores')
 
-  // Capture fund before soft delete
   const { data: fund } = await supabase
-    .from('petty_cash_funds').select('name').eq('id', fundId).single()
+    .from('petty_cash_funds')
+    .select('name, status, employee_id, manager_id')
+    .eq('id', fundId)
+    .single()
+
+  if (!fund) return { error: 'No se encontró el fondo' }
+
+  // La MISMA regla que decide si la pantalla dibuja el botón.
+  const motivo = motivoNoSeEliminaFondo(fund, { id: userId, esAdmin: profile.role === 'admin' })
+  if (motivo) return { error: motivo }
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
@@ -568,6 +596,8 @@ export async function deletePettyCashFund(fundId: string) {
     .eq('id', fundId)
     .eq('org_id', profile.org_id)
 
+  // Un fallo de la base sí se lanza: no es algo que la persona pueda resolver,
+  // y así queda en los registros de Vercel con su traza.
   if (error) throw new Error(error.message)
 
   await logAudit({
@@ -577,11 +607,12 @@ export async function deletePettyCashFund(fundId: string) {
     action:      'deleted',
     entityType:  'petty_cash_fund',
     entityId:    fundId,
-    entityLabel: fund?.name ?? fundId,
+    entityLabel: fund.name,
   })
 
   revalidatePath('/petty-cash')
   revalidatePath('/admin/trash')
+  return {}
 }
 
 // ── Consultas ─────────────────────────────────────────────────────────────────

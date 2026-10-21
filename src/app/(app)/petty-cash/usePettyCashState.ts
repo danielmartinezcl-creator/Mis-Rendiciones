@@ -24,6 +24,7 @@ import {
 import type { FundListItem } from '@/actions/petty-cash'
 import type { FundTransferRow, EmployeeTarget, OrgReportSimple } from '@/actions/fund-transfers'
 import { useDialogos } from '@/components/ui/Dialogos'
+import { mensajeDeError } from '@/lib/errores'
 import {
   aplicarFiltro, historicaEntraEnExportacion, rangoDeFecha, type Filtro,
 } from '@/lib/filtro-documentos'
@@ -517,10 +518,14 @@ export function usePettyCashState({
     })) return
     setDeletingId(id)
     try {
-      await deletePettyCashFund(id)
+      /* El motivo viene como dato y no como excepción: en producción Next
+         redacta el mensaje de un `throw` del servidor, y la persona terminaba
+         leyendo un párrafo en inglés en vez de «este fondo ya fue enviado». */
+      const { error } = await deletePettyCashFund(id)
+      if (error) { avisar(error, 'error'); return }
       setFunds(prev => prev.filter(f => f.id !== id))
     } catch (err) {
-      avisar(err instanceof Error ? err.message : 'Error al eliminar el fondo')
+      avisar(mensajeDeError(err, 'No se pudo eliminar el fondo'), 'error')
     } finally {
       setDeletingId(null)
     }

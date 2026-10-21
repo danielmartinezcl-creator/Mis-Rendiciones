@@ -23,6 +23,8 @@ import { etiquetaDeProyecto, textoCoincidencia, textoResumen } from '@/lib/filtr
 interface Props {
   initialFunds:      FundListItem[]
   isManager:         boolean
+  /** Quién mira: decide si se dibuja el botón de eliminar. */
+  yo:                { id: string; esAdmin: boolean }
   historicalImports: HistoricalImport[]
   orgEmployees:      { id: string; full_name: string }[]
   pendingTransfers:  FundTransferRow[]
@@ -35,6 +37,7 @@ interface Props {
 export function PettyCashClient({
   initialFunds,
   isManager,
+  yo,
   historicalImports: initialHistoricalImports,
   orgEmployees,
   pendingTransfers: initialPendingTransfers,
@@ -250,6 +253,7 @@ export function PettyCashClient({
         funds={state.funds}
         filtered={filtered}
         isManager={isManager}
+        yo={yo}
         deletingId={state.deletingId}
         compacta={filtro.empleados.length > 0}
         initialFundsLength={initialFunds.length}

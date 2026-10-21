@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, HelpCircle, X } from 'lucide-react'
+import { mensajeLegible } from '@/lib/errores'
 
 /**
  * Los diálogos de la app, en Tornasol.
@@ -77,8 +78,14 @@ export function ProveedorDialogos({ children }: { children: React.ReactNode }) {
     responder.current = null
   }, [])
 
-  const avisar = useCallback((mensaje: string, tono: 'info' | 'error' = 'info') => {
+  const avisar = useCallback((bruto: string, tono: 'info' | 'error' = 'info') => {
     const id = siguienteId.current++
+    /* La red para que nadie lea un error en inglés. En producción Next reemplaza
+       el mensaje de cualquier `throw` del servidor por un párrafo suyo, y hay 90
+       sitios que muestran `err.message` tal cual: la traducción va acá, que es
+       por donde pasan TODOS los avisos, y no en cada `catch`. Ver
+       `src/lib/errores.ts`. */
+    const mensaje = mensajeLegible(bruto)
     /* Uno igual a la vista no se repite: el cron guarda de una vez todos los
        recordatorios de una persona y cada fila llega por Realtime como un aviso. */
     setAvisos(a => a.some(x => x.mensaje === mensaje && x.tono === tono) ? a : [...a, { id, mensaje, tono }])
