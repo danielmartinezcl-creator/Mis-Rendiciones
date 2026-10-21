@@ -95,6 +95,12 @@ export default async function DashboardPage() {
               >
                 <div className="min-w-0">
                   <p className="text-[16px] leading-snug font-semibold text-ink-800 truncate">{f.name}</p>
+                  {/* De quién es, cuando no es propio: el saldo de un fondo
+                      ajeno es plata de otra persona, y sin el nombre se leería
+                      como «me quedan $X». */}
+                  {!f.esMio && (
+                    <p className="card-meta text-ink-400 mt-0.5 truncate">{f.beneficiario}</p>
+                  )}
                   <div className="mt-1">
                     <InsigniaEstado tipo="fondo" estado={f.status} />
                   </div>

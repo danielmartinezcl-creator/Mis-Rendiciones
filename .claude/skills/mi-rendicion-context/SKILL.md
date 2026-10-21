@@ -987,10 +987,12 @@ dos pantallas no puedan decir cifras distintas.
   «Borradores» siguen siendo solo de rendiciones: un fondo es plata que ya se recibió
   para gastar, y meterlo ahí contaría dos veces la misma plata
 - Con los fondos en mano muestra **Disponible**; antes de eso, lo solicitado
-- **Ojo al verificarlo:** la sección aparece solo si uno es el BENEFICIARIO. El 2026-10-20
-  el único fondo vivo era de «1 Daniel Prueba» con Daniel como EFF, así que en el
-  dashboard de Daniel no se ve nada y parece que no funcionó. Comprobado por SQL que para
-  ese empleado muestra «prueba 2 · Fondos enviados · Disponible $200.000»
+- **Incluye también los fondos que uno ADMINISTRA como EFF** (Daniel lo pidió el
+  2026-10-20, apenas lo vio). Los dos casos vienen **distinguidos** (`esMio`) y los
+  propios van primero: el saldo de un fondo ajeno es plata de otra persona, y sin el
+  nombre del beneficiario se leería como «me quedan $200.000» algo que no es de uno.
+  Son los dos vínculos directos —beneficiario o EFF—; lo que cada uno PUEDE ver lo sigue
+  decidiendo la RLS de la 032
 
 **Atajo «Rendir» en «Mis rendiciones»** (pedido de Daniel: «como una especie de atajo al
 estar ahí»). Arriba a la derecha, al mismo `/expenses/new` que la pestaña de la barra de

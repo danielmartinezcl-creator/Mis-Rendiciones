@@ -650,15 +650,22 @@ export type FundListItem = Awaited<ReturnType<typeof listPettyCashFunds>>[number
    EFF o aprobador, los de su gente, y nadie carga gastos en el fondo de otra
    persona (decisión de Daniel, 2026-09-25). */
 /**
- * Los fondos propios que todavía están en curso, para la pantalla «Estado».
+ * Los fondos en curso que le importan a una persona, para la pantalla «Estado»:
+ * los suyos y los que administra como EFF.
  *
  * El dashboard mostraba solo rendiciones (Daniel lo notó desde el celular el
  * 2026-10-20), así que alguien con un fondo activo no veía ni su saldo ni en qué
  * paso estaba sin entrar a «Caja chica».
  *
- * Es una acción propia y no `listPettyCashFunds` porque esa, para un admin o un
- * gestor de caja chica, devuelve los fondos de toda la organización: en una
- * vista personal eso es ruido, no información. Acá siempre es `employee_id = yo`.
+ * Es una acción propia y no `listPettyCashFunds` porque esa, para un admin,
+ * devuelve los fondos de toda la organización: en una vista personal eso es
+ * ruido, no información. Acá son solo los dos vínculos directos — se es el
+ * beneficiario o se es quien lo administra.
+ *
+ * **Los dos casos se devuelven distinguidos (`esMio`) y no mezclados**, porque
+ * el saldo de un fondo ajeno es plata de otra persona: presentarlo igual que el
+ * propio haría leer como «me quedan $200.000» algo que no es de uno. La pantalla
+ * muestra de quién es cuando no es propio.
  *
  * Los liquidados y los rechazados quedan fuera: lo cerrado se mira en «Caja
  * chica», no en el estado de hoy.
@@ -668,8 +675,10 @@ export async function getMyActiveFunds() {
 
   const { data: funds } = await supabase
     .from('petty_cash_funds')
-    .select('id, name, status, amount_requested, amount_approved')
-    .eq('employee_id', userId)
+    .select('id, name, status, amount_requested, amount_approved, employee_id')
+    // Beneficiario o EFF. Lo que cada uno PUEDE ver lo sigue decidiendo la RLS
+    // (032); esto solo acota a los dos vínculos directos.
+    .or(`employee_id.eq.${userId},manager_id.eq.${userId}`)
     .not('status', 'in', '("settled","rejected")')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -680,10 +689,16 @@ export async function getMyActiveFunds() {
      todos: el saldo lo calcula `calculateFundBalance`, el mismo que usa el
      detalle, para que las dos pantallas no puedan decir cifras distintas. */
   const ids = funds.map(f => f.id)
-  const [{ data: items }, { data: transfers }] = await Promise.all([
+  const ajenos = [...new Set(funds.filter(f => f.employee_id !== userId).map(f => f.employee_id))]
+  const [{ data: items }, { data: transfers }, { data: users }] = await Promise.all([
     supabase.from('petty_cash_items').select('fund_id, amount_clp, status').in('fund_id', ids),
     supabase.from('petty_cash_transfers').select('fund_id, type, amount').in('fund_id', ids),
+    // El nombre solo de los que administra: en el propio sobra.
+    ajenos.length
+      ? supabase.from('users').select('id, full_name').in('id', ajenos)
+      : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
   ])
+  const nombres = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
 
   type ItemRow     = { fund_id: string; amount_clp: number; status: string }
   type TransferRow = { fund_id: string; type: string; amount: number }
@@ -704,6 +719,7 @@ export async function getMyActiveFunds() {
          cargar en el banco y recién sale al autorizarse. */
       (transfersPorFondo[f.id] ?? []).filter(t => transferenciaFirme(f.status, t.type)) as Parameters<typeof calculateFundBalance>[2],
     )
+    const esMio = f.employee_id === userId
     return {
       id:         f.id,
       name:       f.name,
@@ -712,8 +728,14 @@ export async function getMyActiveFunds() {
       aprobado:   f.amount_approved,
       gastado:    saldo.spent,
       disponible: saldo.remaining,
+      esMio,
+      /** De quién es, cuando no es propio. */
+      beneficiario: esMio ? null : (nombres[f.employee_id] ?? 'Otra persona'),
     }
   })
+  // Los propios primero: es la vista personal, y lo de uno va antes que lo
+  // que uno administra para otros.
+  .sort((a, b) => Number(b.esMio) - Number(a.esMio))
 }
 
 export async function listMyOpenFunds() {
