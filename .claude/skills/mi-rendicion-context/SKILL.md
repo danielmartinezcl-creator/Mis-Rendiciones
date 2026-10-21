@@ -1553,6 +1553,41 @@ una columna `NOT NULL`.
 >   clásico de servir assets viejos después de un deploy. El razonamiento completo está
 >   en el comentario de cabecera de `next.config.ts`.
 >
+>   **DECIDIDO el 2026-10-21: no se hace nada hasta que la app se use de verdad.**
+>   Daniel evaluó tres caminos —modo offline con cola, una bandeja de «gastos sueltos»
+>   sin documento, y completar `/quick`— y eligió **esperar al piloto**. El dato que
+>   cerró la discusión: con la app desplegada hacía meses, el uso real era de **5 gastos
+>   de caja chica, 20 de rendición (de UNA sola) y 1 uso de OCR en toda su historia**.
+>   Nadie había cargado todavía una boleta en obra, así que construir offline era
+>   construir para un problema que nadie midió.
+>
+>   **No volver a proponerlo sin estos números delante.** La consulta que los da:
+>
+>   ```sql
+>   select (select count(*) from petty_cash_items) as gastos_caja_chica,
+>          (select count(*) from expense_items i join expense_reports r on r.id=i.report_id
+>            where r.is_historical_import = false) as gastos_rendicion,
+>          (select count(*) from attachments) as adjuntos,
+>          (select count(*) from rate_limit_log where action = 'ocr') as usos_de_ocr;
+>   ```
+>
+>   Lo que el piloto tiene que responder, y la base NO puede: **¿alguien no pudo cargar
+>   por falta de señal?** Eso solo se sabe preguntándole a los seis. Según la respuesta:
+>   si el problema es la señal, el camino es offline **solo en la pantalla de captura**
+>   (un gasto + su foto en cola, con clave anti-duplicado), nunca «la app entera»; si el
+>   problema resulta ser el flujo —no sé a qué documento mandarlo, no tengo fondo
+>   abierto— el camino es la bandeja, que necesita tabla nueva porque hoy
+>   `expense_items.report_id` y `petty_cash_items.fund_id` son **NOT NULL**.
+>
+>   Tres restricciones que cualquier plan de offline tiene que respetar, encontradas al
+>   evaluarlo: **el OCR no puede correr offline** (es una llamada a la API de Anthropic
+>   desde el servidor, así que sin señal el monto se escribe a mano o el OCR corre al
+>   sincronizar); **las fotos van en IndexedDB**, no en `localStorage`, que no guarda
+>   binarios; y **una cola no puede guardar llamadas a Server Actions**, cuyos
+>   identificadores cambian en cada build — tiene que guardar datos y reintentar contra
+>   la app recargada, o se rompe con cualquier despliegue hecho mientras hay gastos
+>   pendientes.
+>
 > · *Notificaciones email* — el código está completo desde el 2026-08-12
 >   (`lookupEmails()` en `lib/avisos.ts`, con `createAdminClient()` + `getUserById()`)
 >   y la credencial es válida desde el 2026-09-23.
