@@ -6,6 +6,7 @@ import {
   submitFundForApproval,
   approveFund,
   rejectFund,
+  devolverFondoParaCorregir,
   confirmBankLoad,
   authorizeBank,
   submitLiquidation,
@@ -25,6 +26,8 @@ import { TarjetaFondo }      from '@/components/petty-cash/TarjetaFondo'
 import { RecorridoFondo }    from '@/components/petty-cash/RecorridoFondo'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { FundDefontanaPanel } from '@/components/petty-cash/FundDefontanaPanel'
+import { BloqueDevolver } from '@/components/petty-cash/BloqueDevolver'
+import { mensajeDeError } from '@/lib/errores'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { PreviaCadena } from '@/components/ui/PreviaCadena'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
@@ -72,6 +75,8 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   )
   const [approveNotes, setApproveNotes]   = useState('')
   const [rejectNotes, setRejectNotes]     = useState('')
+  const [devolviendo, setDevolviendo]     = useState(false)
+  const [devolverNotas, setDevolverNotas] = useState('')
   const [disbAmount, setDisbAmount]       = useState(
     initialDetail?.fund.amount_approved ? String(initialDetail.fund.amount_approved) : ''
   )
@@ -103,7 +108,21 @@ export function FundDetailClient({ id, initialDetail }: Props) {
     setError(null)
     startTrans(async () => {
       try { await fn(); await load() }
-      catch (e) { setError(e instanceof Error ? e.message : 'Error') }
+      // `mensajeDeError` y no `e.message`: en producción Next redacta el
+      // mensaje de un `throw` del servidor y acá se leería su párrafo en inglés.
+      catch (e) { setError(mensajeDeError(e, 'No se pudo completar la acción')) }
+    })
+  }
+
+  /** Para las acciones que devuelven el motivo como dato en vez de lanzarlo. */
+  function actConMotivo(fn: () => Promise<{ error?: string }>) {
+    setError(null)
+    startTrans(async () => {
+      try {
+        const r = await fn()
+        if (r.error) { setError(r.error); return }
+        await load()
+      } catch (e) { setError(mensajeDeError(e, 'No se pudo completar la acción')) }
     })
   }
 
@@ -225,15 +244,34 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       {decidiendoFondo && (
         <div className="hoja p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Autorización de fondo</p>
-          {!approvingFund && !rejectingFund && (
-            <div className="flex gap-2">
-              <button onClick={() => setApprovingFund(true)} className="flex-1 py-2 bg-success-600 hover:bg-success-700 text-white text-sm font-bold rounded-item transition-colors">
-                Autorizar fondo
+          {!approvingFund && !rejectingFund && !devolviendo && (
+            <>
+              <div className="flex gap-2">
+                <button onClick={() => setApprovingFund(true)} className="flex-1 py-2 bg-success-600 hover:bg-success-700 text-white text-sm font-bold rounded-item transition-colors">
+                  Autorizar fondo
+                </button>
+                <button onClick={() => setRejectingFund(true)} className="flex-1 py-2 bg-danger-600 hover:bg-danger-700 text-white text-sm font-bold rounded-item transition-colors">
+                  Rechazar
+                </button>
+              </div>
+              {/* La tercera salida, y la que más falta hacía: devolver no es
+                  rechazar. Va en segunda línea y sin color fuerte — es la
+                  alternativa suave, no la acción principal. */}
+              <button onClick={() => setDevolviendo(true)}
+                className="w-full py-2 border border-ink-200 text-ink-700 hover:bg-ink-50 text-sm font-semibold rounded-item transition-colors">
+                Devolver para corregir
               </button>
-              <button onClick={() => setRejectingFund(true)} className="flex-1 py-2 bg-danger-600 hover:bg-danger-700 text-white text-sm font-bold rounded-item transition-colors">
-                Rechazar
-              </button>
-            </div>
+            </>
+          )}
+          {devolviendo && (
+            <BloqueDevolver
+              etiqueta="El fondo vuelve a borrador para que lo corrija y lo reenvíe."
+              notas={devolverNotas}
+              setNotas={setDevolverNotas}
+              pendiente={pending}
+              onConfirmar={() => actConMotivo(() => devolverFondoParaCorregir(fund.id, devolverNotas))}
+              onCancelar={() => setDevolviendo(false)}
+            />
           )}
           {approvingFund && (
             <div className="space-y-2">
@@ -547,6 +585,26 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           >
             {pending ? 'Aprobando...' : 'Finalizar revisión y aprobar'}
           </button>
+
+          {/* Devolver también acá, y es el caso que lo motivó: los tres rechazos
+              del 2026-10-21 pedían corregir gastos de una liquidación. Vuelve a
+              «fondos enviados» y NO a borrador — la plata ya está con la
+              persona (`estadoAlDevolver`). */}
+          {!devolviendo ? (
+            <button onClick={() => setDevolviendo(true)}
+              className="w-full py-2 border border-ink-200 text-ink-700 hover:bg-ink-50 text-sm font-semibold rounded-item transition-colors">
+              Devolver para corregir
+            </button>
+          ) : (
+            <BloqueDevolver
+              etiqueta="Vuelve a «fondos enviados» para que corrija los gastos y reenvíe la liquidación."
+              notas={devolverNotas}
+              setNotas={setDevolverNotas}
+              pendiente={pending}
+              onConfirmar={() => actConMotivo(() => devolverFondoParaCorregir(fund.id, devolverNotas))}
+              onCancelar={() => setDevolviendo(false)}
+            />
+          )}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estadoTrasDecisionReporte, estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
+import { estadoTrasDecisionReporte, estadoTrasAprobacionFondo, estadoTrasLiquidacion, estadoAlDevolver } from '@/lib/flujo'
 import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
 
 describe('estadoTrasDecisionReporte', () => {
@@ -58,5 +58,17 @@ describe('grupos de estados', () => {
     expect(ESTADOS_POR_PAGAR).toEqual(expect.arrayContaining(['pending_bank_load', 'pending_bank_auth']))
     expect(ESTADOS_APROBADOS).toContain('reimbursed')
     expect(ESTADOS_POR_PAGAR).not.toContain('reimbursed')
+  })
+})
+
+describe('estadoAlDevolver', () => {
+  it('un fondo esperando aprobación vuelve a borrador', () => {
+    expect(estadoAlDevolver('fondo')).toBe('draft')
+  })
+
+  it('una liquidación vuelve a «fondos enviados», NO a borrador', () => {
+    /* La plata ya está con el empleado: mandarla a `draft` diría que el fondo
+       nunca se entregó y borraría el paso bancario que sí ocurrió. */
+    expect(estadoAlDevolver('liquidacion')).toBe('funds_sent')
   })
 })

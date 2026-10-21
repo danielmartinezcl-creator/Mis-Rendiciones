@@ -310,12 +310,15 @@ async function jefeDirectoDe(userId: string): Promise<string | null> {
 }
 
 // Resultados que solo informan (destinatariosResultadoFondo: spec §4).
-export async function notifyFundOutcome(fundId: string, resultado: 'rejected' | 'funds_sent' | 'settled', actorId: string) {
+export async function notifyFundOutcome(fundId: string, resultado: 'rejected' | 'funds_sent' | 'settled' | 'returned', actorId: string) {
   const { fondo } = await contextoFondo(fundId)
   const textos = {
     rejected:   { tipo: 'rejection' as const,  asunto: `Fondo rechazado — ${fondo.name}`,   cuerpo: 'El fondo fue rechazado. Revisa el motivo en la app.' },
     funds_sent: { tipo: 'funds_sent' as const, asunto: `Fondos enviados — ${fondo.name}`,   cuerpo: 'La transferencia fue autorizada: los fondos ya están disponibles.' },
     settled:    { tipo: 'approval' as const,   asunto: `Liquidación aprobada — ${fondo.name}`, cuerpo: 'La liquidación del fondo fue aprobada.' },
+    /* Devuelto NO es rechazado: el documento sigue vivo y la pelota está del
+       lado de quien lo pidió. El texto lo dice para que no se lea como un no. */
+    returned:   { tipo: 'rejection' as const,  asunto: `Te devolvieron para corregir — ${fondo.name}`, cuerpo: 'Te lo devolvieron para que lo corrijas y lo vuelvas a enviar. El motivo está en la app.' },
   }
   const t = textos[resultado]
   await avisar({

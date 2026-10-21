@@ -28,7 +28,7 @@ export function claveAvisoSinAprobador(empleadoNombre: string, fecha: string, ad
 // liquidación cerrada, al EFF que creó el fondo y al beneficiario. Nunca a
 // quien acaba de actuar.
 export function destinatariosResultadoFondo(
-  resultado: 'rejected' | 'funds_sent' | 'settled',
+  resultado: 'rejected' | 'funds_sent' | 'settled' | 'returned',
   managerId: string, employeeId: string, actorId: string,
 ): string[] {
   if (resultado === 'funds_sent') return employeeId === actorId ? [] : [employeeId]

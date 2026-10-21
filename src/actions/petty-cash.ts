@@ -13,7 +13,7 @@ import type { DefontanaItem } from '@/lib/export/defontana'
 import { contextoFondo, exigirPaso, permisoEn, resolverCadenaDeDocumento, type ContextoFondo } from '@/lib/contexto-permisos'
 import { resolverOCrearProyecto } from '@/actions/proyectos'
 import { puedeEnviar, enEtapa, type Paso } from '@/lib/permisos'
-import { estadoTrasAprobacionFondo, estadoTrasLiquidacion } from '@/lib/flujo'
+import { estadoTrasAprobacionFondo, estadoTrasLiquidacion, estadoAlDevolver } from '@/lib/flujo'
 import { notifyFundStep, notifyFundOutcome, notifyAdminsMissingApprover } from '@/lib/avisos'
 import { archivosQueCaen, retirarArchivos } from '@/lib/archivos'
 import { transferenciaFirme, calculateFundBalance, motivoNoSeEliminaFondo } from '@/lib/petty-cash-helpers'
@@ -238,6 +238,47 @@ export async function rejectFund(fundId: string, notes: string) {
   await registrar(ctx, userId, 'rejected', { notes, level: paso === 'decidir_l2' ? 2 : 1 })
   notifyFundOutcome(fundId, 'rejected', userId).catch(() => {})
   revalidarFondo(fundId)
+}
+
+/**
+ * Devolver para corregir: ni aprobar ni rechazar.
+ *
+ * **Lo pidió el uso real.** El 2026-10-21, los tres rechazos del día eran
+ * pedidos de corrección —«especificar epp», «Monto se fusionó con otra caja
+ * chica», «Se amplió el presupuesto solicitado»—, no rechazos. Como un rechazo
+ * es terminal y no hay vuelta atrás, Francisco Díaz creaba un fondo nuevo cada
+ * vez: **cuatro fondos con el mismo nombre en un día**. El vocabulario ya
+ * contemplaba `returned_to_draft` —estaba en `constants.ts` y el historial
+ * sabía mostrarlo— pero ninguna acción lo escribía.
+ *
+ * **A dónde vuelve lo decide `estadoAlDevolver`, y no siempre es borrador**: una
+ * liquidación vuelve a `funds_sent` porque la plata ya está con el empleado.
+ *
+ * Lo puede hacer quien podría aprobar o rechazar en ese paso: es la misma
+ * decisión, con una tercera salida. El motivo es obligatorio — es lo único que
+ * le dice al empleado qué corregir, y sin eso devolver es peor que rechazar.
+ */
+export async function devolverFondoParaCorregir(fundId: string, notes: string): Promise<{ error?: string }> {
+  const { userId } = await getProfile()
+  if (!notes.trim()) return { error: 'Indicá qué hay que corregir' }
+
+  const ctx = await contextoFondo(fundId)
+  const etapa = ctx.doc.tipo === 'liquidacion' ? 'liquidacion' : 'fondo'
+
+  let paso: Paso
+  try {
+    ;({ paso } = exigirPaso(ctx, ctx.fondo.status, userId, ['decidir_l1', 'decidir_l2'], 'Este fondo ya fue decidido'))
+  } catch (e) {
+    // Como dato y no como excepción: en producción Next redacta el mensaje de
+    // un `throw` del servidor y la persona leería un párrafo en inglés.
+    return { error: e instanceof Error ? e.message : 'No se pudo devolver' }
+  }
+
+  await moverFondo(ctx, ctx.fondo.status as FundStatus, estadoAlDevolver(etapa))
+  await registrar(ctx, userId, 'returned_to_draft', { notes, level: paso === 'decidir_l2' ? 2 : 1 })
+  notifyFundOutcome(fundId, 'returned', userId).catch(() => {})
+  revalidarFondo(fundId)
+  return {}
 }
 
 // ── Empleado: agregar ítem de gasto ──────────────────────────────────────────

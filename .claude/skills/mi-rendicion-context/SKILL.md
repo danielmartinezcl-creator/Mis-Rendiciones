@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **970 tests Vitest en 59 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **977 tests Vitest en 60 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1106,6 +1106,48 @@ los empleados bloqueados: se ocultan en la pantalla, **nunca en la consulta**.
 > **`returned_to_draft` ya existe** como etiqueta en `constants.ts` («Devuelto a borrador»)
 > y el historial sabe leerlo (`expenses.ts`), pero **ninguna acción lo escribe y no hay
 > botón**. Falta ese camino, y el uso real lo está pidiendo.
+
+### ✅ Devolver para corregir, y la devolución de saldo (2026-10-21)
+
+**El rechazo se estaba usando como «corregí y volvé a mandar», y no había cómo.** Los
+tres rechazos reales de ese día lo muestran: «especificar epp», «Monto se fusionó con otra
+caja chica», «Se amplió el presupuesto solicitado, por nueva visita a terreno». Ninguno
+era un no. Como el rechazo es terminal, Francisco Díaz creaba un fondo nuevo cada vez:
+**cuatro fondos llamados «Caja chica especial» en un día**.
+
+`devolverFondoParaCorregir(fundId, motivo)` es la tercera salida, junto a aprobar y
+rechazar. Lo puede hacer quien decide ese paso (`decidir_l1` / `decidir_l2`), el motivo es
+obligatorio —devolver sin decir qué corregir es peor que rechazar— y queda en el historial
+como `returned_to_draft`, que **ya existía en el vocabulario y ninguna acción escribía**.
+
+- **A dónde vuelve NO siempre es borrador** (`estadoAlDevolver`, con su prueba): un fondo
+  esperando autorización vuelve a `draft`, pero una **liquidación vuelve a `funds_sent`**,
+  porque la plata ya está con el empleado. Mandarla a `draft` diría que el fondo nunca se
+  entregó y borraría el paso bancario que sí ocurrió
+- La cadena no se limpia: `submitFundForApproval` la **recalcula y sobrescribe** en cada
+  envío, así que un monto corregido vuelve a resolver si hace falta N2
+- El aviso al empleado es `notifyFundOutcome(…, 'returned', …)`, y su texto dice que es
+  para corregir: «devuelto» leído como «rechazado» sería el mismo problema otra vez
+- El botón va en segunda línea y sin color fuerte: es la alternativa suave, no la acción
+  principal
+
+**La devolución del saldo NO es un gasto.** Francisco cargó «Devolución de saldo» $26.636
+como un ítem más para que el fondo de $350.000 cerrara justo (133.578 + 189.786 + 26.636).
+Es lo intuitivo y nada se lo impedía, pero inflaba lo gastado y **esos $26.636 habrían
+viajado a Defontana imputados a una cuenta de gasto**, cuando son plata que vuelve al banco.
+
+El camino correcto ya existía y sigue igual: se cargan solo los gastos, al cerrar la app
+dice «te sobran $X: los devolverás a la empresa», y la devolución se registra como
+`petty_cash_transfer` (Debe Banco / Haber Fondos por Rendir). El problema era que ese
+camino **aparece recién al final y el botón de registrar la diferencia solo lo ve el EFF**,
+después de aprobada la liquidación: el empleado nunca lo ve.
+
+- El ítem se borró en producción el 2026-10-21 con autorización de Daniel y ensayo previo
+  (6/6). El fondo quedó: aprobado 350.000, gastado **323.364**, por devolver **26.636**.
+  Su fila está en `audit_log` **con la ruta del comprobante adjunto** (51 KB), que quedó
+  sin fila pero cuyo archivo sigue en el bucket
+- `AddFundItemForm` ahora lo dice donde se toma la decisión: **«Si te sobra plata no la
+  cargues como gasto: se registra al final»**. En el cierre ya era tarde
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback

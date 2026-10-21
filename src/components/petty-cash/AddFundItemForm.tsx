@@ -6,7 +6,7 @@ import { checkItemDuplicate, addPettyCashItemAttachment } from '@/actions/expens
 import { PhotoUpload } from '@/components/expenses/PhotoUpload'
 import type { OcrResult } from '@/lib/ocr-helpers'
 import { DOC_TYPES } from '@/lib/constants'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, X, Info } from 'lucide-react'
 
 type Category = { id: string; name: string; color: string | null }
 type DuplicateResult = Awaited<ReturnType<typeof checkItemDuplicate>>
@@ -136,6 +136,17 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
           {avisoAdjunto}
         </div>
       )}
+
+      {/* Francisco Díaz cargó la devolución del saldo COMO UN GASTO para que el
+          fondo cerrara en el monto aprobado (2026-10-21): $26.636 que no se
+          gastaron quedaron sumando a lo gastado, y habrían viajado a Defontana
+          imputados a una cuenta de gasto en vez de volver al banco. Es lo
+          intuitivo y nada se lo impedía, así que la pantalla ahora lo dice
+          donde se toma la decisión — no en el cierre, que es demasiado tarde. */}
+      <p className="card-meta text-ink-500 flex items-start gap-1.5">
+        <Info size={13} className="shrink-0 mt-0.5 text-ink-400" aria-hidden />
+        <span>Si te sobra plata no la cargues como gasto: se registra al final.</span>
+      </p>
 
       {/* Descripción */}
       <div>
