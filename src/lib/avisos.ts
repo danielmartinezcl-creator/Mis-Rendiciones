@@ -18,23 +18,49 @@ import { correoDeRecordatorios, filaDeRecordatorio, type Recordatorio } from '@/
 // producción o con la pausa puesta, no sale nada. Hasta el 2026-10-07 este
 // envío tenía su propio chequeo —solo «hay clave y no es placeholder»—, así que
 // el candado de un lado no cubría el otro. Ahora hay una sola puerta.
+/* Todo lo que corta un envío deja una línea en los registros de Vercel.
+ *
+ * Hasta el 2026-10-21 no dejaba ninguna: el `catch` del envío estaba vacío con
+ * el comentario «fallo silencioso», y los tres cortes de antes —configuración,
+ * lista del piloto, sin destinatarios— devolvían sin decir nada. Cuando a
+ * Katherine no le llegó el aviso de una liquidación **no había dónde mirar**:
+ * la notificación en la app estaba guardada, el correo no había salido, y
+ * ningún registro explicaba cuál de los cuatro motivos había sido.
+ *
+ * Que un correo no salga no debe romper la acción —el documento ya se movió, y
+ * fallar ahí dejaría el flujo a medias—, pero silencio y éxito no pueden
+ * parecer lo mismo. El prefijo es fijo para poder buscarlo. */
+const log = (motivo: string, detalle: Record<string, unknown> = {}) =>
+  console.error('[correo] no se envió:', motivo, JSON.stringify(detalle))
+
 async function trySendEmail(to: string[], subject: string, html: string) {
-  if (!to.length) return
+  if (!to.length) { log('sin destinatarios', { subject }); return }
+
   const correo = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
-  if (!correo.puedeEnviar) return
+  if (!correo.puedeEnviar) { log(correo.motivo, { subject, destinatarios: to.length }); return }
 
   /* El filtro del piloto. Es uno de los dos únicos embudos de salida, y va
      acá y no en cada aviso: un `destinatarios()` nuevo no puede olvidarse
      de aplicarlo. Con la lista vacía no filtra nada. */
   const permitidos = to.filter(e => puedeRecibir(e, correo.soloA))
-  if (!permitidos.length) return
+  if (!permitidos.length) {
+    // Las direcciones van enteras: es de la propia organización y sin ellas no
+    // se puede ver si el que falta está mal escrito en la lista.
+    log('ninguno está en CORREO_SOLO_A', { subject, pedidos: to, permitidos: correo.soloA })
+    return
+  }
 
   const resend = new Resend((process.env.RESEND_API_KEY ?? '').trim())
   // Nombre visible en el campo "De:" del correo
   const from = `Mi Rendición <${correo.desde}>`
-  await resend.emails.send({ from, to: permitidos, subject, html }).catch(() => {
-    // Email no crítico — fallo silencioso
-  })
+  try {
+    const r = await resend.emails.send({ from, to: permitidos, subject, html })
+    // Resend NO lanza cuando rechaza: devuelve `{ error }`. Sin mirarlo, un
+    // dominio sin verificar o una clave revocada se ven igual que un envío bueno.
+    if (r.error) log('Resend lo rechazó', { subject, para: permitidos, error: r.error })
+  } catch (e) {
+    log('falló la llamada a Resend', { subject, para: permitidos, error: String(e) })
+  }
 }
 
 // Busca emails reales en auth.users con la llave de servicio.
