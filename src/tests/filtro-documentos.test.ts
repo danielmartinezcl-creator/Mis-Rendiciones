@@ -10,7 +10,8 @@ const HOY = '2026-10-07'
 const g = (categoriaId: string | null, fecha: string, montoClp: number, rechazado = false): GastoFiltrable =>
   ({ categoriaId, fecha, montoClp, rechazado })
 const doc = (id: string, over: Partial<DocumentoFiltrable> = {}): DocumentoFiltrable => ({
-  id, proyectoId: null, familia: 'en-curso', beneficiarioId: 'ana', creadoEl: '2026-09-01', gastos: [], ...over,
+  id, proyectoId: null, familia: 'en-curso', rechazado: false,
+  beneficiarioId: 'ana', creadoEl: '2026-09-01', gastos: [], ...over,
 })
 const filtro = (over: Partial<Filtro>): Filtro => ({ ...FILTRO_VACIO, ...over })
 const ids = (r: { visibles: { doc: { id: string } }[] }) => r.visibles.map(v => v.doc.id)
@@ -254,5 +255,48 @@ describe('cargaHistoricaFiltrable', () => {
     ] })
     const f = filtro({ categorias: ['combustible'], fecha: 'elegir', desde: '2026-09-01', hasta: '2026-09-30' })
     expect(ids(aplicarFiltro([dos], f, HOY))).toEqual([])
+  })
+})
+
+describe('los rechazados no se muestran salvo que se los pida', () => {
+  /* Daniel, 2026-10-21: «no quiero que se eliminen, que estén para mantener
+     una trazabilidad de que fue rechazado y el porqué». Se esconden de la
+     lista, no de la base. */
+  const vivo      = doc('vivo')
+  const rechazado = doc('rech', { familia: 'atencion', rechazado: true })
+
+  it('sin filtro de estado, el rechazado queda fuera y se cuenta', () => {
+    const r = aplicarFiltro([vivo, rechazado], FILTRO_VACIO, HOY)
+    expect(ids(r)).toEqual(['vivo'])
+    expect(r.ocultosRechazados).toBe(1)
+  })
+
+  it('pidiendo el grupo «atención», aparece', () => {
+    const r = aplicarFiltro([vivo, rechazado], filtro({ estados: ['atencion'] }), HOY)
+    expect(ids(r)).toEqual(['rech'])
+    // Pedido explícito: ya no hay nada escondido que ofrecer.
+    expect(r.ocultosRechazados).toBe(0)
+  })
+
+  it('una rendición aprobada EN PARTE no se esconde, aunque comparta familia', () => {
+    /* `atencion` agrupa «rechazada» y «aprobada en parte», y la segunda está
+       viva: hay plata que cobrar. Por eso se esconde por `rechazado` y no por
+       familia — si se hiciera por familia, se escondería trabajo pendiente. */
+    const parcial = doc('parcial', { familia: 'atencion', rechazado: false })
+    const r = aplicarFiltro([parcial, rechazado], FILTRO_VACIO, HOY)
+    expect(ids(r)).toEqual(['parcial'])
+    expect(r.ocultosRechazados).toBe(1)
+  })
+
+  it('solo cuenta los que ese filtro habría mostrado', () => {
+    // Con una persona elegida, no se ofrecen los rechazados de otra.
+    const mio   = doc('mio',   { beneficiarioId: 'ana', familia: 'atencion', rechazado: true })
+    const ajeno = doc('ajeno', { beneficiarioId: 'beto', familia: 'atencion', rechazado: true })
+    const r = aplicarFiltro([mio, ajeno], filtro({ empleados: ['ana'] }), HOY)
+    expect(r.ocultosRechazados).toBe(1)
+  })
+
+  it('sin rechazados no hay nada que avisar', () => {
+    expect(aplicarFiltro([vivo], FILTRO_VACIO, HOY).ocultosRechazados).toBe(0)
   })
 })

@@ -23,6 +23,15 @@ export interface DocumentoFiltrable {
   id:             string
   proyectoId:     string | null
   familia:        FamiliaEstado
+  /**
+   * Rechazado de verdad (`status === 'rejected'`), para esconderlo por omisión.
+   *
+   * Es un dato propio y NO se deriva de `familia === 'atencion'`, aunque en
+   * fondos sean lo mismo: en rendiciones esa familia incluye también las
+   * **aprobadas en parte**, que están vivas y hay que seguir trabajando.
+   * Esconderlas sería esconder trabajo pendiente.
+   */
+  rechazado:      boolean
   /** Quien recibe la plata: quien rinde, o el empleado del fondo */
   beneficiarioId: string
   /** YYYY-MM-DD en Chile. Lo usa el filtro de fecha cuando el documento no tiene gastos */
@@ -105,6 +114,8 @@ export interface ResultadoFiltro<T> {
   visibles:    Coincidencia<T>[]
   totalClp:    number
   totalGastos: number
+  /** Rechazados escondidos sin que nadie lo pidiera: la pantalla los ofrece. */
+  ocultosRechazados: number
 }
 
 const enRango = (fecha: string, r: { desde: string | null; hasta: string | null }) =>
@@ -127,10 +138,26 @@ export function aplicarFiltro<T extends DocumentoFiltrable>(
   const hayCategoria = filtro.categorias.length > 0
 
   const visibles: Coincidencia<T>[] = []
+  /* Los rechazados que se escondieron sin que nadie lo pidiera. La pantalla lo
+     dice y ofrece verlos: esconder algo en silencio es una pantalla que miente. */
+  let ocultosRechazados = 0
+
   for (const doc of docs) {
     if (filtro.proyectos.length && !filtro.proyectos.includes(doc.proyectoId ?? SIN_PROYECTO)) continue
     if (filtro.estados.length && !filtro.estados.includes(doc.familia)) continue
+
     if (filtro.empleados.length && !filtro.empleados.includes(doc.beneficiarioId)) continue
+
+    /* Un rechazado no se muestra salvo que se lo pida (Daniel, 2026-10-21):
+       «no quiero que se eliminen, que estén para mantener una trazabilidad de
+       que fue rechazado y el porqué». Así la lista queda con lo que está en
+       curso, y el rechazo no se pierde: sigue en la base, en la bitácora y a un
+       clic del chip «Rechazados».
+
+       Va DESPUÉS de los filtros de documento para que el aviso hable solo de lo
+       que este filtro habría mostrado: con un proyecto o una persona elegidos,
+       no tiene sentido ofrecer los rechazados de otro. */
+    if (!filtro.estados.length && doc.rechazado) { ocultosRechazados++; continue }
 
     const gastos = doc.gastos.filter(g =>
       !g.rechazado
@@ -152,6 +179,7 @@ export function aplicarFiltro<T extends DocumentoFiltrable>(
     visibles,
     totalClp:    visibles.reduce((s, v) => s + v.montoClp, 0),
     totalGastos: visibles.reduce((s, v) => s + v.gastos.length, 0),
+    ocultosRechazados,
   }
 }
 
@@ -203,6 +231,7 @@ export function documentoDeRendicion(
     id:             r.id,
     proyectoId:     r.proyecto_id,
     familia:        FAMILIA_REPORTE[r.status as ReportStatus] ?? 'neutro',
+    rechazado:      r.status === 'rejected',
     beneficiarioId: r.submitter_id,
     creadoEl:       fechaEnChile(new Date(r.created_at)),
     gastos:         items.filter(i => esGasto(i.item_type)).map(aGasto),
@@ -218,6 +247,7 @@ export function documentoDeFondo(
     id:             f.id,
     proyectoId:     f.proyecto_id,
     familia:        FAMILIA_FONDO[f.status as FundStatusConst] ?? 'neutro',
+    rechazado:      f.status === 'rejected',
     beneficiarioId: f.employee_id,
     creadoEl:       fechaEnChile(new Date(f.created_at)),
     gastos:         items.map(aGasto),
@@ -284,6 +314,8 @@ export function cargaHistoricaFiltrable<T extends {
     ...h,
     proyectoId:     null,
     familia:        'resuelto' as FamiliaEstado,
+    // Una carga histórica es algo que YA pasó y se cerró: nunca está rechazada.
+    rechazado:      false,
     beneficiarioId: h.submitter_id,
     creadoEl:       h.created_at.slice(0, 10),
     gastos: h.items

@@ -10,6 +10,7 @@ import { FundList } from './FundList'
 import { FundModals } from './FundModals'
 import { HistoricalSection } from './HistoricalSection'
 import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import { RechazadosOcultos } from '@/components/filtros/RechazadosOcultos'
 import type { Dimension } from '@/lib/filtros/dimensiones'
 import { aFiltro, aValores, dimensionDocumento } from '@/lib/filtros/adaptador-documentos'
 import {
@@ -189,6 +190,13 @@ export function PettyCashClient({
         resumen={hayFiltro(filtro)
           ? textoResumen({ visibles: filtered.length, total: state.funds.length, totalClp: resultado.totalClp }, filtro, categorias)
           : null}
+      />
+
+      {/* Los rechazados no se muestran, pero se dice que están y cómo verlos. */}
+      <RechazadosOcultos
+        cantidad={resultado.ocultosRechazados}
+        sustantivo={['fondo rechazado', 'fondos rechazados']}
+        onVer={() => setFiltro({ ...filtro, estados: ['atencion'] })}
       />
 
       {/* ── Traspasos sin vincular ─────────────────────────────────────────────── */}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertTriangle, Filter, ReceiptText, ScanLine } from 'lucide-react'
 import { ExpenseReportCard } from '@/components/expenses/ExpenseReportCard'
 import { BarraFiltros } from '@/components/filtros/BarraFiltros'
+import { RechazadosOcultos } from '@/components/filtros/RechazadosOcultos'
 import type { Dimension } from '@/lib/filtros/dimensiones'
 import { aFiltro, aValores, dimensionDocumento } from '@/lib/filtros/adaptador-documentos'
 import {
@@ -117,6 +118,15 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy, puede
         resumen={hayFiltro(filtro)
           ? textoResumen({ visibles: resultado.visibles.length, total: documentos.length, totalClp: resultado.totalClp }, filtro, categorias)
           : null}
+      />
+
+      {/* Las rechazadas no se muestran, pero se dice que están y cómo verlas.
+          El chip trae todo el grupo «Con rechazos», que incluye las aprobadas
+          en parte: esas nunca se escondieron — siguen vivas. */}
+      <RechazadosOcultos
+        cantidad={resultado.ocultosRechazados}
+        sustantivo={['rendición rechazada', 'rendiciones rechazadas']}
+        onVer={() => cambiar({ ...filtro, estados: ['atencion'] })}
       />
 
       {resultado.visibles.length === 0 ? (

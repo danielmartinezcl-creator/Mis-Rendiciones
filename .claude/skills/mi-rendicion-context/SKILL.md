@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **965 tests Vitest en 59 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **970 tests Vitest en 59 archivos** (2026-10-20; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1081,9 +1081,31 @@ lo redacta nadie, y la persona lee «Solo se pueden eliminar fondos en borrador.
 fue enviado». Conviene hacer lo mismo en cualquier acción cuyo error el usuario tenga que
 entender. Un fallo de la base sí se sigue lanzando: no es algo que la persona resuelva.
 
-> **Los rechazados no los puede borrar su dueño**, y Francisco tenía 3 el 2026-10-21.
-> `rejected` no es `draft`, así que quedan en su lista hasta que un admin los saque.
-> Si molesta en el uso real, es una línea en `motivoNoSeEliminaFondo` — decisión de Daniel.
+**Los rechazados NO se borran: se esconden de la lista** (decisión de Daniel, 2026-10-21:
+«no quiero que se eliminen, que estén para mantener una trazabilidad de que fue rechazado
+y el porqué»). `aplicarFiltro` los deja fuera cuando nadie pidió un estado, y la línea
+`<RechazadosOcultos>` dice cuántos son y los trae — el mismo trato que la nómina le da a
+los empleados bloqueados: se ocultan en la pantalla, **nunca en la consulta**.
+
+- **Se esconde por `rechazado`, NO por familia.** En fondos `atencion` es solo `rejected`,
+  pero en rendiciones incluye las **aprobadas en parte**, que están vivas y tienen plata
+  por cobrar: esconderlas sería esconder trabajo pendiente. Por eso `DocumentoFiltrable`
+  tiene su propio `rechazado: boolean` y hay una prueba que lo fija
+- **El aviso cuenta solo lo que ese filtro habría mostrado**: con un proyecto o una
+  persona elegidos, no ofrece los rechazados de otro
+- Se aplica a `/petty-cash` y a `/reimbursements`. `/admin/reports` no se tocó: el admin
+  supervisa todo y tiene su propio filtro
+
+> **El rechazo se está usando como «corregí y volvé a mandar», y no hay cómo hacerlo.**
+> Los tres motivos reales del 2026-10-21 lo muestran: «especificar epp», «Monto se fusionó
+> con otra caja chica» y «Se amplió el presupuesto solicitado, por nueva visita a terreno».
+> Ninguno es «esto está mal»: los tres piden una corrección. Como un fondo rechazado no
+> vuelve atrás, Francisco creó uno nuevo cada vez — de ahí los **cuatro** fondos llamados
+> «Caja chica especial» en un día.
+>
+> **`returned_to_draft` ya existe** como etiqueta en `constants.ts` («Devuelto a borrador»)
+> y el historial sabe leerlo (`expenses.ts`), pero **ninguna acción lo escribe y no hay
+> botón**. Falta ese camino, y el uso real lo está pidiendo.
 
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
