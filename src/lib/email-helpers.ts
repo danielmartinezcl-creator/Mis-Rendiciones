@@ -84,6 +84,37 @@ export function puedeRecibir(email: string, soloA: string[]): boolean {
   return soloA.includes(email.trim().toLowerCase())
 }
 
+/**
+ * A dónde puede ir un **correo de prueba**: la propia dirección, o una de las
+ * del piloto.
+ *
+ * **Esta función es la seguridad del botón, no la pantalla.** El destinatario
+ * viaja desde el navegador, así que sin esto una sesión de admin mandaría un
+ * correo con nuestro remitente a quien quisiera. Y `puedeRecibir` NO alcanza
+ * como red: con `CORREO_SOLO_A` vacía deja pasar cualquier dirección, que es
+ * justo lo correcto para un aviso y justo lo peligroso acá.
+ *
+ * `CORREO_SOLO_A` es la autorización, porque son las direcciones que ya tienen
+ * permiso de recibir y la lista solo se cambia en Vercel. Sin lista cargada, la
+ * única permitida es la propia.
+ */
+export function destinoDePrueba(pedido: string | undefined | null, propia: string, soloA: string[]):
+  { ok: true; email: string } | { ok: false; motivo: string } {
+  const propiaLimpia = propia.trim().toLowerCase()
+  if (!pedido) return { ok: true, email: propia }
+
+  const e = pedido.trim().toLowerCase()
+  if (e === propiaLimpia)  return { ok: true, email: propia }
+  if (soloA.includes(e))   return { ok: true, email: e }
+
+  return {
+    ok: false,
+    motivo: soloA.length
+      ? 'Solo se puede probar con tu propia dirección o con una de la lista del piloto.'
+      : 'Sin lista de piloto cargada, la prueba solo puede ir a tu propia dirección.',
+  }
+}
+
 const VALORES_SIN_PAUSA = new Set(['', '0', 'false', 'no'])
 
 /**

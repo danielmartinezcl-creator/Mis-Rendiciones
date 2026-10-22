@@ -373,7 +373,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **977 tests Vitest en 60 archivos** (2026-10-20; eran 884 en 54 antes del saldo
+- **988 tests Vitest en 60 archivos** (2026-10-21; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1149,6 +1149,34 @@ después de aprobada la liquidación: el empleado nunca lo ve.
 - `AddFundItemForm` ahora lo dice donde se toma la decisión: **«Si te sobra plata no la
   cargues como gasto: se registra al final»**. En el cierre ya era tarde
 
+### ⏳ El correo que no le llegó a Katherine — SIN resolver (2026-10-21)
+
+Daniel: «envió a aprobación, y ahí no le llegó correo a Katherine para aprobar los
+gastos». **No se encontró la causa, y conviene no volver a recorrer lo ya descartado.**
+
+Lo que está **medido y descartado**:
+
+| | |
+|---|---|
+| ¿Se guardó el aviso? | **Sí.** Fila `submission` para Katherine, 2026-10-21 20:40:14, fondo `9db37284` |
+| ¿Era ella la aprobadora? | **Sí.** `liq_cadena_l1_id` = Katherine, congelada a las 20:40:11 |
+| ¿Su dirección coincide con la lista? | **Sí.** `auth.users` la tiene como `kcorvalan@pentaingenieros.cl`, exacta, sin ban ni bloqueo |
+| ¿El candado la dejaba pasar? | **Sí.** La pestaña «Correo» informa «solo salen a una lista acotada (los 6)» |
+| ¿El despliegue tenía el código? | **Sí.** A las 20:40 servía `2df2ccc` (13:12 UTC), muy posterior a `562f1ef`, que introdujo `CORREO_SOLO_A` |
+| ¿El camino llama al correo? | **Sí.** `avisar()` escribe la fila **y después** `trySendEmail(lookupEmails(ids))` — no son dos caminos |
+
+Queda **un solo sospechoso: que Resend rechazara la llamada** (o que `lookupEmails`
+devolviera vacío, que es el mismo agujero sin registro). No se puede confirmar desde acá:
+el `catch` estaba vacío hasta ese día, y **los registros de Vercel en plan Hobby duran
+~1 hora** — a las 01:52 UTC los de 20:40 ya no existían.
+
+**Cómo se resuelve ahora, en un clic:** Configuración → Correo → «Probar el envío»,
+eligiendo **`kcorvalan@pentaingenieros.cl`** y no la dirección de Daniel. Si sale verde, el
+fallo fue puntual (y el registro `[correo]` de `67e5b8b` nombrará el próximo); si sale
+rojo, el motivo de Resend está en la pantalla. **Sospechar del dominio corporativo antes
+que de la clave**: las 52 invitaciones del 2026-10-07 probaron que la clave, el remitente y
+la API andan, y lo que todavía no probó nada es que un correo llegue a @pentaingenieros.cl.
+
 ### ✅ Gestión avanzada de empleados
 - `importEmployees()` con `SUPABASE_SERVICE_ROLE_KEY`: crea auth user + `public.users` + rollback
 - Cadena de aprobación L1/L2 por empleado: `approver_l1_id`, `approver_l2_id` en `users` — desde
@@ -1666,10 +1694,30 @@ una columna `NOT NULL`.
 >      «Correo» muestra si sale correo, a qué direcciones llega hoy y desde qué
 >      remitente, con `getEstadoCorreo()`. Sale del MISMO `revisarConfigCorreo`
 >      que decide si un correo sale, así que no puede decir que todo está bien
->      mientras el envío falla. **Es de solo lectura a propósito**, no por una
->      limitación: abrir el correo a más gente exige entrar a Vercel, y esa
->      fricción es la que faltó el 2026-10-07. La clave nunca se muestra, ni un
->      fragmento — solo si sirve o por qué no.
+>      mientras el envío falla. **Quién recibe no se edita ahí a propósito**, no
+>      por una limitación: abrir el correo a más gente exige entrar a Vercel, y
+>      esa fricción es la que faltó el 2026-10-07. La clave nunca se muestra, ni
+>      un fragmento — solo si sirve o por qué no.
+>
+>      **Y desde el 2026-10-21 tiene «Probar el envío»**, porque «puede enviar»
+>      no es «envió» y esa diferencia costó un diagnóstico entero: la pantalla
+>      decía la verdad —«solo salen a una lista acotada»—, Katherine estaba en la
+>      lista, y el correo no había salido igual. `probarCorreo()` manda uno por
+>      **el mismo `trySendEmail`** que los avisos (una prueba que no recorra el
+>      mismo camino puede salir verde mientras los avisos fallan) y devuelve el
+>      motivo en pantalla.
+>
+>      **Se puede elegir a quién**, entre la propia dirección y las del piloto, y
+>      no es comodidad: la pregunta abierta es si el correo llega a
+>      **@pentaingenieros.cl**, y una prueba al Gmail de Daniel no la contesta —
+>      un dominio corporativo puede filtrar lo que Gmail acepta sin chistar.
+>      Quién es elegible lo decide `destinoDePrueba` en el **servidor**
+>      (`email-helpers.ts`), nunca la pantalla: **`puedeRecibir` no sirve de red
+>      acá**, porque con `CORREO_SOLO_A` vacía deja pasar cualquier dirección —
+>      correcto para un aviso, un agujero para un destinatario que viene del
+>      navegador. Sin lista cargada, la única permitida es la propia. Tope de 3
+>      por hora, y el tope va **después** de validar el destino: pifiarle a la
+>      dirección no debe gastar intentos.
 >
 >      Su camino real se prueba en `correo-tab.test.tsx` y no en el navegador:
 >      `CORREO_SOLO_A` vive en Vercel, así que **en local la pantalla siempre cae
@@ -2027,3 +2075,7 @@ una columna `NOT NULL`.
 | Leer `approved_amount` como si fuera el neto | Lo es en **1 de 155** filas. En las otras 149 es la suma de los gastos aprobados: `commitHistoricalImport` lo escribe así, y solo `revertReimbursement` lo recalcula con `computeApprovedAmount`. Una columna que cambia de significado según la historia de su fila no puede sostener una comparación | Calcular de los ítems. Antes de comparar contra una columna de cabecera, **consultar qué significa hoy en los datos reales**, no qué dice su nombre |
 | Mostrar un distintivo solo cuando alguien marcó el documento | El de cuadre exigía `status = 'reimbursed'`, así que las 115 rendiciones con saldo **sin** esa marca no mostraban nada: justo las que hay que revisar. Un indicador que depende de que alguien se haya acordado de marcar no informa de lo que falta | Mostrarlo en cuanto el documento está decidido (`ESTADOS_APROBADOS`) y calcularlo de los datos, no de la marca |
 | Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |
+| Diagnosticar un fallo intermitente **solo** con un `console.error` | Los registros de Vercel en plan Hobby duran **~1 hora**. El 2026-10-21 se agregó el registro `[correo]` a las 22:09 para saber por qué a Katherine no le había llegado un aviso a las 20:40, y a las 01:52 los de las 20:40 ya no existían: el registro sirve para el PRÓXIMO fallo, nunca para el que se está investigando | Devolver el motivo **como dato** además de registrarlo (`ResultadoEnvio` de `avisos.ts`), y dar una forma de **reproducirlo a pedido** — un botón de prueba que recorra el mismo camino. Un registro que hay que esperar a que alguien vuelva a fallar no es un diagnóstico |
+| Dar por bueno «está bien configurado» como si fuera «funciona» | La pestaña «Correo» leía el MISMO `revisarConfigCorreo` que decide un envío —así que no podía mentir— y aun así informaba verde mientras el correo no salía: lo que mira es la configuración, y lo que falló estaba del otro lado de Resend | Entre «puede» y «hizo» va una prueba que recorra el camino completo, no una llamada aparte: una prueba por otra vía puede salir verde mientras el camino real falla |
+| Confiar en `puedeRecibir` como control de un destinatario que viene del navegador | Con `CORREO_SOLO_A` **vacía** devuelve `true` para cualquier dirección — correcto para un aviso (no hay piloto, manda el candado general) y un agujero para un botón al que se le pasa el destino | `destinoDePrueba` en el servidor: la propia dirección o una de la lista, y sin lista cargada **solo la propia**. La lista es la autorización porque solo se cambia en Vercel |
+| Probar que «el correo funciona» mandándolo al Gmail del admin | Es el caso más fácil y no responde la pregunta: un dominio corporativo puede filtrar o rechazar lo que Gmail acepta sin chistar, y lo que faltaba saber era si llega a @pentaingenieros.cl | Probar contra la dirección del DOMINIO que está en duda. Y antes de sospechar de la clave, recordar qué ya se probó: las 52 invitaciones del 2026-10-07 dejaron demostrado que clave, remitente y API andan |

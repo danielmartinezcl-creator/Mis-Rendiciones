@@ -33,11 +33,30 @@ import { correoDeRecordatorios, filaDeRecordatorio, type Recordatorio } from '@/
 const log = (motivo: string, detalle: Record<string, unknown> = {}) =>
   console.error('[correo] no se envió:', motivo, JSON.stringify(detalle))
 
-async function trySendEmail(to: string[], subject: string, html: string) {
-  if (!to.length) { log('sin destinatarios', { subject }); return }
+/**
+ * Qué pasó con un envío.
+ *
+ * Se devuelve **además** de registrarse: los avisos lo ignoran —que un correo
+ * no salga no debe romper la acción— y la prueba de Configuración → Correo lo
+ * muestra. Sin esto, el único lugar donde aparecía el motivo eran los registros
+ * de Vercel, que en el plan Hobby duran ~1 hora: cuando el 2026-10-21 se fue a
+ * buscar por qué a Katherine no le había llegado un aviso, ya no estaban.
+ */
+export type ResultadoEnvio =
+  | { enviado: true;  para: string[] }
+  | { enviado: false; motivo: string }
+
+async function trySendEmail(to: string[], subject: string, html: string): Promise<ResultadoEnvio> {
+  if (!to.length) {
+    log('sin destinatarios', { subject })
+    return { enviado: false, motivo: 'No había ninguna dirección a la que enviar.' }
+  }
 
   const correo = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
-  if (!correo.puedeEnviar) { log(correo.motivo, { subject, destinatarios: to.length }); return }
+  if (!correo.puedeEnviar) {
+    log(correo.motivo, { subject, destinatarios: to.length })
+    return { enviado: false, motivo: correo.motivo }
+  }
 
   /* El filtro del piloto. Es uno de los dos únicos embudos de salida, y va
      acá y no en cada aviso: un `destinatarios()` nuevo no puede olvidarse
@@ -47,7 +66,10 @@ async function trySendEmail(to: string[], subject: string, html: string) {
     // Las direcciones van enteras: es de la propia organización y sin ellas no
     // se puede ver si el que falta está mal escrito en la lista.
     log('ninguno está en CORREO_SOLO_A', { subject, pedidos: to, permitidos: correo.soloA })
-    return
+    return {
+      enviado: false,
+      motivo: `Ninguna de estas direcciones está en CORREO_SOLO_A: ${to.join(', ')}.`,
+    }
   }
 
   const resend = new Resend((process.env.RESEND_API_KEY ?? '').trim())
@@ -57,10 +79,43 @@ async function trySendEmail(to: string[], subject: string, html: string) {
     const r = await resend.emails.send({ from, to: permitidos, subject, html })
     // Resend NO lanza cuando rechaza: devuelve `{ error }`. Sin mirarlo, un
     // dominio sin verificar o una clave revocada se ven igual que un envío bueno.
-    if (r.error) log('Resend lo rechazó', { subject, para: permitidos, error: r.error })
+    if (r.error) {
+      log('Resend lo rechazó', { subject, para: permitidos, error: r.error })
+      return {
+        enviado: false,
+        motivo: `Resend lo rechazó: ${r.error.message || JSON.stringify(r.error)}`,
+      }
+    }
+    return { enviado: true, para: permitidos }
   } catch (e) {
     log('falló la llamada a Resend', { subject, para: permitidos, error: String(e) })
+    return { enviado: false, motivo: `No se pudo llegar a Resend: ${String(e)}` }
   }
+}
+
+/**
+ * Un correo de prueba, por el MISMO embudo que todos los avisos.
+ *
+ * Es lo que la pestaña «Correo» no podía hacer: decía si la configuración
+ * servía —y decía la verdad— pero no que un correo llegara. El 2026-10-21 esa
+ * distinción importó: la pantalla informaba «solo salen a una lista acotada»,
+ * Katherine estaba en la lista, su aviso se había guardado, y el correo no
+ * había salido. Entre «puede enviar» y «envió» faltaba una prueba.
+ *
+ * Pasa por `trySendEmail` a propósito y no por una llamada aparte a Resend: una
+ * prueba que no recorra el mismo camino puede salir verde mientras los avisos
+ * fallan, que es justo el error que se está buscando. La dirección la elige
+ * quien llama, nunca el navegador.
+ */
+export async function enviarCorreoDePrueba(email: string, nombre: string): Promise<ResultadoEnvio> {
+  return trySendEmail(
+    [email],
+    'Prueba de correo — Mi Rendición',
+    `<p>Hola ${escaparHtml(nombre)},</p>
+     <p>Este correo se envió desde <strong>Configuración → Correo</strong> para comprobar
+     que los avisos de Mi Rendición están saliendo. Si lo estás leyendo, el envío funciona.</p>
+     <p><a href="${appUrl()}">Abrir Mi Rendición →</a></p>`,
+  )
 }
 
 // Busca emails reales en auth.users con la llave de servicio.

@@ -8,8 +8,10 @@ import type { Json } from '@/lib/supabase/types'
 import type { AttachmentKind } from '@/lib/attachment-types'
 import { logAudit } from '@/lib/audit'
 import { mapaDeObras, obraDe } from '@/lib/report-helpers'
-import { revisarConfigCorreo, entornoCorreoActual, listaPermitidos, estaPausado } from '@/lib/email-helpers'
+import { revisarConfigCorreo, entornoCorreoActual, listaPermitidos, estaPausado, destinoDePrueba } from '@/lib/email-helpers'
 import { enviarLinkDeAcceso } from '@/lib/access-email'
+import { enviarCorreoDePrueba } from '@/lib/avisos'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { validateStringLength, validateHexColor } from '@/lib/validators'
 import { soloCampos } from '@/lib/expense-helpers'
 import { DEFONTANA_ORG_COLUMNS, mapDefontanaSettings, type DefontanaOrgRow } from '@/lib/export/defontana-settings'
@@ -980,10 +982,11 @@ export async function resendInvitation(userId: string): Promise<{ error?: string
  * para diagnosticarla (si falta, si quedó en «placeholder», si es corta).
  */
 export async function getEstadoCorreo() {
-  await requireAdmin()
+  const { userId } = await requireAdmin()
 
   const correo  = revisarConfigCorreo(process.env.RESEND_API_KEY, process.env.RESEND_FROM_EMAIL)
   const entorno = entornoCorreoActual()
+  const { data } = await createAdminClient().auth.admin.getUserById(userId)
 
   return {
     puedeEnviar: correo.puedeEnviar,
@@ -995,7 +998,49 @@ export async function getEstadoCorreo() {
     pausado:     estaPausado(entorno.CORREO_PAUSADO),
     /* `undefined` en local; en Vercel, «production» | «preview» | «development». */
     entorno:     entorno.VERCEL_ENV ?? 'local',
+    /** La propia, para que la prueba de abajo sepa a dónde va por omisión. */
+    miCorreo:    data?.user?.email ?? null,
   }
+}
+
+/**
+ * Manda un correo de prueba y devuelve qué pasó.
+ *
+ * Por omisión va a la dirección de quien lo pide, que sale de la **sesión** y no
+ * de un parámetro. Se puede elegir otra, pero solo entre las de
+ * `CORREO_SOLO_A` — lo decide `destinoDePrueba` en el servidor, no la pantalla.
+ *
+ * Que se pueda elegir no es comodidad: la pregunta que hay que responder es si
+ * el correo llega a **@pentaingenieros.cl**, y una prueba al Gmail del admin no
+ * la contesta. Un dominio corporativo puede rechazar o filtrar lo que Gmail
+ * acepta sin chistar.
+ *
+ * Tope de 3 por hora: es un diagnóstico, no un formulario de envío.
+ */
+export async function probarCorreo(destino?: string): Promise<{ enviado: boolean; motivo: string }> {
+  const { userId, actorName } = await requireAdmin()
+
+  const { data } = await createAdminClient().auth.admin.getUserById(userId)
+  const propia = data?.user?.email
+  if (!propia) {
+    return { enviado: false, motivo: 'Tu cuenta no tiene una dirección de correo registrada.' }
+  }
+
+  const elegido = destinoDePrueba(destino, propia, listaPermitidos(process.env.CORREO_SOLO_A))
+  if (!elegido.ok) return { enviado: false, motivo: elegido.motivo }
+
+  /* El tope va DESPUÉS de validar el destino: un pedido rechazado no gasta
+     intentos, o pifiarle a la dirección dejaría sin probar. */
+  const { allowed } = await checkRateLimit(userId, 'test_email', 3)
+  if (!allowed) {
+    return { enviado: false, motivo: 'Ya probaste 3 veces en la última hora. Esperá un rato.' }
+  }
+
+  const propio = elegido.email === propia
+  const r = await enviarCorreoDePrueba(elegido.email, propio ? (actorName ?? propia) : elegido.email)
+  return r.enviado
+    ? { enviado: true,  motivo: `Enviado a ${r.para.join(', ')}. Si no llega en unos minutos, revisá el correo no deseado.` }
+    : { enviado: false, motivo: r.motivo }
 }
 
 /** Devuelve el acceso a un empleado bloqueado desde la papelera. Solo admin. */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { revisarConfigCorreo, listaPermitidos, puedeRecibir, estaPausado } from '@/lib/email-helpers'
+import { revisarConfigCorreo, listaPermitidos, puedeRecibir, estaPausado, destinoDePrueba } from '@/lib/email-helpers'
 
 /**
  * Estos tests existen por un defecto concreto: `sendInvitations` mandaba una
@@ -201,5 +201,54 @@ describe('estaPausado — la misma regla que ve la pantalla de Correo', () => {
     expect(estaPausado('  FALSE  ')).toBe(false)
     expect(estaPausado('  No ')).toBe(false)
     expect(estaPausado(' 1 ')).toBe(true)
+  })
+})
+
+/**
+ * `destinoDePrueba` — a dónde puede ir el correo de prueba de Configuración.
+ *
+ * Es la seguridad del botón: el destinatario viaja desde el navegador, así que
+ * sin esta función una sesión de admin mandaría un correo con nuestro remitente
+ * a cualquier dirección. `puedeRecibir` no sirve de red acá, porque con la
+ * lista vacía deja pasar todo — correcto para un aviso, peligroso para esto.
+ */
+describe('destinoDePrueba', () => {
+  const PROPIA = 'danielmartinez.cl@gmail.com'
+  const PILOTO = ['fdiaz@pentaingenieros.cl', 'kcorvalan@pentaingenieros.cl', PROPIA]
+
+  it('sin pedido va a la propia dirección', () => {
+    const r = destinoDePrueba(undefined, PROPIA, PILOTO)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.email).toBe(PROPIA)
+  })
+
+  it('una dirección del piloto está permitida', () => {
+    // Es el caso que importa: la pregunta abierta del 2026-10-21 era si el
+    // correo llega a @pentaingenieros.cl, y al Gmail del admin llega igual.
+    const r = destinoDePrueba('kcorvalan@pentaingenieros.cl', PROPIA, PILOTO)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.email).toBe('kcorvalan@pentaingenieros.cl')
+  })
+
+  it('una dirección fuera de la lista NO', () => {
+    const r = destinoDePrueba('cualquiera@ejemplo.com', PROPIA, PILOTO)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.motivo).toContain('lista del piloto')
+  })
+
+  it('SIN lista de piloto, solo la propia — acá `puedeRecibir` diría que sí a todos', () => {
+    expect(destinoDePrueba('cualquiera@ejemplo.com', PROPIA, []).ok).toBe(false)
+    expect(destinoDePrueba(PROPIA, PROPIA, []).ok).toBe(true)
+    expect(destinoDePrueba(undefined, PROPIA, []).ok).toBe(true)
+  })
+
+  it('la propia pasa aunque no esté en la lista', () => {
+    const r = destinoDePrueba(PROPIA, PROPIA, ['otro@pentaingenieros.cl'])
+    expect(r.ok).toBe(true)
+  })
+
+  it('no se deja engañar por mayúsculas ni espacios', () => {
+    expect(destinoDePrueba('  KCorvalan@PentaIngenieros.CL ', PROPIA, PILOTO).ok).toBe(true)
+    expect(destinoDePrueba('  DANIELmartinez.cl@GMAIL.com ', PROPIA, []).ok).toBe(true)
   })
 })
