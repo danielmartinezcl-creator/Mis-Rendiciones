@@ -573,7 +573,11 @@ export async function recordSettlement(fundId: string, data: {
 }) {
   const { supabase, userId } = await getProfile()
 
-  const { error } = await supabase.from('petty_cash_transfers').insert({
+  /* Devuelve el id porque el comprobante se adjunta DESPUÉS: recién acá existe
+     la transferencia a la que colgarlo (mismo patrón que el gasto y su foto en
+     `AddFundItemForm`). Si la subida falla, la transferencia igual queda
+     registrada: perderla por no poder subir una captura sería peor. */
+  const { data: creada, error } = await supabase.from('petty_cash_transfers').insert({
     fund_id:        fundId,
     type:           data.type,
     amount:         data.amount,
@@ -581,15 +585,17 @@ export async function recordSettlement(fundId: string, data: {
     transferred_at: data.transferred_at,
     registered_by:  userId,
     notes:          data.notes ?? null,
-  })
+  }).select('id')
 
   if (error) throw new Error(error.message)
+  if (!creada?.length) throw new Error('No se pudo registrar la transferencia')
 
   await audit(fundId, userId, 'settled',
     `${data.type === 'refund_to_employee' ? 'Devolución al empleado' : 'Reembolso a empresa'}: ${data.reference ?? ''}`.trim(),
     data.amount,
   )
   revalidatePath(`/petty-cash/${fundId}`)
+  return { transferId: creada[0].id }
 }
 
 // ── Eliminar fondo (solo admin) ───────────────────────────────────────────────

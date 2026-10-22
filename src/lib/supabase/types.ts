@@ -1059,6 +1059,8 @@ export interface Database {
           org_id: string
           report_id: string | null
           fund_id: string | null
+          /** La transferencia que este respaldo prueba, si prueba una (042) */
+          transfer_id: string | null
           uploaded_by: string
           storage_path: string
           filename: string
@@ -1071,6 +1073,7 @@ export interface Database {
           org_id: string
           report_id?: string | null
           fund_id?: string | null
+          transfer_id?: string | null
           uploaded_by: string
           storage_path: string
           filename: string

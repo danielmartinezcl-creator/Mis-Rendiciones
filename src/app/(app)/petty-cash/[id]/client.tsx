@@ -28,14 +28,15 @@ import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { FundDefontanaPanel } from '@/components/petty-cash/FundDefontanaPanel'
 import { BloqueDevolver } from '@/components/ui/BloqueDevolver'
 import { mensajeDeError } from '@/lib/errores'
+import { ACCEPT_RESPALDOS, MAX_ATTACHMENT_BYTES, classifyRespaldo } from '@/lib/attachment-types'
 import { ApprovalAttachments } from '@/components/approvals/ApprovalAttachments'
 import { PreviaCadena } from '@/components/ui/PreviaCadena'
-import { getApprovalAttachments } from '@/actions/approval-attachments'
+import { getApprovalAttachments, uploadApprovalAttachment, deleteApprovalAttachment } from '@/actions/approval-attachments'
 import {
   calculateFundBalance, formatPeriod, canEmployeeAddItems, canEmployeeSubmitLiquidation,
   construirRecorrido, transferenciaFirme, rotuloTransferencia,
 } from '@/lib/petty-cash-helpers'
-import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck, Check, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck, Check, X, Paperclip, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
@@ -86,6 +87,9 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const [settleAmount, setSettleAmount]   = useState('')
   const [settleRef, setSettleRef]         = useState('')
   const [settleDate, setSettleDate]       = useState(today())
+  /* El comprobante de la transferencia. Se sube DESPUÉS de registrarla: recién
+     ahí existe la fila a la que colgarlo. */
+  const [settleFile, setSettleFile]       = useState<File | null>(null)
   const [approvalAtts, setApprovalAtts]   = useState<ApprovalAtt[]>([])
 
   useEffect(() => {
@@ -114,6 +118,52 @@ export function FundDetailClient({ id, initialDetail }: Props) {
     })
   }
 
+  /**
+   * Registrar la transferencia de la diferencia, con su comprobante.
+   *
+   * El archivo va DESPUÉS de crear la transferencia —recién ahí existe la fila a
+   * la que colgarlo— y **si la subida falla, la transferencia igual queda**: la
+   * plata ya se movió, y perder su registro por no poder subir una captura sería
+   * peor. Mismo criterio que el gasto y su foto en `AddFundItemForm`.
+   */
+  function confirmarDiferencia() {
+    setError(null)
+    startTrans(async () => {
+      let transferId: string
+      try {
+        ;({ transferId } = await recordSettlement(fund.id, {
+          type:           settleType,
+          amount:         parseFloat(settleAmount),
+          reference:      settleRef,
+          transferred_at: settleDate,
+        }))
+      } catch (e) {
+        setError(mensajeDeError(e, 'No se pudo registrar la transferencia'))
+        return
+      }
+
+      if (settleFile) {
+        try {
+          const fd = new FormData()
+          fd.append('file', settleFile)
+          fd.append('fund_id', fund.id)
+          fd.append('transfer_id', transferId)
+          fd.append('description', `Comprobante de la transferencia${settleRef ? ` ${settleRef}` : ''}`)
+          await uploadApprovalAttachment(fd)
+        } catch (e) {
+          // La transferencia YA quedó: el aviso dice eso y dónde reintentar.
+          setError(`Se registró la transferencia, pero no se pudo subir el comprobante: `
+            + `${mensajeDeError(e, 'error al subir')}. Podés adjuntarlo abajo, en «Adjuntos de respaldo».`)
+        }
+      }
+
+      setSettleFile(null)
+      setSettling(false)
+      await load()
+      await loadApprovalAtts()
+    })
+  }
+
   /** Para las acciones que devuelven el motivo como dato en vez de lanzarlo. */
   function actConMotivo(fn: () => Promise<{ error?: string }>) {
     setError(null)
@@ -137,6 +187,11 @@ export function FundDetailClient({ id, initialDetail }: Props) {
   const { fund, items, audits, transfers, categories, employee_name, manager_name, currentUser, permiso } = detail
   const balance   = calculateFundBalance(fund.amount_approved, items, transfers)
   const recorrido = construirRecorrido(fund.status, audits)
+  // Los comprobantes, agrupados por la transferencia que prueban (042)
+  const comprobantesPorTransferencia = approvalAtts.reduce<Record<string, ApprovalAtt[]>>((acc, a) => {
+    if (a.transfer_id) (acc[a.transfer_id] ??= []).push(a)
+    return acc
+  }, {})
   const isManager  = fund.manager_id === currentUser.id || currentUser.role === 'admin'
   const isEmployee = fund.employee_id === currentUser.id
   // Los comprobantes, con la regla del servidor: el empleado del fondo, con
@@ -640,12 +695,57 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                     className="campo w-full" />
                 </div>
               </div>
+
+              {/* El comprobante, acá y no al pie del fondo: es el momento en que
+                  se lo tiene en la mano, igual que la boleta al cargar un gasto.
+                  Queda colgado de ESTA transferencia (042), no suelto. */}
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">
+                  Comprobante <span className="font-normal text-ink-400">(opcional)</span>
+                </label>
+                {settleFile ? (
+                  <div className="flex items-center gap-2 campo w-full">
+                    <Paperclip size={14} className="text-ink-400 shrink-0" aria-hidden />
+                    <span className="text-sm text-ink-700 truncate flex-1">{settleFile.name}</span>
+                    <button onClick={() => setSettleFile(null)}
+                      className="text-ink-400 hover:text-danger-600 shrink-0" aria-label="Quitar el comprobante">
+                      <X size={14} aria-hidden />
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="file"
+                    accept={ACCEPT_RESPALDOS}
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      // Se avisa acá y no después de registrar la transferencia:
+                      // enterarse de que el archivo no servía con la plata ya
+                      // anotada deja el comprobante sin subir y sin aviso claro.
+                      if (f.size > MAX_ATTACHMENT_BYTES) {
+                        setError('El comprobante no puede superar 10 MB')
+                        e.target.value = ''
+                        return
+                      }
+                      if (!classifyRespaldo(f.name)) {
+                        setError('Tipo de archivo no admitido. Subí una foto, un PDF, un correo (.eml / .msg) o un Excel')
+                        e.target.value = ''
+                        return
+                      }
+                      setError(null)
+                      setSettleFile(f)
+                    }}
+                    className="campo w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded-item file:border-0 file:text-sm file:font-semibold file:bg-ink-100 file:text-ink-700 hover:file:bg-ink-200"
+                  />
+                )}
+              </div>
+
               <div className="flex gap-2">
-                <button disabled={pending} onClick={() => act(() => recordSettlement(fund.id, { type: settleType, amount: parseFloat(settleAmount), reference: settleRef, transferred_at: settleDate }))}
+                <button disabled={pending} onClick={confirmarDiferencia}
                   className="flex-1 py-2 bg-success-600 hover:bg-success-700 disabled:opacity-50 text-white text-sm font-bold rounded-item transition-colors">
                   {pending ? 'Registrando...' : 'Confirmar'}
                 </button>
-                <button onClick={() => setSettling(false)} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>
+                <button onClick={() => { setSettling(false); setSettleFile(null) }} className="px-4 py-2 text-ink-500 hover:text-ink-800 rounded-item hover:bg-ink-100 transition-colors text-sm">Cancelar</button>
               </div>
             </div>
           )}
@@ -671,6 +771,32 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                     {new Date(t.transferred_at + 'T00:00:00').toLocaleDateString('es-CL')}
                     {t.reference && ` · Ref: ${t.reference}`}
                   </p>
+                  {/* El comprobante va con SU transferencia y no al pie del
+                      fondo: un fondo tiene la entrega y la devolución, y dos
+                      archivos sueltos abajo no dicen cuál prueba cuál. */}
+                  {comprobantesPorTransferencia[t.id]?.map(a => (
+                    <div key={a.id} className="flex items-center gap-2 mt-1">
+                      <a href={a.url ?? '#'} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 min-w-0">
+                        <Paperclip size={11} className="shrink-0" aria-hidden />
+                        <span className="truncate max-w-[180px]">{a.filename}</span>
+                        <ExternalLink size={10} className="shrink-0" aria-hidden />
+                      </a>
+                      {/* Lo decide el servidor (`puedeBorrarRespaldo`): quien lo
+                          subió, y solo mientras nadie haya dado un paso después.
+                          Sin esto, adjuntar la captura equivocada no tiene
+                          vuelta atrás desde la app. */}
+                      {a.puede_borrar && (
+                        <button
+                          onClick={() => act(() => deleteApprovalAttachment(a.id).then(loadApprovalAtts))}
+                          className="text-ink-300 hover:text-danger-600 shrink-0"
+                          aria-label={`Quitar el comprobante ${a.filename}`}
+                        >
+                          <Trash2 size={11} aria-hidden />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
                 <span className="font-mono-amount font-bold text-ink-900">{fmtCLP(t.amount)}</span>
               </div>
@@ -706,8 +832,11 @@ export function FundDetailClient({ id, initialDetail }: Props) {
             apoyado directo sobre el degradado, con el texto de ayuda ilegible.
             Es un formulario — se llena, así que es hoja, no vidrio. */}
         <div className="hoja p-4">
+          {/* Sin los comprobantes de transferencia: esos ya se muestran arriba,
+              junto a la transferencia que prueban, y repetirlos acá los
+              desconectaría de ella. */}
           <ApprovalAttachments
-            attachments={approvalAtts}
+            attachments={approvalAtts.filter(a => !a.transfer_id)}
             target={{ fundId: id }}
             onRefresh={loadApprovalAtts}
           />

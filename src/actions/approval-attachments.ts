@@ -77,6 +77,21 @@ export async function uploadApprovalAttachment(formData: FormData) {
   const permiso = puedeSubirRespaldo(doc)
   if (!permiso.ok) throw new Error(permiso.motivo)
 
+  /* El comprobante de una transferencia concreta (042). El id llega del
+     navegador, así que se comprueba que esa transferencia sea DE ESTE fondo:
+     sin eso, se podría colgar un archivo de la transferencia de otro. */
+  const transferId = (formData.get('transfer_id') as string | null) || null
+  if (transferId) {
+    if (destino.tipo !== 'fondo') throw new Error('Solo un fondo tiene transferencias')
+    const { data: transferencia } = await createAdminClient()
+      .from('petty_cash_transfers')
+      .select('id')
+      .eq('id', transferId)
+      .eq('fund_id', doc.id)
+      .maybeSingle()
+    if (!transferencia) throw new Error('La transferencia no es de este fondo')
+  }
+
   const ext   = file.name.split('.').pop()!.toLowerCase()
   const path  = `${doc.org_id}/${doc.id}/${Date.now()}_${userId}.${ext}`
   const admin = createAdminClient()
@@ -91,7 +106,10 @@ export async function uploadApprovalAttachment(formData: FormData) {
   const { error } = await admin.from('approval_attachments').insert({
     org_id:       doc.org_id,
     report_id:    destino.tipo === 'rendicion' ? doc.id : null,
+    // `fund_id` se llena SIEMPRE, también con `transfer_id`: es el que usa la
+    // única política que quedó tras la 037. Sin él, el respaldo no lo ve nadie.
     fund_id:      destino.tipo === 'fondo'     ? doc.id : null,
+    transfer_id:  transferId,
     uploaded_by:  userId,
     storage_path: path,
     filename:     file.name,

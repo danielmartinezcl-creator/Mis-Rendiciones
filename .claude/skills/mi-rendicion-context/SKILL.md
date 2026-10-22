@@ -352,7 +352,8 @@ supabase/
 │   ├── 038_funciones_sin_acceso_publico.sql          ← ✅ APLICADA el 2026-10-01, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 038, 22 de sus 26 pruebas en `false`, que eran los agujeros; con la 038, 26/26, y las otras tres baterías intactas — 033: 41 ok + 1 no concluyente · 035: 12/12 · 037: 17/17; en vivo, 26/26). Las 12 funciones `SECURITY DEFINER` eran ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc`. Las 8 de disparador no las necesita nadie: **Postgres verifica `EXECUTE` al CREAR el disparador, no cada vez que dispara** (comprobado en vivo: una sesión `authenticated` sigue siendo rechazada por `proteger_estado_rendicion` con su mensaje, no con «permission denied for function»). Las 4 que usan las políticas las conserva `authenticated`, nunca `anon`. Lo que cierra el acceso es el `revoke ... from public`: `anon` y `authenticated` heredan de PUBLIC. `set_updated_at` queda además con `search_path = ''` (su cuerpo solo usa `now()`, de `pg_catalog`). Pruebas: supabase/tests/038_funciones.sql
 │   ├── 039_aprobador_por_proyecto.sql                ← ✅ APLICADA el 2026-10-07, ANTES del despliegue (es aditiva y nullable: el código viejo no lee ninguna de sus columnas — al revés que la 033/035/037, que protegían y tenían que ir después). Ensayo con BEGIN/ROLLBACK: 23/23, más un segundo ensayo apuntando el relleno a los borradores (no había documentos en vuelo y el bloque no se ejercitaba): 9 filas, N1 copiado igual al de la ficha. En vivo: 23/23. Tabla `proyectos` (número único por organización), `users.es_jefe_proyecto` / `umbral_n2_clp`, `organizations.aprobador_defecto_id` / `aprobador_n2_defecto_id` / `umbral_n2_clp`, y la cadena congelada en `expense_reports` y `petty_cash_funds` (`cadena_*`, y `liq_cadena_*` para la liquidación). Pruebas: supabase/tests/039_proyectos.sql
 │   ├── 040_vistas_de_filtro.sql                     ← ✅ APLICADA el 2026-10-08 (20261008220657), ANTES del despliegue: es aditiva y el código viejo no lee esta tabla. Ensayo con BEGIN/ROLLBACK: 23 ok, 0 rotas, 1 no concluyente —el cruce entre organizaciones, porque PENTA es la única— y comprobado después que no dejó rastro; en vivo, 24/24. Las vistas guardadas del admin, **de la organización**: la lee cualquier miembro, la escribe solo su admin. NO siembra ninguna. Pruebas: supabase/tests/040_vistas.sql
-│   └── 041_tipo_devuelto.sql                        ← ✅ APLICADA el 2026-10-22 (20261022041114), ANTES del despliegue (ensayo con BEGIN/ROLLBACK: 5/5, y comprobado después que no dejó rastro — el CHECK sin `returned` y 0 filas de ese tipo; en vivo, 5/5). **Tenía que ir antes**: es aditiva y el código nuevo escribe `type = 'returned'`, así que al revés que la 033/035/037 aplicarla después dejaría el insert rechazado. Tipo `returned` en `notifications`. **No es cosmética:** «devolver para corregir» salió el 2026-10-21 reusando `rejection` porque no había otro, y como el aviso de la campana se arma SOLO con el tipo (`textoNotificacion`, porque `notifications` no guarda texto), al empleado le llegaba «Un fondo de caja chica fue rechazado» cuando se lo habían devuelto — la confusión exacta que el botón vino a evitar. El correo sí distinguía; la campana no tenía con qué. Pruebas: supabase/tests/041_devuelto.sql
+│   ├── 041_tipo_devuelto.sql                        ← ✅ APLICADA el 2026-10-22 (20261022041114), ANTES del despliegue (ensayo con BEGIN/ROLLBACK: 5/5, y comprobado después que no dejó rastro — el CHECK sin `returned` y 0 filas de ese tipo; en vivo, 5/5). **Tenía que ir antes**: es aditiva y el código nuevo escribe `type = 'returned'`, así que al revés que la 033/035/037 aplicarla después dejaría el insert rechazado. Tipo `returned` en `notifications`. **No es cosmética:** «devolver para corregir» salió el 2026-10-21 reusando `rejection` porque no había otro, y como el aviso de la campana se arma SOLO con el tipo (`textoNotificacion`, porque `notifications` no guarda texto), al empleado le llegaba «Un fondo de caja chica fue rechazado» cuando se lo habían devuelto — la confusión exacta que el botón vino a evitar. El correo sí distinguía; la campana no tenía con qué. Pruebas: supabase/tests/041_devuelto.sql
+│   └── 042_comprobante_de_transferencia.sql          ← ⏳ ENSAYADA el 2026-10-22 (BEGIN/ROLLBACK: 8/8, y comprobado después que no dejó rastro: ni columna, ni el fondo de prueba). **Va ANTES del despliegue**: aditiva y nullable. `approval_attachments.transfer_id` — a qué transferencia del fondo prueba un comprobante. **`fund_id` SE SIGUE LLENANDO y no es redundante**: la única política que quedó tras la 037 se apoya en `report_id` / `fund_id`, así que un respaldo colgado solo de `transfer_id` sería invisible para todos — y el `chk_one_target` de la 005 lo impide, que es la prueba 5. Pruebas: supabase/tests/042_comprobante.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -1190,6 +1191,39 @@ después de aprobada la liquidación: el empleado nunca lo ve.
   sin fila pero cuyo archivo sigue en el bucket
 - `AddFundItemForm` ahora lo dice donde se toma la decisión: **«Si te sobra plata no la
   cargues como gasto: se registra al final»**. En el cierre ya era tarde
+
+### ✅ El comprobante de la transferencia (2026-10-22)
+
+Pedido de Daniel mirando el recuadro **«Registrar transferencia de diferencia»**: ahí se
+anota la referencia bancaria y la fecha, pero no había dónde adjuntar la captura — y es el
+momento en que se la tiene en la mano, igual que la boleta al cargar un gasto. El bloque
+«Adjuntos de respaldo» del pie del fondo servía, pero está lejos del acto y no dice a qué
+transferencia corresponde.
+
+- **Va en `approval_attachments`, no en una tabla nueva.** Esa tabla ya es «un archivo
+  colgado de un documento que no pertenece a un gasto puntual», con su bucket, su RLS
+  (037), y su subida, firma y borrado desde el servidor. Lo único que le faltaba era el
+  vínculo con la transferencia: un fondo tiene la entrega inicial Y la devolución del
+  saldo, y dos archivos sueltos al pie no dicen cuál prueba cuál (migración 042)
+- **`fund_id` se sigue llenando, y eso no es redundante**: la única política que quedó
+  tras la 037 se apoya en `report_id` / `fund_id`, así que un respaldo colgado solo de
+  `transfer_id` **sería invisible para todo el mundo**. El `chk_one_target` de la 005 lo
+  impide, y hay una prueba que lo fija
+- **El id de la transferencia llega del navegador, así que el servidor comprueba que sea
+  de ESE fondo.** Sin eso se podría colgar un archivo de la transferencia de otro
+- **Se sube DESPUÉS de registrar la transferencia** — recién ahí existe la fila a la que
+  colgarlo, así que `recordSettlement` devuelve su id— **y si la subida falla, la
+  transferencia igual queda**, con un aviso que dice dónde reintentar: la plata ya se
+  movió, y perder su registro por no poder subir una captura sería peor. Mismo criterio
+  que el gasto y su foto en `AddFundItemForm`
+- **El comprobante se muestra junto a su transferencia** en «Transferencias bancarias», y
+  se **filtra** del bloque «Adjuntos de respaldo» (`!a.transfer_id`): repetirlo abajo lo
+  desconectaría de lo que prueba
+- El tipo y el tamaño se avisan **al elegir el archivo**, no al confirmar: enterarse de que
+  no servía con la plata ya anotada deja el comprobante sin subir
+- Se puede quitar si `puede_borrar`, que lo decide el servidor (`puedeBorrarRespaldo`:
+  quien lo subió, mientras nadie haya dado un paso después). Sin eso, adjuntar la captura
+  equivocada no tenía vuelta atrás desde la app
 
 ### ⏳ El correo que no le llegó a Katherine — SIN resolver (2026-10-21)
 
