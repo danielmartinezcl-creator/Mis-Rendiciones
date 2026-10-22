@@ -30,6 +30,14 @@ const TEXTOS: Record<Notification['type'], Textos> = {
     rendicion: 'Tu rendición fue rechazada.',
     fondo:     'Un fondo de caja chica fue rechazado.',
   },
+  /* Devuelto NO es rechazado, y acá es donde más importa: un documento devuelto
+     sigue vivo y hay que corregirlo, uno rechazado está cerrado. Hasta la
+     migración 041 «devuelto» usaba el tipo 'rejection' y esta campana decía
+     «fue rechazado» — justo la confusión que el botón vino a evitar. */
+  returned: {
+    rendicion: 'Te devolvieron una rendición para corregir.',
+    fondo:     'Te devolvieron un fondo de caja chica para corregir.',
+  },
   reimbursement: 'Tu reembolso fue autorizado y procesado.',
   bank_load: {
     rendicion: 'Hay un reembolso por cargar en el banco.',

@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, CheckCheck, Check, X, AlertTriangle, Paperclip } from 'lucide-react'
+import { Sparkles, CheckCheck, Check, X, AlertTriangle, Paperclip, Undo2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getReportForApproval, submitApprovalDecision, bulkApproveItems } from '@/actions/approvals'
+import { getReportForApproval, submitApprovalDecision, bulkApproveItems, devolverRendicionParaCorregir } from '@/actions/approvals'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import { CurrencyAmount } from '@/components/ui/CurrencyAmount'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
@@ -14,6 +14,9 @@ import { DOC_TYPES } from '@/lib/constants'
 import type { ReportStatus } from '@/lib/constants'
 import { useDialogos } from '@/components/ui/Dialogos'
 import { IconoCategoria } from '@/components/ui/IconoCategoria'
+import { BloqueDevolver } from '@/components/ui/BloqueDevolver'
+import { mensajeDeError } from '@/lib/errores'
+import { marcasAlDevolver } from '@/lib/devolucion'
 import type { AiAnalysis } from '@/lib/approval-analysis-helpers'
 import type { ExpenseItem, ExpenseCategory, Attachment, TravelPolicy } from '@/lib/supabase/types'
 
@@ -43,6 +46,10 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]     = useState<string | null>(null)
   const [notes,      setNotes]     = useState('')
+  /* El motivo de la devolución va aparte de la «nota general»: una nota
+     acompaña una decisión, y acá es la instrucción de qué corregir. */
+  const [devolviendo,   setDevolviendo]   = useState(false)
+  const [devolverNotas, setDevolverNotas] = useState('')
   const [bulkApproving, setBulkApproving] = useState(false)
   const [bulkDone, setBulkDone] = useState(false)
   const [travelPolicies, setTravelPolicies] = useState<TravelPolicy[]>([])
@@ -151,6 +158,33 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
       router.push('/approvals')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al enviar decisión')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  /**
+   * Devolver a borrador para que lo corrijan: la tercera salida, junto a
+   * aprobar y rechazar. Rechazar un ítem hace que la persona PIERDA ese gasto;
+   * rechazar la rendición entera la obliga a armarla de nuevo.
+   *
+   * Manda solo los ítems ya marcados, no todos: devolver sirve justo para
+   * cuando no se pudo terminar de juzgar («falta un dato»). Lo que quede
+   * `pending` se decide cuando la reenvíen.
+   */
+  async function handleDevolver() {
+    // Las dos reglas de qué viaja (y por qué) están en `marcasAlDevolver`
+    const marcas = marcasAlDevolver(decisions)
+    if (!marcas.ok) { setError(marcas.motivo); return }
+
+    setSubmitting(true)
+    setError(null)
+    try {
+      const r = await devolverRendicionParaCorregir(id, marcas.payload, devolverNotas)
+      if (r.error) { setError(r.error); return }
+      router.push('/approvals')
+    } catch (err) {
+      setError(mensajeDeError(err, 'No se pudo devolver la rendición'))
     } finally {
       setSubmitting(false)
     }
@@ -551,6 +585,34 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
               Decide todos los ítems para poder enviar
             </p>
           )}
+
+          {/* Devolver para corregir. Va al final y sin color fuerte: es la
+              alternativa suave, no la acción principal — pero existe porque las
+              otras dos pierden algo. Rechazar un ítem hace que la persona
+              PIERDA ese gasto; rechazar todo la obliga a armarla de nuevo. */}
+          <div className="pt-1 border-t border-ink-100">
+            {devolviendo ? (
+              <div className="pt-3">
+                <BloqueDevolver
+                  etiqueta="La rendición vuelve a borrador para que la corrija y la reenvíe. Las marcas que ya pusiste se conservan."
+                  notas={devolverNotas}
+                  setNotas={setDevolverNotas}
+                  pendiente={submitting}
+                  onConfirmar={handleDevolver}
+                  onCancelar={() => { setDevolviendo(false); setDevolverNotas(''); setError(null) }}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setDevolviendo(true)}
+                disabled={submitting}
+                className="w-full pt-3 pb-1 text-ink-500 hover:text-ink-800 disabled:opacity-50 card-label flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Undo2 size={15} aria-hidden />
+                Devolver para corregir
+              </button>
+            )}
+          </div>
         </div>
       )}
 

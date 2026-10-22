@@ -620,7 +620,15 @@ export async function checkDuplicateExpenseItem(params: {
 
 // ── Eliminar rendición (empleado — solo borradores propios) ──────────────────
 
-export async function deleteExpenseReport(reportId: string) {
+/**
+ * Borrar un borrador propio.
+ *
+ * Devuelve los motivos como **dato** y no como excepción: en producción Next
+ * redacta el mensaje de cualquier `throw` del servidor y la persona leería un
+ * párrafo en inglés. Un fallo de la base sí se sigue lanzando — eso no lo
+ * resuelve quien rinde.
+ */
+export async function deleteExpenseReport(reportId: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -631,9 +639,27 @@ export async function deleteExpenseReport(reportId: string) {
     .eq('id', reportId)
     .single()
 
-  if (!report) throw new Error('Rendición no encontrada')
-  if (report.submitter_id !== user.id) throw new Error('Solo podés eliminar tus propias rendiciones')
-  if (report.status !== 'draft') throw new Error('Solo se pueden eliminar rendiciones en borrador')
+  if (!report) return { error: 'Rendición no encontrada' }
+  if (report.submitter_id !== user.id) return { error: 'Solo podés eliminar tus propias rendiciones' }
+  if (report.status !== 'draft') return { error: 'Solo se pueden eliminar rendiciones en borrador' }
+
+  /* Un borrador CON historial de aprobaciones es un caso nuevo: existe desde que
+     se puede devolver una rendición para corregir (2026-10-22). Antes, todo
+     borrador era uno que nunca había salido.
+     La 026 hace ese historial inmutable y solo un admin puede borrar una
+     rendición que lo tenga, así que sin este aviso el botón prometía algo que la
+     base niega y la persona veía un error sin explicación. Mismo criterio que
+     Daniel eligió para los traspasos: no dejar, y explicar por qué. */
+  const { count: conHistorial } = await supabase
+    .from('expense_report_approvals')
+    .select('id', { count: 'exact', head: true })
+    .eq('report_id', reportId)
+  if (conHistorial) {
+    return {
+      error: 'Esta rendición ya pasó por una revisión, así que queda su historial y no se puede borrar. '
+           + 'Corregila y volvé a enviarla, o pedile a un administrador que la elimine.',
+    }
+  }
 
   // Fetch actor name for audit
   const { data: actorProfile } = await supabase
@@ -654,7 +680,7 @@ export async function deleteExpenseReport(reportId: string) {
     .select('id')
 
   if (error) throw new Error(error.message)
-  if (!deleted?.length) throw new Error('No se pudo eliminar la rendición')
+  if (!deleted?.length) return { error: 'No se pudo eliminar la rendición' }
 
   await retirarArchivos(admin, archivos, `la rendición ${reportId}`)
 
@@ -669,6 +695,8 @@ export async function deleteExpenseReport(reportId: string) {
   })
 
   revalidatePath('/')
+  revalidatePath('/reimbursements')
+  return {}
 }
 
 // ── Eliminar rendición (admin — cualquier estado) ─────────────────────────────
@@ -1026,6 +1054,15 @@ export type TimelineEvent = {
   label:  string
   date:   string
   type:   'neutral' | 'success' | 'warning' | 'error'
+  /**
+   * Lo que escribió quien decidió. **Sin esto la línea de tiempo decía «Devuelta
+   * a borrador por Ana» y nada más**, así que exigir un motivo al devolver era
+   * decorativo: la única persona que lo necesita no lo veía en ninguna parte.
+   * `getReportApprovals` ya traía `notes`, pero solo se usa para firmar el PDF.
+   *
+   * Aprovecha también a los rechazos, cuyo motivo era igual de invisible.
+   */
+  notes:  string | null
 }
 
 export async function getReportTimeline(reportId: string): Promise<TimelineEvent[]> {
@@ -1066,23 +1103,27 @@ export async function getReportTimeline(reportId: string): Promise<TimelineEvent
   return entries.map(e => {
     const name = nameMap[e.approver_id] ?? 'Aprobador'
     const lvl  = e.level ?? 1
+    /* `notes` solo donde es un mensaje de una persona para quien rindió. Los
+       pasos bancarios lo usan para la referencia de la transferencia, que ya va
+       dentro de su etiqueta: mostrarla otra vez la duplicaría. */
+    const dicho = e.notes?.trim() || null
     switch (e.action) {
       case 'approved':
-        return { label: lvl === 2 ? `Aprobada L2 por ${name}` : `Aprobada por ${name}`, date: e.created_at, type: 'success' as const }
+        return { label: lvl === 2 ? `Aprobada L2 por ${name}` : `Aprobada por ${name}`, date: e.created_at, type: 'success' as const, notes: dicho }
       case 'partially_approved':
-        return { label: `Aprobada parcialmente por ${name}`, date: e.created_at, type: 'warning' as const }
+        return { label: `Aprobada parcialmente por ${name}`, date: e.created_at, type: 'warning' as const, notes: dicho }
       case 'rejected':
-        return { label: `Rechazada por ${name}`, date: e.created_at, type: 'error' as const }
+        return { label: `Rechazada por ${name}`, date: e.created_at, type: 'error' as const, notes: dicho }
       case 'returned_to_draft':
-        return { label: `Devuelta a borrador por ${name}`, date: e.created_at, type: 'warning' as const }
+        return { label: `Devuelta a borrador por ${name}`, date: e.created_at, type: 'warning' as const, notes: dicho }
       case 'bank_load_requested':
-        return { label: 'Proceso de reembolso iniciado', date: e.created_at, type: 'neutral' as const }
+        return { label: 'Proceso de reembolso iniciado', date: e.created_at, type: 'neutral' as const, notes: null }
       case 'bank_load_confirmed':
-        return { label: 'Transferencia bancaria cargada', date: e.created_at, type: 'neutral' as const }
+        return { label: 'Transferencia bancaria cargada', date: e.created_at, type: 'neutral' as const, notes: null }
       case 'bank_authorized':
-        return { label: `Transferencia autorizada${e.notes ? ` · Ref: ${e.notes}` : ''}`, date: e.created_at, type: 'success' as const }
+        return { label: `Transferencia autorizada${e.notes ? ` · Ref: ${e.notes}` : ''}`, date: e.created_at, type: 'success' as const, notes: null }
       default:
-        return { label: e.action, date: e.created_at, type: 'neutral' as const }
+        return { label: e.action, date: e.created_at, type: 'neutral' as const, notes: dicho }
     }
   })
 }

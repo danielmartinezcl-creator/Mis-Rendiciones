@@ -15,6 +15,7 @@ import { PreviaCadena } from '@/components/ui/PreviaCadena'
 import { SelectorProyecto, VALOR_VACIO, proyectoCompleto, type ValorProyecto } from '@/components/expenses/SelectorProyecto'
 import { cambiarProyectoDeReporte } from '@/actions/expenses'
 import { formatDisplayTitle } from '@/lib/utils'
+import { mensajeDeError } from '@/lib/errores'
 import { puedeCambiarGastos } from '@/lib/expense-helpers'
 import {
   addExpenseItem,
@@ -199,10 +200,14 @@ export default function ExpenseDetailPage() {
     setDeleting(true)
     setError(null)
     try {
-      await deleteExpenseReport(id)
+      // El motivo viene como dato: un `throw` del servidor sale redactado en
+      // producción, y acá hay motivos que la persona tiene que ENTENDER
+      // («ya pasó por una revisión, pedile a un administrador»).
+      const r = await deleteExpenseReport(id)
+      if (r.error) { setError(r.error); setDeleting(false); return }
       router.push('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar')
+      setError(mensajeDeError(err, 'Error al eliminar'))
       setDeleting(false)
     }
   }
@@ -302,11 +307,13 @@ export default function ExpenseDetailPage() {
     warning: 'border-warning-400 bg-warning-50',
     error:   'border-danger-400 bg-danger-50',
   }
+  // Los hitos que arma la pantalla no llevan texto de nadie: `notes` es lo que
+  // escribió quien decidió, y esos tres no los decidió una persona.
   const allTimelineEvents: (TimelineEvent & { key: string })[] = [
-    { key: 'created',   label: 'Borrador creado',      date: report.created_at,   type: 'neutral' },
-    ...(report.submitted_at  ? [{ key: 'submitted',  label: 'Enviada a revisión', date: report.submitted_at,  type: 'neutral' as const }] : []),
+    { key: 'created',   label: 'Borrador creado',      date: report.created_at,   type: 'neutral', notes: null },
+    ...(report.submitted_at  ? [{ key: 'submitted',  label: 'Enviada a revisión', date: report.submitted_at,  type: 'neutral' as const, notes: null }] : []),
     ...timeline.map((e, i) => ({ ...e, key: `audit-${i}` })),
-    ...(report.reimbursed_at ? [{ key: 'reimbursed', label: 'Reembolsada',        date: report.reimbursed_at, type: 'success' as const }] : []),
+    ...(report.reimbursed_at ? [{ key: 'reimbursed', label: 'Reembolsada',        date: report.reimbursed_at, type: 'success' as const, notes: null }] : []),
   ]
   const showTimeline = !!report.submitted_at || timeline.length > 0
 
@@ -496,6 +503,16 @@ export default function ExpenseDetailPage() {
                 <div className={`w-[15px] h-[15px] rounded-full flex-shrink-0 mt-[3px] border-2 z-10 ${timelineDotCls[ev.type]}`} />
                 <div className="pb-4 flex-1 min-w-0">
                   <p className="card-label font-medium text-ink-800">{ev.label}</p>
+                  {/* Lo que escribió quien decidió. Cuando devuelven la
+                      rendición para corregir, esto ES la instrucción: sin
+                      mostrarlo, exigirle un motivo al aprobador no servía de
+                      nada. `whitespace-pre-line` conserva los renglones de un
+                      motivo escrito en varias líneas. */}
+                  {ev.notes && (
+                    <p className="card-meta text-ink-600 mt-1 whitespace-pre-line break-words">
+                      «{ev.notes}»
+                    </p>
+                  )}
                   <p className="card-meta text-ink-400 mt-0.5">{formatTs(ev.date)}</p>
                 </div>
               </div>

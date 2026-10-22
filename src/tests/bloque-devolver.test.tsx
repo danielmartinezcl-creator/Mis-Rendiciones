@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { BloqueDevolver } from '@/components/petty-cash/BloqueDevolver'
+import { BloqueDevolver } from '@/components/ui/BloqueDevolver'
 
 /**
  * El formulario de «Devolver para corregir».

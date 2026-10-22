@@ -3,9 +3,13 @@
 /**
  * «Devolver para corregir»: el formulario del motivo.
  *
- * Es un componente y no dos copias porque aparece en los dos momentos de
- * decisión de un fondo —la autorización y la liquidación— y el texto de a dónde
- * vuelve cambia entre ellos, que es justo lo que una copia haría divergir.
+ * Es un componente y no varias copias porque aparece en **tres** lugares: los
+ * dos momentos de decisión de un fondo —la autorización y la liquidación— y la
+ * bandeja de aprobación de una rendición. El texto de a dónde vuelve cambia
+ * entre ellos, que es justo lo que una copia haría divergir.
+ *
+ * Vive en `ui/` y no en `petty-cash/` por eso mismo: desde que lo usa también
+ * la bandeja, dejarlo ahí haría que aprobaciones importara de caja chica.
  *
  * **El motivo es obligatorio.** Devolver sin decir qué corregir es peor que
  * rechazar: la persona recibe su documento de vuelta sin saber qué hacer con

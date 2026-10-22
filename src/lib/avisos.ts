@@ -138,6 +138,7 @@ async function lookupEmails(userIds: string[]): Promise<string[]> {
 type TipoAviso =
   | 'submission' | 'approval' | 'rejection' | 'reimbursement'
   | 'bank_load' | 'bank_auth' | 'funds_sent' | 'config_missing'
+  | 'returned'
 
 const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? ''
 // El nombre ya escapado: solo se usa dentro del HTML del correo
@@ -211,22 +212,35 @@ export async function notifyReportBankStep(reportId: string, paso: 'cargar_pago'
   })
 }
 
-export async function notifySubmitterOfDecision(reportId: string, action: 'approved' | 'rejected' | 'partially_approved') {
+export async function notifySubmitterOfDecision(
+  reportId: string,
+  action: 'approved' | 'rejected' | 'partially_approved' | 'returned',
+) {
   const { reporte } = await contextoRendicion(reportId)
   const asuntos = {
     approved:           `Rendición aprobada — ${reporte.title}`,
     rejected:           `Rendición rechazada — ${reporte.title}`,
     partially_approved: `Rendición aprobada parcialmente — ${reporte.title}`,
+    /* «Devuelta» y no «rechazada»: la rendición sigue viva y la pelota está del
+       lado de quien la rindió. Si el texto se leyera como un no, volvería a
+       pasar lo que este botón viene a evitar — armar una rendición nueva. */
+    returned:           `Te la devolvieron para corregir — ${reporte.title}`,
   }
   const cuerpos = {
     approved:           'Tu rendición fue aprobada. En breve se procesará el reembolso.',
     rejected:           'Tu rendición fue rechazada. Revisá los motivos y corrígela si corresponde.',
     partially_approved: 'Tu rendición fue aprobada parcialmente. Algunos ítems fueron rechazados.',
+    returned:           'Tu rendición volvió a borrador para que la corrijas y la vuelvas a enviar. '
+                      + 'El motivo está en la app, en el historial de la rendición.',
   }
   await avisar({
     orgId:    reporte.org_id,
     userIds:  [reporte.submitter_id],
-    tipo:     action === 'rejected' ? 'rejection' : 'approval',
+    /* Tipo propio (migración 041): el aviso de la campana se arma SOLO con el
+       tipo, así que con 'rejection' la persona leía «fue rechazada». */
+    tipo:     action === 'rejected' ? 'rejection'
+            : action === 'returned' ? 'returned'
+            : 'approval',
     reportId,
     asunto:   asuntos[action],
     html:     `<p>${cuerpos[action]}</p>
@@ -372,8 +386,10 @@ export async function notifyFundOutcome(fundId: string, resultado: 'rejected' | 
     funds_sent: { tipo: 'funds_sent' as const, asunto: `Fondos enviados — ${fondo.name}`,   cuerpo: 'La transferencia fue autorizada: los fondos ya están disponibles.' },
     settled:    { tipo: 'approval' as const,   asunto: `Liquidación aprobada — ${fondo.name}`, cuerpo: 'La liquidación del fondo fue aprobada.' },
     /* Devuelto NO es rechazado: el documento sigue vivo y la pelota está del
-       lado de quien lo pidió. El texto lo dice para que no se lea como un no. */
-    returned:   { tipo: 'rejection' as const,  asunto: `Te devolvieron para corregir — ${fondo.name}`, cuerpo: 'Te lo devolvieron para que lo corrijas y lo vuelvas a enviar. El motivo está en la app.' },
+       lado de quien lo pidió. Hasta la migración 041 esto usaba el tipo
+       'rejection' y el aviso de la campana decía «fue rechazado», porque ese
+       texto se arma solo con el tipo: el correo distinguía y la campana no. */
+    returned:   { tipo: 'returned' as const,  asunto: `Te devolvieron para corregir — ${fondo.name}`, cuerpo: 'Te lo devolvieron para que lo corrijas y lo vuelvas a enviar. El motivo está en la app.' },
   }
   const t = textos[resultado]
   await avisar({

@@ -351,7 +351,8 @@ supabase/
 │   ├── 037_respaldos_solo_desde_servidor.sql         ← ✅ APLICADA el 2026-09-28, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 037, 12 de 17 pruebas rotas, que eran los agujeros; con la 037, 17/17; en vivo, 17/17). Un rollback de Vercel a código anterior deja sin subir, abrir ni borrar respaldos: el código viejo lo hacía con la sesión. Ninguna sesión escribe en `approval_attachments` ni toca el bucket `approval-attachments`, ni para leer: el servidor sube, borra y firma con la llave de servicio tras `src/lib/respaldos.ts`. La tabla se lee solo con el documento a la vista (subselect que hereda la RLS de la rendición o del fondo). Pruebas: supabase/tests/037_respaldos.sql
 │   ├── 038_funciones_sin_acceso_publico.sql          ← ✅ APLICADA el 2026-10-01, tras el despliegue (ensayo con BEGIN/ROLLBACK: sin la 038, 22 de sus 26 pruebas en `false`, que eran los agujeros; con la 038, 26/26, y las otras tres baterías intactas — 033: 41 ok + 1 no concluyente · 035: 12/12 · 037: 17/17; en vivo, 26/26). Las 12 funciones `SECURITY DEFINER` eran ejecutables por `anon` y `authenticated` vía `/rest/v1/rpc`. Las 8 de disparador no las necesita nadie: **Postgres verifica `EXECUTE` al CREAR el disparador, no cada vez que dispara** (comprobado en vivo: una sesión `authenticated` sigue siendo rechazada por `proteger_estado_rendicion` con su mensaje, no con «permission denied for function»). Las 4 que usan las políticas las conserva `authenticated`, nunca `anon`. Lo que cierra el acceso es el `revoke ... from public`: `anon` y `authenticated` heredan de PUBLIC. `set_updated_at` queda además con `search_path = ''` (su cuerpo solo usa `now()`, de `pg_catalog`). Pruebas: supabase/tests/038_funciones.sql
 │   ├── 039_aprobador_por_proyecto.sql                ← ✅ APLICADA el 2026-10-07, ANTES del despliegue (es aditiva y nullable: el código viejo no lee ninguna de sus columnas — al revés que la 033/035/037, que protegían y tenían que ir después). Ensayo con BEGIN/ROLLBACK: 23/23, más un segundo ensayo apuntando el relleno a los borradores (no había documentos en vuelo y el bloque no se ejercitaba): 9 filas, N1 copiado igual al de la ficha. En vivo: 23/23. Tabla `proyectos` (número único por organización), `users.es_jefe_proyecto` / `umbral_n2_clp`, `organizations.aprobador_defecto_id` / `aprobador_n2_defecto_id` / `umbral_n2_clp`, y la cadena congelada en `expense_reports` y `petty_cash_funds` (`cadena_*`, y `liq_cadena_*` para la liquidación). Pruebas: supabase/tests/039_proyectos.sql
-│   └── 040_vistas_de_filtro.sql                     ← ✅ APLICADA el 2026-10-08 (20261008220657), ANTES del despliegue: es aditiva y el código viejo no lee esta tabla. Ensayo con BEGIN/ROLLBACK: 23 ok, 0 rotas, 1 no concluyente —el cruce entre organizaciones, porque PENTA es la única— y comprobado después que no dejó rastro; en vivo, 24/24. Las vistas guardadas del admin, **de la organización**: la lee cualquier miembro, la escribe solo su admin. NO siembra ninguna. Pruebas: supabase/tests/040_vistas.sql
+│   ├── 040_vistas_de_filtro.sql                     ← ✅ APLICADA el 2026-10-08 (20261008220657), ANTES del despliegue: es aditiva y el código viejo no lee esta tabla. Ensayo con BEGIN/ROLLBACK: 23 ok, 0 rotas, 1 no concluyente —el cruce entre organizaciones, porque PENTA es la única— y comprobado después que no dejó rastro; en vivo, 24/24. Las vistas guardadas del admin, **de la organización**: la lee cualquier miembro, la escribe solo su admin. NO siembra ninguna. Pruebas: supabase/tests/040_vistas.sql
+│   └── 041_tipo_devuelto.sql                        ← ⏳ ENSAYADA el 2026-10-22 (BEGIN/ROLLBACK: 5/5, y comprobado después que no dejó rastro — el CHECK sin `returned` y 0 filas de ese tipo). **Va ANTES del despliegue**: es aditiva y el código nuevo escribe `type = 'returned'`, así que al revés que la 033/035/037 aplicarla después dejaría el insert rechazado. Tipo `returned` en `notifications`. **No es cosmética:** «devolver para corregir» salió el 2026-10-21 reusando `rejection` porque no había otro, y como el aviso de la campana se arma SOLO con el tipo (`textoNotificacion`, porque `notifications` no guarda texto), al empleado le llegaba «Un fondo de caja chica fue rechazado» cuando se lo habían devuelto — la confusión exacta que el botón vino a evitar. El correo sí distinguía; la campana no tenía con qué. Pruebas: supabase/tests/041_devuelto.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -373,7 +374,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **988 tests Vitest en 60 archivos** (2026-10-21; eran 884 en 54 antes del saldo
+- **995 tests Vitest en 61 archivos** (2026-10-22; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1107,7 +1108,7 @@ los empleados bloqueados: se ocultan en la pantalla, **nunca en la consulta**.
 > y el historial sabe leerlo (`expenses.ts`), pero **ninguna acción lo escribe y no hay
 > botón**. Falta ese camino, y el uso real lo está pidiendo.
 
-### ✅ Devolver para corregir, y la devolución de saldo (2026-10-21)
+### ✅ Devolver para corregir, y la devolución de saldo (2026-10-21 · rendiciones el 2026-10-22)
 
 **El rechazo se estaba usando como «corregí y volvé a mandar», y no había cómo.** Los
 tres rechazos reales de ese día lo muestran: «especificar epp», «Monto se fusionó con otra
@@ -1130,6 +1131,47 @@ como `returned_to_draft`, que **ya existía en el vocabulario y ninguna acción 
   para corregir: «devuelto» leído como «rechazado» sería el mismo problema otra vez
 - El botón va en segunda línea y sin color fuerte: es la alternativa suave, no la acción
   principal
+
+**En RENDICIONES también, desde el 2026-10-22** (`devolverRendicionParaCorregir`, botón en
+`/approvals/[id]`). Ahí el agujero era peor que en caja chica, porque las dos salidas que
+había pierden algo: rechazar un ítem hace que la persona **pierda ese gasto** —no lo puede
+arreglar— y rechazar la rendición entera la obliga a armarla de nuevo.
+
+- **No necesita rama de destino**, al contrario que un fondo: una rendición no tiene un
+  momento en que la plata ya salió, porque los pasos bancarios no son pasos de decisión y
+  `exigirPaso` los excluye. El único destino posible es `draft`
+- **LAS MARCAS POR ÍTEM SE CONSERVAN** (decisión de Daniel): lo aprobado queda aprobado y
+  lo rechazado queda rechazado con su motivo. Para el aprobador, porque volver a mirar
+  veinte ítems uno por uno es lo que haría que nadie use el botón —al reenviar,
+  `submitApprovalDecision` solo exige decidir los que siguen `pending`—; para el empleado,
+  porque **la marca ES la instrucción**: `ExpenseItemCard` ya muestra el acento de estado y
+  el motivo del rechazo, así que no hubo que construir nada
+- **No se exige haber decidido todos los ítems**, al revés que una decisión: devolver sirve
+  justo para «falta un dato y no puedo evaluarla». Las dos reglas de qué viaja están en
+  `src/lib/devolucion.ts` (`marcasAlDevolver`), con 6 pruebas
+- **Un ítem marcado rechazado SÍ exige motivo**, y no por simetría: como la marca se
+  conserva, al reenviar ese ítem ya no está `pending` y nadie lo vuelve a preguntar —
+  sobreviviría como un «no» sin explicación
+- `approved_amount` vuelve a **0**, no al monto de lo aprobado: es un borrador y no hay nada
+  por pagar. Se recalcula entero en la próxima decisión
+- **El empleado no puede editar un ítem, solo agregarlo o borrarlo**: no existe
+  `updateExpenseItem` para una rendición normal. Así que corregir es borrar el malo y cargar
+  el bueno, y un ítem nuevo nace `pending` (lo impone `proteger_estado_item`)
+
+**El motivo ahora se VE.** `TimelineEvent` ganó `notes` y la línea de tiempo de
+`expenses/[id]` las muestra entre comillas. Antes decía «Devuelta a borrador por Ana» y
+nada más, así que **exigirle un motivo al aprobador era decorativo**: la única persona que
+lo necesita no lo veía en ninguna parte (`getReportApprovals` sí traía `notes`, pero solo
+se usa para firmar el PDF). Aprovecha también a los rechazos, cuyo motivo era igual de
+invisible. Los pasos bancarios quedan sin `notes` porque ahí guardan la referencia de la
+transferencia, que ya va dentro de su etiqueta.
+
+**Un borrador CON historial de aprobaciones es un caso nuevo que este cambio creó**, y
+antes no existía: todo borrador era uno que nunca había salido. La 026 hace ese historial
+inmutable y solo un admin borra una rendición que lo tenga, así que `deleteExpenseReport`
+lo detecta y lo explica —«ya pasó por una revisión… pedile a un administrador»— en vez de
+dejar que la base lo niegue con un error sin motivo. Devuelve `{ error }` y ya no lanza:
+mismo criterio que `deletePettyCashFund`.
 
 **La devolución del saldo NO es un gasto.** Francisco cargó «Devolución de saldo» $26.636
 como un ítem más para que el fondo de $350.000 cerrara justo (133.578 + 189.786 + 26.636).
@@ -2079,3 +2121,5 @@ una columna `NOT NULL`.
 | Dar por bueno «está bien configurado» como si fuera «funciona» | La pestaña «Correo» leía el MISMO `revisarConfigCorreo` que decide un envío —así que no podía mentir— y aun así informaba verde mientras el correo no salía: lo que mira es la configuración, y lo que falló estaba del otro lado de Resend | Entre «puede» y «hizo» va una prueba que recorra el camino completo, no una llamada aparte: una prueba por otra vía puede salir verde mientras el camino real falla |
 | Confiar en `puedeRecibir` como control de un destinatario que viene del navegador | Con `CORREO_SOLO_A` **vacía** devuelve `true` para cualquier dirección — correcto para un aviso (no hay piloto, manda el candado general) y un agujero para un botón al que se le pasa el destino | `destinoDePrueba` en el servidor: la propia dirección o una de la lista, y sin lista cargada **solo la propia**. La lista es la autorización porque solo se cambia en Vercel |
 | Probar que «el correo funciona» mandándolo al Gmail del admin | Es el caso más fácil y no responde la pregunta: un dominio corporativo puede filtrar o rechazar lo que Gmail acepta sin chistar, y lo que faltaba saber era si llega a @pentaingenieros.cl | Probar contra la dirección del DOMINIO que está en duda. Y antes de sospechar de la clave, recordar qué ya se probó: las 52 invitaciones del 2026-10-07 dejaron demostrado que clave, remitente y API andan |
+| Reusar el tipo de notificación «más parecido» porque no hay uno propio | El aviso de la campana se arma **solo con el tipo** (`textoNotificacion`: `notifications` no guarda texto). «Devolver para corregir» salió el 2026-10-21 con el tipo `rejection`, así que al empleado le llegaba «Un fondo de caja chica fue rechazado» cuando se lo habían devuelto — la confusión exacta que el botón venía a evitar. El correo sí distinguía, porque su texto se escribe aparte | Si el texto de la campana tiene que decir algo distinto, el tipo es distinto: migración aditiva (041, como la 036). Y mirar los **dos** textos al sumar un resultado — `avisos.ts` para el correo y `notificaciones.ts` para la campana |
+| Agregar un estado nuevo a un documento sin revisar qué promete la pantalla en ese estado | «Devolver una rendición a borrador» creó algo que antes no existía: un **borrador con historial de aprobaciones**. La 026 hace ese historial inmutable y solo un admin borra una rendición que lo tenga, así que el botón «Eliminar» del empleado —que solo mira `status === 'draft'`— prometía algo que la base niega, y en producción el error sale redactado en inglés | Al habilitar un estado nuevo, recorrer qué botones aparecen en él y qué reglas de la base los alcanzan. Y explicar el motivo como **dato** (`return { error }`), no dejar que lo niegue un disparador |

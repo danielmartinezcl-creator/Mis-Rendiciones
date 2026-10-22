@@ -5,11 +5,11 @@ import { textoNotificacion } from '@/lib/notificaciones'
    apunta. Hasta el 2026-09-25 el aviso leía `title` y `body` —dos columnas que
    la tabla nunca tuvo— y cada notificación pintaba una caja vacía. */
 
-// Espejo del CHECK notifications_type_check (migraciones 032 y 036)
+// Espejo del CHECK notifications_type_check (migraciones 032, 036 y 041)
 const TIPOS = [
   'submission', 'approval', 'rejection', 'reimbursement',
   'bank_load', 'bank_auth', 'funds_sent', 'config_missing',
-  'reminder',
+  'reminder', 'returned',
 ] as const
 
 const rendicion = { report_id: 'r-1', fund_id: null }
@@ -30,6 +30,18 @@ describe('textoNotificacion', () => {
     expect(textoNotificacion({ type: 'submission', ...fondo })).toBe('Un fondo de caja chica espera tu aprobación.')
     expect(textoNotificacion({ type: 'rejection', ...rendicion })).toBe('Tu rendición fue rechazada.')
     expect(textoNotificacion({ type: 'rejection', ...fondo })).toBe('Un fondo de caja chica fue rechazado.')
+  })
+
+  /* Devuelto ≠ rechazado, y acá es donde más importa: la campana es lo primero
+     que la persona ve, y su texto se arma SOLO con el tipo. Hasta la migración
+     041 «devuelto» reusaba 'rejection' y el aviso decía «fue rechazado» — la
+     confusión exacta que el botón de devolver vino a evitar. */
+  it('devuelto no dice rechazado, ni en rendiciones ni en fondos', () => {
+    for (const doc of [rendicion, fondo]) {
+      const texto = textoNotificacion({ type: 'returned', ...doc })!
+      expect(texto).toMatch(/corregir/i)
+      expect(texto).not.toMatch(/rechaz/i)
+    }
   })
 
   it('el aviso de configuración no necesita documento', () => {

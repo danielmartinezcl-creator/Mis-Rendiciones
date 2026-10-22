@@ -429,6 +429,129 @@ async function cerrarDecision(
   }
 }
 
+/**
+ * Devolver una rendición a borrador para que la corrijan y la reenvíen.
+ *
+ * Es la tercera salida de la misma decisión, junto a aprobar y rechazar, y
+ * existe porque el rechazo se estaba usando para eso. En caja chica salió el
+ * 2026-10-21 con los tres motivos reales de ese día —«especificar epp», «Monto
+ * se fusionó con otra caja chica», «Se amplió el presupuesto»—: ninguno era un
+ * no. En una rendición el agujero era peor, porque las dos salidas que había
+ * pierden algo: rechazar un ítem hace que la persona **pierda ese gasto** (no
+ * lo puede arreglar), y rechazar la rendición entera obliga a armarla de nuevo.
+ *
+ * **A dónde vuelve no necesita rama, al contrario que un fondo.** Un fondo
+ * devuelto en la liquidación vuelve a `funds_sent` porque la plata ya está con
+ * el empleado; una rendición no tiene ese momento — los pasos bancarios no son
+ * pasos de decisión (`exigirPaso` los excluye), así que devolver solo puede
+ * pasar antes de que se pague nada, y el único destino posible es `draft`.
+ *
+ * **LAS MARCAS POR ÍTEM SE CONSERVAN** (decisión de Daniel, 2026-10-22): lo que
+ * el aprobador ya aprobó queda aprobado, y lo rechazado queda rechazado con su
+ * motivo. Dos razones:
+ *  - para el aprobador, volver a mirar veinte ítems uno por uno es justo lo que
+ *    hace que nadie use el botón. Al reenviar, `submitApprovalDecision` solo
+ *    exige decidir los que siguen `pending`;
+ *  - para el empleado, la marca ES la instrucción: la tarjeta del gasto ya
+ *    muestra el acento de estado y el motivo del rechazo, así que sabe cuál
+ *    tocar sin que haya que construir nada nuevo.
+ *
+ * No se exige haber decidido todos los ítems, al revés que una decisión: si el
+ * aprobador tuviera que juzgarlos todos antes de devolver, devolver no serviría
+ * para «falta un dato y no puedo evaluarla».
+ */
+export async function devolverRendicionParaCorregir(
+  reportId: string,
+  decisions: ApprovalDecision[],
+  notes: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  /* El motivo es obligatorio: es lo único que le dice al empleado qué corregir,
+     y sin eso devolver es peor que rechazar — recibe su rendición de vuelta sin
+     saber qué hacer con ella. */
+  if (!notes.trim()) return { error: 'Indicá qué hay que corregir' }
+
+  const ctx = await contextoRendicion(reportId)
+
+  let paso: Paso
+  try {
+    ;({ paso } = exigirPaso(ctx, ctx.reporte.status, user.id, ['decidir_l1', 'decidir_l2'], 'Esta rendición ya fue decidida'))
+  } catch (e) {
+    /* Como dato y no como excepción: en producción Next redacta el mensaje de un
+       `throw` del servidor y la persona leería un párrafo en inglés. */
+    return { error: e instanceof Error ? e.message : 'No se pudo devolver la rendición' }
+  }
+
+  // Un id ajeno no se toca. Mismo control que la decisión; lo que no se exige
+  // acá es que estén todos.
+  const ids = decisions.map(d => d.itemId)
+  if (ids.length) {
+    const { data: items, error: itemsError } = await ctx.admin
+      .from('expense_items')
+      .select('id')
+      .eq('report_id', reportId)
+      .is('deleted_at', null)
+    if (itemsError) return { error: itemsError.message }
+    const propios = new Set((items ?? []).map(i => i.id))
+    if (ids.some(id => !propios.has(id))) {
+      return { error: 'Hay ítems que no pertenecen a esta rendición' }
+    }
+
+    for (const d of decisions) {
+      const { error } = await ctx.admin
+        .from('expense_items')
+        .update({
+          status:           d.action === 'approve' ? 'approved' : 'rejected',
+          rejection_reason: d.action === 'reject' ? (d.reason ?? null) : null,
+        })
+        .eq('id', d.itemId)
+      if (error) return { error: error.message }
+    }
+  }
+
+  /* `approved_amount` vuelve a 0 y no al monto de los ítems aprobados: es un
+     borrador y no hay nada por pagar todavía. Se recalcula entero en la próxima
+     decisión. Dejar un monto vivo en un borrador es el error que este archivo
+     ya documentó —una columna que significa distinto según la historia de su
+     fila no puede sostener ninguna comparación. */
+  const { data: devuelta, error: updateError } = await ctx.admin
+    .from('expense_reports')
+    .update({ status: 'draft', approved_at: null, approved_amount: 0 })
+    .eq('id', reportId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('status', ctx.reporte.status as any)
+    .select('id')
+  if (updateError || !devuelta?.length) {
+    console.error('[approvals] no se pudo devolver a borrador', reportId, updateError)
+    return { error: 'No se pudo devolver la rendición. Avisa al administrador.' }
+  }
+
+  const aprobados  = decisions.filter(d => d.action === 'approve').map(d => d.itemId)
+  const rechazados = decisions.filter(d => d.action === 'reject').map(d => d.itemId)
+  const { error: logError } = await ctx.admin.from('expense_report_approvals').insert({
+    report_id:      reportId,
+    approver_id:    user.id,
+    level:          paso === 'decidir_l2' ? 2 : 1,
+    action:         'returned_to_draft',
+    items_approved: aprobados.length  ? aprobados  : null,
+    items_rejected: rechazados.length ? rechazados : null,
+    notes:          notes.trim(),
+  })
+  if (logError) return { error: logError.message }
+
+  notifySubmitterOfDecision(reportId, 'returned').catch(() => {})
+
+  revalidatePath(`/approvals/${reportId}`)
+  revalidatePath('/approvals')
+  revalidatePath(`/expenses/${reportId}`)
+  revalidatePath('/reimbursements')
+  revalidatePath('/')
+  return {}
+}
+
 export async function getOrGenerateApprovalAnalysis(reportId: string): Promise<AiAnalysis | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
