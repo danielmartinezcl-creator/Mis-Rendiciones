@@ -81,15 +81,31 @@ const SENTIDO_TRANSFERENCIA = {
   disbursement: DEBE, refund_to_employee: DEBE, reimbursement_from_employee: HABER,
 }
 
+/**
+ * Un gasto RECHAZADO no se contabiliza, así que no abona la cuenta (Daniel,
+ * 2026-10-23). La plata sigue en manos de la persona: si el gasto se repudia,
+ * lo que debe no baja.
+ *
+ * **Solo se filtran los GASTOS.** Un adelanto, una devolución y un traspaso no
+ * los aprueba nadie —los 8 traspasos de producción están en el `pending` por
+ * omisión de la columna—, así que mirarles el estado dejaría fuera $222.150 de
+ * plata que se movió con total certeza. Es la misma trampa que ya documentó
+ * `computeApprovedAmount`.
+ *
+ * Un `pending` SÍ cuenta: el gasto ocurrió y está esperando revisión. Lo que no
+ * cuenta es lo rechazado, que es una decisión tomada.
+ */
+const cuentaEnLaCuenta = (tipo, estado) => tipo !== 'expense' || estado !== 'rejected'
+
 async function movimientos() {
   const [usuarios, reportes, items, traspasos, fondos, transferencias, gastosFondo] = await Promise.all([
     traer('users', 'id,full_name,rut'),
     traer('expense_reports', 'id,submitter_id,title,deleted_at,defontana_exported_at'),
-    traer('expense_items', 'report_id,date,item_type,amount_clp,defontana_exported_at,transfer_id,description,deleted_at'),
+    traer('expense_items', 'report_id,date,item_type,amount_clp,defontana_exported_at,transfer_id,description,deleted_at,status'),
     traer('fund_transfers', 'id,payer_report_id'),
     traer('petty_cash_funds', 'id,employee_id,name,deleted_at'),
     traer('petty_cash_transfers', 'fund_id,type,amount,transferred_at,defontana_exported_at,reference'),
-    traer('petty_cash_items', 'fund_id,date,amount_clp,defontana_exported_at,description'),
+    traer('petty_cash_items', 'fund_id,date,amount_clp,defontana_exported_at,description,status'),
   ])
 
   const porId      = (xs) => Object.fromEntries(xs.map(x => [x.id, x]))
@@ -104,6 +120,7 @@ async function movimientos() {
   for (const i of items) {
     const r = reportePor[i.report_id]
     if (!r || r.deleted_at || i.deleted_at) continue
+    if (!cuentaEnLaCuenta(i.item_type, i.status)) continue
     const sentido = i.item_type === 'transfer'
       // La dirección NO es una columna: sale de quién paga el traspaso, igual
       // que `is_transfer_payer` en el export a Defontana.
@@ -133,6 +150,7 @@ async function movimientos() {
   for (const g of gastosFondo) {
     const f = fondoPor[g.fund_id]
     if (!f || f.deleted_at) continue
+    if (!cuentaEnLaCuenta('expense', g.status)) continue
     sumar({
       personaId: f.employee_id, fecha: g.date,
       documento: f.name, tipo: 'expense', glosa: g.description ?? '',
@@ -169,9 +187,10 @@ function main() {
     const porPersona = {}
     for (const m of movs) {
       const p = (porPersona[m.personaId] ??= {
-        defontana: 0, app: 0,
+        movimientos: 0, defontana: 0, app: 0,
         adelantos: 0, recibidos: 0, gastos: 0, devoluciones: 0, pagados: 0,
       })
+      p.movimientos++
       p.app += m.monto
       if (m.contabilizado) p.defontana += m.monto
       if (m.tipo === 'advance' || m.tipo === 'disbursement' || m.tipo === 'refund_to_employee') p.adelantos += m.monto
@@ -180,10 +199,13 @@ function main() {
       else p.gastos += m.monto
     }
 
+    /* Van TODOS los que tuvieron movimiento, incluidos los que quedaron en cero
+       (Daniel, 2026-10-23): para cuadrar contra el mayor hace falta ver que una
+       persona pasó por la cuenta y cerró, no que no aparezca. Una fila ausente
+       y una en cero dicen cosas distintas. */
     const filas = Object.entries(porPersona)
-      .filter(([, p]) => p.app !== 0 || p.defontana !== 0)
       .map(([id, p]) => ({ id, nombre: persona[id]?.full_name ?? '(sin nombre)', rut: persona[id]?.rut ?? '', ...p }))
-      .sort((a, b) => b.defontana - a.defontana)
+      .sort((a, b) => b.defontana - a.defontana || a.nombre.localeCompare(b.nombre, 'es'))
 
     // ── Hoja 1: saldo por empleado ──────────────────────────────────────────
     const h1 = [
@@ -191,15 +213,15 @@ function main() {
       [`Generado el ${hoy}. Excluye documentos en la papelera.`],
       ['Saldo DEUDOR (+): la empresa le entregó plata.  Saldo ACREEDOR (−): el empleado rindió o devolvió de más.'],
       [],
-      ['RUT', 'Empleado', 'Saldo Defontana', 'Saldo App', 'Diferencia', 'Condición', 'Saldo inicial (completar)', 'Saldo final'],
+      ['RUT', 'Empleado', 'Movimientos', 'Saldo Defontana', 'Saldo App', 'Diferencia', 'Condición', 'Saldo inicial (completar)', 'Saldo final'],
     ]
     const PRIMERA = h1.length + 1
     for (const f of filas) {
-      h1.push([f.rut, f.nombre, f.defontana, f.app, f.app - f.defontana,
-               f.defontana >= 0 ? 'Deudor' : 'Acreedor', null, null])
+      h1.push([f.rut, f.nombre, f.movimientos, f.defontana, f.app, f.app - f.defontana,
+               f.defontana === 0 ? 'Cuadrado' : f.defontana > 0 ? 'Deudor' : 'Acreedor', null, null])
     }
     const ULTIMA = h1.length
-    h1.push(['', 'TOTAL', null, null, null, '', null, null])
+    h1.push(['', 'TOTAL', null, null, null, null, '', null, null])
 
     const ws1 = XLSX.utils.aoa_to_sheet(h1)
     /* Una celda con fórmula necesita TAMBIÉN un valor cacheado: el build libre
@@ -209,21 +231,24 @@ function main() {
        planilla ya se lee bien antes de que Excel recalcule. */
     const formula = (celda, f, v) => { ws1[celda] = { t: 'n', f, v } }
 
-    // El saldo final se recalcula solo cuando Daniel complete la columna G
-    filas.forEach((f, i) => formula(`H${PRIMERA + i}`, `G${PRIMERA + i}+C${PRIMERA + i}`, f.defontana))
+    // D = Defontana · E = App · F = diferencia · H = saldo inicial · I = saldo final
+    // El saldo final se recalcula solo cuando Daniel complete la columna H
+    filas.forEach((f, i) => formula(`I${PRIMERA + i}`, `H${PRIMERA + i}+D${PRIMERA + i}`, f.defontana))
 
+    const suma  = (f) => filas.reduce((s, x) => s + f(x), 0)
     const tot   = ULTIMA + 1
     const sumas = {
-      C: filas.reduce((s, f) => s + f.defontana, 0),
-      D: filas.reduce((s, f) => s + f.app, 0),
-      E: filas.reduce((s, f) => s + (f.app - f.defontana), 0),
-      G: 0,
-      H: filas.reduce((s, f) => s + f.defontana, 0),
+      C: suma(f => f.movimientos),
+      D: suma(f => f.defontana),
+      E: suma(f => f.app),
+      F: suma(f => f.app - f.defontana),
+      H: 0,
+      I: suma(f => f.defontana),
     }
     for (const [col, v] of Object.entries(sumas)) {
       formula(`${col}${tot}`, `SUM(${col}${PRIMERA}:${col}${ULTIMA})`, v)
     }
-    ws1['!cols'] = ancho(14, 28, 16, 16, 14, 11, 24, 16)
+    ws1['!cols'] = ancho(14, 28, 12, 16, 16, 14, 11, 24, 16)
     XLSX.utils.book_append_sheet(wb, ws1, 'Saldo por empleado')
 
     // ── Hoja 2: composición (lo contabilizado) ──────────────────────────────
@@ -304,7 +329,8 @@ function main() {
     const totD = filas.reduce((s, f) => s + f.defontana, 0)
     const totA = filas.reduce((s, f) => s + f.app, 0)
     console.log(`Escrito: ${salida}`)
-    console.log(`  ${movs.length} movimientos · ${filas.length} empleados con saldo`)
+    const conSaldo = filas.filter(f => f.defontana !== 0 || f.app !== 0).length
+    console.log(`  ${movs.length} movimientos · ${filas.length} empleados (${conSaldo} con saldo, ${filas.length - conSaldo} cuadrados)`)
     console.log(`  Saldo Defontana: ${totD.toLocaleString('es-CL')}`)
     console.log(`  Saldo App:       ${totA.toLocaleString('es-CL')}`)
     console.log(`  Diferencia:      ${(totA - totD).toLocaleString('es-CL')} (lo que falta contabilizar)`)
