@@ -353,7 +353,8 @@ supabase/
 │   ├── 039_aprobador_por_proyecto.sql                ← ✅ APLICADA el 2026-10-07, ANTES del despliegue (es aditiva y nullable: el código viejo no lee ninguna de sus columnas — al revés que la 033/035/037, que protegían y tenían que ir después). Ensayo con BEGIN/ROLLBACK: 23/23, más un segundo ensayo apuntando el relleno a los borradores (no había documentos en vuelo y el bloque no se ejercitaba): 9 filas, N1 copiado igual al de la ficha. En vivo: 23/23. Tabla `proyectos` (número único por organización), `users.es_jefe_proyecto` / `umbral_n2_clp`, `organizations.aprobador_defecto_id` / `aprobador_n2_defecto_id` / `umbral_n2_clp`, y la cadena congelada en `expense_reports` y `petty_cash_funds` (`cadena_*`, y `liq_cadena_*` para la liquidación). Pruebas: supabase/tests/039_proyectos.sql
 │   ├── 040_vistas_de_filtro.sql                     ← ✅ APLICADA el 2026-10-08 (20261008220657), ANTES del despliegue: es aditiva y el código viejo no lee esta tabla. Ensayo con BEGIN/ROLLBACK: 23 ok, 0 rotas, 1 no concluyente —el cruce entre organizaciones, porque PENTA es la única— y comprobado después que no dejó rastro; en vivo, 24/24. Las vistas guardadas del admin, **de la organización**: la lee cualquier miembro, la escribe solo su admin. NO siembra ninguna. Pruebas: supabase/tests/040_vistas.sql
 │   ├── 041_tipo_devuelto.sql                        ← ✅ APLICADA el 2026-10-22 (20261022041114), ANTES del despliegue (ensayo con BEGIN/ROLLBACK: 5/5, y comprobado después que no dejó rastro — el CHECK sin `returned` y 0 filas de ese tipo; en vivo, 5/5). **Tenía que ir antes**: es aditiva y el código nuevo escribe `type = 'returned'`, así que al revés que la 033/035/037 aplicarla después dejaría el insert rechazado. Tipo `returned` en `notifications`. **No es cosmética:** «devolver para corregir» salió el 2026-10-21 reusando `rejection` porque no había otro, y como el aviso de la campana se arma SOLO con el tipo (`textoNotificacion`, porque `notifications` no guarda texto), al empleado le llegaba «Un fondo de caja chica fue rechazado» cuando se lo habían devuelto — la confusión exacta que el botón vino a evitar. El correo sí distinguía; la campana no tenía con qué. Pruebas: supabase/tests/041_devuelto.sql
-│   └── 042_comprobante_de_transferencia.sql          ← ✅ APLICADA el 2026-10-22 (20261022140019), ANTES del despliegue (ensayo con BEGIN/ROLLBACK: 8/8, y comprobado después que no dejó rastro: ni columna, ni el fondo de prueba; en vivo, 8/8). Aditiva y nullable. `approval_attachments.transfer_id` — a qué transferencia del fondo prueba un comprobante. **`fund_id` SE SIGUE LLENANDO y no es redundante**: la única política que quedó tras la 037 se apoya en `report_id` / `fund_id`, así que un respaldo colgado solo de `transfer_id` sería invisible para todos — y el `chk_one_target` de la 005 lo impide, que es la prueba 5. Pruebas: supabase/tests/042_comprobante.sql
+│   ├── 042_comprobante_de_transferencia.sql          ← ✅ APLICADA el 2026-10-22 (20261022140019), ANTES del despliegue (ensayo con BEGIN/ROLLBACK: 8/8, y comprobado después que no dejó rastro: ni columna, ni el fondo de prueba; en vivo, 8/8). Aditiva y nullable. `approval_attachments.transfer_id` — a qué transferencia del fondo prueba un comprobante. **`fund_id` SE SIGUE LLENANDO y no es redundante**: la única política que quedó tras la 037 se apoya en `report_id` / `fund_id`, así que un respaldo colgado solo de `transfer_id` sería invisible para todos — y el `chk_one_target` de la 005 lo impide, que es la prueba 5. Pruebas: supabase/tests/042_comprobante.sql
+│   └── 043_saldo_inicial_fondos_por_rendir.sql    ← ✅ APLICADA el 2026-10-23 (20261023151614), ANTES del despliegue (ensayo con BEGIN/ROLLBACK: 7/7, sin rastro; en vivo, 7/7). Aditiva y nullable. `users.saldo_inicial_fxr_clp` + `organizations.fxr_fecha_corte`: el saldo de la cuenta Fondos por Rendir ANTES de que la app registrara nada. La app conoce movimientos desde el 12-12-2025 y la cuenta no arrancó en cero ese día — sin punto de partida el acumulado se va negativo en cuatro meses de 2026. **Por empleado y no un total**: el reporte es la COMPOSICIÓN, y un número global no se puede repartir. Arrancan en NULL para todos: nadie queda con un saldo inventado. Pruebas: supabase/tests/043_saldo_inicial.sql
 └── seed.sql
 docs/superpowers/
 ├── plans/                  ← planes de implementación (A, B, C + módulos adicionales)
@@ -375,7 +376,7 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **995 tests Vitest en 61 archivos** (2026-10-22; eran 884 en 54 antes del saldo
+- **1012 tests Vitest en 62 archivos** (2026-10-23; eran 884 en 54 antes del saldo
   pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
@@ -1224,6 +1225,61 @@ transferencia corresponde.
 - Se puede quitar si `puede_borrar`, que lo decide el servidor (`puedeBorrarRespaldo`:
   quien lo subió, mientras nadie haya dado un paso después). Sin eso, adjuntar la captura
   equivocada no tenía vuelta atrás desde la app
+
+### ✅ Fondos por Rendir — el reporte contable (2026-10-23)
+
+`/admin/fondos-por-rendir`. Pedido de Daniel: saldo de la cuenta y su composición por
+empleado, mensual. **Informes NO podía armarlo**, y no estaba escondido:
+
+- su hoja «Por Empleado» suma adelantos, devoluciones y traspasos **con el mismo signo**,
+  así que «Fondos CLP» no es un saldo sino una suma bruta;
+- no resuelve la dirección de un traspaso;
+- **`getUnifiedReportItems` nunca lee `petty_cash_transfers`**, así que la entrega de un
+  fondo vivo —un movimiento puro de esta cuenta— le es invisible;
+- no distingue lo contabilizado de lo que falta.
+
+**La aritmética vive en `src/lib/fondos-por-rendir.ts`** (17 pruebas) y la importan la
+pantalla Y la exportación: ninguna suma por su cuenta, que es como dos vistas del mismo
+dato terminan diciendo cifras distintas.
+
+**El signo, corregido por Daniel** (yo lo tenía mal): Debe = la empresa entregó plata
+(deudor); Haber = el empleado rindió o devolvió (acreedor). **Las dos puntas son Fondos
+por Rendir**: la cuenta se define por el ORIGEN de la transacción, no por el signo del
+saldo. Yo había propuesto reclasificar los acreedores como cuenta por pagar — lectura de
+manual que acá no corresponde.
+
+Cuatro reglas que se MIDIERON contra producción, no se supusieron:
+
+| Regla | Lo que costaba equivocarse |
+|---|---|
+| **Contabilizado = marca propia O de la cabecera** | 28 cargas la tienen solo arriba (estado «legacy»): mirar solo la propia desviaba el total en **$76.583** |
+| **La papelera queda fuera** (Daniel) | Además evita un doble conteo real: «9 FD ESPECIAL» tiene sus $830.000 dos veces —transferencia del fondo borrado y adelanto de su carga histórica viva—. Los otros 3 fondos borrados con marca de Defontana también están cubiertos por cargas vivas |
+| **Los ítems con `deleted_at` también** | Un ítem borrado de $8.640 dejaba el saldo de Katherine en 191.360 en vez de **200.000** |
+| **Un gasto rechazado no abona, pero SOLO se filtran los gastos** | A un adelanto, una devolución y un traspaso no los aprueba nadie —los 8 traspasos están en `pending` por omisión—: filtrarlos por estado dejaría fuera **$222.150** que se movieron con certeza. La misma trampa de `computeApprovedAmount` |
+
+- **Un `pending` SÍ cuenta**: el gasto ocurrió y espera revisión. Lo rechazado es una
+  decisión tomada
+- **Un monto NEGATIVO invierte el sentido**, que es como la contabilidad anota una reversa:
+  «Rechazo gasto TAG» (−9.870) termina siendo un **debe** de 9.870 que le restituye la
+  deuda a Francisco. Las cargas históricas usan negativos para los ajustes (hay dos
+  «Redondeo» de −1). **No es un ítem con estado `rejected`**: de esos no hay ninguno en lo
+  que el reporte considera — los únicos dos de la base son de «1 Daniel Prueba», en la
+  papelera
+- **Van los empleados en CERO** (Daniel): para cuadrar contra el mayor hace falta ver que
+  alguien pasó por la cuenta y cerró. Una fila ausente y una en cero dicen cosas distintas
+  — Alexis Villa tiene 66 movimientos y saldo cero
+
+**Medido el 2026-10-23:** 674 movimientos, 23 empleados (6 con saldo, 17 cuadrados).
+Defontana **$1.679.318** · App **$1.139.189** · falta contabilizar **$540.129**, toda de
+Francisco Díaz (el piloto). Cinco de seis cuadran exacto, así que la diferencia funciona
+como control de lo que falta exportar.
+
+**Falta el saldo inicial y sin él no cuadra con el mayor** (migración 043). Se carga fila
+por fila en la misma pantalla, más una fecha de corte para la organización. Hasta que
+esté, la pantalla avisa cuántas personas faltan.
+
+`scripts/fondos-por-rendir.mjs` es el prototipo con el que se validó la lógica contra
+datos reales antes de construir la pantalla; genera el mismo Excel desde la terminal.
 
 ### ⏳ El correo que no le llegó a Katherine — SIN resolver (2026-10-21)
 
