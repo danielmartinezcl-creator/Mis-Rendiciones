@@ -32,6 +32,8 @@ export interface Database {
           /* 039 — lo que cubre a todos sin tocar fichas */
           aprobador_defecto_id:       string | null
           aprobador_n2_defecto_id:    string | null
+          /** 043 — día al que están medidos los saldos iniciales de Fondos por Rendir */
+          fxr_fecha_corte: string | null
           umbral_n2_clp:              number | null
         }
         Insert: {
@@ -58,6 +60,8 @@ export interface Database {
           mileage_rate_per_km?:        number | null
           aprobador_defecto_id?:       string | null
           aprobador_n2_defecto_id?:    string | null
+          /** 043 — día al que están medidos los saldos iniciales de Fondos por Rendir */
+          fxr_fecha_corte?: string | null
           umbral_n2_clp?:              number | null
         }
         Update: {
@@ -84,6 +88,8 @@ export interface Database {
           mileage_rate_per_km?:        number | null
           aprobador_defecto_id?:       string | null
           aprobador_n2_defecto_id?:    string | null
+          /** 043 — día al que están medidos los saldos iniciales de Fondos por Rendir */
+          fxr_fecha_corte?: string | null
           umbral_n2_clp?:              number | null
         }
         Relationships: []
@@ -107,6 +113,8 @@ export interface Database {
           umbral_n2_clp: number | null
           department: string | null
           rut: string | null
+          /** Saldo de Fondos por Rendir a la fecha de corte de la org (043) */
+          saldo_inicial_fxr_clp: number | null
           bank_account: string | null
           bank_name: string | null
           bank_account_type: string | null
@@ -138,6 +146,7 @@ export interface Database {
           umbral_n2_clp?: number | null
           department?: string | null
           rut?: string | null
+          saldo_inicial_fxr_clp?: number | null
           bank_account?: string | null
           bank_name?: string | null
           bank_account_type?: string | null
@@ -169,6 +178,7 @@ export interface Database {
           umbral_n2_clp?: number | null
           department?: string | null
           rut?: string | null
+          saldo_inicial_fxr_clp?: number | null
           bank_account?: string | null
           bank_name?: string | null
           bank_account_type?: string | null
