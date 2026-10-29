@@ -24,18 +24,16 @@ import {
   submitExpenseReport,
   addExpenseItemAttachment,
   getReportWithItems,
-  getReportApprovals,
   getReportTimeline,
   type TimelineEvent,
 } from '@/actions/expenses'
 import { getApprovalAttachments } from '@/actions/approval-attachments'
 import type { ExpenseCategory, ExpenseItem, Attachment, CostCenter, Json } from '@/lib/supabase/types'
-import { exportEmployeeReportPdf } from '@/lib/export/pdf'
-import { Download, Check, AlertTriangle } from 'lucide-react'
+import { DescargarComprobante } from '@/components/ui/DescargarComprobante'
+import { Check, AlertTriangle } from 'lucide-react'
 
 type ReportWithItems = Awaited<ReturnType<typeof getReportWithItems>>
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
-type ReportApproval = Awaited<ReturnType<typeof getReportApprovals>>[number]
 type ItemWithRelations = ExpenseItem & {
   expense_categories: Pick<ExpenseCategory, 'name' | 'icon' | 'color'> | null
   attachments: Pick<Attachment, 'id' | 'storage_path' | 'file_type'>[]
@@ -57,15 +55,12 @@ export default function ExpenseDetailPage() {
   const [currentUserId, setCurrentUserId]         = useState<string | null>(null)
   const [currentOrgId, setCurrentOrgId]           = useState<string | null>(null)
   const [esAdmin, setEsAdmin]                     = useState(false)
-  const [submitterName, setSubmitterName]         = useState<string | null>(null)
   const [showForm, setShowForm]                   = useState(false)
   const [submitting, setSubmitting]               = useState(false)
   const [deleting, setDeleting]                   = useState(false)
   const [error, setError]                         = useState<string | null>(null)
   const [loading, setLoading]                     = useState(true)
   const [approvalAtts, setApprovalAtts]           = useState<ApprovalAtt[]>([])
-  const [reportApprovals, setReportApprovals]     = useState<ReportApproval[]>([])
-  const [exportingPdf, setExportingPdf]           = useState(false)
   const [timeline,     setTimeline]               = useState<TimelineEvent[]>([])
 
   async function load() {
@@ -77,35 +72,6 @@ export default function ExpenseDetailPage() {
   async function loadApprovalAtts() {
     const atts = await getApprovalAttachments({ reportId: id })
     setApprovalAtts(atts)
-  }
-
-  async function handleDownloadPdf() {
-    if (!report) return
-    setExportingPdf(true)
-    try {
-      const approvals = reportApprovals.length > 0 ? reportApprovals : await getReportApprovals(id)
-      setReportApprovals(approvals)
-      const { exportReportToPDF } = await import('@/lib/export/pdf')
-      const items = ((report.expense_items ?? []) as ItemWithRelations[])
-      await exportReportToPDF({
-        title:           report.title,
-        total_amount:    report.total_amount,
-        approved_amount: report.approved_amount,
-        status:          report.status,
-        submitted_at:    report.submitted_at ?? null,
-        items:           items.map(i => ({
-          description:        i.description,
-          merchant:           i.merchant ?? null,
-          amount_clp:         i.amount_clp,
-          date:               i.date,
-          status:             i.status,
-          expense_categories: i.expense_categories ?? null,
-        })),
-        approvals,
-      })
-    } finally {
-      setExportingPdf(false)
-    }
   }
 
   useEffect(() => {
@@ -126,10 +92,9 @@ export default function ExpenseDetailPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       setCurrentUserId(user.id)
-      supabase.from('users').select('cost_center_id, org_id, full_name, role').eq('id', user.id).single()
+      supabase.from('users').select('cost_center_id, org_id, role').eq('id', user.id).single()
         .then(({ data }) => {
           setEmployeeCC(data?.cost_center_id ?? null)
-          setSubmitterName(data?.full_name ?? null)
           setEsAdmin(data?.role === 'admin')
           if (data?.org_id) setCurrentOrgId(data.org_id)
           if (data?.org_id) {
@@ -350,20 +315,9 @@ export default function ExpenseDetailPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <InsigniaEstado tipo="reporte" estado={report.status as ReportStatus} />
-          {report.status !== 'draft' && (
-            <button
-              onClick={() => exportEmployeeReportPdf(
-                { ...report, submitter_name: submitterName ?? undefined },
-                items.map(i => ({ ...i, category_name: i.expense_categories?.name ?? undefined }))
-              )}
-              className="btn-secundario inline-flex items-center gap-2 px-3 py-2 card-label bg-white"
-            >
-              <Download size={16} />
-              Descargar PDF
-            </button>
-          )}
+          {report.status !== 'draft' && <DescargarComprobante tipo="rendicion" id={report.id} />}
         </div>
       </div>
 

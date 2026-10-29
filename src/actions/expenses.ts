@@ -1058,7 +1058,6 @@ export type TimelineEvent = {
    * Lo que escribió quien decidió. **Sin esto la línea de tiempo decía «Devuelta
    * a borrador por Ana» y nada más**, así que exigir un motivo al devolver era
    * decorativo: la única persona que lo necesita no lo veía en ninguna parte.
-   * `getReportApprovals` ya traía `notes`, pero solo se usa para firmar el PDF.
    *
    * Aprovecha también a los rechazos, cuyo motivo era igual de invisible.
    */
@@ -1126,63 +1125,6 @@ export async function getReportTimeline(reportId: string): Promise<TimelineEvent
         return { label: e.action, date: e.created_at, type: 'neutral' as const, notes: dicho }
     }
   })
-}
-
-// ── Historial de aprobaciones de una rendición (R17) ─────────────────────────
-
-export type ReportApproval = {
-  approver_name: string
-  action:        string
-  created_at:    string
-  notes:         string | null
-}
-
-export async function getReportApprovals(reportId: string): Promise<ReportApproval[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-
-  // Ownership check: employees can only see approvals for their own reports
-  const { data: report } = await supabase
-    .from('expense_reports')
-    .select('submitter_id')
-    .eq('id', reportId)
-    .single()
-
-  if (!report) return []
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role, can_approve')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) return []
-  if (profile.role === 'employee' && !profile.can_approve && report.submitter_id !== user.id) return []
-
-  const { data: approvals } = await supabase
-    .from('expense_report_approvals')
-    .select('approver_id, action, created_at, notes')
-    .eq('report_id', reportId)
-    .in('action', ['approved', 'partially_approved'])
-    .order('created_at', { ascending: true })
-
-  if (!approvals?.length) return []
-
-  const approverIds = [...new Set(approvals.map(a => a.approver_id))]
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, full_name')
-    .in('id', approverIds)
-
-  const nameMap = Object.fromEntries((users ?? []).map(u => [u.id, u.full_name]))
-
-  return approvals.map(a => ({
-    approver_name: nameMap[a.approver_id] ?? 'Aprobador',
-    action:        a.action,
-    created_at:    a.created_at,
-    notes:         a.notes ?? null,
-  }))
 }
 
 /**

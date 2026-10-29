@@ -376,8 +376,8 @@ references/
 - CRUD rendiciones, aprobaciones L1/L2, notificaciones in-app
 - Bandeja aprobador con fotos, toggles approve/reject por ítem, exportación
 - Admin: KPIs, reportes, empleados, settings (categorías), PWA instalable
-- **1012 tests Vitest en 62 archivos** (2026-10-23; eran 884 en 54 antes del saldo
-  pendiente), todos pasando · **lint: 0 errores y 22 avisos** (`npx eslint .`)
+- **1026 tests Vitest en 63 archivos** (2026-10-29; 1012 en 62 el 2026-10-23; eran 884 en 54 antes del saldo
+  pendiente), todos pasando · **lint: 0 errores y 20 avisos** (`npx eslint .`)
 - **`realtime-provider.test.tsx` falla a veces en la corrida completa** con
   `Error: UNKNOWN: unknown error, lstat 'C:\'` y sus 2 tests no corren — por eso una corrida
   entera puede informar 881. Corriéndolo solo pasa 2/2: es el filesystem de Windows con 54
@@ -1280,6 +1280,43 @@ esté, la pantalla avisa cuántas personas faltan.
 
 `scripts/fondos-por-rendir.mjs` es el prototipo con el que se validó la lógica contra
 datos reales antes de construir la pantalla; genera el mismo Excel desde la terminal.
+
+### ✅ Comprobante de cierre en PDF y Excel (2026-10-29)
+
+Pedido de Daniel: que el empleado pueda bajar un informe con los gastos y quién los aprobó,
+en PDF **y** Excel «para que puedan trabajar con los números». Dos botones —«Comprobante
+PDF» y «Excel»— en el detalle de toda rendición o fondo que ya salió de borrador
+(`DescargarComprobante`). Los baja quien ve el documento: lo decide la RLS.
+
+- **Una estructura, dos dibujos.** `src/lib/comprobante-cierre.ts` arma el `Comprobante`
+  (datos, cuatro indicadores, cuadre, gastos, recorrido, transferencias) y
+  `export/comprobante-pdf.ts` / `export/comprobante-excel.ts` lo dibujan. Ninguno suma
+  por su cuenta: el cuadre de una rendición es `saldoDeRendicion` y el de un fondo
+  `calculateFundBalance`, los mismos de sus pantallas. 16 pruebas, con el fondo
+  9db37284 real
+- **Las filas del cuadre SUMAN** hasta el saldo (`total: true`), con una prueba que lo
+  exige: así el Excel escribe el saldo como `SUM` y el contador lo comprueba
+- **El Excel usa exceljs, no SheetJS**: el build libre de SheetJS no escribe estilos, y la
+  primera versión, sin colores ni formato, Daniel la encontró «demasiado rústica». El total
+  de gastos es `SUBTOTAL(109,…)`, que respeta el filtro. El resto de las exportaciones
+  sigue con SheetJS
+- **Las fechas van en hora de Chile** (`fechaChile`): Vercel corre en UTC y una aprobación
+  de las 21:00 saldría al día siguiente
+- `getComprobante` lee el documento con la sesión y recién después usa la llave de
+  servicio, solo para nombres (aprobadores, RUT, centro de costo), y devuelve `{ error }`
+- **Reemplazó a los dos PDF viejos de la rendición**: `exportEmployeeReportPdf`, que ponía
+  como «Empleado» a quien lo DESCARGABA (un aprobador salía como el que rindió), y
+  `exportReportToPDF` con la firma R17, que no tenía ningún botón. También se fue
+  `getReportApprovals`, que solo usaba ese PDF
+- El texto de `petty_cash_funds.description` ahora va con el rótulo «Motivo del fondo»:
+  suelto se leía como un aviso de la app
+
+**Corregido en producción el 2026-10-29** (autorizado por Daniel, ensayo previo con
+BEGIN/ROLLBACK): el fondo «Caja chica especial» de $550.000 (`f2b15aca`) tenía la
+devolución del saldo cargada como gasto —«Transferencia bancaria» $37.240, Penta
+Ingenieros—, el mismo error que en el fondo 9db37284. Se borró el ítem; quedan por
+devolver $37.240, que Daniel registra como transferencia. El comprobante adjunto quedó sin
+fila (su ruta está en `audit_log`) y se le dejó una copia en el Escritorio.
 
 ### ⏳ El correo que no le llegó a Katherine — SIN resolver (2026-10-21)
 

@@ -19,6 +19,7 @@ import { tipoDeFondo } from '@/lib/permisos'
 import { puedeCambiarGastosFondo } from '@/lib/expense-helpers'
 import { useDialogos } from '@/components/ui/Dialogos'
 import { InsigniaEstado } from '@/components/ui/InsigniaEstado'
+import { DescargarComprobante } from '@/components/ui/DescargarComprobante'
 import { FundTimeline }      from '@/components/petty-cash/FundTimeline'
 import { AddFundItemForm }   from '@/components/petty-cash/AddFundItemForm'
 import { EditFundItemForm }  from '@/components/petty-cash/EditFundItemForm'
@@ -242,6 +243,11 @@ export function FundDetailClient({ id, initialDetail }: Props) {
           <p className="text-xs mt-1 tor-on-gradient-soft">
             {formatPeriod(fund.period_start, fund.period_end)} · EFF {manager_name}
           </p>
+          {fund.status !== 'draft' && (
+            <div className="mt-3">
+              <DescargarComprobante tipo="caja_chica" id={fund.id} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -261,7 +267,10 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       />
 
       {fund.description && (
+        /* Con su rótulo: suelto, el texto que escribió quien pidió el fondo se leía
+           como un aviso de la app («Full face más filtros para…», 2026-10-29). */
         <div className="bg-ink-50 rounded-card px-4 py-3 text-sm text-ink-600 border border-ink-100">
+          <p className="text-xs font-semibold text-ink-500 mb-0.5">Motivo del fondo</p>
           {fund.description}
         </div>
       )}
