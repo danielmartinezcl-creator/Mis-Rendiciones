@@ -1818,7 +1818,7 @@ una columna `NOT NULL`.
 >      entre seis:
 >
 >      ```
->      CORREO_SOLO_A=fdiaz@pentaingenieros.cl,fhagar@pentaingenieros.cl,jtorres@pentaingenieros.cl,kcorvalan@pentaingenieros.cl,rhagar@pentaingenieros.cl,danielmartinez.cl@gmail.com
+>      CORREO_SOLO_A=fdiaz@pentaingenieros.cl,fhagar@pentaingenieros.cl,jtorres@pentaingenieros.cl,kcorvalan@pentaingenieros.cl,rhagar@pentaingenieros.cl,danielmartinez.cl@gmail.com,clobos@pentaingenieros.cl
 >      ```
 >
 >
@@ -1858,7 +1858,9 @@ una columna `NOT NULL`.
 >      candado abierto, que es justo lo que mandó las 52 invitaciones.
 >
 >      Francisco Díaz · Francisco Hagar · Julián Torres · Katherine Corvalán ·
->      Roberto Hagar · Daniel. **De los seis, Francisco Díaz es el único sin
+>      Roberto Hagar · Daniel · **Claudia Lobos** (sumada el 2026-10-29: es la
+>      aprobadora por defecto, así que le llega todo lo que el piloto rinde fuera
+>      de una obra y sin jefe propio). **De los seis, Francisco Díaz es el único sin
 >      invitar y que nunca entró**, así que es el que ejercita el flujo completo
 >      desde cero. Al terminar el piloto se borra la variable y vuelve la pausa.
 >
@@ -2213,3 +2215,4 @@ una columna `NOT NULL`.
 | Probar que «el correo funciona» mandándolo al Gmail del admin | Es el caso más fácil y no responde la pregunta: un dominio corporativo puede filtrar o rechazar lo que Gmail acepta sin chistar, y lo que faltaba saber era si llega a @pentaingenieros.cl | Probar contra la dirección del DOMINIO que está en duda. Y antes de sospechar de la clave, recordar qué ya se probó: las 52 invitaciones del 2026-10-07 dejaron demostrado que clave, remitente y API andan |
 | Reusar el tipo de notificación «más parecido» porque no hay uno propio | El aviso de la campana se arma **solo con el tipo** (`textoNotificacion`: `notifications` no guarda texto). «Devolver para corregir» salió el 2026-10-21 con el tipo `rejection`, así que al empleado le llegaba «Un fondo de caja chica fue rechazado» cuando se lo habían devuelto — la confusión exacta que el botón venía a evitar. El correo sí distinguía, porque su texto se escribe aparte | Si el texto de la campana tiene que decir algo distinto, el tipo es distinto: migración aditiva (041, como la 036). Y mirar los **dos** textos al sumar un resultado — `avisos.ts` para el correo y `notificaciones.ts` para la campana |
 | Agregar un estado nuevo a un documento sin revisar qué promete la pantalla en ese estado | «Devolver una rendición a borrador» creó algo que antes no existía: un **borrador con historial de aprobaciones**. La 026 hace ese historial inmutable y solo un admin borra una rendición que lo tenga, así que el botón «Eliminar» del empleado —que solo mira `status === 'draft'`— prometía algo que la base niega, y en producción el error sale redactado en inglés | Al habilitar un estado nuevo, recorrer qué botones aparecen en él y qué reglas de la base los alcanzan. Y explicar el motivo como **dato** (`return { error }`), no dejar que lo niegue un disparador |
+| Intentar editar una variable de entorno de Vercel con la conexión que lista los despliegues | Hay **dos** conexiones de Vercel en la sesión. La que despliega (`mcp__5f2825ca…`) lista y crea despliegues pero **responde 403 a las variables de entorno** —también con el equipo correcto, y reautorizar no lo arregla—. Encima un ID de equipo mal tomado (`team_zGLD…`) daba otro 403 que parecía de permisos y era de equipo inexistente. El 2026-10-29 eso hizo creer que no se podía, y Daniel intentó editar `CORREO_SOLO_A` a mano: nunca quedó guardada, y dos despliegues seguidos mostraron las mismas 6 direcciones | Las variables se leen y editan con **`mcp__plugin_vercel_vercel__*`**, con `teamId: team_TtI6XqtrhSK1yYzCHOx19b2r` (el real, sacado de `list_teams`). Nunca listar con `decrypt`: trae todas las claves en claro. Y antes de desplegar «para que tome el cambio», **leer la variable**: `updatedAt` igual a `createdAt` dice que nadie la tocó |
