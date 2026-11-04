@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '15mb',
     },
   },
+  // La guía de uso es un HTML estático en public/manual/ (lo arma
+  // scripts/publicar-manual.mjs). Next no sirve el index.html de una carpeta
+  // solo, así que /manual se reescribe a él; sus imágenes van con ruta absoluta.
+  async rewrites() {
+    return [{ source: '/manual', destination: '/manual/index.html' }]
+  },
 };
 
 export default nextConfig;

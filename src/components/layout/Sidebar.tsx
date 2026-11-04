@@ -32,6 +32,7 @@ import {
   Landmark,
   Receipt,
   FolderTree,
+  BookOpen,
 } from 'lucide-react'
 
 import { Marca, MarcaProducto } from './Marca'
@@ -248,6 +249,17 @@ export function Sidebar({ user, marca }: SidebarProps) {
             <p className="text-white/40 text-xs group-hover:text-white/60 transition-colors">Mi perfil</p>
           </div>
         </Link>
+        {/* HTML estático (public/manual), no una ruta de la app: <a> y otra
+            pestaña. Fuera de NAV_ITEMS para no entrar al orden arrastrable. */}
+        <a
+          href="/manual"
+          target="_blank"
+          rel="noopener"
+          className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-item text-sm text-white/55 hover:text-white hover:bg-white/8 transition-colors"
+        >
+          <BookOpen size={16} />
+          Manual de uso
+        </a>
         <LogoutButton />
       </div>
     </aside>

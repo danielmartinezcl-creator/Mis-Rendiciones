@@ -15,6 +15,13 @@ describe('esRutaPublica: lo que el proxy deja pasar sin sesión', () => {
     }
   })
 
+  it('el manual: se lee antes de tener cuenta, y sus imágenes también', () => {
+    for (const p of ['/manual', '/manual/index.html', '/manual/img/estado-movil.webp', '/manual/Manual-Mi-Rendicion.pdf']) {
+      expect(esRutaPublica(p), p).toBe(true)
+    }
+    expect(esRutaPublica('/manuales')).toBe(false)
+  })
+
   it('todo lo demás pide sesión', () => {
     for (const p of ['/', '/admin', '/banco', '/expenses/new', '/api/otra']) {
       expect(esRutaPublica(p), p).toBe(false)

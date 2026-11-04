@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ScanLine, CheckCircle2, BarChart3, Wallet,
   Lightbulb, Clock, MoreHorizontal, TrendingUp, BarChart2,
   WalletCards, PieChart, Scale, ReceiptText, Users, Building2, Settings2,
-  Trash2, Zap, X, User, Receipt, FolderTree,
+  Trash2, Zap, X, User, Receipt, FolderTree, BookOpen,
 } from 'lucide-react'
 import type { UserProfile } from '@/lib/supabase/types'
 import { pestanasPrincipales } from '@/lib/navegacion'
@@ -234,6 +234,21 @@ export function MobileNav({ user }: MobileNavProps) {
                 </div>
               </div>
             ))}
+
+            {/* La guía es un HTML estático (public/manual), no una ruta de la
+                app: va con <a> y en otra pestaña, así no se pierde lo que uno
+                estaba haciendo. Fuera de ALL_ITEMS porque no depende del rol. */}
+            <a
+              href="/manual"
+              target="_blank"
+              rel="noopener"
+              className="flex items-center gap-3 px-3 py-3.5 rounded-item text-[17px] font-semibold text-ink-700 hover:bg-ink-50 transition-colors"
+            >
+              <div className="w-11 h-11 rounded-item flex items-center justify-center shrink-0 bg-ink-100">
+                <BookOpen size={22} className="text-ink-500" />
+              </div>
+              <span className="flex-1">Manual de uso</span>
+            </a>
           </div>
         </div>
       </div>

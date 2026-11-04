@@ -52,7 +52,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
           que pueden seguir en bandejas de entrada. */}
       {(urlError === 'session_expired' || urlError === 'missing_code' || urlError === 'auth_error') && (
         <div className="bg-warning-50 border border-warning-200 text-warning-700 text-sm rounded-item p-3 mb-4">
-          Ese link ya no sirve. Tocá «¿Olvidaste tu contraseña?» y te mandamos uno nuevo.
+          Ese link ya no sirve. Toca «¿Olvidaste tu contraseña?» y te mandamos uno nuevo.
         </div>
       )}
 
@@ -110,6 +110,15 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
           {loading ? 'Ingresando…' : 'Ingresar'}
         </button>
       </form>
+
+      {/* La guía es pública (public/manual): quien recién recibió la invitación
+          la puede leer antes de tener contraseña. */}
+      <p className="text-center text-sm text-ink-500 mt-5">
+        ¿Primera vez?{' '}
+        <a href="/manual" target="_blank" rel="noopener" className="text-brand-600 font-semibold hover:underline">
+          Lee la guía de uso
+        </a>
+      </p>
     </div>
   )
 }
@@ -130,7 +139,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
     const { ok } = await requestPasswordReset(email).catch(() => ({ ok: false }))
 
     if (!ok) {
-      setError('No pudimos enviar el correo en este momento. Intentá de nuevo en unos minutos o avisale al administrador.')
+      setError('No pudimos enviar el correo en este momento. Intenta de nuevo en unos minutos o avísale al administrador.')
       setLoading(false)
       return
     }
@@ -145,7 +154,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
         <div>
           <p className="font-bold text-ink-900">Correo enviado</p>
           <p className="text-sm text-ink-500 mt-1">
-            Revisá tu bandeja de entrada en <strong>{email}</strong> y hacé clic en el link para crear una nueva contraseña.
+            Revisa tu bandeja de entrada en <strong>{email}</strong> y haz clic en el link para crear una nueva contraseña.
           </p>
         </div>
         <button
@@ -162,7 +171,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
     <div className="hoja p-6">
       <h2 className="text-lg font-bold text-ink-900 mb-1">Recuperar contraseña</h2>
       <p className="text-sm text-ink-500 mb-5">
-        Ingresá tu correo y te enviaremos un link para crear una nueva contraseña.
+        Ingresa tu correo y te enviaremos un link para crear una nueva contraseña.
       </p>
 
       {error && (

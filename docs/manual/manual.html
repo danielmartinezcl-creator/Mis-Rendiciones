@@ -1,0 +1,829 @@
+<title>Guía Mi Rendición</title>
+<meta name="description" content="Manual de Mi Rendición: cómo rendir gastos, registrar la caja chica, cobrar tus reembolsos y aprobar lo de tu equipo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@600;700;800&display=swap">
+<style>
+/* Mi Rendición — guía del empleado.
+   Un solo aspecto claro, a propósito: es un documento que también se imprime,
+   y el PDF tiene que verse igual que la web. Por eso el fondo y cada color van
+   pintados explícitamente y no hay variante oscura. */
+:root {
+  color-scheme: light;
+  --tinta:      #0B2629;   /* texto principal: el verde casi negro del riel de la app */
+  --tinta-2:    #3D5558;
+  --tinta-3:    #6B8084;
+  --papel:      #F5F8F8;   /* fondo con un dejo de teal, no gris neutro */
+  --hoja:       #FFFFFF;
+  --linea:      #DCE6E6;
+  --teal:       #0D7F81;   /* brand-600 de la app */
+  --teal-oscuro:#075E60;
+  --aqua:       #2CC5B4;   /* accent de la app */
+  --aqua-suave: #E3F6F3;
+  --flare:      #7C6CF0;   /* el lila de la app, sólo en la portada */
+  --ambar:      #B26B00;
+  --ambar-suave:#FDF3E1;
+  --rojo:       #B3261E;
+  --rojo-suave: #FCEBEA;
+  --verde:      #1E7F4F;
+  --verde-suave:#E4F4EB;
+  --azul:       #1F5FA8;
+  --azul-suave: #E6EFFA;
+
+  --display: "Bricolage Grotesque", "Hanken Grotesk", system-ui, sans-serif;
+  --texto:   "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cifra:   "Manrope", "Hanken Grotesk", system-ui, sans-serif;
+
+  --radio-item: 14px;
+  --radio-card: 18px;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--papel); }
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font: 400 16px/1.6 var(--texto);
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; display: block; }
+a { color: var(--teal); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--aqua); outline-offset: 2px; border-radius: 6px; }
+
+.envoltura { max-width: 1040px; margin: 0 auto; padding-inline: 24px; }
+@media (max-width: 520px) { .envoltura { padding-inline: 16px; } }
+
+/* ── Portada ─────────────────────────────────────────────────────────── */
+.portada {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(60% 80% at 88% 20%, rgba(124,108,240,.55), transparent 60%),
+    radial-gradient(50% 70% at 70% 100%, rgba(44,197,180,.55), transparent 65%),
+    linear-gradient(140deg, #03191C 0%, #06393C 38%, #0D7F81 78%, #2CC5B4 115%);
+}
+.portada .envoltura {
+  display: grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: 40px;
+  align-items: center;
+  padding-block: 64px 0;
+}
+.marca {
+  display: inline-flex; align-items: center; gap: 10px;
+  font: 700 15px/1 var(--display); letter-spacing: .02em;
+}
+.marca span {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: linear-gradient(130deg, #03191C 0%, #0D7F81 100%); border: 1px solid rgba(255,255,255,.25);
+  font: 800 17px/1 var(--display);
+}
+.marca span svg { width: 19px; height: 19px; }
+.portada h1 {
+  font: 800 clamp(40px, 6vw, 64px)/1.02 var(--display);
+  letter-spacing: -.02em;
+  margin: 28px 0 16px;
+  text-wrap: balance;
+}
+.portada .bajada { font-size: 19px; line-height: 1.55; color: rgba(255,255,255,.86); max-width: 30em; margin: 0 0 28px; }
+.portada .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 56px; }
+.portada .chips span {
+  font: 600 13px/1 var(--texto); padding: 8px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
+}
+.portada .telefono { align-self: end; margin-bottom: -2px; }
+.portada .telefono img {
+  width: 300px; margin-inline: auto;
+  border-radius: 34px 34px 0 0;
+  border: 8px solid #0A1F21; border-bottom: 0;
+  box-shadow: 0 30px 80px rgba(0,0,0,.45);
+}
+@media (max-width: 760px) {
+  .portada .envoltura { grid-template-columns: 1fr; padding-block: 40px 0; gap: 8px; }
+  .portada .telefono img { width: 240px; }
+  .portada .chips { margin-bottom: 24px; }
+}
+
+/* Los dos botones de la portada: solo en pantalla, el PDF no los necesita. */
+.portada .acciones { display: flex; flex-wrap: wrap; gap: 10px; margin: -32px 0 48px; }
+.portada .acciones a { font: 700 15px/1 var(--texto); padding: 13px 18px; border-radius: 12px; text-decoration: none; color: #fff; border: 1px solid rgba(255,255,255,.35); }
+.portada .acciones a.principal { background: #fff; color: var(--teal-oscuro); border-color: #fff; }
+@media (max-width: 760px) { .portada .acciones { margin: -8px 0 28px; } }
+@media print { .portada .acciones { display: none; } }
+
+/* ── Índice ──────────────────────────────────────────────────────────── */
+.indice { padding-block: 48px 8px; }
+.indice h2 { font: 700 13px/1 var(--texto); letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-3); margin: 0 0 16px; }
+.indice ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.indice a {
+  display: block; height: 100%;
+  background: var(--hoja); border: 1px solid var(--linea); border-radius: var(--radio-card);
+  padding: 18px 18px 20px; text-decoration: none; color: var(--tinta);
+  transition: border-color .15s, transform .15s;
+}
+.indice a:hover { border-color: var(--teal); transform: translateY(-2px); }
+.indice .n { font: 800 13px/1 var(--cifra); color: var(--teal); }
+.indice strong { display: block; font: 700 19px/1.2 var(--display); margin: 10px 0 6px; }
+.indice small { display: block; font-size: 14px; line-height: 1.45; color: var(--tinta-2); }
+@media (max-width: 860px) { .indice ol { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 460px) { .indice ol { grid-template-columns: 1fr; } }
+
+/* ── Secciones ───────────────────────────────────────────────────────── */
+.seccion { padding-block: 56px 8px; }
+.seccion > header { max-width: 44em; margin-bottom: 8px; }
+.eyebrow { font: 700 13px/1 var(--texto); letter-spacing: .12em; text-transform: uppercase; color: var(--teal); }
+.seccion h2 {
+  font: 800 clamp(30px, 4vw, 40px)/1.1 var(--display);
+  letter-spacing: -.015em; margin: 10px 0 12px; text-wrap: balance;
+}
+.seccion > header p { font-size: 18px; color: var(--tinta-2); margin: 0; }
+
+/* Una tarea: la pantalla al lado de los pasos. */
+.tarea {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  gap: 40px;
+  align-items: start;
+  margin-top: 40px;
+  padding-top: 40px;
+  border-top: 1px solid var(--linea);
+}
+.tarea.invertida { grid-template-columns: 1fr 290px; }
+.tarea.invertida .pantalla { order: 2; }
+.tarea h3 { font: 700 24px/1.2 var(--display); margin: 0 0 8px; text-wrap: balance; }
+.tarea > div > p { margin: 0 0 16px; color: var(--tinta-2); max-width: 36em; }
+@media (max-width: 760px) {
+  .tarea, .tarea.invertida { grid-template-columns: 1fr; gap: 20px; }
+  .tarea.invertida .pantalla { order: 0; }
+}
+
+/* Captura de celular: marco de teléfono, recortada arriba si es larga. */
+.pantalla figure { margin: 0; }
+.movil {
+  width: 100%; max-width: 290px; margin-inline: auto;
+  border-radius: 30px; border: 7px solid #0A1F21;
+  background: #0A1F21;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(11,38,41,.18);
+}
+.movil img { width: 100%; }
+/* Las tomas de celular ya vienen del alto de una pantalla (ver capturar.mjs):
+   no se recortan, así la barra de abajo queda en su lugar. */
+figcaption { font-size: 13px; color: var(--tinta-3); text-align: center; margin-top: 10px; line-height: 1.4; }
+
+/* Captura de computador: marco de ventana. */
+.ventana {
+  margin: 32px 0 0;
+  border-radius: var(--radio-card);
+  overflow: hidden;
+  border: 1px solid var(--linea);
+  background: var(--hoja);
+  box-shadow: 0 18px 40px rgba(11,38,41,.12);
+}
+.ventana .barra { display: flex; gap: 6px; padding: 10px 14px; background: #EAF0F0; border-bottom: 1px solid var(--linea); }
+.ventana .barra i { width: 10px; height: 10px; border-radius: 50%; background: #C9D5D6; }
+.ventana .barra b { margin-left: 10px; font: 500 12px/10px var(--texto); color: var(--tinta-3); }
+.ventana img { width: 100%; }
+/* El fondo en computador se corta bajo «Total gastos»: lo que sigue es la
+   liquidación, que la guía explica aparte. */
+.ventana.hasta-gastos img { aspect-ratio: 1440 / 975; object-fit: cover; object-position: top; }
+
+/* Pasos numerados: es una secuencia real, el orden importa. */
+.pasos { list-style: none; counter-reset: paso; padding: 0; margin: 0; display: grid; gap: 14px; }
+.pasos li {
+  counter-increment: paso;
+  position: relative; padding-left: 46px; max-width: 36em;
+}
+.pasos li::before {
+  content: counter(paso);
+  position: absolute; left: 0; top: -1px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--teal); color: #fff;
+  font: 800 14px/1 var(--cifra);
+}
+.pasos strong { color: var(--tinta); }
+
+.boton {
+  display: inline-block; white-space: nowrap;
+  font: 600 .88em/1 var(--texto);
+  padding: .32em .6em; border-radius: 8px;
+  background: var(--teal); color: #fff;
+  vertical-align: .05em;
+}
+.boton.claro { background: var(--hoja); color: var(--teal); border: 1px solid #A9D3D3; }
+
+/* Recuadros */
+.nota {
+  display: grid; grid-template-columns: 28px 1fr; gap: 12px;
+  margin-top: 20px; padding: 16px 18px;
+  border-radius: var(--radio-item);
+  background: var(--aqua-suave); color: var(--tinta);
+  max-width: 40em;
+}
+.nota svg { width: 22px; height: 22px; margin-top: 2px; color: var(--teal); }
+.nota p { margin: 0; }
+.nota p + p { margin-top: 6px; }
+.nota strong { display: block; font-weight: 700; margin-bottom: 2px; }
+.nota.cuidado { background: var(--ambar-suave); }
+.nota.cuidado svg { color: var(--ambar); }
+
+/* Estados */
+.tabla-envoltura { overflow-x: auto; margin-top: 24px; }
+table.estados { width: 100%; border-collapse: collapse; background: var(--hoja); border-radius: var(--radio-card); overflow: hidden; border: 1px solid var(--linea); min-width: 560px; }
+.estados th { text-align: left; font: 700 12px/1 var(--texto); letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-3); padding: 14px 18px; background: #F0F5F5; border-bottom: 1px solid var(--linea); }
+.estados td { padding: 14px 18px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+.estados tr:last-child td { border-bottom: 0; }
+.estados td:first-child { white-space: nowrap; width: 1%; }
+.pildora { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/1 var(--texto); padding: 6px 10px; border-radius: 999px; }
+.pildora::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.p-neutro  { background: #EDF1F1; color: #4A5E61; }
+.p-curso   { background: var(--azul-suave); color: var(--azul); }
+.p-atencion{ background: var(--ambar-suave); color: var(--ambar); }
+.p-rojo    { background: var(--rojo-suave); color: var(--rojo); }
+.p-resuelto{ background: var(--verde-suave); color: var(--verde); }
+
+/* Dos capturas lado a lado */
+.par { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px; }
+@media (max-width: 760px) { .par { grid-template-columns: 1fr; } }
+
+/* Preguntas frecuentes */
+.faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 32px; }
+.faq div { background: var(--hoja); border: 1px solid var(--linea); border-radius: var(--radio-card); padding: 20px 22px; }
+.faq h3 { font: 700 18px/1.3 var(--display); margin: 0 0 6px; }
+.faq p { margin: 0; color: var(--tinta-2); font-size: 15px; }
+@media (max-width: 700px) { .faq { grid-template-columns: 1fr; } }
+
+.cierre { margin-top: 64px; padding-block: 36px 48px; border-top: 1px solid var(--linea); color: var(--tinta-3); font-size: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.cierre strong { color: var(--tinta); }
+
+.monto { font-family: var(--cifra); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Una tarea sin captura: el texto ocupa el ancho. */
+.tarea.sola, .tarea.sola.invertida { grid-template-columns: 1fr; }
+.tarea.sola > div { max-width: 44em; }
+
+/* El recorrido de un documento: cuatro pasos en fila, quién hace cada uno. */
+.recorrido { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; counter-reset: r; }
+.recorrido li { counter-increment: r; background: var(--hoja); border: 1px solid var(--linea); border-radius: var(--radio-card); padding: 16px 18px 18px; position: relative; }
+.recorrido li::before { content: counter(r); font: 800 13px/1 var(--cifra); color: var(--teal); }
+.recorrido strong { display: block; font: 700 18px/1.2 var(--display); margin: 8px 0 4px; }
+.recorrido span { display: block; font-size: 14px; line-height: 1.45; color: var(--tinta-2); }
+.recorrido em { display: inline-block; margin-top: 10px; font: 600 12px/1 var(--texto); font-style: normal; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-3); }
+@media (max-width: 760px) { .recorrido { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .recorrido { grid-template-columns: 1fr; } }
+
+/* La barra de abajo: qué pestañas ve cada uno. */
+.barras { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; max-width: 40em; }
+.barras div { background: var(--hoja); border: 1px solid var(--linea); border-radius: var(--radio-item); padding: 12px 14px; font-size: 14px; color: var(--tinta-2); }
+.barras b { display: block; color: var(--tinta); font-weight: 700; margin-bottom: 4px; }
+@media (max-width: 520px) { .barras { grid-template-columns: 1fr; } }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ── Impresión / PDF ─────────────────────────────────────────────────── */
+@page { size: Letter; margin: 14mm 14mm 16mm; }
+/* La portada va a sangre: sin margen de página, el degradado cubre la hoja. */
+@page :first { margin: 0; }
+@media print {
+  html, body { background: #fff; }
+  body { font-size: 11pt; }
+  .envoltura { max-width: none; padding-inline: 0; }
+  .portada { height: 279mm; padding-inline: 18mm; display: flex; align-items: stretch; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .portada .envoltura { padding-block: 60mm 0; width: 100%; }
+  .portada .telefono img { width: 270px; }
+  .indice { padding-block: 0 4mm; }
+  .indice a { transform: none !important; }
+  .seccion { padding-block: 0; break-before: page; }
+  /* El índice es corto: la primera parte arranca en la misma hoja. */
+  #primeros-pasos { break-before: auto; padding-top: 6mm; }
+  /* Celular más angosto al imprimir: así caben dos tareas por hoja. */
+  .tarea, .tarea.invertida { grid-template-columns: 160px 1fr; gap: 24px; break-inside: avoid; margin-top: 14px; padding-top: 14px; }
+  .tarea.invertida { grid-template-columns: 1fr 160px; }
+ .tarea.sola { grid-template-columns: 1fr; }
+  .movil { max-width: 160px; border-width: 4px; border-radius: 20px; box-shadow: none; }
+  .par { gap: 16px; }
+  .par .movil { max-width: 150px; }
+  .ventana { break-inside: avoid; box-shadow: none; }
+  .bloque-estados { break-inside: avoid; }
+  .par, .faq > div, table.estados, .recorrido, .barras { break-inside: avoid; }
+ .recorrido li, .barras div { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .nota, .pildora, .pasos li::before, .boton, .estados th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+
+<!-- ═════════════════════════════════ PORTADA ═════════════════════════════════ -->
+<section class="portada">
+  <div class="envoltura">
+    <div>
+      <div class="marca"><span><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg></span>Mi Rendición</div>
+      <h1>Guía para rendir tus gastos</h1>
+      <p class="bajada">Todo lo que necesitas para registrar lo que gastas por trabajo, enviarlo a aprobación y recibir tu reembolso, desde el celular o el computador. Y si apruebas lo de tu equipo, también cómo hacerlo.</p>
+      <div class="chips">
+        <span>Primeros pasos</span><span>Rendiciones</span><span>Caja chica</span><span>Aprobar</span>
+      </div>
+      <div class="acciones">
+        <a class="principal" href="https://www.mi-rendicion.com">Entrar a Mi Rendición</a>
+        <a href="Manual-Mi-Rendicion.pdf" download>Descargar en PDF</a>
+      </div>
+    </div>
+    <div class="telefono"><img src="img/estado-movil.png" alt="Pantalla de inicio de Mi Rendición en un celular"></div>
+  </div>
+</section>
+
+<main class="envoltura">
+
+<!-- ═════════════════════════════════ ÍNDICE ══════════════════════════════════ -->
+<nav class="indice" aria-label="Contenido">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#primeros-pasos"><span class="n">1</span><strong>Primeros pasos</strong><small>Activar tu cuenta, instalar la app y completar tus datos bancarios.</small></a></li>
+    <li><a href="#rendiciones"><span class="n">2</span><strong>Rendiciones</strong><small>Cargar gastos con foto de la boleta, enviarlos y cobrar el reembolso.</small></a></li>
+    <li><a href="#caja-chica"><span class="n">3</span><strong>Caja chica</strong><small>Pedir un fondo, registrar en qué se usó y liquidarlo.</small></a></li>
+    <li><a href="#aprobar"><span class="n">4</span><strong>Si apruebas</strong><small>Para jefaturas: revisar, aprobar, rechazar o devolver.</small></a></li>
+  </ol>
+</nav>
+
+<!-- ════════════════════════════ 1. PRIMEROS PASOS ════════════════════════════ -->
+<section class="seccion" id="primeros-pasos">
+  <header>
+    <span class="eyebrow">Parte 1</span>
+    <h2>Primeros pasos</h2>
+    <p>Se hace una sola vez y toma cinco minutos.</p>
+  </header>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/login-movil.png" alt="Pantalla de inicio de sesión"></div>
+        <figcaption>La pantalla de ingreso</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Activa tu cuenta e ingresa</h3>
+      <p>Administración crea tu cuenta con tu correo de la empresa. Cuando esté lista, recibirás un correo de Mi Rendición.</p>
+      <ol class="pasos">
+        <li>Abre el correo con el asunto <strong>«Mi Rendición — Configura tu acceso»</strong> y toca <span class="boton">Crear contraseña →</span>. El enlace vence en 24 horas.</li>
+        <li>Elige una contraseña que recuerdes y confírmala.</li>
+        <li>Desde ahí en adelante, entra en <strong>mi-rendicion.com</strong> con tu correo y tu contraseña, y toca <span class="boton">Ingresar</span>.</li>
+      </ol>
+      <div class="nota">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div><p><strong>¿No te llegó el correo, o el enlace ya no sirve?</strong>Revisa la carpeta de correo no deseado. Si no está, en la pantalla de ingreso toca «¿Olvidaste tu contraseña?», escribe tu correo y toca <span class="boton">Enviar link de recuperación</span>: te llega uno nuevo.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="tarea invertida">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/menu-mas-movil.png" alt="Menú Más abierto en el celular"></div>
+        <figcaption>El menú «Más» reúne el resto de las secciones</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Instálala en tu celular</h3>
+      <p>Mi Rendición funciona en el navegador, pero instalada queda como un ícono más en tu pantalla y se abre a pantalla completa. No se descarga de ninguna tienda y casi no ocupa espacio.</p>
+      <ol class="pasos">
+        <li><strong>Android (Chrome):</strong> entra a mi-rendicion.com, toca el menú <strong>⋮</strong> arriba a la derecha y elige <strong>Instalar aplicación</strong> o <strong>Agregar a la pantalla principal</strong>.</li>
+        <li><strong>iPhone (Safari):</strong> entra a mi-rendicion.com, toca el botón <strong>Compartir</strong> (el cuadrado con la flecha) y elige <strong>Agregar a inicio</strong>.</li>
+        <li>Abre la app desde el nuevo ícono. Abajo tienes una barra con lo que más usas, y en <strong>Más</strong> está todo lo demás.</li>
+      </ol>
+      <div class="barras">
+        <div><b>Si rindes gastos</b>Estado · Rendir · Rendiciones · C. Chica · Más</div>
+        <div><b>Si además apruebas</b>Estado · Aprobar · C. Chica · Rendir · Más</div>
+      </div>
+    </div>
+  </article>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/perfil-movil.png" alt="Pantalla Mi perfil con datos bancarios"></div>
+        <figcaption>Mi perfil: tus datos y tu cuenta bancaria</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Revisa tus datos bancarios</h3>
+      <p>Tus reembolsos se transfieren a la cuenta que figura aquí. Administración ya cargó la que tenía registrada: confírmala.</p>
+      <ol class="pasos">
+        <li>Toca <strong>Más</strong> y luego <strong>Mi perfil</strong> (en el computador, tu nombre abajo a la izquierda).</li>
+        <li>Revisa tu nombre y tu <strong>RUT</strong>.</li>
+        <li>Revisa la <strong>institución bancaria</strong>, el <strong>tipo de cuenta</strong> y el <strong>número de cuenta</strong>. Si algo cambió, corrígelo y toca <span class="boton">Guardar cambios</span>.</li>
+      </ol>
+      <div class="nota cuidado">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div><p><strong>Revisa el número dos veces.</strong>Un dígito equivocado hace que la transferencia rebote y el reembolso se atrase.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="tarea invertida">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/estado-movil.png" alt="Pantalla Estado con resumen de montos"></div>
+        <figcaption>Estado: tu resumen al abrir la app</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Tu pantalla de inicio: Estado</h3>
+      <p>Cada vez que entras ves de un vistazo cómo va tu plata:</p>
+      <ol class="pasos">
+        <li><strong>Por cobrar (aprobado):</strong> lo que ya te aprobaron y está esperando la transferencia.</li>
+        <li><strong>En revisión:</strong> lo que enviaste y todavía no se aprueba.</li>
+        <li><strong>Borradores:</strong> rendiciones que empezaste y aún no envías.</li>
+        <li><strong>Caja chica:</strong> si tienes un fondo abierto, cuánto te queda disponible y en qué paso está.</li>
+      </ol>
+      <p style="margin-top:16px">Cuando algo tuyo cambia —una aprobación, un rechazo, un pago— te llega un <strong>correo</strong>, y si tienes la app abierta, un aviso en pantalla.</p>
+    </div>
+  </article>
+
+  <figure class="ventana">
+    <div class="barra"><i></i><i></i><i></i><b>mi-rendicion.com</b></div>
+    <img src="img/estado-escritorio.png" alt="Pantalla Estado en el computador">
+  </figure>
+  <figcaption>En el computador todo está en el menú de la izquierda. Funciona igual que en el celular.</figcaption>
+</section>
+
+<!-- ═════════════════════════════ 2. RENDICIONES ══════════════════════════════ -->
+<section class="seccion" id="rendiciones">
+  <header>
+    <span class="eyebrow">Parte 2</span>
+    <h2>Rendiciones</h2>
+    <p>Una rendición agrupa los gastos de una misma salida o actividad: un viaje, una visita a obra, un curso. Pagaste con tu plata y la empresa te la devuelve.</p>
+  </header>
+
+  <ol class="recorrido" aria-label="El recorrido de una rendición">
+    <li><strong>Cargas</strong><span>Creas la rendición y fotografías cada boleta.</span><em>Tú</em></li>
+    <li><strong>Envías</strong><span>La app te dice a quién le llega antes de mandarla.</span><em>Tú</em></li>
+    <li><strong>Aprueban</strong><span>Tu jefatura revisa gasto por gasto.</span><em>Jefatura</em></li>
+    <li><strong>Te pagan</strong><span>Administración transfiere a tu cuenta.</span><em>Administración</em></li>
+  </ol>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/rendicion-nueva-movil.png" alt="Formulario de nueva rendición"></div>
+        <figcaption>Nueva rendición: el nombre y para qué es</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Crea la rendición</h3>
+      <ol class="pasos">
+        <li>Toca <strong>Rendir</strong> en la barra de abajo (en el computador, <strong>Nueva rendición</strong>).</li>
+        <li>Escribe el <strong>nombre de la rendición</strong>: que diga de qué se trata, por ejemplo «Visita a obra Rancagua». Así quien aprueba la reconoce sin abrirla.</li>
+        <li>En <strong>¿Para qué es?</strong> elige:
+          <br><strong>Un proyecto</strong> si los gastos son de una obra: escribe el <strong>N° de proyecto</strong>. Si la obra ya está en el sistema, el jefe de proyecto aparece solo; si es nueva, escribe su nombre y elige al <strong>jefe de proyecto</strong> de la lista.
+          <br><strong>Gastos generales</strong> si no son de una obra: oficina, cursos, administración.</li>
+        <li>Si quieres, agrega una <strong>descripción</strong> con el contexto, y toca <span class="boton">Crear rendición →</span>. Queda como <strong>borrador</strong> y ya puedes cargarle gastos.</li>
+      </ol>
+      <div class="nota">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div><p><strong>Lo que eliges acá decide quién la aprueba.</strong>Los gastos de una obra los aprueba su jefe de proyecto; los generales, tu jefatura. Por eso conviene una rendición por obra, y no mezclar.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="tarea invertida">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/agregar-item-movil.png" alt="Formulario para agregar un gasto con foto de la boleta"></div>
+        <figcaption>Agregar un gasto: la foto completa los datos por ti</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Agrega cada gasto con una foto</h3>
+      <p>Cada boleta o factura es un gasto. Lo más rápido es fotografiarla: la app lee el monto, la fecha y el comercio sola.</p>
+      <ol class="pasos">
+        <li>Dentro de tu rendición, toca <span class="boton claro">+ Agregar ítem</span>.</li>
+        <li>En <strong>Foto o archivo del comprobante</strong>, toca <span class="boton claro">Tomar foto</span> y fotografía la boleta completa, derecha y con buena luz. Si ya la tienes como foto, PDF o correo, usa <span class="boton claro">Subir archivo</span>.</li>
+        <li>Espera unos segundos mientras la app la lee. Los campos se llenan solos.</li>
+        <li><strong>Revisa</strong> monto, fecha y descripción, y elige la <strong>categoría</strong> (combustible, alimentación, peajes…).</li>
+        <li>Si es <strong>factura</strong>, elige ese tipo de documento y revisa el <strong>RUT del proveedor</strong>: sin él la empresa no puede recuperar el IVA.</li>
+        <li>Toca <span class="boton">Agregar ítem</span>. Repite con cada boleta.</li>
+      </ol>
+      <p style="margin-top:16px">¿Usaste tu auto? Toca <strong>¿Es km?</strong> arriba del formulario, escribe los kilómetros y el tramo: el monto se calcula solo y no necesitas boleta.</p>
+      <div class="nota">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div><p><strong>La lectura automática ayuda, pero tú firmas.</strong>Una boleta arrugada o borrosa puede leerse mal. Mira siempre el monto antes de guardar.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <figure class="ventana">
+    <div class="barra"><i></i><i></i><i></i><b>mi-rendicion.com</b></div>
+    <img src="img/rendicion-borrador-escritorio.png" alt="Rendición en borrador con tres gastos, vista en el computador">
+  </figure>
+  <figcaption>Una rendición en borrador con sus gastos. Mientras sea borrador puedes quitar cualquier ítem y volver a cargarlo.</figcaption>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/rendicion-borrador-movil.png" alt="Rendición en borrador lista para enviar"></div>
+        <figcaption>Antes de enviar, la app te dice a quién le llega</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Envíala a revisión</h3>
+      <p>Cuando ya cargaste todas las boletas de esa actividad:</p>
+      <ol class="pasos">
+        <li>Revisa que el total cuadre con lo que gastaste.</li>
+        <li>Mira la línea <strong>«Esto va a…»</strong>: es la persona que la va a aprobar. Si el monto es alto, dice también quién firma después.</li>
+        <li>Toca <span class="boton">Enviar a revisión</span> (el botón dice cuántos ítems lleva) y confirma.</li>
+        <li>A quien aprueba le llega un aviso y la rendición pasa a <span class="pildora p-curso">Enviada</span>. Desde ese momento ya no se puede editar.</li>
+      </ol>
+      <div class="nota cuidado">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div><p><strong>Guarda las boletas en papel.</strong>La foto no reemplaza al original: entrégalo a Administración como lo hacías hasta ahora.</p><p>¿Algún respaldo que no es una boleta, como un correo de autorización? Súbelo en <strong>Respaldos extras de la rendición</strong>, justo arriba del botón de enviar.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <div class="bloque-estados">
+  <h3 style="font:700 24px/1.2 var(--display); margin:56px 0 4px">Qué significa cada estado</h3>
+  <p style="color:var(--tinta-2); margin:0; max-width:40em">El estado aparece como una etiqueta de color junto a cada rendición.</p>
+  <div class="tabla-envoltura">
+    <table class="estados">
+      <thead><tr><th>Estado</th><th>Qué pasa</th><th>¿Tienes que hacer algo?</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pildora p-neutro">Borrador</span></td><td>La estás armando. Nadie más la ve. También vuelve a borrador si te la devuelven para corregir.</td><td>Terminar de cargar gastos y enviarla.</td></tr>
+        <tr><td><span class="pildora p-curso">Enviada</span><br><span class="pildora p-curso" style="margin-top:6px">En revisión L2</span></td><td>Está en manos de quien aprueba. Si el monto lo requiere, después la revisa un segundo nivel.</td><td>Nada. Solo esperar.</td></tr>
+        <tr><td><span class="pildora p-curso">Carga bancaria pendiente</span><br><span class="pildora p-curso" style="margin-top:6px">Autorización bancaria pendiente</span></td><td>Ya está aprobada. Administración está preparando y autorizando la transferencia en el banco.</td><td>Nada: el monto aparece en «Por cobrar».</td></tr>
+        <tr><td><span class="pildora p-resuelto">Reembolsada</span></td><td>La transferencia se hizo.</td><td>Revisar tu cuenta.</td></tr>
+        <tr><td><span class="pildora p-atencion">Parcialmente aprobada</span></td><td>Se aprobaron algunos gastos y otros no. Se te paga lo aprobado.</td><td>Abrirla para ver qué se rechazó y por qué.</td></tr>
+        <tr><td><span class="pildora p-rojo">Rechazada</span></td><td>No se aprobó.</td><td>Leer el motivo y, si corresponde, hablar con quien la rechazó.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  </div>
+
+  <div class="par">
+    <figure>
+      <div class="movil"><img src="img/rendicion-revision-movil.png" alt="Rendición enviada, en revisión"></div>
+      <figcaption>Enviada: esperando a quien aprueba</figcaption>
+    </figure>
+    <figure>
+      <div class="movil"><img src="img/rendicion-aprobada-movil.png" alt="Rendición aprobada esperando el pago"></div>
+      <figcaption>Aprobada: pasa al banco para el pago</figcaption>
+    </figure>
+    <figure>
+      <div class="movil"><img src="img/rendicion-reembolsada-movil.png" alt="Rendición reembolsada con su historial"></div>
+      <figcaption>Reembolsada, con el historial de cada paso</figcaption>
+    </figure>
+  </div>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/mis-rendiciones-movil.png" alt="Lista de mis rendiciones con filtros"></div>
+        <figcaption>Mis rendiciones, con sus filtros</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Encuentra tus rendiciones</h3>
+      <p>En <strong>Rendiciones</strong>, en la barra de abajo, están todas las tuyas. Arriba tienes filtros que responden al instante:</p>
+      <ol class="pasos">
+        <li><strong>Proyecto:</strong> solo las de una obra, o solo los gastos generales.</li>
+        <li><strong>Tipo de gasto:</strong> por ejemplo, todo lo que gastaste en combustible.</li>
+        <li><strong>Fecha:</strong> este mes, el anterior, este año o un rango a tu elección. Cuenta la fecha de la boleta, no la de envío.</li>
+        <li><strong>Estado:</strong> las que están en curso, las pagadas o las que tienen rechazos.</li>
+      </ol>
+      <p style="margin-top:16px">Abajo de la lista ves cuántas quedan y cuánto suman. El botón <span class="boton claro">Rendir</span> de arriba crea una nueva.</p>
+    </div>
+  </article>
+
+  <article class="tarea invertida">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/comprobante-movil.png" alt="Botones para descargar el comprobante en PDF o Excel"></div>
+        <figcaption>El comprobante, en PDF o en Excel</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Descarga el comprobante</h3>
+      <p>Toda rendición enviada tiene, arriba, los botones <span class="boton claro">Comprobante PDF</span> y <span class="boton claro">Excel</span>. Traen:</p>
+      <ol class="pasos">
+        <li>Cada gasto con su fecha, comercio, categoría y estado.</li>
+        <li>Quién aprobó cada paso, y cuándo.</li>
+        <li>El cuadre: cuánto presentaste, cuánto se aprobó, cuánto ya se te pagó y cuánto falta.</li>
+      </ol>
+      <p style="margin-top:16px">El Excel trae los números con sus fórmulas, para que puedas trabajarlos. Y en <strong>Más → Mis gastos</strong> ves cuánto has gastado mes a mes en los últimos doce meses.</p>
+    </div>
+  </article>
+
+  <article class="tarea sola">
+    <div>
+      <h3>Si te la devuelven para corregir</h3>
+      <p>A veces a quien aprueba le falta un dato o algo está mal cargado. En vez de rechazarla, te la <strong>devuelve</strong>: te llega un aviso con el motivo y la rendición vuelve a <span class="pildora p-neutro">Borrador</span>.</p>
+      <ol class="pasos">
+        <li>Ábrela y lee el motivo en el <strong>Historial</strong>, al final de la pantalla.</li>
+        <li>Lo que ya estaba aprobado sigue aprobado. Si un gasto quedó rechazado, ahí mismo ves por qué.</li>
+        <li>Para corregir un gasto, elimínalo y vuelve a cargarlo bien.</li>
+        <li>Envíala de nuevo con <span class="boton">Enviar a revisión</span>.</li>
+      </ol>
+    </div>
+  </article>
+</section>
+
+<!-- ══════════════════════════════ 3. CAJA CHICA ══════════════════════════════ -->
+<section class="seccion" id="caja-chica">
+  <header>
+    <span class="eyebrow">Parte 3</span>
+    <h2>Caja chica</h2>
+    <p>La diferencia con una rendición: la empresa te entrega la plata <em>antes</em>, tú registras en qué la usas y al final rindes el fondo completo.</p>
+  </header>
+
+  <ol class="recorrido" aria-label="El recorrido de un fondo de caja chica">
+    <li><strong>Pides</strong><span>Creas el fondo con el monto y el período.</span><em>Tú</em></li>
+    <li><strong>Lo autorizan</strong><span>Tu jefatura lo aprueba y el banco te transfiere.</span><em>Jefatura y banco</em></li>
+    <li><strong>Gastas</strong><span>Registras cada gasto con la foto de su boleta.</span><em>Tú</em></li>
+    <li><strong>Liquidas</strong><span>Cierras el fondo y se revisa en qué se usó.</span><em>Tú y jefatura</em></li>
+  </ol>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/caja-chica-nueva-movil.png" alt="Formulario para pedir un fondo de caja chica"></div>
+        <figcaption>Pedir un fondo nuevo</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Pide el fondo</h3>
+      <ol class="pasos">
+        <li>Toca <strong>C. Chica</strong> en la barra de abajo y luego <span class="boton claro">Nuevo fondo</span>.</li>
+        <li>Ponle un nombre claro (por ejemplo «Caja chica obra 2991 — Noviembre») y elige si es para <strong>un proyecto</strong> o para <strong>gastos generales</strong>, igual que en una rendición.</li>
+        <li>Escribe el <strong>monto solicitado</strong>, el <strong>período</strong> que va a cubrir y, si quieres, para qué es. Toca <span class="boton">Crear fondo</span>.</li>
+        <li>Dentro del fondo, revisa a quién le llega y toca <span class="boton">Enviar a autorización</span>.</li>
+        <li>El fondo pasa por la autorización y el proceso bancario. Cuando el estado diga <span class="pildora p-curso">Fondos enviados</span>, la plata ya está en tu cuenta.</li>
+      </ol>
+      <p style="margin-top:16px">Si te equivocaste, mientras sea borrador puedes eliminarlo y crear otro.</p>
+    </div>
+  </article>
+
+  <article class="tarea invertida">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/caja-chica-agregar-movil.png" alt="Formulario para agregar un gasto al fondo con foto"></div>
+        <figcaption>Agregar un gasto al fondo, con su foto</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Registra los gastos del fondo</h3>
+      <p>Cada vez que pagas algo con la plata del fondo, regístralo. Lo ideal es hacerlo en el momento, con la boleta en la mano.</p>
+      <ol class="pasos">
+        <li>Abre tu fondo desde <strong>C. Chica</strong> (o desde <strong>Estado</strong>, donde aparece con lo que te queda).</li>
+        <li>Toca <span class="boton claro">+ Agregar gasto</span> y fotografía la boleta: igual que en una rendición, la app completa monto, fecha y comercio.</li>
+        <li>Revisa los datos, elige la categoría y toca <span class="boton">Agregar gasto</span>.</li>
+        <li>El <strong>disponible</strong> se actualiza solo con cada gasto.</li>
+      </ol>
+      <div class="nota cuidado">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div><p><strong>Si te sobra plata, no la cargues como gasto.</strong>Carga solo lo que gastaste. Lo que sobra se devuelve al final, y la app te dice cuánto es.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <figure class="ventana hasta-gastos">
+    <div class="barra"><i></i><i></i><i></i><b>mi-rendicion.com</b></div>
+    <img src="img/caja-chica-fondo-escritorio.png" alt="Detalle de un fondo de caja chica en el computador">
+  </figure>
+  <figcaption>El mismo fondo en el computador: cuánto recibiste, cuánto llevas gastado y el recorrido desde la solicitud.</figcaption>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/caja-chica-liquidar-movil.png" alt="Gastos del fondo y botón para liquidar"></div>
+        <figcaption>Al terminar: cerrar y enviar la liquidación</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Liquida el fondo al terminar el período</h3>
+      <p>Liquidar es rendir el fondo: le dices a la empresa en qué se usó la plata.</p>
+      <ol class="pasos">
+        <li>Revisa que estén registrados <strong>todos</strong> los gastos del período, con su foto.</li>
+        <li>Toca <span class="boton">Cerrar y enviar liquidación</span>. La app te muestra el saldo: si te sobró plata, cuánto devolver; si gastaste de más, cuánto te reembolsan.</li>
+        <li>Quien aprueba revisa cada gasto. Si sobró plata, Administración te indica cómo devolverla y registra la transferencia con su comprobante.</li>
+        <li>Cuando el estado diga <span class="pildora p-resuelto">Liquidado</span>, el fondo quedó cerrado. Desde el fondo puedes descargar su <strong>Comprobante PDF</strong> o <strong>Excel</strong>.</li>
+      </ol>
+    </div>
+  </article>
+</section>
+
+<!-- ═════════════════════════════ 4. SI APRUEBAS ══════════════════════════════ -->
+<section class="seccion" id="aprobar">
+  <header>
+    <span class="eyebrow">Parte 4 · Para jefaturas</span>
+    <h2>Si apruebas</h2>
+    <p>Si eres jefe de proyecto o jefatura de un equipo, te llegan las rendiciones, los fondos y las liquidaciones que te toca revisar. Lo tuyo nunca te llega a ti: lo aprueba otra persona.</p>
+  </header>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/aprobaciones-movil.png" alt="Bandeja de aprobaciones"></div>
+        <figcaption>La bandeja: todo lo que espera tu decisión</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Tu bandeja de aprobaciones</h3>
+      <p>Cuando alguien te envía algo, te llega un correo. Todo queda reunido en <strong>Aprobar</strong>, en la barra de abajo (en el computador, <strong>Aprobaciones</strong>).</p>
+      <ol class="pasos">
+        <li>Cada fila dice qué es: <strong>Rendición</strong>, <strong>Caja chica</strong> (un fondo que alguien pide) o <strong>Liquidación</strong> (un fondo que alguien cierra).</li>
+        <li>Toca la fila para abrirla.</li>
+        <li>Si no hay nada, la bandeja dice <strong>Todo al día</strong>.</li>
+      </ol>
+      <div class="nota">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div><p><strong>Si algo queda esperando, la app te lo recuerda.</strong>Después de tres días en tu bandeja te llega un recordatorio por correo.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="tarea invertida">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/aprobacion-detalle-movil.png" alt="Rendición abierta para aprobar, con su análisis"></div>
+        <figcaption>La rendición abierta, con su análisis</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Revisa una rendición</h3>
+      <p>Arriba ves quién la envió, el total y un <strong>Análisis IA</strong> que separa los gastos de rutina de los que conviene mirar con atención (un monto alto, un posible duplicado, algo fuera de política).</p>
+      <ol class="pasos">
+        <li>Abre cada gasto para ver su foto.</li>
+        <li>Si está todo bien, toca <span class="boton">Aprobar todos</span> y confirma.</li>
+        <li>Si no, decide <strong>ítem por ítem</strong>: <span class="boton claro">Aprobar</span> o <span class="boton claro">Rechazar</span>. Un rechazo pide el motivo, que le llega a quien rindió.</li>
+        <li>Cuando todos tengan decisión, toca <span class="boton">Enviar decisión</span>. Puedes sumar una nota general.</li>
+      </ol>
+    </div>
+  </article>
+
+  <figure class="ventana">
+    <div class="barra"><i></i><i></i><i></i><b>mi-rendicion.com</b></div>
+    <img src="img/aprobacion-detalle-escritorio.png" alt="Pantalla de aprobación en el computador">
+  </figure>
+  <figcaption>En el computador, la misma pantalla con todos los gastos a la vista.</figcaption>
+
+  <article class="tarea">
+    <div class="pantalla">
+      <figure>
+        <div class="movil"><img src="img/aprobacion-decidir-movil.png" alt="Botones para enviar la decisión o devolver para corregir"></div>
+        <figcaption>Enviar la decisión, o devolver para corregir</figcaption>
+      </figure>
+    </div>
+    <div>
+      <h3>Aprobar, rechazar o devolver</h3>
+      <p>Tienes tres salidas, y conviene usar la que corresponde:</p>
+      <ol class="pasos">
+        <li><strong>Aprobar:</strong> el gasto está bien y se paga.</li>
+        <li><strong>Rechazar</strong> un gasto: no corresponde y no se paga. Quien rindió lo ve con tu motivo.</li>
+        <li><span class="boton claro">Devolver para corregir</span>: falta un dato o algo está mal cargado. Escribe qué corregir; la rendición vuelve a quien rindió como borrador, conservando lo que ya aprobaste, y cuando la reenvíe solo revisas lo que quedó pendiente.</li>
+      </ol>
+      <div class="nota">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div><p><strong>Rechazar es un no; devolver es un «corrígelo».</strong>Si la persona tiene que arreglar algo y volver a mandarlo, devuélvelo: así no tiene que armar todo de nuevo.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="tarea sola">
+    <div>
+      <h3>Fondos de caja chica y liquidaciones</h3>
+      <ol class="pasos">
+        <li><strong>Un fondo que alguien pide:</strong> revisa el motivo y el monto, y toca <span class="boton">Autorizar fondo</span>. Puedes autorizar un monto menor al pedido. También puedes <strong>Rechazar</strong> o <strong>Devolver para corregir</strong>.</li>
+        <li><strong>Una liquidación:</strong> toca <span class="boton claro">Revisar y aprobar liquidación</span>, marca cada gasto como aprobado o rechazado y toca <span class="boton">Finalizar revisión y aprobar</span>.</li>
+        <li>Si el monto lo requiere, después lo firma un segundo nivel. La app lo decide sola: tú no tienes que reenviarlo.</li>
+      </ol>
+      <p style="margin-top:16px">Mientras estés de vacaciones, Administración puede dejar a un suplente que apruebe por ti en esas fechas.</p>
+    </div>
+  </article>
+</section>
+
+<!-- ══════════════════════════ PREGUNTAS FRECUENTES ═══════════════════════════ -->
+<section class="seccion" id="preguntas">
+  <header>
+    <span class="eyebrow">Ayuda</span>
+    <h2>Preguntas frecuentes</h2>
+  </header>
+  <div class="faq">
+    <div><h3>¿Rendición o caja chica?</h3><p>Si pagaste con tu plata y quieres que te la devuelvan, es una <strong>rendición</strong>. Si la empresa te entregó un fondo y gastaste de ahí, es <strong>caja chica</strong>.</p></div>
+    <div><h3>¿Proyecto o gastos generales?</h3><p>Si el gasto es de una obra, elige <strong>Un proyecto</strong> y escribe su número: así lo aprueba el jefe de esa obra. Todo lo demás va en <strong>Gastos generales</strong>.</p></div>
+    <div><h3>La foto leyó mal el monto</h3><p>Corrígelo a mano antes de guardar. Si ya lo guardaste y la rendición sigue en borrador, elimina ese ítem y vuelve a cargarlo.</p></div>
+    <div><h3>Envié una rendición con un error</h3><p>Una rendición enviada ya no se edita. Avísale a quien la aprueba: puede <strong>devolvértela para corregir</strong>, y la vuelves a enviar sin armarla de nuevo.</p></div>
+    <div><h3>¿Cuándo me pagan?</h3><p>Apenas se aprueba, pasa al banco y el monto aparece en <strong>Por cobrar</strong>. Cuando la transferencia se hace, cambia a <strong>Reembolsada</strong>.</p></div>
+    <div><h3>Perdí una boleta</h3><p>Sin documento, el gasto puede no aprobarse. Habla con quien aprueba antes de cargarlo y usa la nota del ítem para explicar el caso.</p></div>
+    <div><h3>Me sobró plata del fondo</h3><p>No la cargues como gasto. Al liquidar, la app te dice cuánto sobra y Administración te indica cómo devolverlo.</p></div>
+    <div><h3>Tengo una idea o encontré un error</h3><p>En <strong>Más → Sugerencias</strong> puedes escribirnos directamente. Las leemos todas.</p></div>
+  </div>
+
+  <footer class="cierre">
+    <span><strong>Mi Rendición</strong> · Guía de uso</span>
+    <span>Las pantallas de esta guía usan datos de ejemplo.</span>
+  </footer>
+</section>
+
+</main>
