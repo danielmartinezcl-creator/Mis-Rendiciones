@@ -131,7 +131,7 @@ export function ProveedorDialogos({ children }: { children: React.ReactNode }) {
             {pregunta.palabra && (
               <label className="block space-y-1.5">
                 <span className="text-sm text-ink-600">
-                  Escribí <strong className="font-semibold text-ink-800">{pregunta.palabra}</strong> para confirmar
+                  Escribe <strong className="font-semibold text-ink-800">{pregunta.palabra}</strong> para confirmar
                 </span>
                 <input
                   value={escrito}

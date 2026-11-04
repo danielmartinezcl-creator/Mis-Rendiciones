@@ -228,7 +228,7 @@ export async function notifySubmitterOfDecision(
   }
   const cuerpos = {
     approved:           'Tu rendición fue aprobada. En breve se procesará el reembolso.',
-    rejected:           'Tu rendición fue rechazada. Revisá los motivos y corrígela si corresponde.',
+    rejected:           'Tu rendición fue rechazada. Revisa los motivos y corrígela si corresponde.',
     partially_approved: 'Tu rendición fue aprobada parcialmente. Algunos ítems fueron rechazados.',
     returned:           'Tu rendición volvió a borrador para que la corrijas y la vuelvas a enviar. '
                       + 'El motivo está en la app, en el historial de la rendición.',

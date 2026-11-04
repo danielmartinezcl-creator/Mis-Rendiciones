@@ -305,7 +305,7 @@ export default function CentrosCostoPage() {
         <strong className="font-semibold">El código no se puede cambiar.</strong> Está escrito en las
         fichas, en los gastos ya imputados y en los comprobantes de Defontana. Uno mal escrito se
         arregla creando el correcto y borrando el otro, que se puede mientras nadie lo haya usado.
-        Para retirar un centro que ya se usó, desactivalo: deja de ofrecerse y lo ya imputado no se mueve.
+        Para retirar un centro que ya se usó, desactívalo: deja de ofrecerse y lo ya imputado no se mueve.
       </p>
     </div>
   )
@@ -408,7 +408,7 @@ function PanelAlta({ centros, onCancelar, onCreado }: {
         <span className="card-label text-ink-700">
           Recibe asientos
           <span className="block card-meta text-ink-500">
-            Desmarcalo si este centro solo agrupa a otros. Solo los que reciben asientos se
+            Desmárcalo si este centro solo agrupa a otros. Solo los que reciben asientos se
             pueden elegir en una ficha o en un gasto.
           </span>
         </span>

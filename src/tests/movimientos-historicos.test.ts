@@ -114,7 +114,7 @@ describe('erroresDeMovimiento', () => {
 
   it('un gasto sin categoría no se registra', () => {
     const errores = erroresDeMovimiento({ ...valido, clave: 'gasto', categoryId: null })
-    expect(errores).toContain('Elegí la categoría del gasto')
+    expect(errores).toContain('Elige la categoría del gasto')
   })
 
   it('un adelanto no necesita categoría', () => {

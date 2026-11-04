@@ -35,7 +35,7 @@ export function DescargarComprobante({ tipo, id }: { tipo: 'rendicion' | 'caja_c
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch {
-      avisar('No se pudo generar el archivo. Probá de nuevo.', 'error')
+      avisar('No se pudo generar el archivo. Prueba de nuevo.', 'error')
     } finally {
       setEnCurso(null)
     }

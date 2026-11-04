@@ -6,7 +6,7 @@ import { buscarNombreRepetido } from '@/actions/expenses'
 import { textoDeAviso, type ClaseDocumento, type Coincidencia } from '@/lib/nombre-repetido'
 
 /**
- * «Ya tenés uno con este nombre», debajo del campo del nombre.
+ * «Ya tienes uno con este nombre», debajo del campo del nombre.
  *
  * **Avisa, nunca bloquea** — ver `src/lib/nombre-repetido.ts` para por qué: los
  * nombres repetidos son legítimos y ya son la norma, y lo que se evita es que
@@ -67,7 +67,7 @@ export function AvisoNombreRepetido({
     <p className="card-meta text-ink-500 mt-1.5 flex items-start gap-1.5">
       <Info size={13} className="shrink-0 mt-0.5 text-ink-400" aria-hidden />
       <span>
-        {texto} <span className="text-ink-400">Podés seguir igual.</span>
+        {texto} <span className="text-ink-400">Puedes seguir igual.</span>
       </span>
     </p>
   )

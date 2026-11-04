@@ -67,7 +67,7 @@ export default async function DashboardPage() {
             <AlertCircle size={20} className="text-danger-500 shrink-0" />
             <p className="card-label font-medium text-danger-700">
               {rejected.length === 1
-                ? 'Una rendición fue rechazada — revisá los motivos'
+                ? 'Una rendición fue rechazada — revisa los motivos'
                 : `${rejected.length} rendiciones fueron rechazadas`}
             </p>
           </div>
@@ -156,9 +156,9 @@ export default async function DashboardPage() {
       {recent.length === 0 && (
         <div className="text-center py-12 text-ink-400">
           <ReceiptText size={44} className="mx-auto mb-3 opacity-40" />
-          <p className="card-eyebrow">No tenés rendiciones aún</p>
+          <p className="card-eyebrow">No tienes rendiciones aún</p>
           {/* El texto apuntaba al botón "Tomá la foto y listo", que ya no está */}
-          <p className="card-label mt-1">Tocá «Rendir» en la barra de abajo para crear tu primera</p>
+          <p className="card-label mt-1">Toca «Rendir» en la barra de abajo para crear tu primera</p>
         </div>
       )}
     </div>

@@ -255,7 +255,7 @@ export function motivoNoSeEliminaFondo(
 ): string | null {
   if (yo.esAdmin) return null
   if (fondo.employee_id !== yo.id && fondo.manager_id !== yo.id) {
-    return 'Solo podés eliminar tus propios fondos'
+    return 'Solo puedes eliminar tus propios fondos'
   }
   if (fondo.status !== 'draft') {
     return 'Solo se pueden eliminar fondos en borrador. Este ya fue enviado'

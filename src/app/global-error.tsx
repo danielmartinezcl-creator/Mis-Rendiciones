@@ -49,8 +49,8 @@ export default function ErrorGlobal({
           </h1>
 
           <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6, color: '#527370' }}>
-            No se perdió nada de lo que ya estaba guardado. Volvé a cargar la
-            página; si el problema sigue, avisá con el código de abajo.
+            No se perdió nada de lo que ya estaba guardado. Vuelve a cargar la
+            página; si el problema sigue, avisa con el código de abajo.
           </p>
 
           <button

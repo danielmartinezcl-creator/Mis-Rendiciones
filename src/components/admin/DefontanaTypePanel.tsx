@@ -160,7 +160,7 @@ export function DefontanaTypePanel({ reportId, onClose, onChanged }: Props) {
       {data?.legacyHeaderOnly && (
         <div className="bg-white border border-accent-200 rounded-item px-3 py-2 text-xs text-ink-600">
           Esta carga se contabilizó completa{data.headerRef ? ` (${data.headerRef})` : ''}, sin separar por tipo.
-          Si revertís un tipo, los demás quedan registrados como contabilizados.
+          Si reviertes un tipo, los demás quedan registrados como contabilizados.
         </div>
       )}
 
@@ -244,7 +244,7 @@ export function DefontanaTypePanel({ reportId, onClose, onChanged }: Props) {
           <div className="border-t border-accent-100 pt-3 space-y-2">
             <p className="text-xs font-semibold text-accent-800">Confirmar contabilización</p>
             <p className="text-xs text-ink-500">
-              Hacé clic solo después de haber importado el Excel en Defontana exitosamente.
+              Haz clic solo después de haber importado el Excel en Defontana exitosamente.
             </p>
             {data.headerRef && (
               <p className="text-xs text-accent-600 font-mono">Último comprobante registrado: {data.headerRef}</p>

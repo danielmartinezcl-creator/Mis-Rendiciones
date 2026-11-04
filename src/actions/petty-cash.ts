@@ -260,7 +260,7 @@ export async function rejectFund(fundId: string, notes: string) {
  */
 export async function devolverFondoParaCorregir(fundId: string, notes: string): Promise<{ error?: string }> {
   const { userId } = await getProfile()
-  if (!notes.trim()) return { error: 'Indicá qué hay que corregir' }
+  if (!notes.trim()) return { error: 'Indica qué hay que corregir' }
 
   const ctx = await contextoFondo(fundId)
   const etapa = ctx.doc.tipo === 'liquidacion' ? 'liquidacion' : 'fondo'

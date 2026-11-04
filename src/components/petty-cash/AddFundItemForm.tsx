@@ -104,7 +104,7 @@ export function AddFundItemForm({ fundId, categories, onDone }: Props) {
           try {
             await addPettyCashItemAttachment(itemId, foto)
           } catch {
-            setAviso('El gasto se registró, pero la foto no se pudo adjuntar. Podés subirla desde el detalle del gasto.')
+            setAviso('El gasto se registró, pero la foto no se pudo adjuntar. Puedes subirla desde el detalle del gasto.')
             setForm(EMPTY)
             setFoto(null)
             setDupWarn(null)

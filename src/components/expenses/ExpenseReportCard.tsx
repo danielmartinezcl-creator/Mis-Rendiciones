@@ -93,7 +93,7 @@ export function ExpenseReportCard({ report, coincidencia }: ExpenseReportCardPro
         {isDraft && (
           <div className="px-4 py-2.5 bg-warning-50 border-t border-warning-100 flex items-center justify-between gap-2">
             <span className="card-meta text-warning-700 font-medium">
-              <Pencil size={12} className="inline" aria-hidden /> Borrador — podés seguir agregando gastos
+              <Pencil size={12} className="inline" aria-hidden /> Borrador — puedes seguir agregando gastos
             </span>
             <span className="card-meta font-bold text-warning-600 shrink-0">
               Abrir →

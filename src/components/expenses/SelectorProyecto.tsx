@@ -197,7 +197,7 @@ export function SelectorProyecto({ valor, onChange, recordarComo }: Props) {
               </select>
               {jefes.length === 0 && (
                 <p className="card-meta text-warning-700 mt-1">
-                  Todavía no hay nadie habilitado como jefe de proyecto. Avisale a administración
+                  Todavía no hay nadie habilitado como jefe de proyecto. Avísale a administración
                 </p>
               )}
             </div>

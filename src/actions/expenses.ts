@@ -640,7 +640,7 @@ export async function deleteExpenseReport(reportId: string): Promise<{ error?: s
     .single()
 
   if (!report) return { error: 'Rendición no encontrada' }
-  if (report.submitter_id !== user.id) return { error: 'Solo podés eliminar tus propias rendiciones' }
+  if (report.submitter_id !== user.id) return { error: 'Solo puedes eliminar tus propias rendiciones' }
   if (report.status !== 'draft') return { error: 'Solo se pueden eliminar rendiciones en borrador' }
 
   /* Un borrador CON historial de aprobaciones es un caso nuevo: existe desde que
@@ -657,7 +657,7 @@ export async function deleteExpenseReport(reportId: string): Promise<{ error?: s
   if (conHistorial) {
     return {
       error: 'Esta rendición ya pasó por una revisión, así que queda su historial y no se puede borrar. '
-           + 'Corregila y volvé a enviarla, o pedile a un administrador que la elimine.',
+           + 'Corrígela y vuelve a enviarla, o pídele a un administrador que la elimine.',
     }
   }
 
@@ -845,7 +845,7 @@ export async function cambiarProyectoDeReporte(
     .eq('id', reportId)
     .eq('status', 'draft')
     .select('id')
-  if (error || !data?.length) throw new Error('No se pudo cambiar el proyecto. Recargá la página')
+  if (error || !data?.length) throw new Error('No se pudo cambiar el proyecto. Recarga la página')
 
   revalidatePath(`/expenses/${reportId}`)
 }

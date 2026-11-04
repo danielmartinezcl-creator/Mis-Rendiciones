@@ -113,7 +113,7 @@ export function AddEmployeeForm({ onDone }: { onDone: () => void }) {
     return (
       <div className="bg-success-50 border border-success-200 rounded-card p-4 text-center">
         <p className="text-success-700 font-semibold text-sm"><Check size={14} className="inline" aria-hidden /> Empleado agregado</p>
-        <p className="text-success-600 text-xs mt-1">Podés enviarle la invitación desde la lista de empleados.</p>
+        <p className="text-success-600 text-xs mt-1">Puedes enviarle la invitación desde la lista de empleados.</p>
       </div>
     )
   }

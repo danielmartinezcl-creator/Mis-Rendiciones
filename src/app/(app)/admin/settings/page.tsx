@@ -195,7 +195,7 @@ function CategoriesTab() {
 
   return (
     <section className="space-y-3">
-      <p className="text-xs tor-on-gradient-soft">Las categorías globales están disponibles para todas las organizaciones. Podés agregar y modificar categorías propias de tu empresa.</p>
+      <p className="text-xs tor-on-gradient-soft">Las categorías globales están disponibles para todas las organizaciones. Puedes agregar y modificar categorías propias de tu empresa.</p>
 
       {/* ── Formulario nueva categoría ── */}
       <form onSubmit={handleAdd} className="hoja p-4 space-y-3">
@@ -474,7 +474,7 @@ function EmployeesTab() {
   return (
     <section className="space-y-2">
       <p className="text-xs tor-on-gradient-soft mb-3">
-        Gestioná el acceso de los integrantes de tu organización. Para agregar nuevos empleados usá el módulo <strong>Empleados</strong> en el menú.
+        Gestiona el acceso de los integrantes de tu organización. Para agregar nuevos empleados usa el módulo <strong>Empleados</strong> en el menú.
       </p>
 
       {employees.map(emp => {
@@ -1023,7 +1023,7 @@ function DefontanaTab() {
               </table>
             </div>
             <p className="text-xs text-ink-400">
-              Si dejás vacío un tipo de comprobante se usa el de la configuración general.
+              Si dejas vacío un tipo de comprobante se usa el de la configuración general.
             </p>
           </div>
 

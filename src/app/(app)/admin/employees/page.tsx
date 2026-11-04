@@ -141,7 +141,7 @@ export default function AdminEmployeesPage() {
   async function handleSaveEmail(userId: string) {
     if (!emailEdit) return
     const newEmail = emailEdit.value.trim()
-    if (!newEmail || !newEmail.includes('@')) { setEmailError('Ingresá un correo válido'); return }
+    if (!newEmail || !newEmail.includes('@')) { setEmailError('Ingresa un correo válido'); return }
     setEmailSaving(true); setEmailError(null)
     try {
       const { error } = await updateEmployeeEmail(userId, newEmail)

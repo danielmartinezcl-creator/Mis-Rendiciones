@@ -1033,13 +1033,13 @@ export async function probarCorreo(destino?: string): Promise<{ enviado: boolean
      intentos, o pifiarle a la dirección dejaría sin probar. */
   const { allowed } = await checkRateLimit(userId, 'test_email', 3)
   if (!allowed) {
-    return { enviado: false, motivo: 'Ya probaste 3 veces en la última hora. Esperá un rato.' }
+    return { enviado: false, motivo: 'Ya probaste 3 veces en la última hora. Espera un rato.' }
   }
 
   const propio = elegido.email === propia
   const r = await enviarCorreoDePrueba(elegido.email, propio ? (actorName ?? propia) : elegido.email)
   return r.enviado
-    ? { enviado: true,  motivo: `Enviado a ${r.para.join(', ')}. Si no llega en unos minutos, revisá el correo no deseado.` }
+    ? { enviado: true,  motivo: `Enviado a ${r.para.join(', ')}. Si no llega en unos minutos, revisa el correo no deseado.` }
     : { enviado: false, motivo: r.motivo }
 }
 
@@ -1222,7 +1222,7 @@ export async function updateEmployee(
 
   // Activar a un bloqueado lo dejaría activo pero todavía baneado en auth.
   if (updates.is_active && before?.blocked_at) {
-    throw new Error('Este empleado está bloqueado: usá «Habilitar» para devolverle el acceso')
+    throw new Error('Este empleado está bloqueado: usa «Habilitar» para devolverle el acceso')
   }
 
   // Quitarle «aprueba» o desactivar a alguien que está en cadenas ajenas las

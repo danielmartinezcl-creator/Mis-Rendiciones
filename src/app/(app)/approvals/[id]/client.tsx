@@ -489,7 +489,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       type="button"
                       onClick={() => setDecision(item.id, 'action', 'approve')}
                       className={[
-                        'flex-1 py-2.5 rounded-item card-label font-semibold transition-colors',
+                        'flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-item card-label font-semibold transition-colors',
                         d.action === 'approve'
                           ? 'bg-success-500 text-white'
                           : 'bg-success-50 text-success-700 hover:bg-success-100',
@@ -501,7 +501,7 @@ export function ApprovalDetailClient({ id, initialReport, initialAttachments, an
                       type="button"
                       onClick={() => setDecision(item.id, 'action', 'reject')}
                       className={[
-                        'flex-1 py-2.5 rounded-item card-label font-semibold transition-colors',
+                        'flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-item card-label font-semibold transition-colors',
                         d.action === 'reject'
                           ? 'bg-danger-500 text-white'
                           : 'bg-danger-50 text-danger-600 hover:bg-danger-100',

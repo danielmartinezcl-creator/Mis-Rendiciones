@@ -1,5 +1,5 @@
 /**
- * «Ya tenés uno con este nombre» — el aviso al crear un fondo o una rendición.
+ * «Ya tienes uno con este nombre» — el aviso al crear un fondo o una rendición.
  *
  * Pedido de Daniel el 2026-10-21: «hay personas que solicitan fondos siempre por
  * la misma razón, entonces seguramente se repetirán nombres».
@@ -68,12 +68,12 @@ export function textoDeAviso(clase: ClaseDocumento, coincidencias: Coincidencia[
   const plural     = clase === 'fondo' ? 'fondos' : 'rendiciones'
 
   if (coincidencias.length > 1) {
-    return `Ya tenés ${coincidencias.length} ${plural} sin cerrar con este nombre.`
+    return `Ya tienes ${coincidencias.length} ${plural} sin cerrar con este nombre.`
   }
 
   const fecha = new Date(coincidencias[0].desde).toLocaleDateString('es-CL', {
     day: 'numeric', month: 'long',
   })
   const articulo = clase === 'fondo' ? 'un' : 'una'
-  return `Ya tenés ${articulo} ${sustantivo} sin cerrar con este nombre, del ${fecha}.`
+  return `Ya tienes ${articulo} ${sustantivo} sin cerrar con este nombre, del ${fecha}.`
 }

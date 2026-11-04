@@ -824,7 +824,7 @@ export function HistoricalSection({ imports, totalSinFiltro, isManager, movingHi
                                   <Check size={13} className="inline" aria-hidden /> Confirmar contabilización
                                 </p>
                                 <p className="text-xs text-ink-500">
-                                  Hacé clic aquí solo después de haber importado el Excel en Defontana exitosamente.
+                                  Haz clic aquí solo después de haber importado el Excel en Defontana exitosamente.
                                 </p>
                                 {h.defontana_export_ref && (
                                   <p className="text-xs text-accent-600 font-mono">

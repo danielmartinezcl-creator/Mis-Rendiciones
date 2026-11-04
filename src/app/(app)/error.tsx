@@ -46,7 +46,7 @@ export default function ErrorDeApp({
 
       <p className="text-sm text-ink-500 mt-2 max-w-sm mx-auto">
         No es culpa tuya y no se perdió nada de lo que ya estaba guardado.
-        Probá de nuevo; si vuelve a pasar, avisá con el código de abajo.
+        Prueba de nuevo; si vuelve a pasar, avisa con el código de abajo.
       </p>
 
       <div className="flex gap-2 justify-center mt-6 flex-wrap">

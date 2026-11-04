@@ -144,7 +144,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         setParseError(
           `No se encontró la columna "Nombre" en el archivo.\n` +
           `Columnas detectadas: ${foundCols.join(', ')}\n` +
-          `Descargá la plantilla y usá los encabezados exactos.`
+          `Descarga la plantilla y usa los encabezados exactos.`
         )
         return
       }
@@ -152,7 +152,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         setParseError(
           `No se encontró la columna "Email" en el archivo.\n` +
           `Columnas detectadas: ${foundCols.join(', ')}\n` +
-          `Descargá la plantilla y usá los encabezados exactos.`
+          `Descarga la plantilla y usa los encabezados exactos.`
         )
         return
       }
@@ -187,7 +187,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
       console.error('[EmployeeImport] Error al parsear:', err)
       setParseError(
         `No se pudo leer el archivo.\n` +
-        `Asegurate de que sea un .xlsx válido y que no esté abierto en Excel.\n` +
+        `Asegúrate de que sea un .xlsx válido y que no esté abierto en Excel.\n` +
         `Error: ${err instanceof Error ? err.message : String(err)}`
       )
     } finally {
@@ -216,7 +216,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         `${invalid.length} fila${invalid.length > 1 ? 's' : ''} con datos incompletos: ` +
         invalid.slice(0, 3).map(r => r.full_name || r.email || `Fila ${r._key + 1}`).join(', ') +
         (invalid.length > 3 ? ` y ${invalid.length - 3} más.` : '.') +
-        ' Completá o eliminá esas filas antes de importar.'
+        ' Completa o elimina esas filas antes de importar.'
       )
       return
     }
@@ -282,7 +282,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
                 {ok.length} empleado{ok.length !== 1 ? 's' : ''} importado{ok.length !== 1 ? 's' : ''} correctamente
               </p>
               <p className="text-xs text-success-600 mt-0.5">
-                Podés enviarles la invitación desde la lista de empleados.
+                Puedes enviarles la invitación desde la lista de empleados.
               </p>
               <ul className="mt-2 space-y-0.5">
                 {ok.map((r, i) => (
@@ -326,7 +326,7 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
           <div className="flex items-center gap-2">
             <CheckCircle size={16} className="text-success-600 shrink-0" />
             <p className="text-sm font-medium text-success-700">
-              {preview.length} fila{preview.length !== 1 ? 's' : ''} detectada{preview.length !== 1 ? 's' : ''} — revisá y confirmá para importar
+              {preview.length} fila{preview.length !== 1 ? 's' : ''} detectada{preview.length !== 1 ? 's' : ''} — revisa y confirma para importar
             </p>
           </div>
           <button
@@ -458,9 +458,9 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
       <div className="bg-brand-50 border border-brand-200 rounded-item p-3 text-xs text-brand-800 space-y-1">
         <p className="font-semibold text-brand-700">Cómo importar empleados:</p>
         <ol className="list-decimal list-inside space-y-0.5 text-brand-600">
-          <li>Descargá la plantilla Excel con el botón de abajo</li>
-          <li>Completá los datos de tus empleados (reemplazá los ejemplos)</li>
-          <li>Guardá el archivo y súbelo aquí</li>
+          <li>Descarga la plantilla Excel con el botón de abajo</li>
+          <li>Completa los datos de tus empleados (reemplaza los ejemplos)</li>
+          <li>Guarda el archivo y súbelo aquí</li>
         </ol>
       </div>
 
@@ -497,8 +497,8 @@ export function EmployeeImport({ onDone }: { onDone: () => void }) {
         ) : (
           <>
             <FileSpreadsheet size={28} className="mx-auto mb-2 text-ink-400" aria-hidden />
-            <p className="text-sm font-medium text-ink-700">Subí tu nómina en Excel</p>
-            <p className="text-xs text-ink-400 mt-1">Arrastrá un .xlsx o hacé clic para seleccionar</p>
+            <p className="text-sm font-medium text-ink-700">Sube tu nómina en Excel</p>
+            <p className="text-xs text-ink-400 mt-1">Arrastra un .xlsx o haz clic para seleccionar</p>
           </>
         )}
         <input

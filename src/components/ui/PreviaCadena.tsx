@@ -51,7 +51,7 @@ export function PreviaCadena({ reportId, fundId, recargarCon }: Props) {
         <TriangleAlert size={16} className="text-warning-600 shrink-0 mt-0.5" />
         <p className="card-label text-ink-700">
           <span className="font-semibold">Todavía no hay quién apruebe esto.</span>{' '}
-          Si es de un proyecto, elegí el jefe de la obra; si no, pedile a administración
+          Si es de un proyecto, elige el jefe de la obra; si no, pídele a administración
           que configure tu aprobador.
         </p>
       </div>

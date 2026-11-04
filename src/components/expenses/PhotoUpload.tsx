@@ -118,8 +118,8 @@ export function PhotoUpload({ onOcrResult, disabled }: PhotoUploadProps) {
     idle:       'Foto · PDF · correo (.eml / .msg) — máx 10 MB',
     reading:    '',
     processing: '',
-    done:       'Datos pre-cargados — revisá y confirmá',
-    attached:   'Completá los datos del gasto a mano',
+    done:       'Datos pre-cargados — revisa y confirma',
+    attached:   'Completa los datos del gasto a mano',
     error:      'La IA no pudo leer los datos — el archivo igual queda adjunto',
   }
 

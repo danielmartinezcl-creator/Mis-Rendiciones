@@ -472,7 +472,7 @@ export async function devolverRendicionParaCorregir(
   /* El motivo es obligatorio: es lo único que le dice al empleado qué corregir,
      y sin eso devolver es peor que rechazar — recibe su rendición de vuelta sin
      saber qué hacer con ella. */
-  if (!notes.trim()) return { error: 'Indicá qué hay que corregir' }
+  if (!notes.trim()) return { error: 'Indica qué hay que corregir' }
 
   const ctx = await contextoRendicion(reportId)
 

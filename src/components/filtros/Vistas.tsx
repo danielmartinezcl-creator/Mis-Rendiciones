@@ -120,7 +120,7 @@ export function Vistas({
         <p className="card-meta tor-on-gradient-soft">
           {base
             ? <>Cambiaste el filtro sobre la vista <strong className="font-semibold">{base.nombre}</strong>.</>
-            : <>Tenés un filtro puesto que no es ninguna vista guardada.</>}
+            : <>Tienes un filtro puesto que no es ninguna vista guardada.</>}
           {' '}
           <button type="button" onClick={() => elegir(base)}
                   className="underline font-semibold">

@@ -85,11 +85,11 @@ export function motivoDeChoque({ cuenta, por }: Choque): string {
 
   switch (cuenta.estado) {
     case 'papelera':
-      return `${dato} es de ${quien}, que está en la papelera. Restauralo desde Papelera → Empleados: vuelve con su historial y su acceso. Una cuenta nueva con el mismo correo no se puede crear.`
+      return `${dato} es de ${quien}, que está en la papelera. Restáuralo desde Papelera → Empleados: vuelve con su historial y su acceso. Una cuenta nueva con el mismo correo no se puede crear.`
     case 'bloqueada':
-      return `${dato} es de ${quien}, que está bloqueado. Buscalo por su nombre en Empleados y habilitalo, en vez de crearlo de nuevo: su historial sigue ahí.`
+      return `${dato} es de ${quien}, que está bloqueado. Búscalo por su nombre en Empleados y habilítalo, en vez de crearlo de nuevo: su historial sigue ahí.`
     case 'inactiva':
-      return `${quien} ya está en la nómina, desactivado — ${dato.toLowerCase()} es suyo. Reactivalo desde Empleados en vez de crearlo de nuevo.`
+      return `${quien} ya está en la nómina, desactivado — ${dato.toLowerCase()} es suyo. Reactívalo desde Empleados en vez de crearlo de nuevo.`
     case 'activa':
       return por === 'correo'
         ? `Ese correo ya lo usa ${quien}. Cada persona necesita el suyo.`

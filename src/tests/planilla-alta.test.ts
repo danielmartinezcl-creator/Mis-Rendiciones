@@ -365,7 +365,7 @@ describe('resolverPlanilla: la persona ya existe, fuera de la nómina', () => {
     const [r] = resolverFuera([fila({
       rut: '99.999.990-5', nombre: 'Soto', correo: 'bloq@penta.cl',
     })])
-    expect(r.errores.join(' ')).toMatch(/habilit/i)
+    expect(r.errores.join(' ')).toMatch(/habil[ií]t/i)
   })
 
   it('una fila que de verdad es nueva sigue creando', () => {

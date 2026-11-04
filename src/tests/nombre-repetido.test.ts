@@ -69,7 +69,7 @@ describe('textoDeAviso', () => {
 
   it('con varias, las cuenta en vez de listarlas', () => {
     const t = textoDeAviso('rendicion', [coincidencia(), coincidencia({ id: 'f2' })])
-    expect(t).toBe('Ya tenés 2 rendiciones sin cerrar con este nombre.')
+    expect(t).toBe('Ya tienes 2 rendiciones sin cerrar con este nombre.')
   })
 
   it('concuerda el género según el documento', () => {

@@ -231,7 +231,7 @@ export function ExpenseItemForm({
     if (!form.description.trim()) localErrors.push('La descripción es obligatoria')
     if (isMileage) {
       const km = parseFloat(form.mileage_km)
-      if (isNaN(km) || km <= 0) localErrors.push('Ingresá los kilómetros recorridos')
+      if (isNaN(km) || km <= 0) localErrors.push('Ingresa los kilómetros recorridos')
     } else {
       if (!form.amount || parseFloat(form.amount) <= 0) localErrors.push('El monto debe ser mayor a 0')
     }

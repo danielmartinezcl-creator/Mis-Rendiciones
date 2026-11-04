@@ -104,7 +104,7 @@ function SetPasswordForm() {
         <div>
           <p className="font-bold text-ink-900">Este link ya no sirve</p>
           <p className="text-sm text-ink-500 mt-1">
-            Venció o ya se usó. Pedí uno nuevo con «¿Olvidaste tu contraseña?» en la pantalla de ingreso.
+            Venció o ya se usó. Pide uno nuevo con «¿Olvidaste tu contraseña?» en la pantalla de ingreso.
           </p>
         </div>
         <Link href="/login" className="btn-primario inline-block w-full py-2.5 px-4">
@@ -131,13 +131,13 @@ function SetPasswordForm() {
           <KeyRound size={18} className="text-brand-600" />
         </div>
         <div>
-          <h2 className="font-bold text-ink-900 text-base">Creá tu contraseña</h2>
+          <h2 className="font-bold text-ink-900 text-base">Crea tu contraseña</h2>
           {userEmail && <p className="text-xs text-ink-400 mt-0.5">{userEmail}</p>}
         </div>
       </div>
 
       <p className="text-sm text-ink-500">
-        Elegí una contraseña para acceder a la app desde ahora.
+        Elige una contraseña para acceder a la app desde ahora.
       </p>
 
       {error && (
@@ -181,7 +181,7 @@ function SetPasswordForm() {
             autoComplete="new-password"
             value={confirm}
             onChange={e => setConfirm(e.target.value)}
-            placeholder="Repetí la contraseña"
+            placeholder="Repite la contraseña"
             className="campo w-full py-2.5"
           />
         </div>

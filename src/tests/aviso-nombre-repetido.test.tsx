@@ -4,7 +4,7 @@ import { AvisoNombreRepetido } from '@/components/ui/AvisoNombreRepetido'
 import type { Coincidencia } from '@/lib/nombre-repetido'
 
 /**
- * El aviso «ya tenés uno con este nombre».
+ * El aviso «ya tienes uno con este nombre».
  *
  * Se prueba acá porque **no hay con qué verlo en el navegador**: al 2026-10-21
  * no queda ni un documento en curso en la base —los fondos están todos en la
@@ -29,9 +29,9 @@ describe('AvisoNombreRepetido', () => {
     respuesta.valor = UNA
     render(<AvisoNombreRepetido clase="fondo" nombre="Caja chica obra Norte" />)
 
-    await waitFor(() => expect(screen.getByText(/Ya tenés un fondo sin cerrar/)).toBeDefined())
-    // «Podés seguir igual» es la mitad del mensaje: sin eso parece un error.
-    expect(screen.getByText(/Podés seguir igual/)).toBeDefined()
+    await waitFor(() => expect(screen.getByText(/Ya tienes un fondo sin cerrar/)).toBeDefined())
+    // «Puedes seguir igual» es la mitad del mensaje: sin eso parece un error.
+    expect(screen.getByText(/Puedes seguir igual/)).toBeDefined()
   })
 
   it('sin coincidencias no dibuja nada', async () => {

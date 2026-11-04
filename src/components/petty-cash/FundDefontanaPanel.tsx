@@ -235,7 +235,7 @@ export function FundDefontanaPanel({ fundId, onChanged }: Props) {
           <div className="border-t border-ink-100 pt-3 space-y-2">
             <p className="text-xs font-semibold text-accent-800">Confirmar contabilización</p>
             <p className="text-xs text-ink-500">
-              Hacé clic solo después de haber importado el Excel en Defontana exitosamente.
+              Haz clic solo después de haber importado el Excel en Defontana exitosamente.
             </p>
             {data.headerRef && (
               <p className="text-xs text-accent-600 font-mono">Último comprobante registrado: {data.headerRef}</p>

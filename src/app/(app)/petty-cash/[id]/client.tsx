@@ -154,7 +154,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
         } catch (e) {
           // La transferencia YA quedó: el aviso dice eso y dónde reintentar.
           setError(`Se registró la transferencia, pero no se pudo subir el comprobante: `
-            + `${mensajeDeError(e, 'error al subir')}. Podés adjuntarlo abajo, en «Adjuntos de respaldo».`)
+            + `${mensajeDeError(e, 'error al subir')}. Puedes adjuntarlo abajo, en «Adjuntos de respaldo».`)
         }
       }
 
@@ -631,7 +631,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
       {decidiendoLiquidacion && (
         <div className="hoja p-4 border-t-2 border-t-info-400 space-y-3">
           <p className="text-sm font-semibold text-ink-800">Revisar y aprobar liquidación</p>
-          <p className="text-xs text-ink-500">Revisá cada ítem arriba y marcalo como aprobado o rechazado antes de finalizar.</p>
+          <p className="text-xs text-ink-500">Revisa cada ítem arriba y márcalo como aprobado o rechazado antes de finalizar.</p>
           <input value={approveNotes} onChange={e => setApproveNotes(e.target.value)} placeholder="Notas de la liquidación (opcional)"
             className="campo w-full" />
           <button
@@ -737,7 +737,7 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                         return
                       }
                       if (!classifyRespaldo(f.name)) {
-                        setError('Tipo de archivo no admitido. Subí una foto, un PDF, un correo (.eml / .msg) o un Excel')
+                        setError('Tipo de archivo no admitido. Sube una foto, un PDF, un correo (.eml / .msg) o un Excel')
                         e.target.value = ''
                         return
                       }

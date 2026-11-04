@@ -154,7 +154,7 @@ export async function crearCentroCosto(
        código que ya usa otra empresa del sistema choca acá y no en la lista de
        arriba, que solo trae los propios. */
     if (/duplicate|unique|already exists/i.test(error.message)) {
-      return { errores: [`El código ${id} ya está en uso en el sistema. Elegí otras tres letras.`] }
+      return { errores: [`El código ${id} ya está en uso en el sistema. Elige otras tres letras.`] }
     }
     return { errores: [error.message] }
   }
@@ -259,7 +259,7 @@ export async function eliminarCentroCosto(id: string): Promise<{ error?: string 
       usos.hijos    ? `${usos.hijos} ${usos.hijos === 1 ? 'centro cuelga' : 'centros cuelgan'} de él` : null,
     ].filter(Boolean)
     return {
-      error: `No se puede borrar: ${partes.join(', ')}. Desactivalo para que deje de ofrecerse, sin tocar lo ya imputado.`,
+      error: `No se puede borrar: ${partes.join(', ')}. Desactívalo para que deje de ofrecerse, sin tocar lo ya imputado.`,
     }
   }
 

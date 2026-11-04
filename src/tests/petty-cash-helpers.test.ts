@@ -275,7 +275,7 @@ describe('quién puede eliminar un fondo', () => {
 
   it('un fondo ajeno, no — y lo dice', () => {
     const ajeno = { status: 'draft', employee_id: 'otro', manager_id: 'otro' }
-    expect(motivoNoSeEliminaFondo(ajeno, FRAN)).toBe('Solo podés eliminar tus propios fondos')
+    expect(motivoNoSeEliminaFondo(ajeno, FRAN)).toBe('Solo puedes eliminar tus propios fondos')
   })
 
   it('el suyo ya enviado, tampoco: hay gente esperándolo', () => {

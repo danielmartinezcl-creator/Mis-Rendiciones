@@ -298,7 +298,7 @@ export function BancoClient({ queue }: Props) {
           <CheckCircle2 size={28} className="mx-auto mb-2 text-success-400" />
           <p className="card-label font-semibold text-ink-700">Nada en esta etapa</p>
           <p className="card-meta text-ink-500 mt-1">
-            Tocá otro contador de arriba para ver lo que sí está pendiente.
+            Toca otro contador de arriba para ver lo que sí está pendiente.
           </p>
         </div>
       )}

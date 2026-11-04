@@ -21,7 +21,7 @@ describe('esErrorOpaco', () => {
     // Están todos en español, así que no hay falso positivo posible.
     for (const m of [
       'Solo se pueden eliminar fondos en borrador. Este ya fue enviado',
-      'Solo podés eliminar tus propios fondos',
+      'Solo puedes eliminar tus propios fondos',
       'El monto excede el límite máximo por ítem',
       'La rendición no tiene ítems',
     ]) expect(esErrorOpaco(m)).toBe(false)

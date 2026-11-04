@@ -179,7 +179,7 @@ function ItemsWithoutCCPanel({ items, costCenters }: { items: ItemWithoutCC[]; c
             </table>
           </div>
           <div className="px-4 py-3 bg-warning-50/30 text-xs text-warning-700 border-t border-warning-100">
-            Tip: También podés ir a <strong>Admin → Empleados</strong> y asignar un centro de costo por defecto al empleado — todos sus gastos futuros lo heredarán automáticamente.
+            Tip: También puedes ir a <strong>Admin → Empleados</strong> y asignar un centro de costo por defecto al empleado — todos sus gastos futuros lo heredarán automáticamente.
           </div>
         </div>
       )}

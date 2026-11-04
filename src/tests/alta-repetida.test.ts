@@ -77,13 +77,13 @@ describe('motivoDeChoque', () => {
   })
   it('la papelera dice dónde está y que se restaura', () => {
     expect(motivo('papelera')).toContain('papelera')
-    expect(motivo('papelera')).toMatch(/restaur/i)
+    expect(motivo('papelera')).toMatch(/rest[aá]ur/i)
   })
   it('bloqueada manda a habilitar, no a restaurar', () => {
-    expect(motivo('bloqueada')).toMatch(/habilit/i)
+    expect(motivo('bloqueada')).toMatch(/habil[ií]t/i)
   })
   it('inactiva manda a reactivar: nunca se fue de la nómina', () => {
-    expect(motivo('inactiva')).toMatch(/reactiv/i)
+    expect(motivo('inactiva')).toMatch(/react[ií]v/i)
   })
   it('activa no propone nada: no hay nada que recuperar', () => {
     expect(motivo('activa')).toMatch(/ya (está|lo usa|lo tiene)/i)

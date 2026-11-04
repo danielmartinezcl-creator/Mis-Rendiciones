@@ -76,7 +76,7 @@ export default function QuickPage() {
 
   async function handleSubmit() {
     if (!fundId || !description.trim() || !amount) {
-      setError('Completá todos los campos')
+      setError('Completa todos los campos')
       return
     }
     const amtNum = parseFloat(amount.replace(/\./g, '').replace(',', '.'))
@@ -109,7 +109,7 @@ export default function QuickPage() {
         try {
           await addPettyCashItemAttachment(itemId, photoFile)
         } catch {
-          setAvisoAdjunto('El gasto se registró, pero la foto no se pudo adjuntar. Podés subirla desde el detalle del fondo.')
+          setAvisoAdjunto('El gasto se registró, pero la foto no se pudo adjuntar. Puedes subirla desde el detalle del fondo.')
         }
       }
 
@@ -198,7 +198,7 @@ export default function QuickPage() {
             ) : (
               <>
                 <Camera size={44} className="text-white/40 mb-3" />
-                <p className="text-white/70 card-eyebrow">Tomá la foto</p>
+                <p className="text-white/70 card-eyebrow">Toma la foto</p>
                 <p className="text-white/40 card-label mt-1">Boleta, factura o ticket</p>
               </>
             )}
@@ -314,7 +314,7 @@ export default function QuickPage() {
             <div className="text-center py-8 space-y-3">
               <Wallet size={40} className="mx-auto text-ink-200" />
               <p className="card-eyebrow text-ink-500">Sin fondos activos</p>
-              <p className="card-label text-ink-400">Necesitás un fondo de caja chica con fondos enviados.</p>
+              <p className="card-label text-ink-400">Necesitas un fondo de caja chica con fondos enviados.</p>
               <button
                 onClick={() => router.push('/petty-cash')}
                 className="card-label text-brand-600 hover:underline"
@@ -324,7 +324,7 @@ export default function QuickPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="card-label font-semibold text-ink-600">Elegí el fondo de caja chica:</p>
+              <p className="card-label font-semibold text-ink-600">Elige el fondo de caja chica:</p>
               {funds.map(f => (
                 <button
                   key={f.id}

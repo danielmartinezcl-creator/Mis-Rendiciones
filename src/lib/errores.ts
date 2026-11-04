@@ -39,7 +39,7 @@ export function esErrorOpaco(mensaje: string): boolean {
 
 /** Lo que se le muestra a una persona cuando el error no dice nada útil. */
 export const ERROR_GENERICO =
-  'No se pudo completar la acción. Probá de nuevo; si vuelve a pasar, avisale al administrador.'
+  'No se pudo completar la acción. Prueba de nuevo; si vuelve a pasar, avísale al administrador.'
 
 /**
  * El texto de un aviso, ya legible.

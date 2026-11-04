@@ -54,11 +54,11 @@ export default function NewPettyCashFundPage() {
     e.preventDefault()
     const amount = parseFloat(form.amount_requested)
     if (!form.name.trim())      { setError('El nombre del fondo es obligatorio'); return }
-    if (!form.employee_id)      { setError('Seleccioná el empleado'); return }
-    if (!proyectoCompleto(proyecto)) { setError('Indicá si el fondo es para un proyecto'); return }
+    if (!form.employee_id)      { setError('Selecciona el empleado'); return }
+    if (!proyectoCompleto(proyecto)) { setError('Indica si el fondo es para un proyecto'); return }
     if (isNaN(amount) || amount <= 0) { setError('Monto inválido'); return }
-    if (!form.period_start)     { setError('Indicá la fecha de inicio'); return }
-    if (!form.period_end)       { setError('Indicá la fecha de término'); return }
+    if (!form.period_start)     { setError('Indica la fecha de inicio'); return }
+    if (!form.period_end)       { setError('Indica la fecha de término'); return }
     if (form.period_end < form.period_start) { setError('La fecha de término debe ser posterior a la de inicio'); return }
     setError(null)
 
@@ -90,7 +90,7 @@ export default function NewPettyCashFundPage() {
         </Link>
         <div>
           <h1 className="font-display font-extrabold text-2xl tracking-tight tor-on-gradient">Nuevo fondo</h1>
-          <p className="text-sm tor-on-gradient-soft">Creá un fondo de caja chica para un empleado</p>
+          <p className="text-sm tor-on-gradient-soft">Crea un fondo de caja chica para un empleado</p>
         </div>
       </div>
 
@@ -132,7 +132,7 @@ export default function NewPettyCashFundPage() {
               onChange={e => set('employee_id', e.target.value)}
               className="campo w-full"
             >
-              <option value="">Seleccioná un empleado...</option>
+              <option value="">Selecciona un empleado...</option>
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>
                   {emp.full_name}{emp.department ? ` — ${emp.department}` : ''}
@@ -187,7 +187,7 @@ export default function NewPettyCashFundPage() {
             value={form.description}
             onChange={e => set('description', e.target.value)}
             rows={3}
-            placeholder="Describí para qué se usará este fondo..."
+            placeholder="Describe para qué se usará este fondo..."
             className="campo w-full resize-none"
           />
         </div>

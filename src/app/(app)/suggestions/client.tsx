@@ -94,7 +94,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
           Sugerencias
         </h1>
         <p className="text-sm tor-on-gradient-soft mt-1">
-          Compartí ideas, mejoras o errores que encontraste en el sistema.
+          Comparte ideas, mejoras o errores que encontraste en el sistema.
         </p>
       </div>
 
@@ -124,7 +124,7 @@ export function SuggestionsClient({ isAdmin, initialItems, initialShowAll = fals
             onChange={e => setContent(e.target.value)}
             maxLength={2000}
             rows={4}
-            placeholder="Describí la idea o el problema con el mayor detalle posible…"
+            placeholder="Describe la idea o el problema con el mayor detalle posible…"
             className="campo w-full resize-none"
           />
         </div>

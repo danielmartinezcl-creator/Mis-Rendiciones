@@ -165,7 +165,7 @@ export function motivoNoSeBorra(
   if (item.item_type === 'transfer')
     return 'Un traspaso se elimina desde el traspaso, que mueve los dos documentos a la vez'
   if (item.defontana_exported_at || cargaLegacy)
-    return 'Está contabilizado en Defontana: revertí el comprobante antes de eliminarlo'
+    return 'Está contabilizado en Defontana: revierte el comprobante antes de eliminarlo'
   return null
 }
 
@@ -173,12 +173,12 @@ export function erroresDeMovimiento(mov: MovimientoNuevo): string[] {
   const errores: string[] = []
   const elegido = movimientoPorClave(mov.clave)
 
-  if (!elegido) errores.push('Elegí qué movimiento registrar')
+  if (!elegido) errores.push('Elige qué movimiento registrar')
   if (!(mov.montoCLP > 0)) errores.push('El monto debe ser mayor a 0')
   if (!mov.fecha) errores.push('La fecha es obligatoria')
   // Solo el gasto se imputa a una cuenta: el adelanto y la devolución van contra
   // Fondos por Rendir, que no lleva centro de negocios ni categoría.
-  if (elegido?.itemType === 'expense' && !mov.categoryId) errores.push('Elegí la categoría del gasto')
+  if (elegido?.itemType === 'expense' && !mov.categoryId) errores.push('Elige la categoría del gasto')
 
   return errores
 }

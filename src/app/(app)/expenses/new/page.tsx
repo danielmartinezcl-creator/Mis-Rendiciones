@@ -153,7 +153,7 @@ export default function NewExpensePage() {
             className="campo w-full py-2.5 text-[16px]"
           />
           <p className="card-meta text-ink-400 mt-1">
-            Escribilo como una frase normal — evitá las mayúsculas completas
+            Escríbelo como una frase normal — evita las mayúsculas completas
           </p>
           {/* Una rendición siempre es de quien la crea: sin `beneficiarioId`,
               el aviso mira las propias. */}

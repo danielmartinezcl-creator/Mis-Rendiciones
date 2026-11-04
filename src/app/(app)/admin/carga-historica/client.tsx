@@ -226,7 +226,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
     if (!title.trim()) { setError('El título es obligatorio'); return }
     if (!approvedDate) { setError('La fecha de rendición es obligatoria'); return }
     if (!responsibleId) { setError('El responsable es obligatorio'); return }
-    if (rows.length === 0) { setError('Agregá al menos un ítem'); return }
+    if (rows.length === 0) { setError('Agrega al menos un ítem'); return }
 
     setIsCommitting(true)
     setError(null)
@@ -296,7 +296,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
           </h1>
         </div>
         <p className="text-sm tor-on-gradient-soft">
-          Importá rendiciones y cajas chicas de períodos anteriores para exportarlas a Defontana.
+          Importa rendiciones y cajas chicas de períodos anteriores para exportarlas a Defontana.
         </p>
       </div>
 
@@ -434,7 +434,7 @@ export function HistoricalImportClient({ categories, employees, costCenters, his
           >
             <Upload size={32} className="mx-auto mb-3 text-ink-300" />
             <p className="font-medium text-ink-700">
-              {isLoading ? 'Procesando…' : 'Hacé clic o arrastrá el archivo Excel aquí'}
+              {isLoading ? 'Procesando…' : 'Haz clic o arrastra el archivo Excel aquí'}
             </p>
             <p className="text-xs text-ink-400 mt-1">Formato .xlsx — Caja Chica o Rendición</p>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelUpload} />

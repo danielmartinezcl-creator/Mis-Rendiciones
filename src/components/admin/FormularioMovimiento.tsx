@@ -138,7 +138,7 @@ export function FormularioMovimiento({ reportId, categorias, onAgregado }: Props
           className={`${campo} w-full lg:w-64`}
           aria-label="Categoría del gasto"
         >
-          <option value="">Elegí la categoría…</option>
+          <option value="">Elige la categoría…</option>
           {categorias.map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}

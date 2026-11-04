@@ -27,15 +27,15 @@ export async function getComprobante(
 ): Promise<{ comprobante: Comprobante; huella: string } | { error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' }
+  if (!user) return { error: 'Tu sesión expiró. Vuelve a ingresar.' }
 
   try {
     const comprobante = tipo === 'rendicion' ? await deRendicion(id) : await deFondo(id)
-    if (!comprobante) return { error: 'No encontramos el documento, o no tenés acceso a él.' }
+    if (!comprobante) return { error: 'No encontramos el documento, o no tienes acceso a él.' }
     return { comprobante, huella: await huellaDe(comprobante) }
   } catch (e) {
     console.error('[comprobante]', tipo, id, e)
-    return { error: 'No se pudo armar el comprobante. Probá de nuevo en un momento.' }
+    return { error: 'No se pudo armar el comprobante. Prueba de nuevo en un momento.' }
   }
 }
 

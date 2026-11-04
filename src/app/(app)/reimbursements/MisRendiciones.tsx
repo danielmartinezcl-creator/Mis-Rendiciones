@@ -90,7 +90,7 @@ export function MisRendiciones({ documentos, opciones, filtroInicial, hoy, puede
           {/* Con el botón arriba, mandar a la barra de abajo sería mandar al
               lugar más lejano de los dos. */}
           <p className="card-meta text-ink-400 mt-1">
-            {puedeRendir ? 'Tocá «Rendir» para crear la primera' : 'Acá vas a ver tus rendiciones'}
+            {puedeRendir ? 'Toca «Rendir» para crear la primera' : 'Acá vas a ver tus rendiciones'}
           </p>
         </div>
       </div>
