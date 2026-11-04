@@ -102,6 +102,11 @@ description: >
 fuente cae al fallback del sistema **en silencio**. `next/font` expone
 `--font-manrope`; `@theme` define `--font-amount` en base a él.
 
+### Cómo le habla la app a la persona
+- **Tuteo chileno, nunca voseo**: «puedes», «revisa», «elige», no «podés», «revisá», «elegí».
+  Vale para pantallas, errores y correos. La app mezclaba las dos formas hasta el 2026-11-04,
+  cuando se pasaron 106 líneas para el lanzamiento. Los comentarios del código no se tocaron
+
 ### Lógica sensible
 - OCR, emails y tipo de cambio histórico van en **Server Actions** — nunca en Client Components
 
@@ -1792,7 +1797,14 @@ una columna `NOT NULL`.
    > el riesgo real es bajo — devuelven datos del propio usuario (su organización, si es
    > admin, si es aprobador de alguien), nunca de otros.
 
-10. **Manual de usuario sin versionar.** `docs/manual/` (HTML, PDF de 8 MB y 20
+10. **Manual de usuario — regenerado el 2026-11-04, para el lanzamiento.** Es público en
+    `/manual` (`public/manual/`, enlazado desde el login, «Más» y el riel) y lo arma
+    `node scripts/publicar-manual.mjs` desde `docs/manual/manual.html` y las capturas.
+    Para repetirlas: sacar los datos de ejemplo de la papelera (`datos-demo.sql`), que
+    Daniel corra `node e2e/manual/capturar.mjs --guardar-sesiones`, correr el script sin
+    ese parámetro, y devolver todo (`datos-demo-revertir.sql` + borrar `e2e/.auth/manual-*`).
+    Lo que sigue es el texto viejo, de antes de regenerarlo:
+    `docs/manual/` (HTML, PDF de 8 MB y 20
     capturas) y `e2e/manual/` (los guiones que las toman) existen solo en la raíz,
     fuera de git, desde el 2026-09-24: son anteriores a los permisos por asignación
     (2026-09-25). Decidir si se versionan y regenerarlos. El 2026-09-28 una sesión
@@ -1806,6 +1818,14 @@ una columna `NOT NULL`.
 >   ambos.** Todo link de contraseña sale por Resend hacia `/set-password?token_hash=…`
 >   y se canjea recién al guardar (`verifyOtp`), así que los escáneres de Outlook ya no
 >   lo queman. `revisarConfigCorreo` corta antes del bucle si el correo no puede salir.
+>
+>   **Cuánto dura el link: lo decide Supabase, no el código.** «Este enlace vence en 24
+>   horas» es texto fijo en `access-link.ts` y en el manual; el plazo real es Auth → Email
+>   → «Email OTP Expiration», que no se puede leer por SQL. Invitar, reinvitar y recuperar
+>   usan el mismo camino y duran lo mismo; generar uno nuevo anula el anterior. El
+>   2026-11-04 el texto era falso: el link de Claudia Lobos ya estaba vencido a las 12 h
+>   54 min. Daniel lo dejó ese día en `86400` (24 h, el máximo). **Si un restablecimiento
+>   del proyecto o un cambio en el panel lo mueve, el correo vuelve a mentir.**
 >
 >   **⚠️ INCIDENTE 2026-10-07 — esto decía que «en local la recuperación no envía». Era
 >   FALSO.** En Vercel, `RESEND_API_KEY` estaba marcada para *development, preview y
@@ -2247,6 +2267,7 @@ una columna `NOT NULL`.
 | Mostrar un distintivo solo cuando alguien marcó el documento | El de cuadre exigía `status = 'reimbursed'`, así que las 115 rendiciones con saldo **sin** esa marca no mostraban nada: justo las que hay que revisar. Un indicador que depende de que alguien se haya acordado de marcar no informa de lo que falta | Mostrarlo en cuanto el documento está decidido (`ESTADOS_APROBADOS`) y calcularlo de los datos, no de la marca |
 | Ofrecer en un filtro una opción cuya respuesta siempre es cero | La nómina no trae a la gente de la papelera (`getOrgEmployees` filtra `deleted_at`), así que un estado «en la papelera» habría devuelto 0 siempre. Un filtro que miente una vez enseña a desconfiar de todos | Las opciones salen de lo que la pantalla PUEDE mostrar, no del dominio entero. Lo mismo con el chip de Proyecto, que no se dibuja mientras el catálogo de obras esté vacío |
 | Diagnosticar un fallo intermitente **solo** con un `console.error` | Los registros de Vercel en plan Hobby duran **~1 hora**. El 2026-10-21 se agregó el registro `[correo]` a las 22:09 para saber por qué a Katherine no le había llegado un aviso a las 20:40, y a las 01:52 los de las 20:40 ya no existían: el registro sirve para el PRÓXIMO fallo, nunca para el que se está investigando | Devolver el motivo **como dato** además de registrarlo (`ResultadoEnvio` de `avisos.ts`), y dar una forma de **reproducirlo a pedido** — un botón de prueba que recorra el mismo camino. Un registro que hay que esperar a que alguien vuelva a fallar no es un diagnóstico |
+| Creer el plazo que dice el correo de invitación | «Vence en 24 horas» era texto fijo y nada lo conectaba con el plazo real de Supabase: el link de Claudia Lobos dio «email link has expired» a las 12 h 54 min (2026-11-04) | El plazo se lee en Auth → Email → «Email OTP Expiration», hoy `86400`. Para diagnosticar, `query_logs` con `auth_logs`: guarda solo ~24 h |
 | Dar por bueno «está bien configurado» como si fuera «funciona» | La pestaña «Correo» leía el MISMO `revisarConfigCorreo` que decide un envío —así que no podía mentir— y aun así informaba verde mientras el correo no salía: lo que mira es la configuración, y lo que falló estaba del otro lado de Resend | Entre «puede» y «hizo» va una prueba que recorra el camino completo, no una llamada aparte: una prueba por otra vía puede salir verde mientras el camino real falla |
 | Confiar en `puedeRecibir` como control de un destinatario que viene del navegador | Con `CORREO_SOLO_A` **vacía** devuelve `true` para cualquier dirección — correcto para un aviso (no hay piloto, manda el candado general) y un agujero para un botón al que se le pasa el destino | `destinoDePrueba` en el servidor: la propia dirección o una de la lista, y sin lista cargada **solo la propia**. La lista es la autorización porque solo se cambia en Vercel |
 | Probar que «el correo funciona» mandándolo al Gmail del admin | Es el caso más fácil y no responde la pregunta: un dominio corporativo puede filtrar o rechazar lo que Gmail acepta sin chistar, y lo que faltaba saber era si llega a @pentaingenieros.cl | Probar contra la dirección del DOMINIO que está en duda. Y antes de sospechar de la clave, recordar qué ya se probó: las 52 invitaciones del 2026-10-07 dejaron demostrado que clave, remitente y API andan |
