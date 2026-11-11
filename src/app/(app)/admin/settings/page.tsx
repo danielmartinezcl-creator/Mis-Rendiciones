@@ -133,6 +133,7 @@ export default function AdminSettingsPage() {
 
 /* ── Tab: Categorías ───────────────────────────────────────────────────── */
 function CategoriesTab() {
+  const { avisar } = useDialogos()
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [loading,    setLoading]    = useState(true)
 
@@ -174,7 +175,10 @@ function CategoriesTab() {
     if (!editCat || !editCat.name.trim()) return
     setEditSaving(true)
     try {
-      await updateCategory(editCat.id, { name: editCat.name, color: editCat.color, icon: editCat.icon, monthly_budget_clp: editCat.monthly_budget_clp })
+      // Si no se guardó, el formulario queda abierto con lo escrito y se dice por
+      // qué: cerrarlo igual era lo que hacía creer que el cambio había entrado.
+      const { error } = await updateCategory(editCat.id, { name: editCat.name, color: editCat.color, icon: editCat.icon, monthly_budget_clp: editCat.monthly_budget_clp })
+      if (error) { avisar(error, 'error'); return }
       setEditCat(null)
       await load()
     } finally { setEditSaving(false) }
@@ -183,10 +187,17 @@ function CategoriesTab() {
   async function handleDelete(id: string) {
     setDeleteLoading(true)
     try {
-      await deleteCategory(id)
+      const { error } = await deleteCategory(id)
+      if (error) { avisar(error, 'error'); return }
       setDeleteCat(null)
       await load()
     } finally { setDeleteLoading(false) }
+  }
+
+  async function handleToggle(cat: ExpenseCategory) {
+    const { error } = await toggleCategoryActive(cat.id, !cat.is_active)
+    if (error) avisar(error, 'error')
+    await load()
   }
 
   const inputCls = 'campo w-full py-2.5'
@@ -195,7 +206,7 @@ function CategoriesTab() {
 
   return (
     <section className="space-y-3">
-      <p className="text-xs tor-on-gradient-soft">Las categorías globales están disponibles para todas las organizaciones. Puedes agregar y modificar categorías propias de tu empresa.</p>
+      <p className="text-xs tor-on-gradient-soft">Las categorías son las de tu empresa: puedes agregarlas, cambiarles el nombre o desactivarlas. Una desactivada deja de ofrecerse, pero los gastos que ya la usan la conservan.</p>
 
       {/* ── Formulario nueva categoría ── */}
       <form onSubmit={handleAdd} className="hoja p-4 space-y-3">
@@ -323,7 +334,7 @@ function CategoriesTab() {
                   <div className="flex items-center gap-1 shrink-0">
                     {isOrgCat && (
                       <button
-                        onClick={() => toggleCategoryActive(cat.id, cat.is_active).then(load)}
+                        onClick={() => handleToggle(cat)}
                         title={cat.is_active ? 'Desactivar' : 'Activar'}
                         className="text-xs text-ink-400 hover:text-ink-700 transition-colors font-medium px-2 py-1 hover:bg-ink-100 rounded-item">
                         {cat.is_active ? 'Desactivar' : 'Activar'}
@@ -776,6 +787,7 @@ function ChainsTab() {
 
 /* ── Tab: Defontana ─────────────────────────────────────────────────────── */
 function DefontanaTab() {
+  const { avisar } = useDialogos()
   // ── Config general
   const [contraAccount,  setContraAccount]  = useState('')
   const [providerAccount, setProviderAccount] = useState('')
@@ -864,7 +876,8 @@ function DefontanaTab() {
   async function handleSaveCatCode(catId: string) {
     setSavingCat(catId)
     try {
-      await updateCategoryDefontanaCode(catId, catCodes[catId] ?? '')
+      const { error } = await updateCategoryDefontanaCode(catId, catCodes[catId] ?? '')
+      if (error) avisar(error, 'error')
     } finally {
       setSavingCat(null)
     }

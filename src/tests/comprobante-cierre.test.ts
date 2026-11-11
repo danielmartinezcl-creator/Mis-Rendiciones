@@ -179,7 +179,9 @@ describe('los dos archivos', () => {
     // El total respeta los filtros: SUBTOTAL y no SUM
     const total = Object.values(g).find(x => (x as { f?: string })?.f?.startsWith('SUBTOTAL(109')) as { v: number }
     expect(total.v).toBe(323364)
-  })
+  // Cargar exceljs y xlsx la primera vez pasa los 5 s por omisión cuando corren
+  // los 63 archivos en paralelo: sola tarda menos de uno (2026-11-11)
+  }, 30_000)
 
   it('el PDF es un PDF', async () => {
     const { comprobanteAPdf } = await import('@/lib/export/comprobante-pdf')

@@ -1305,13 +1305,26 @@ export async function addCategory(data: {
   revalidatePath('/admin/settings')
 }
 
-export async function toggleCategoryActive(id: string, isActive: boolean) {
-  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+/* Una categoría GLOBAL (`org_id` null) es de todas las organizaciones, y estas
+   acciones solo tocan las de la propia: `.eq('org_id', orgId)` no la encuentra.
+   Postgres no da error por eso —afecta 0 filas y Supabase responde éxito—, así
+   que hasta el 2026-11-11 la pantalla cerraba el formulario, la auditoría anotaba
+   «Alimentación → Alimentos y Bebidas» tres veces y el nombre seguía igual. Cada
+   acción pide de vuelta las filas que cambió y lo dice cuando no cambió ninguna. */
+const CATEGORIA_NO_PROPIA =
+  'No se guardó: esta categoría es global, la comparten todas las empresas, y solo se pueden cambiar las de tu organización.'
 
-  await supabase
+export async function toggleCategoryActive(id: string, isActive: boolean): Promise<{ error?: string }> {
+  const { orgId, userId: actorId, actorName } = await requireAdmin()
+
+  const { data: cambiadas, error } = await createAdminClient()
     .from('expense_categories')
     .update({ is_active: isActive })
     .eq('id', id)
+    .eq('org_id', orgId)
+    .select('id')
+  if (error) return { error: error.message }
+  if (!cambiadas?.length) return { error: CATEGORIA_NO_PROPIA }
 
   try {
     await logAudit({
@@ -1325,13 +1338,17 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
   } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
+  return {}
 }
 
-export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string; monthly_budget_clp?: number | null }) {
+export async function updateCategory(
+  id: string,
+  data: { name: string; color?: string; icon?: string; monthly_budget_clp?: number | null },
+): Promise<{ error?: string }> {
   const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
 
-  if (!validateStringLength(data.name, 100)) throw new Error('Nombre inválido (1-100 caracteres)')
-  if (data.color && !validateHexColor(data.color)) throw new Error('Color inválido — debe ser hex (#RRGGBB)')
+  if (!validateStringLength(data.name, 100)) return { error: 'Nombre inválido (1-100 caracteres)' }
+  if (data.color && !validateHexColor(data.color)) return { error: 'Color inválido — debe ser hex (#RRGGBB)' }
 
   const admin = createAdminClient()
 
@@ -1339,7 +1356,7 @@ export async function updateCategory(id: string, data: { name: string; color?: s
   const { data: before } = await supabase
     .from('expense_categories').select('name, color, icon, monthly_budget_clp').eq('id', id).single()
 
-  const { error } = await admin
+  const { data: cambiadas, error } = await admin
     .from('expense_categories')
     .update({
       name:               data.name.trim(),
@@ -1349,8 +1366,10 @@ export async function updateCategory(id: string, data: { name: string; color?: s
     })
     .eq('id', id)
     .eq('org_id', orgId)
+    .select('id')
 
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
+  if (!cambiadas?.length) return { error: CATEGORIA_NO_PROPIA }
 
   await logAudit({
     orgId,
@@ -1365,9 +1384,10 @@ export async function updateCategory(id: string, data: { name: string; color?: s
   })
 
   revalidatePath('/admin/settings')
+  return {}
 }
 
-export async function deleteCategory(id: string) {
+export async function deleteCategory(id: string): Promise<{ error?: string }> {
   const { supabase, userId: actorId, orgId, actorName } = await requireAdmin()
   const admin = createAdminClient()
 
@@ -1378,13 +1398,19 @@ export async function deleteCategory(id: string) {
     .eq('id', id)
     .single()
 
-  const { error } = await admin
+  const { data: borradas, error } = await admin
     .from('expense_categories')
     .delete()
     .eq('id', id)
     .eq('org_id', orgId)
+    .select('id')
 
-  if (error) throw new Error(error.message)
+  // 23503: gastos o políticas la nombran (sus llaves foráneas no tienen ON DELETE)
+  if (error?.code === '23503') {
+    return { error: 'No se puede eliminar: hay gastos o políticas con esta categoría. Desactívala para que no se pueda elegir más.' }
+  }
+  if (error) return { error: error.message }
+  if (!borradas?.length) return { error: CATEGORIA_NO_PROPIA }
 
   await logAudit({
     orgId,
@@ -1398,6 +1424,7 @@ export async function deleteCategory(id: string) {
   })
 
   revalidatePath('/admin/settings')
+  return {}
 }
 
 export async function reclassifyExpenseItem(itemId: string, categoryId: string) {
@@ -1594,15 +1621,17 @@ export async function updateDefontanaSettings(settings: {
   revalidatePath('/admin/settings')
 }
 
-export async function updateCategoryDefontanaCode(categoryId: string, code: string) {
+export async function updateCategoryDefontanaCode(categoryId: string, code: string): Promise<{ error?: string }> {
   const { orgId, userId: actorId, actorName } = await requireAdmin()
   const admin = createAdminClient()
-  const { error } = await admin
+  const { data: cambiadas, error } = await admin
     .from('expense_categories')
     .update({ defontana_account_code: code || null })
     .eq('id', categoryId)
     .eq('org_id', orgId)
-  if (error) throw new Error(error.message)
+    .select('id')
+  if (error) return { error: error.message }
+  if (!cambiadas?.length) return { error: CATEGORIA_NO_PROPIA }
 
   try {
     await logAudit({
@@ -1616,6 +1645,7 @@ export async function updateCategoryDefontanaCode(categoryId: string, code: stri
   } catch { /* silent */ }
 
   revalidatePath('/admin/settings')
+  return {}
 }
 
 export async function getDefontanaExportData(filters: {
@@ -2521,6 +2551,8 @@ export async function getHistoricalCajaChicaImports() {
     .eq('is_historical_import', true)
     .eq('historical_type', 'caja_chica')
     .is('deleted_at', null)
+    // Los ítems borrados quedan marcados, no eliminados: sin esto se seguían viendo
+    .is('expense_items.deleted_at', null)
     /* Las más recientes PRIMERO (Daniel, 2026-10-20). Son 145 y se consultan
        de atrás para adelante: lo último cargado es lo que se viene a mirar.
        `nullsFirst: false` manda al fondo las que no tienen fecha de rendición,

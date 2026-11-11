@@ -798,6 +798,11 @@ export async function getReportWithItems(reportId: string) {
       )
     `)
     .eq('id', reportId)
+    // Borrar un ítem lo MARCA (`deleted_at`), no lo elimina. El total ya los
+    // excluía y esta lista no, así que hasta el 2026-11-11 el ítem borrado seguía
+    // en pantalla con el total bajado. El filtro va sobre el recurso anidado: saca
+    // los ítems marcados, nunca la rendición.
+    .is('expense_items.deleted_at', null)
     .single()
 
   return report
