@@ -1341,9 +1341,14 @@ el aviso de la C**.
   PDF — no es la app (Supabase lo entrega inline, sin X-Frame-Options); con `channel: 'chrome'` se ve
 - El aviso de gastos sin categoría cuenta SOLO gastos (`gastosSinCategoria`): un adelanto no se imputa
 - **El recorrido sale del historial real** (`construirRecorridoRendicion`, `lib/detalle-rendicion.ts`,
-  13 pruebas), no de `REPORT_STEPS`. La lista sigue con `VerticalTimeline` + `REPORT_STEPS`, que
-  marca «Revisión nivel 2» como hecho en toda rendición que pasó de ese punto aunque su cadena
-  no tenga N2 — **la fila desplegable todavía lo muestra mal**
+  13 pruebas), no de `REPORT_STEPS`. La lista usa `pasosDeRendicion(r)`: `REPORT_STEPS` sin
+  «Revisión nivel 2» cuando la cadena no tiene N2 (`cadena_l2_id`). `VerticalTimeline` y
+  `CompactStepper` marcan como hecho todo lo anterior al estado actual, así que un paso de más se
+  veía cumplido aunque nunca hubiera pasado. Corregido el 2026-11-20, verificado por Daniel
+- **Caja chica también reclasifica** (2026-11-20): el detalle de un fondo muestra la categoría de
+  cada gasto y el admin la cambia con el lápiz (`reclasificarGastoFondo`, con la sesión: la 033 §3b
+  libera `category_id` al admin en cualquier estado del fondo); las cargas históricas de
+  `/petty-cash` la muestran y cambian vía `updateHistoricalExpenseItem`
 - El «1 issue» de Next en una captura de Playwright es la hidratación de `caret-color`, que la
   captura inyecta para ocultar el cursor: con `caret: 'initial'` desaparece. No es de la app
 - Solo para mirar y reclasificar: aprobar, cargar y autorizar siguen en sus pantallas
