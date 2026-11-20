@@ -703,7 +703,12 @@ export function AdminReportsClient({ initialReports }: Props) {
                       docs/Rediseño/tornasol-spec.md. */}
                   <div className="flex-1 min-w-[10rem]">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[16px] leading-snug font-semibold text-ink-800">{formatDisplayTitle(r.title)}</p>
+                      {/* El título abre el detalle completo, con los comprobantes a la vista:
+                          esta fila desplegada nunca los mostró (2026-11-20) */}
+                      <Link href={`/admin/reports/${r.id}`}
+                        className="text-[16px] leading-snug font-semibold text-ink-800 hover:text-brand-700 hover:underline">
+                        {formatDisplayTitle(r.title)}
+                      </Link>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusCls(r.status)}`}>
                         {statusLabel(r.status)}
                       </span>

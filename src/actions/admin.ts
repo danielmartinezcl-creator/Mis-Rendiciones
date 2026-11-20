@@ -285,6 +285,136 @@ export async function getReportDetailForAdmin(reportId: string) {
   }
 }
 
+/**
+ * Todo lo que muestra el detalle de una rendición para el admin
+ * (`/admin/reports/[id]`), en una sola llamada.
+ *
+ * Existe porque la fila desplegable de `/admin/reports` nunca pidió los
+ * comprobantes: `getReportDetailForAdmin` trae descripción, monto y estado, y la
+ * única forma de ver una boleta era bajar el ZIP entero (Daniel, 2026-11-20).
+ *
+ * Los comprobantes se firman acá, con la sesión del admin: la lectura del bucket
+ * está acotada a la carpeta de su propia organización (035), así que una
+ * rendición de otra organización no firmaría nada aunque se pidiera su id.
+ */
+export async function getRendicionParaAdmin(reportId: string) {
+  const { supabase, orgId } = await requireAdmin()
+
+  const { data: reporte } = await supabase
+    .from('expense_reports')
+    .select(`id, title, status, submitter_id, created_at, submitted_at, approved_at, reimbursed_at,
+      reimbursed_amount, payment_reference, defontana_exported_at, defontana_export_ref,
+      is_historical_import, historical_type, cadena_l1_id, cadena_l2_id, proyectos (numero, nombre)`)
+    .eq('id', reportId)
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .single()
+  if (!reporte) return null
+
+  type ItemCrudo = {
+    id: string; description: string; merchant: string | null; date: string | null; doc_type: string | null
+    amount_clp: number; status: string; item_type: string | null; rejection_reason: string | null
+    category_id: string | null; cost_center_id: string | null; transfer_id: string | null
+    expense_categories: { name: string } | null
+    attachments: { id: string; storage_path: string; file_type: AttachmentKind }[]
+  }
+
+  const [itemsRes, historialRes, pagadosRes] = await Promise.all([
+    supabase
+      .from('expense_items')
+      .select(`id, description, merchant, date, doc_type, amount_clp, status, item_type, rejection_reason,
+        category_id, cost_center_id, transfer_id, expense_categories (name),
+        attachments (id, storage_path, file_type)`)
+      .eq('report_id', reportId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('expense_report_approvals')
+      .select('level, action, notes, created_at, approver_id')
+      .eq('report_id', reportId)
+      .order('created_at', { ascending: true }),
+    // La dirección de un traspaso no es una columna: se resuelve contra quién lo pagó
+    supabase.from('fund_transfers').select('id').eq('payer_report_id', reportId),
+  ])
+
+  const items = (itemsRes.data ?? []) as unknown as ItemCrudo[]
+  const historial = historialRes.data ?? []
+  const pagados = new Set((pagadosRes.data ?? []).map(t => t.id))
+
+  // Nombres: quien rinde, quien aprobó en la cadena y cada persona del historial
+  const ids = [...new Set([
+    reporte.submitter_id, reporte.cadena_l1_id, reporte.cadena_l2_id,
+    ...historial.map(h => h.approver_id),
+  ].filter((x): x is string => !!x))]
+  const { data: personas } = await supabase.from('users').select('id, full_name, department').in('id', ids)
+  const persona = new Map((personas ?? []).map(p => [p.id, p]))
+
+  // Una sola llamada firma todos los comprobantes; una hora alcanza para revisarlos
+  const rutas = items.flatMap(i => i.attachments.map(a => a.storage_path))
+  const { data: firmadas } = rutas.length
+    ? await supabase.storage.from('expense-attachments').createSignedUrls(rutas, 3600)
+    : { data: [] as { path: string | null; signedUrl: string }[] }
+  const urlDe = new Map((firmadas ?? []).map(f => [f.path, f.signedUrl]))
+
+  const gastos = items.map(i => ({
+    id:                i.id,
+    description:       i.description,
+    merchant:          i.merchant,
+    date:              i.date,
+    doc_type:          i.doc_type,
+    amount_clp:        Number(i.amount_clp),
+    status:            i.status,
+    item_type:         i.item_type,
+    rejection_reason:  i.rejection_reason,
+    category_id:       i.category_id,
+    category_name:     i.expense_categories?.name ?? null,
+    cost_center_id:    i.cost_center_id,
+    is_transfer_payer: i.transfer_id ? pagados.has(i.transfer_id) : false,
+    adjuntos: i.attachments.map(a => ({
+      id:     a.id,
+      tipo:   a.file_type,
+      nombre: a.storage_path.split('/').pop() ?? a.storage_path,
+      url:    urlDe.get(a.storage_path) ?? null,
+    })),
+  }))
+
+  const proyecto = reporte.proyectos as unknown as { numero: string; nombre: string | null } | null
+
+  return {
+    reporte: {
+      id:                    reporte.id,
+      title:                 reporte.title,
+      status:                reporte.status,
+      created_at:            reporte.created_at,
+      submitted_at:          reporte.submitted_at,
+      approved_at:           reporte.approved_at,
+      reimbursed_at:         reporte.reimbursed_at,
+      payment_reference:     reporte.payment_reference,
+      defontana_exported_at: reporte.defontana_exported_at,
+      defontana_export_ref:  reporte.defontana_export_ref,
+      is_historical_import:  reporte.is_historical_import,
+      cadena_con_n2:         !!reporte.cadena_l2_id,
+      proyecto,
+    },
+    persona: {
+      nombre:       persona.get(reporte.submitter_id)?.full_name ?? 'Sin nombre',
+      departamento: persona.get(reporte.submitter_id)?.department ?? null,
+    },
+    aprobadorN1: reporte.cadena_l1_id ? persona.get(reporte.cadena_l1_id)?.full_name ?? null : null,
+    gastos,
+    saldo: saldoDeRendicion(gastos, reporte.reimbursed_amount),
+    historial: historial.map(h => ({
+      action:     h.action,
+      level:      h.level as number | null,
+      notes:      h.notes,
+      created_at: h.created_at,
+      nombre:     persona.get(h.approver_id)?.full_name ?? 'Sin nombre',
+    })),
+  }
+}
+
+export type RendicionParaAdmin = NonNullable<Awaited<ReturnType<typeof getRendicionParaAdmin>>>
+
 // ─── Reportes (legacy simple) ────────────────────────────────────────────────
 
 export async function getAllReports(status?: string) {

@@ -1324,6 +1324,30 @@ Ingenieros—, el mismo error que en el fondo 9db37284. Se borró el ítem; qued
 devolver $37.240, que Daniel registra como transferencia. El comprobante adjunto quedó sin
 fila (su ruta está en `audit_log`) y se le dejó una copia en el Escritorio.
 
+### ✅ Detalle de rendición para el admin (2026-11-20)
+
+`/admin/reports/[id]`, al que lleva el título de cada rendición en la lista. Pedido de Daniel:
+como admin **no veía los comprobantes** de una rendición. No era un permiso: la fila
+desplegable de `/admin/reports` nunca los pedía (`getReportDetailForAdmin` trae descripción,
+monto y estado) y su única salida era el ZIP. Diseños en
+https://claude.ai/artifact/J9kbk4aAcwX1oohxUCpPP8 — Daniel eligió **la A con el visor de la B y
+el aviso de la C**.
+
+- Estructura del detalle de un fondo: izquierda la plata y los gastos, derecha el registro.
+  Todo sale de `getRendicionParaAdmin`, que firma los comprobantes en UNA llamada
+  (`createSignedUrls`) con la sesión del admin
+- `VisorComprobantes` (`components/ui`): la boleta en grande, recorre COMPROBANTES y no gastos.
+  El PDF va en un `<iframe>`: **en Chromium sin ventana sale en blanco** porque no trae visor de
+  PDF — no es la app (Supabase lo entrega inline, sin X-Frame-Options); con `channel: 'chrome'` se ve
+- El aviso de gastos sin categoría cuenta SOLO gastos (`gastosSinCategoria`): un adelanto no se imputa
+- **El recorrido sale del historial real** (`construirRecorridoRendicion`, `lib/detalle-rendicion.ts`,
+  13 pruebas), no de `REPORT_STEPS`. La lista sigue con `VerticalTimeline` + `REPORT_STEPS`, que
+  marca «Revisión nivel 2» como hecho en toda rendición que pasó de ese punto aunque su cadena
+  no tenga N2 — **la fila desplegable todavía lo muestra mal**
+- El «1 issue» de Next en una captura de Playwright es la hidratación de `caret-color`, que la
+  captura inyecta para ocultar el cursor: con `caret: 'initial'` desaparece. No es de la app
+- Solo para mirar y reclasificar: aprobar, cargar y autorizar siguen en sus pantallas
+
 ### ⏳ El correo que no le llegó a Katherine — SIN resolver (2026-10-21)
 
 Daniel: «envió a aprobación, y ahí no le llegó correo a Katherine para aprobar los
