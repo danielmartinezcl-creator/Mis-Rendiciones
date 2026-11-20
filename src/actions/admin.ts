@@ -28,6 +28,7 @@ import {
   motivoNoSeBorra, type MovimientoNuevo,
 } from '@/lib/movimientos-historicos'
 import { saldoDeRendicion, type ItemDeSaldo, type SaldoRendicion } from '@/lib/saldo-rendicion'
+import { fechaDelComprobanteDeGastos } from '@/lib/fecha-comprobante'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -1849,7 +1850,7 @@ export async function getDefontanaExportData(filters: {
   // Rendiciones aprobadas / reembolsadas (excluye papelera)
   let query = supabase
     .from('expense_reports')
-    .select('id, title, approved_at, reimbursed_at, submitter_id, defontana_exported_at, defontana_export_ref')
+    .select('id, title, submitted_at, approved_at, reimbursed_at, submitter_id, defontana_exported_at, defontana_export_ref')
     .eq('org_id', orgId)
     .in('status', ESTADOS_APROBADOS)
     .is('deleted_at', null)
@@ -1913,11 +1914,9 @@ export async function getDefontanaExportData(filters: {
   const exportReports = reports.map(r => {
     const submitter = userMap[r.submitter_id]
 
-    // Fecha = fecha del ítem más antiguo del reporte (o approved_at como fallback)
+    // La fecha del comprobante de gastos es la de la rendición, no la del gasto más antiguo
     const reportItems = itemsByReport[r.id] ?? []
-
-    const itemDates = reportItems.map(i => i.date).filter(Boolean).sort() as string[]
-    const reportDate = itemDates[0] ?? (r.reimbursed_at ?? r.approved_at ?? '').split('T')[0]
+    const reportDate  = fechaDelComprobanteDeGastos(r, reportItems.map(i => i.date))
 
     const mappedItems = reportItems.map(i => {
       const rawCat = i.expense_categories
@@ -2857,7 +2856,7 @@ export async function getHistoricalFundDefontanaData(
   const [reportRes, orgRes, suppliersRes] = await Promise.all([
     supabase
       .from('expense_reports')
-      .select('id, title, approved_at, submitter_id')
+      .select('id, title, submitted_at, approved_at, submitter_id')
       .eq('id', reportId)
       .single(),
     supabase
@@ -2913,8 +2912,8 @@ export async function getHistoricalFundDefontanaData(
 
   const transferMap = await loadTransferCounterparts(supabase, items.map(i => i.transfer_id))
 
-  const dates = items.map(i => i.date).filter(Boolean).sort() as string[]
-  const reportDate = dates[0] ?? (report.approved_at ?? '').split('T')[0]
+  // La fecha del comprobante de gastos es la de la rendición, no la del gasto más antiguo
+  const reportDate = fechaDelComprobanteDeGastos(report, items.map(i => i.date))
 
   const mappedItems = items.map(i => {
     const cat = i.expense_categories

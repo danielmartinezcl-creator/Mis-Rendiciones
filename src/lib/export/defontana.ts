@@ -39,7 +39,7 @@ export interface DefontanaItem {
 export interface DefontanaReportInput {
   reportId:             string
   reportTitle:          string
-  date:                 string   // YYYY-MM-DD — fecha del ítem más antiguo del reporte
+  date:                 string   // YYYY-MM-DD — la del comprobante de gastos: ver `fechaDelComprobanteDeGastos`
   employeeName:         string
   employeeRut:          string | null  // RUT del rendidor → va en cod_ficha de la línea contrapartida
   employeeCostCenterId: string | null
