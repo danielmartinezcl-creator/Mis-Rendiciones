@@ -14,7 +14,8 @@ import { CompactStepper } from '@/components/ui/CompactStepper'
 import { InsigniaSaldo } from '@/components/ui/InsigniaSaldo'
 import { etiquetaDeSaldo } from '@/lib/saldo-rendicion'
 import { VerticalTimeline } from '@/components/ui/VerticalTimeline'
-import { REPORT_STEPS, ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
+import { ESTADOS_APROBADOS, ESTADOS_POR_PAGAR } from '@/lib/constants'
+import { pasosDeRendicion } from '@/lib/detalle-rendicion'
 import type { ReportStatus } from '@/lib/constants'
 import type { AdminReportRow } from '@/lib/export/excel'
 import type { CostCenter } from '@/lib/supabase/types'
@@ -741,7 +742,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                     {r.status !== 'rejected' && (
                       <div className="mt-2 max-w-xs">
                         <CompactStepper
-                          steps={REPORT_STEPS}
+                          steps={pasosDeRendicion(r)}
                           currentStatus={r.status === 'partially_approved' ? 'approved' : r.status}
                         />
                       </div>
@@ -981,7 +982,7 @@ export function AdminReportsClient({ initialReports }: Props) {
                         <div>
                           <p className="card-label font-semibold text-ink-500 mb-3">Progreso</p>
                           <VerticalTimeline
-                            steps={REPORT_STEPS}
+                            steps={pasosDeRendicion(r)}
                             currentStatus={r.status === 'partially_approved' ? 'approved' : r.status}
                           />
                         </div>

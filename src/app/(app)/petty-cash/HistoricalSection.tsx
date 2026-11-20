@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { ItemAttachmentZone } from '@/components/ui/ItemAttachmentZone'
 import { History, ArrowDownToLine, ArrowUpFromLine, Receipt, BookCheck, ArrowRightLeft, ChevronDown, ChevronRight, SendHorizontal, FileSpreadsheet, Trash2, Pencil, Check, X, Undo2, Hourglass, AlertTriangle } from 'lucide-react'
 import { RevertDefontanaDialog } from '@/components/ui/RevertDefontanaDialog'
 import { FormularioMovimiento } from '@/components/admin/FormularioMovimiento'
-import { updateHistoricalExpenseItem, updateHistoricalImportTitle } from '@/actions/admin'
+import { updateHistoricalExpenseItem, updateHistoricalImportTitle, getOrgCategories } from '@/actions/admin'
 import { deleteExpenseItem } from '@/actions/expenses'
 import { formatDate, formatCLP } from '@/lib/utils'
 import type { HistoricalImport, HistItem, ItemSavedPatch } from './usePettyCashState'
@@ -49,6 +49,17 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
   transfer: 'Traspaso',
 }
 
+/* Las categorías, una sola vez para todas las cargas desplegadas: cada tabla
+   que se abre las necesita para mostrar el nombre, y son las mismas. */
+type CategoriaHist = { id: string; name: string; activa: boolean }
+let categoriasHist: Promise<CategoriaHist[]> | null = null
+function cargarCategoriasHist() {
+  categoriasHist ??= getOrgCategories()
+    .then(cs => cs.map(c => ({ id: c.id, name: c.name, activa: c.is_active })))
+    .catch(() => { categoriasHist = null; return [] })
+  return categoriasHist
+}
+
 // ── HistoricalItemsTable ──────────────────────────────────────────────────────
 
 function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onEditLinkedTransfer, onDeleteLinkedTransfer }: {
@@ -69,6 +80,40 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
   const [saving,       setSaving]       = useState(false)
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
   const [saveError,    setSaveError]    = useState<string | null>(null)
+  // La categoría se corrige aparte de la edición completa, como en rendiciones (2026-11-20)
+  const [categorias,     setCategorias]     = useState<CategoriaHist[]>([])
+  const [reclasificando, setReclasificando] = useState<string | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    cargarCategoriasHist().then(cs => { if (vivo) setCategorias(cs) })
+    return () => { vivo = false }
+  }, [])
+
+  function nombreCategoria(categoriaId: string | null) {
+    if (!categoriaId) return 'Sin categoría'
+    return categorias.find(c => c.id === categoriaId)?.name ?? '…'
+  }
+
+  async function reclasificar(item: HistItem, categoriaId: string) {
+    setSaving(true)
+    try {
+      await updateHistoricalExpenseItem(item.id, { category_id: categoriaId })
+      onItemSaved(reportId, item.id, {
+        item_type:   item.item_type as ItemSavedPatch['item_type'],
+        description: item.description,
+        amount_clp:  item.amount_clp,
+        date:        item.date,
+        merchant:    item.merchant,
+        category_id: categoriaId,
+      })
+      setReclasificando(null)
+    } catch (err) {
+      avisar(err instanceof Error ? err.message : 'No se pudo cambiar la categoría', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   function startEdit(item: HistItem) {
     setEditingId(item.id)
@@ -184,6 +229,32 @@ function HistoricalItemsTable({ reportId, items, onItemSaved, onItemDeleted, onE
                     <p className="text-ink-600 truncate max-w-[180px]">{item.description || '—'}</p>
                     {item.merchant && (
                       <p className="text-ink-400 text-[10px] truncate max-w-[180px]">{item.merchant}</p>
+                    )}
+                    {/* Solo los gastos llevan categoría: un adelanto o una devolución no se imputan */}
+                    {item.item_type === 'expense' && !item.transfer_id && (
+                      reclasificando === item.id ? (
+                        <select
+                          autoFocus
+                          aria-label={`Categoría de ${item.description || 'este gasto'}`}
+                          defaultValue={item.category_id ?? ''}
+                          disabled={saving}
+                          onChange={e => e.target.value ? reclasificar(item, e.target.value) : setReclasificando(null)}
+                          onBlur={() => !saving && setReclasificando(null)}
+                          className={`${inputCls} mt-1 max-w-[200px]`}
+                        >
+                          <option value="">— cancelar —</option>
+                          {categorias.filter(c => c.activa || c.id === item.category_id).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <button onClick={() => setReclasificando(item.id)}
+                          className={`mt-0.5 inline-flex items-center gap-1 text-[11px] hover:text-brand-600 transition-colors ${item.category_id ? 'text-ink-500' : 'text-warning-700 font-semibold'}`}>
+                          {nombreCategoria(item.category_id)}
+                          <Pencil size={10} aria-hidden />
+                          <span className="sr-only">Cambiar categoría</span>
+                        </button>
+                      )
                     )}
                   </td>
                 )}

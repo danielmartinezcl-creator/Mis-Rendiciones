@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { construirRecorridoRendicion, gastosSinCategoria, etiquetaDeHistorial } from '@/lib/detalle-rendicion'
+import { construirRecorridoRendicion, gastosSinCategoria, etiquetaDeHistorial, pasosDeRendicion } from '@/lib/detalle-rendicion'
 
 // «Rendición octubre» de Claudia Lobos, tal como estaba el 2026-11-20
 const octubre = {
@@ -97,6 +97,22 @@ describe('gastosSinCategoria', () => {
   it('un adelanto, una devolución o un traspaso no llevan categoría: no avisa por ellos', () => {
     const items = ['advance', 'return', 'transfer'].map(t => ({ id: t, item_type: t, category_id: null }))
     expect(gastosSinCategoria(items)).toEqual([])
+  })
+})
+
+describe('pasosDeRendicion — los pasos fijos de la lista', () => {
+  const claves = (r: { cadena_l2_id: string | null; status: string }) => pasosDeRendicion(r).map(s => s.key)
+
+  it('sin N2 en la cadena no hay «Revisión nivel 2» — «Rendición octubre» lo mostraba cumplido', () => {
+    expect(claves({ cadena_l2_id: null, status: 'pending_bank_auth' })).not.toContain('pending_l2')
+  })
+
+  it('con N2 en la cadena, el paso está', () => {
+    expect(claves({ cadena_l2_id: 'x', status: 'approved' })).toContain('pending_l2')
+  })
+
+  it('parada en nivel 2 sin cadena congelada (anterior a la 039): conserva el paso para tener dónde estar', () => {
+    expect(claves({ cadena_l2_id: null, status: 'pending_l2' })).toContain('pending_l2')
   })
 })
 

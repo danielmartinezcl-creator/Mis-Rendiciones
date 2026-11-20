@@ -1,4 +1,5 @@
 import type { PasoRecorrido, EstadoPaso } from '@/lib/petty-cash-helpers'
+import { REPORT_STEPS } from '@/lib/constants'
 
 /**
  * Las reglas de la página de detalle de una rendición (`/admin/reports/[id]`),
@@ -97,6 +98,20 @@ export function construirRecorridoRendicion(d: DatosRecorrido): PasoRecorrido[] 
       p.fecha
     return { key: p.key, label: p.label, estado, fecha }
   })
+}
+
+/**
+ * Los pasos fijos de la LISTA de rendiciones (los puntitos de la tarjeta y el
+ * «Progreso» desplegado), sin «Revisión nivel 2» cuando la rendición no lo
+ * tiene. Esos componentes marcan como hecho todo lo anterior al estado
+ * actual, así que un paso de más se veía cumplido aunque nunca hubiera pasado.
+ *
+ * Un documento parado en `pending_l2` lo conserva aunque no traiga la cadena
+ * congelada (los anteriores a la 039): si no, quedaría sin paso donde estar.
+ */
+export function pasosDeRendicion(r: { cadena_l2_id: string | null; status: string }) {
+  const conN2 = !!r.cadena_l2_id || r.status === 'pending_l2'
+  return REPORT_STEPS.filter(s => s.key !== 'pending_l2' || conN2)
 }
 
 export interface GastoConCategoria {

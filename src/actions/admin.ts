@@ -196,7 +196,7 @@ export async function getAdminReports() {
 
   const { data } = await supabase
     .from('expense_reports')
-    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, reimbursed_amount, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number, proyecto_id')
+    .select('id, title, status, total_amount, approved_amount, currency, created_at, submitted_at, approved_at, reimbursed_at, reimbursed_amount, payment_reference, defontana_exported_at, defontana_export_ref, submitter_id, is_historical_import, historical_type, fund_number, proyecto_id, cadena_l2_id')
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .or('historical_type.neq.caja_chica,historical_type.is.null')
@@ -1584,6 +1584,48 @@ export async function reclassifyExpenseItem(itemId: string, categoryId: string) 
   })
 
   revalidatePath('/admin/reports')
+}
+
+/**
+ * Reclasificar un gasto de un fondo de caja chica vivo, como `reclassifyExpenseItem`
+ * con las rendiciones. Pedido de Daniel (2026-11-20): en caja chica la categoría
+ * no se veía ni se podía cambiar, y es la que decide la cuenta contable.
+ *
+ * Va con la sesión del admin, no con la llave de servicio: la 033 (§3b) deja al
+ * admin cambiar `category_id` de un gasto en cualquier estado del fondo, y la
+ * RLS lo acota a los fondos de su organización. Así la base sigue siendo la que
+ * dice que no si alguien intenta tocar algo más.
+ */
+export async function reclasificarGastoFondo(itemId: string, categoryId: string): Promise<{ error?: string }> {
+  const { supabase, orgId, userId: actorId, actorName } = await requireAdmin()
+
+  const { data: antes } = await supabase
+    .from('petty_cash_items').select('category_id, description, transfer_id, fund_id').eq('id', itemId).single()
+  if (!antes) return { error: 'Gasto no encontrado' }
+  if (antes.transfer_id) return { error: 'Un traspaso no lleva categoría' }
+
+  const { data: cambiados, error } = await supabase
+    .from('petty_cash_items')
+    .update({ category_id: categoryId })
+    .eq('id', itemId)
+    .select('id')
+  if (error) return { error: error.message }
+  if (!cambiados?.length) return { error: 'No se pudo cambiar la categoría de este gasto' }
+
+  await logAudit({
+    orgId,
+    actorId,
+    actorName,
+    action:      'updated',
+    entityType:  'petty_cash_item',
+    entityId:    itemId,
+    entityLabel: antes.description ?? itemId,
+    oldValue:    { category_id: antes.category_id },
+    newValue:    { category_id: categoryId },
+  })
+
+  revalidatePath(`/petty-cash/${antes.fund_id}`)
+  return {}
 }
 
 // ─── Políticas de aprobación ─────────────────────────────────────────────────

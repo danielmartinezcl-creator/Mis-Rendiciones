@@ -39,6 +39,7 @@ import {
 } from '@/lib/petty-cash-helpers'
 import { ArrowLeft, Plus, Trash2, AlertCircle, Pencil, Building2, ShieldCheck, Check, X, Paperclip, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { reclasificarGastoFondo } from '@/actions/admin'
 
 type ApprovalAtt = Awaited<ReturnType<typeof getApprovalAttachments>>[number]
 
@@ -56,10 +57,13 @@ interface Props {
 }
 
 export function FundDetailClient({ id, initialDetail }: Props) {
-  const { confirmar } = useDialogos()
+  const { confirmar, avisar } = useDialogos()
   const [detail, setDetail]               = useState<FundDetail | null>(initialDetail)
   const [showAddItem, setShowAddItem]     = useState(false)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  // El admin reclasifica la categoría de un gasto, como en rendiciones (2026-11-20)
+  const [reclasificando, setReclasificando] = useState<string | null>(null)
+  const [guardandoCat, setGuardandoCat]     = useState(false)
   const [pending, startTrans]             = useTransition()
   const [error, setError]                 = useState<string | null>(null)
 
@@ -107,6 +111,24 @@ export function FundDetailClient({ id, initialDetail }: Props) {
     const d = await getFundDetail(id)
     setDetail(d)
     if (d?.fund.amount_approved) setApprovedAmount(String(d.fund.amount_approved))
+  }
+
+  // El detalle carga solo las categorías activas: una desactivada no es «sin categoría»
+  function nombreCategoria(categoriaId: string | null) {
+    if (!categoriaId) return 'Sin categoría'
+    return detail?.categories.find(c => c.id === categoriaId)?.name ?? 'Categoría desactivada'
+  }
+
+  async function reclasificar(itemId: string, categoriaId: string) {
+    setGuardandoCat(true)
+    try {
+      const { error } = await reclasificarGastoFondo(itemId, categoriaId)
+      if (error) { avisar(error, 'error'); return }
+      setReclasificando(null)
+      await load()
+    } finally {
+      setGuardandoCat(false)
+    }
   }
 
   function act(fn: () => Promise<void>) {
@@ -513,6 +535,36 @@ export function FundDetailClient({ id, initialDetail }: Props) {
                               {new Date(item.date + 'T00:00:00').toLocaleDateString('es-CL')}
                             </span>
                           </p>
+                          {/* La categoría decide la cuenta contable. La ven todos; el
+                              admin la corrige con el lápiz, como en rendiciones. Un
+                              traspaso no lleva categoría. */}
+                          {!item.transfer_id && (
+                            reclasificando === item.id ? (
+                              <select
+                                autoFocus
+                                aria-label={`Categoría de ${item.description}`}
+                                defaultValue={item.category_id ?? ''}
+                                disabled={guardandoCat}
+                                onChange={e => e.target.value ? reclasificar(item.id, e.target.value) : setReclasificando(null)}
+                                onBlur={() => !guardandoCat && setReclasificando(null)}
+                                className="campo-compacto mt-1.5 max-w-[240px]"
+                              >
+                                <option value="">— cancelar —</option>
+                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              </select>
+                            ) : currentUser.role === 'admin' ? (
+                              <button onClick={() => setReclasificando(item.id)}
+                                className={`mt-1 inline-flex items-center gap-1 text-xs hover:text-brand-600 transition-colors ${item.category_id ? 'text-ink-500' : 'text-warning-700 font-semibold'}`}>
+                                {nombreCategoria(item.category_id)}
+                                <Pencil size={11} aria-hidden />
+                                <span className="sr-only">Cambiar categoría</span>
+                              </button>
+                            ) : (
+                              <p className="text-xs text-ink-500 mt-0.5">
+                                {nombreCategoria(item.category_id)}
+                              </p>
+                            )
+                          )}
                           {item.rejection_reason && (
                             <p className="text-xs text-danger-600 mt-1 bg-danger-50 px-2 py-1 rounded-item">Rechazo: {item.rejection_reason}</p>
                           )}

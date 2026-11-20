@@ -42,6 +42,7 @@ export type ItemSavedPatch = {
   amount_clp:  number
   date:        string
   merchant:    string | null
+  category_id?: string | null
 }
 
 export type TransferSource = {
